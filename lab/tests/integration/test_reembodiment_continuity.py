@@ -31,6 +31,7 @@ from symbiont.modeling import (
     ModelArtifactManifest,
     ModelObjective,
     ModelState,
+    NativeTokenizer,
     TrainingRequest,
 )
 from symbiont.modeling.private_runtime import PrivateModelOrganismRuntime
@@ -73,10 +74,12 @@ class _Case:
         body_a = CausalBody(actuator_count=4, seed=127)
         developed = _subject(body_a)
         run_ticks(developed, body_a, DEVELOPMENT_TICKS)
-        request = TrainingRequest(
+        developed.ancestry_training = True
+        parent_tokenizer = NativeTokenizer.from_records(developed.experience_ledger.records)
+        parent_request = TrainingRequest(
             organism_id=developed.organism_id,
             corpus_hash="a" * 64,
-            tokenizer_hash="b" * 64,
+            tokenizer_hash=parent_tokenizer.tokenizer_hash,
             architecture_id=ArchitectureId.GRU_V1,
             objective=ModelObjective.NEXT_TOKEN,
             seed=7,
@@ -86,12 +89,51 @@ class _Case:
             requested_steps=100,
             created_tick_class=0,
         )
-        artifact = ModelArtifactManifest.build(
-            request=request, parameter_count=100_000, weights_hash="c" * 64, artifact_bytes=1024
+        parent_artifact = ModelArtifactManifest.build(
+            request=parent_request,
+            parameter_count=100_000,
+            weights_hash="c" * 64,
+            artifact_bytes=1024,
         )
-        shadow = developed.adopt_private_model(artifact, evaluation_summary=(0, 1))
+        shadow = developed.adopt_private_model(
+            parent_artifact,
+            evaluation_summary=(0, 1),
+            validation_loss=1.0,
+            baseline_loss=2.0,
+            vocabulary=parent_tokenizer.vocabulary,
+        )
+        child_vocabulary = (*parent_tokenizer.vocabulary, "reembodiment.novel-token")
+        child_tokenizer = NativeTokenizer(vocabulary=child_vocabulary)
+        child_request = TrainingRequest(
+            organism_id=developed.organism_id,
+            corpus_hash="d" * 64,
+            tokenizer_hash=child_tokenizer.tokenizer_hash,
+            architecture_id=ArchitectureId.GRU_V1,
+            objective=ModelObjective.NEXT_TOKEN,
+            seed=8,
+            context_window=32,
+            requested_parameters=1_000_000,
+            requested_epochs=4,
+            requested_steps=100,
+            created_tick_class=0,
+            parent_model_id=shadow.model_id,
+            adaptation_reason="ancestry",
+        )
+        child_artifact = ModelArtifactManifest.build(
+            request=child_request,
+            parameter_count=100_000,
+            weights_hash="e" * 64,
+            artifact_bytes=1024,
+        )
+        child = developed.adopt_private_model(
+            child_artifact,
+            evaluation_summary=(0, 1),
+            validation_loss=0.8,
+            baseline_loss=1.0,
+            vocabulary=child_vocabulary,
+        )
         developed.activate_private_model(
-            shadow.model_id, promotion_authorized=True, evaluation_summary=(1, 2)
+            child.model_id, promotion_authorized=True, evaluation_summary=(1, 2)
         )
         developed.originate_social_claim(
             proposition_tokens=("sense.a", "relates", "sense.b"),
@@ -107,6 +149,8 @@ class _Case:
         self.graph_nodes_in_a = {node.node_id for node in developed.cognitive_bridge.graph.nodes}
         self.experience_in_a = [r.record_id for r in developed.experience_ledger.records]
         self.active_model_id = developed.model_registry.active.model_id
+        self.ancestor_model_id = shadow.model_id
+        self.child_vocabulary = child_vocabulary
         self.own_social_claims = developed.social_evidence_ledger.claims
         self.previous = _json(developed.checkpoint())
         del developed
@@ -151,6 +195,10 @@ def test_body_a_development_is_not_trivial(case: _Case) -> None:
     assert case.previous["gene_expression"]
     assert case.active_model_id
     assert case.previous["private_model_registry"]["records"]
+    assert case.previous["training_ancestry"]["vocabularies"][case.ancestor_model_id]
+    assert len(case.child_vocabulary) > len(
+        case.previous["training_ancestry"]["vocabularies"][case.ancestor_model_id]
+    )
     assert case.own_social_claims
     assert case.previous["social_evidence_ledger"]["held"]
 
@@ -244,6 +292,10 @@ def test_knowledge_survives_as_knowledge_without_authority(case: _Case) -> None:
     assert [r.record_id for r in restored.experience_ledger.records] == case.experience_in_a
     assert restored.model_registry.active.model_id == case.active_model_id
     assert restored.model_registry.active.state is ModelState.ACTIVE
+    assert restored.model_registry.get(case.ancestor_model_id).state is ModelState.SHADOW
+    assert restored.checkpoint()["training_ancestry"]["vocabularies"][
+        case.active_model_id
+    ] == list(case.child_vocabulary)
     assert restored.social_evidence_ledger.claims == case.own_social_claims
     assert _competence_ids(restored) >= case.competences_in_a
     assert not any(
