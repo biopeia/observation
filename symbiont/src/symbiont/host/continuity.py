@@ -453,7 +453,6 @@ REGISTER: tuple[ContinuityEntry, ...] = (
         "episodic_memory",
         _KEEP,
         restore_path=_MODELED_RESTORE,
-        migration="absent: rebuilt once from the organism's own experience ledger",
     ),
     _upper(
         MODELED,
