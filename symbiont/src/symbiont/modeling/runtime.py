@@ -9,6 +9,7 @@ from typing import Any, Self
 from ..core.embodiment.physiology import VitalState
 from ..core.orchestration.runtime import OrganismDeadError, OrganismRuntime
 from ..core.organism_profile import PROFILES, symbol_seed_for
+from ..host.checkpoint import CheckpointError
 from ..provenance import CausalEvent, CausalRef
 from .authority import ArchitectureId, ModelArtifactManifest, ModelObjective, TrainingRequest
 from .corpus import TrainingCorpus, build_training_corpus
@@ -1707,18 +1708,13 @@ class ModeledOrganismRuntime(OrganismRuntime):
             organism_id=runtime.organism_id,
         )
         raw_episodic_memory = payload.get("episodic_memory")
+        if raw_episodic_memory is None:
+            raise CheckpointError("current-schema checkpoint has null episodic_memory")
         runtime._episodic_memory = EpisodicExperienceMemory.restore(
             raw_episodic_memory,
             organism_id=runtime.organism_id,
             kernel_limits=runtime._kernel_limits,
         )
-        if raw_episodic_memory is None:
-            # One-way migration for checkpoints created before episodic memory
-            # existed. Reconstruct only from the bounded causal ledger already
-            # owned by the organism; no lab/world data is imported.
-            for record in runtime._experience_ledger.records:
-                runtime._episodic_memory.observe(record)
-            runtime._episodic_memory.flush()
         runtime._project_episodic_consolidation()
         runtime._social_evidence_ledger = SocialEvidenceLedger.restore(
             payload.get("social_evidence_ledger"), organism_id=runtime.organism_id

@@ -89,6 +89,15 @@ def test_current_schema_cannot_lose_a_required_field(layer: str, field: str) -> 
         RUNTIMES[layer].from_checkpoint(saved, **RUNTIME_KWARGS)
 
 
+def test_current_schema_cannot_replace_episodic_memory_with_null() -> None:
+    saved = _saved("modeled")
+    saved["episodic_memory"] = None
+    saved = stamp_checkpoint_identity(saved, transform="null-episodic-memory")
+
+    with pytest.raises(CheckpointError, match="null episodic_memory"):
+        ModeledOrganismRuntime.from_checkpoint(saved, **RUNTIME_KWARGS)
+
+
 def test_non_canonical_state_is_rejected_as_a_checkpoint_error() -> None:
     saved = _saved(LAYERS[0])
     saved["epigenetic_decay"] = float("nan")
