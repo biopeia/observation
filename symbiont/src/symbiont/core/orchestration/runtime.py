@@ -171,6 +171,10 @@ def _recorded_session_controls(normalized: dict[str, Any]) -> dict[str, Any] | N
                 raise CheckpointError(f"invalid session control: {name}")
             controls[name] = raw[name]
     try:
+        if "expression_regulator" in raw:
+            if not isinstance(raw["expression_regulator"], str) or not raw["expression_regulator"]:
+                raise CheckpointError("invalid session control: expression_regulator")
+            controls["expression_regulator"] = raw["expression_regulator"]
         if "kernel_limits" in raw:
             controls["kernel_limits"] = KernelLimits(**raw["kernel_limits"])
         if "executive_admission_policy" in raw:
@@ -3380,6 +3384,12 @@ class OrganismRuntime:
             # than inventing a history it never recorded.
             runtime._last_checkpoint_hash = raw_lineage["checkpoint_id"]
         if recorded_controls is not None:
+            recorded_regulator = recorded_controls.get("expression_regulator")
+            current_regulator = runtime.session_controls()["expression_regulator"]
+            if recorded_regulator is not None and recorded_regulator != current_regulator:
+                raise CheckpointError(
+                    "checkpoint expression_regulator differs from the active continuation"
+                )
             if "cognitive_plasticity_enabled" in recorded_controls:
                 runtime.set_cognitive_plasticity_enabled(
                     recorded_controls["cognitive_plasticity_enabled"]

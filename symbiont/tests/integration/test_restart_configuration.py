@@ -10,6 +10,7 @@ import pytest
 from symbiont.agency.prospective import ExecutiveAdmissionPolicy
 from symbiont.cognition.limits import KernelLimits
 from symbiont.core.orchestration.runtime import OrganismRuntime
+from symbiont.genetics.expression import ExpressionRegulator
 from symbiont.host.checkpoint import CheckpointError
 from symbiont.modeling.private_runtime import PrivateModelOrganismRuntime
 
@@ -22,6 +23,27 @@ def _saved(runtime: OrganismRuntime) -> dict:
 
 def _controls(payload: dict) -> dict:
     return payload["runtime_provenance"]["session_controls"]
+
+
+class _AlternateExpressionRegulator(ExpressionRegulator):
+    pass
+
+
+def test_restore_rejects_unavailable_expression_regulator_condition() -> None:
+    runtime = OrganismRuntime(
+        **RUNTIME_KWARGS, expression_regulator=_AlternateExpressionRegulator()
+    )
+    saved = _saved(runtime)
+
+    with pytest.raises(CheckpointError, match="expression_regulator differs"):
+        OrganismRuntime.from_checkpoint(saved, **RUNTIME_KWARGS)
+
+    restored = OrganismRuntime.from_checkpoint(
+        saved,
+        **RUNTIME_KWARGS,
+        expression_regulator=_AlternateExpressionRegulator(),
+    )
+    assert isinstance(restored._expression_regulator, _AlternateExpressionRegulator)
 
 
 @pytest.mark.parametrize("runtime_type", [OrganismRuntime, PrivateModelOrganismRuntime])
