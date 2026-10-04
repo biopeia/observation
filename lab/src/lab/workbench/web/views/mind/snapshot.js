@@ -29,6 +29,51 @@ function collection(source, availability, name, ...keys) {
   return Array.isArray(found.value) ? found.value : [];
 }
 
+function adaptLegacyObserverAnalysis(source, availability) {
+  const canonical = firstPresent(source, ['observer_analysis', 'observerAnalysis']);
+  if (canonical.present) {
+    availability.observerAnalysis = availabilityFor(true, canonical.value);
+    return canonical.value;
+  }
+
+  // Compatibility belongs at this one decoding boundary. Older snapshots put
+  // observer-derived visual classifications inside cognition. Promote only the
+  // known legacy fields and mark their provenance; renderers never need to
+  // guess whether a cognitive field was organism-owned or observer-derived.
+  const cognition = source?.cognition;
+  if (!cognition || typeof cognition !== 'object' || Array.isArray(cognition)) {
+    availability.observerAnalysis = 'not_observed';
+    return null;
+  }
+  const legacy = {};
+  const derivation = {};
+  for (const [key, description] of [
+    ['activationClasses', 'legacy observer activation quantization'],
+    ['predictionErrors', 'legacy observer prediction-error classification'],
+    ['activationValues', 'legacy observer-preserved activation values'],
+    ['predictionErrorValues', 'legacy observer-preserved prediction-error values'],
+  ]) {
+    if (Object.hasOwn(cognition, key) && cognition[key] != null) {
+      legacy[key] = cognition[key];
+      derivation[key] = `${description}; adapted at snapshot boundary`;
+    }
+  }
+  if (!Object.keys(legacy).length) {
+    availability.observerAnalysis = 'not_observed';
+    return null;
+  }
+  availability.observerAnalysis = 'observed';
+  return {
+    ...legacy,
+    derivation,
+    provenance: {
+      owner: 'observer',
+      source: 'legacy-cognition-adapter',
+      feedsBack: false,
+    },
+  };
+}
+
 /**
  * Apply one rich Mind snapshot to the shared passive view state.
  * Returns false only when the payload carries no usable snapshot.
@@ -85,13 +130,7 @@ export function applyMindSnapshot(raw) {
     'organism_state',
     'organismState',
   );
-  snap.observerAnalysis = scalar(
-    source,
-    availability,
-    'observerAnalysis',
-    'observer_analysis',
-    'observerAnalysis',
-  );
+  snap.observerAnalysis = adaptLegacyObserverAnalysis(source, availability);
   snap.observerSemantics = scalar(
     source,
     availability,
