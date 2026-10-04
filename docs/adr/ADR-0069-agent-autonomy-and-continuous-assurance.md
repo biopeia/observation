@@ -1,6 +1,6 @@
 # ADR-0069 — Agent autonomy, impact-routed CI and continuous assurance
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-10-04
 - **Decision owner:** project owner
 - **Relates to:** ADR-0057, ADR-0058, `scripts/agentctl.py`, `scripts/governance/ci_plan.py`, `.github/workflows/ci.yml`
@@ -9,7 +9,7 @@
 ## Context
 
 The repository already has a compact agent contract: one `agentctl context`, one
-implementation pass, one `agentctl publish`, with GitHub Actions as the sole technical
+implementation pass and one `agentctl publish`, with GitHub Actions as the sole technical
 publication gate. In practice the validation path accumulated three independent sources
 of avoidable cost:
 
@@ -95,11 +95,11 @@ that ADR-0058 can operate without duplicate work.
 
 ## Acceptance and rollout
 
-This ADR is intentionally **Proposed** in the implementation branch. Merging the control
-plane requires the project owner to review this decision and change its status to
-`Accepted`. No code in this branch should infer acceptance merely from passing CI.
+This ADR is **Accepted** by the project owner for the implementation described in this
+branch. Passing CI remains a separate technical condition and does not replace owner
+approval.
 
-After acceptance, the recommended rollout is:
+The rollout is:
 
 1. merge the code with impact planner still `observe-only`;
 2. enable GitHub merge queue after the manual ruleset steps documented in the PR;
