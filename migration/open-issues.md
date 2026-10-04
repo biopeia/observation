@@ -172,17 +172,18 @@ unverified semantics and evidence.
 
 ### BodySchema consumer audit findings
 
-BodySchema's current representation has no per-item body/episode provenance.
-Its values include learned sensory/cognitive structure and agency-boundary
-evidence. Canonical re-embodiment now archives the complete prior schema and
-resets active boundary classes. The action-domain boundary update uses only
+The current BodySchema representation has no per-item body/episode provenance;
+it stores learned sensory/cognitive structure and agency-boundary evidence in
+one representation. That is not by itself an authority leak in the canonical
+path: re-embodiment archives the complete prior schema and resets the active
+schema before restore into Body B. The action-domain boundary update uses only
 channels from the just-closed transition and agency estimates newer than the
-current episode start; integration tests check that inference against Body B
-identities. Passive
-runtime snapshots and embodiment adaptation/continuity summaries remain
-consumers, and sensory/cognitive knowledge is still one mixed representation.
-SYM-04 remains open for those semantics and a broader consumer audit; do not
-promote prior knowledge to current-body fact or execution authority.
+current episode start; integration tests check inference against Body B
+identities. Passive runtime snapshots and embodiment adaptation/continuity
+summaries were traced; archived `body_schema_prior` is not fed back to the
+active engine or execution authority. **SYM-04 is resolved for the canonical
+re-embodiment path.** No transfer-utility claim follows, and arbitrary external
+consumers of exported checkpoints or snapshots remain outside the audit scope.
 
 ### Canonical-profile gate
 
