@@ -62,29 +62,33 @@ treatment in `src/symbiont/host/continuity.py::REGISTER`.
 `lab/tests/unit/host/test_continuity_register.py` fails when a runtime attribute or
 checkpoint field is unclassified.
 
-### 3.1 BodySchema is retained knowledge, not current-body authority
+### 3.1 BodySchema is episode-scoped evidence, not current-body authority
 
 `body_schema` is a bounded learned representation (sensory-part, cognitive-region,
-dependency, and body-boundary evidence). The checkpoint does not tag each item
-with a body/episode provenance class. On canonical re-embodiment, the complete
-prior BodySchema is retained in the closed episode history, while its active
-body-boundary classification is reset. Longitudinal sensory/cognitive structure
-remains in the live schema as a fallible prior, not as a verified description
-of the new Body. Each action-domain boundary observation uses channels from the
-just-closed transition, not the organism-wide EffectSpace, and considers only
-agency estimates updated after the current episode began. Current physical facts come
-from the new Body's sensors and physiology. Execution authority is separately
-withdrawn by the action-domain transition. A consumer must not use preserved
-BodySchema entries as actuator bindings or as proof of present anatomy.
+dependency, sensorimotor, and body-boundary evidence). The checkpoint does not
+tag each item with a body/episode provenance class. At canonical re-embodiment,
+the complete prior BodySchema is copied into the closed episode archive and its
+learned entries are removed from the active schema. The stable opaque identity
+salt remains; it does not carry learned claims. The new Body's active schema
+starts undeveloped and is rebuilt only through ordinary observations after the
+transition. Historical archive records and epoch summaries describe the closed
+episode; they are not restored as current BodySchema or injected into current
+body facts.
+
+The active BodySchema consumers are the embodiment and action domains and the
+observer-safe runtime projection. Following re-embodiment, these see the empty
+new-body schema until it is rebuilt from new observations. Each action-domain
+boundary observation uses channels from the just-closed transition and considers
+only agency estimates updated after the current episode began. Current physical
+facts come from the new Body's sensors and physiology. Execution authority is
+separately withdrawn by the action-domain transition.
 
 Evidence scope: `lab/tests/integration/test_reembodiment_continuity.py` verifies
-that the archived prior BodySchema is exact, the live body-boundary classes are
-reset, current-episode boundary evidence uses Body B signal identities, and
-execution bindings are not valid after restore. It does not establish that
-every BodySchema consumer handles retained sensory/cognitive evidence as a
-fallible prior, nor that retained BodySchema improves adaptation. Per-item body
-provenance remains an open design limitation, not a demonstrated semantic
-guarantee.
+that the archived prior BodySchema is exact, the active schema is undeveloped
+after restore, current-episode boundary evidence uses Body B signal identities,
+and execution bindings are not valid after restore. This is a mechanical
+separation result, not evidence that BodySchema improves adaptation. Historical
+schema entries remain archived data and have no current-body authority.
 
 ## 4. Lifecycle operations
 
@@ -179,7 +183,7 @@ Canonical re-embodiment and the reduced seed's transplant answer the question
 | State | Canonical re-embodiment (`OrganismRuntime`) | Reduced seed (`CleanEmbodimentSeed`) |
 | --- | --- | --- |
 | Identity, organism time, genome, expression | preserved | preserved |
-| BodySchema | preserved | reset to naive |
+| BodySchema | archived per closed episode; active schema reset (identity salt retained) | reset to naive |
 | Sensorimotor dynamics, effects, causal evidence, controllability, agency | preserved as knowledge | reset to naive |
 | Competences | preserved | preserved, effect grounding cleared |
 | Execution bindings, surface, in-flight commitment | invalidated | reset |
