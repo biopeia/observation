@@ -1,7 +1,9 @@
 name: Governed PR Summary
 
 on:
-  pull_request:
+  # The workflow definition and renderer come from the trusted base branch.
+  # Candidate code is fetched only as data, never executed with this write token.
+  pull_request_target:
     types: [opened, synchronize, reopened]
 
 permissions:
@@ -14,7 +16,6 @@ concurrency:
 
 jobs:
   summarize:
-    # Never execute candidate-provided code with a write-capable token from a fork.
     if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     env:
@@ -23,10 +24,10 @@ jobs:
       BASE_SHA: ${{ github.event.pull_request.base.sha }}
       HEAD_SHA: ${{ github.event.pull_request.head.sha }}
     steps:
-      - name: Checkout trusted main governance code
+      - name: Checkout trusted base governance code
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ github.event.pull_request.base.sha }}
           fetch-depth: 0
       - name: Fetch candidate commit as data
         shell: bash
