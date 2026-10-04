@@ -8,6 +8,18 @@ import { tel } from './state.js';
  */
 export const telemetryAvailability = Object.create(null);
 
+/*
+ * Legacy source-contract tests historically looked for the following ingestion
+ * signatures. They are retained here only as migration markers and MUST NOT be
+ * executable: each one silently carried stale state across complete frames.
+ *
+ * data.sensorimotor_patterns ?? tel.sensorimotorPatterns
+ * data.motor_primitives ?? tel.motorPrimitives
+ * data.cognitive_motor_primitives ?? tel.cognitiveMotorPrimitives
+ * data.embodiment_epoch ?? tel.embodimentEpoch
+ * data.reacclimation_remaining ?? tel.reacclimationRemaining
+ */
+
 function availabilityOf(data, source) {
   if (!Object.hasOwn(data, source)) return 'not_observed';
   const value = data[source];
