@@ -266,3 +266,77 @@ def test_private_model_prediction_changes_prospective_choice():
     second = decide()
     assert second is not None
     assert second.competence_id == "competence.b"
+
+
+def test_private_model_runtime_returns_private_decision_before_base_fallback(monkeypatch):
+    from symbiont.modeling import PrivateModelOrganismRuntime
+
+    runtime = PrivateModelOrganismRuntime(
+        organism_id="private-before-base-fallback",
+        bootstrap_semantic_senses=False,
+        discover_senses=False,
+    )
+    private_decision = object()
+    monkeypatch.setattr(
+        runtime,
+        "_deliberate_prospectively",
+        lambda **_kwargs: private_decision,
+    )
+
+    def base_fallback_was_called(_self, **_kwargs):
+        raise AssertionError("base admission must not run after a private decision")
+
+    from symbiont.modeling.runtime import ModeledOrganismRuntime
+
+    monkeypatch.setattr(ModeledOrganismRuntime, "_choose_acquired_action", base_fallback_was_called)
+
+    decision = runtime._choose_acquired_action(
+        cognition=object(),
+        percepts=(),
+        affordances=(),
+        resolver=object(),
+        context_ref="context.test",
+        signal_references={},
+        tick=1,
+    )
+
+    assert decision is private_decision
+
+
+def test_private_model_runtime_abstention_falls_back_to_base_admission(monkeypatch):
+    from symbiont.modeling import PrivateModelOrganismRuntime
+    from symbiont.modeling.runtime import ModeledOrganismRuntime
+
+    runtime = PrivateModelOrganismRuntime(
+        organism_id="private-base-fallback",
+        bootstrap_semantic_senses=False,
+        discover_senses=False,
+    )
+    fallback_decision = object()
+    seen = {}
+    monkeypatch.setattr(
+        runtime,
+        "_deliberate_prospectively",
+        lambda **_kwargs: None,
+    )
+
+    def base_fallback(self, **kwargs):
+        seen["runtime"] = self
+        seen.update(kwargs)
+        return fallback_decision
+
+    monkeypatch.setattr(ModeledOrganismRuntime, "_choose_acquired_action", base_fallback)
+
+    decision = runtime._choose_acquired_action(
+        cognition=object(),
+        percepts=(),
+        affordances=(),
+        resolver=object(),
+        context_ref="context.test",
+        signal_references={},
+        tick=2,
+    )
+
+    assert decision is fallback_decision
+    assert seen["runtime"] is runtime
+    assert seen["tick"] == 2

@@ -137,7 +137,7 @@ benefit or causal-intervention evidence was reviewed for this inventory.
 | Generative hypotheses | E2 — consumed | `ResidentGenerativeCognition._ensure_hypothesis()` stores a predicted outcome; `OrganismRuntime._generative_affordances()` projects only active hypotheses into effect-directed affordances, and `_choose_acquired_action()` passes them to executive admission. `symbiont/tests/unit/core/test_generative_admission_consumption.py::test_live_hypothesis_changes_production_admission_only_for_existing_affordance` creates a hypothesis through the resident owner, round-trips it through the resident checkpoint, holds an existing affordance fixed, and shows admission changes only when the restored live hypothesis is present; invoking the resident factual-reconciliation API with a contradictory outcome marks it contradicted and removes that admission route. The test uses a bounded resolver stub and directly supplies an evidence reference, so it does not establish upstream factual-outcome provenance, online hypothesis-generation quality, benefit, causal truth, or execution authority (E3/E4). |
 | Private models | E2 — consumed | `PrivateModelOrganismRuntime._deliberate_prospectively()` feeds active-model outcome proposals to `ProspectiveAgency.deliberate()`. `symbiont/tests/unit/modeling/test_private_modeling_contract.py::test_private_model_prediction_changes_prospective_choice` holds affordances, graph readouts, active-model identity, and observed outcome values fixed, then reverses only the model-output mapping and verifies prospective choice reverses. This is a mocked active-model bridge integration test, not native model-quality, adaptive-benefit, or causal evidence (E3/E4). |
 | Model ancestry | E1 — durable | Parent vocabulary can contribute to a child training request; persistence does not show improved learning or adaptation. |
-| Episodic/consolidated memory | E1 — durable; decision consumption unproven | Runtime exposes recall, experience-prediction, and cognitive-replay APIs, and consolidated episode co-occurrence can feed retrospective support into CognitiveBridge. No internal action-selection path consuming retrieved episodes, nor a differential test linking episodic state to an action decision, was established by this audit. |
+| Episodic/consolidated memory | E1 — durable; replay path consumed, decision effect unproven | Runtime exposes recall, experience-prediction, and cognitive-replay APIs. A resting-only internal caller materializes a retrieved episode as non-factual generative replay, and consolidated episode co-occurrence can feed retrospective support into CognitiveBridge. `symbiont/tests/unit/modeling/test_private_experience_pipeline.py::test_private_runtime_resting_replays_factual_episode_without_new_experience` verifies replay materialization without adding a factual experience record. No differential test shows this replay changes a later action decision, so this remains below E2 under §3. |
 | Social evidence | E1 — durable | Source-attributed claims and evidence persist and affect cultural retention/transmission; no peer-claim-to-organism-decision path was found. |
 | Symbol / sequence grounding | E2 — consumed | Locally observed associations are read by grounded emission methods and tests exercise the association-dependent output; this establishes substrate-local use, not validated shared meaning. |
 | Provenance | E1 — durable | A bounded live-reference frontier persists; the event ring is not persisted and provenance coverage is producer-specific. |
@@ -168,7 +168,7 @@ is epistemically sound or that it changes a decision.
 | Epigenetic priors and germline marks | `OrganismRuntime` checkpoints `_epigenetic_priors` and decays them, but `_SUPPORTED_EPIGENETIC_KEYS` is empty, so non-empty runtime priors are rejected. `GermlineState` separately owns inherited/acquired `EpigeneticMark`s in the Genome v2 genetics API; runtime-created germline capture is disabled unless explicitly configured. | `DevelopmentDomain` updates expression and runtime tick passes selected effective expression values to `GermlineState.capture_acquired_variation()`, gated by the organism capture flag and an enabled `EpigeneticProtocol`. `OrganismRuntime.inheritance_package()` decays and includes inherited/acquired marks only when protocol transmission is enabled. The resident budding path passes that package to child construction, and child construction uses its marks to establish inherited birth expression. `symbiont/tests/integration/test_germline_capture_to_budding.py::test_real_ticks_capture_germline_mark_transmitted_through_resident_budding` covers real tick capture, parent restore, resident budding, transmission, and child expression. Runtime `EpigeneticPrior` is not consumed by gene expression. | Do not conflate somatic `EpigeneticPrior` decay with Genome v2 germline marks. The integration test establishes a mechanical acquisition-to-child-expression path under explicit protocol gates; it does not establish a decision consumer, transgenerational adaptation, scientific utility, or causal phenotype benefit (E3/E4). The somatic prior remains unsupported and rejected |
 | BodySchema | `OrganismRuntime._body_schema` owns the active `BodySchemaEngine`; the current checkpoint field is `body_schema`. Closed embodiment history archives a copy of the prior schema as episode evidence. | Embodiment and action domains add sensory phenotype, self-model, cognition, and agency-boundary observations. Re-embodiment archives the prior schema and calls `reset_for_new_embodiment()` on the active schema; action restoration validates execution bindings against the current surface independently of BodySchema. | The [2026-10-04 consumer audit](../../../lab/research/audits/current/2026-10-04-body-schema-consumer-audit.md) traced active and archived readers and found no active consumer of archived `body_schema_prior`: it is serialized and used for closed-episode summaries, not restored into the active engine or used as execution authority. This supports the canonical-path authority boundary, not inference validity, cross-Body transfer utility, or arbitrary external-consumer safety. Any future promotion of archive priors into active inference requires explicit prior/fact semantics and differential consumer tests |
 | SensorySystem / AdaptiveSenseModel | `OrganismRuntime._sensory_system` and `_adaptive_senses`; checkpoint fields `sensory_system` and `sensory_development`. The acquired sensory payload is archived as `BodySpecificMemory.sensory_prior`; both active systems are replaced by the fresh Body's checkpoints during re-embodiment. | `PerceptionDomain.step()` feeds organism readings into `SensorySystem.transduce()`; `transduce()` selects stored sensors by `source_ids`. `AdaptiveSenseModel` also indexes learned state by `capability_id`. The transition archives Body A's sensory state and installs Body B's fresh sensory state, so reused source/capability IDs cannot reactivate old transducers or adaptive states. | Regression tests verify archived payload equality and fresh active state; the composite developed Body A → Body B test exercises checkpoint, re-embodiment, restore and subsequent ticks. This establishes a safe active-binding boundary, not transfer utility: archived sensory learning remains historical and is not automatically applied to a new Body. |
-| Episodic and consolidated memory | These are distinct stores: `ModeledOrganismRuntime` owns `_episodic_memory` and its checkpointed experience records; `OrganismRuntime` owns `_memory_consolidator` and checkpoint field `memory`. `AgentMemory`/`Episode` in `core/cognition/memory.py` is not constructed by the traced runtime path. | The episodic store exposes `recall_experiences()`, `predict_from_experience()`, and `cognitive_replay()` (`symbiont/src/symbiont/modeling/runtime.py:788-834`); these APIs return/re-activate experience-derived content without executing an action. `_project_episodic_consolidation()` sends consolidated co-occurrence into `CognitiveBridge.observe_retrospective_support()` (`:774-786`). Separately, `MemoryDomain.observe()` converts drift and prediction loss to novelty/surprise signals and records attended/reliable salience; `MemoryConsolidator` stores bounded statistical or quantized salient-event projections. | Do not collapse episodic retrieval, graph retrospective support, and consolidation summaries into one owner. No internal action-selection call to the public episodic retrieval APIs or differential test showing episodic content changes an action decision was found. The consolidation-to-graph path is an integration candidate, not proof that episode-derived support changes admission. Specify episode evidence/provenance, retrieval/replay semantics, forgetting/eviction, and contradiction handling; distinguish the standalone `AgentMemory` API from the active runtime store. |
+| Episodic and consolidated memory | These are distinct stores: `ModeledOrganismRuntime` owns `_episodic_memory` and its checkpointed experience records; `OrganismRuntime` owns `_memory_consolidator` and checkpoint field `memory`. `AgentMemory`/`Episode` in `core/cognition/memory.py` is not constructed by the traced runtime path. | The episodic store exposes `recall_experiences()`, `predict_from_experience()`, and `cognitive_replay()` (`symbiont/src/symbiont/modeling/runtime.py:788-834`). In a resting-only private-runtime path (`private_runtime.py:867-883`), one retrieved replay is materialized as non-factual offline Generative Cognition state; the test `symbiont/tests/unit/modeling/test_private_experience_pipeline.py::test_private_runtime_resting_replays_factual_episode_without_new_experience` checks that no new factual experience is added. `_project_episodic_consolidation()` sends consolidated co-occurrence into `CognitiveBridge.observe_retrospective_support()` (`:774-786`). Separately, `MemoryDomain.observe()` converts drift and prediction loss to novelty/surprise signals and records attended/reliable salience; `MemoryConsolidator` stores bounded statistical or quantized salient-event projections. | Do not collapse episodic retrieval, generated replay, graph retrospective support, and consolidation summaries into one owner. Retrieved episodes affect generative replay state in the resting path, but no differential test shows replay changes a later action decision; the consolidation-to-graph path likewise lacks an episode-to-admission differential test. Specify episode evidence/provenance, retrieval/replay semantics, forgetting/eviction, and contradiction handling; distinguish the standalone `AgentMemory` API from the active runtime store. |
 | Private models and ancestry | `ModeledOrganismRuntime` owns `PrivateModelRegistry`, `ExperienceLedger`, training requests, and checkpoint fields; `PrivateModelOrganismRuntime` adds temporal experience capture and prospective action deliberation | The private runtime captures t→t+1 observed outcome records, validates active predictions against those observations, and can call an active model to deliberate only over already-read-out and currently afforded competences. Model predictions influence prospective choice; real outcome value is learned from later observed outcomes. With `ancestry_training` enabled, a SHADOW parent can contribute its tokenizer vocabulary to a child training request; this is vocabulary continuity, not inherited weights or acquired organism knowledge. | Verify all restore and prediction paths against these ownership boundaries; ancestry mechanics do not establish prediction accuracy or ancestry benefit. Controlled prediction and ancestry-ablation evidence is still required before E3/E4 claims |
 | Symbol/sequence grounding | `ModeledOrganismRuntime` owns receiver-side `SymbolGroundingLedger` and `SequenceGroundingLedger`; channel delivery records opaque exposures and checkpoints persist the local ledgers | `observe_symbolic_outcome()` / `observe_sequence_outcome()` associate locally observed outcome tokens with received opaque symbol/sequence tokens. Grounded emission methods select from local associations with support exceeding contradiction; the associations affect local communication choices, not world-state truth. `predict_symbolic_outcome()` / `predict_sequence()` expose the learned association. | Outcome-token authority and the external protocol that marks support/contradiction remain explicit assumptions; an association means predictive correspondence within this substrate, not validated semantic reference or shared meaning. Audit transport/source attribution and decision consequences before making stronger grounding claims |
 | Provenance | `AgencyAcquisition.provenance` owns the shared `ProvenanceLog` for action/acquisition paths; the runtime exposes it and checkpointing retains the live-reference frontier | `ProvenanceLog.emit()` records structural `CausalEvent`s and updates immediate causes for produced refs; subscribers are outward-only. Events carry bounded opaque refs and scalar parameters, not evidence values or claim semantics. The recent event ring is in-memory only; checkpoint persists the live frontier, not event history. | Coverage is producer-specific, not a universal proof that all state changes have complete lineage. Missing refs/events, retired refs, and causes beyond the immediate frontier limit what can be reconstructed. Provenance explains recorded derivation; it must not be treated as evidence that its subject claim is true |
@@ -221,6 +221,35 @@ Keep the following boundaries explicit:
 | Lineage / derivation metadata | Provenance | Keep separate from evidence: provenance describes recorded derivation and producer coverage, not whether the resulting claim is true. |
 | Body/regulatory/permission state | BodySchema, germline marks/expression, execution bindings | Do not count these as interchangeable cognitive knowledge. Preserve historical body records, current-body state, regulatory inheritance, and present execution authorization as distinct concepts. |
 
+### Current action-admission composition traced
+
+The production path is a sequence of bounded gates, not a vote among all
+cognitive subsystems:
+
+1. The action domain supplies currently afforded competences; current-body
+   bindings and the later action arbitrator remain the execution/authority
+   boundary.
+2. The base runtime can admit a competence represented by an active Cognitive
+   Graph primitive readout or by a Generative Cognition anticipated effect,
+   subject to epistemic or homeostatic relevance and executive policy.
+3. The private-model runtime tries prospective model deliberation first, but
+   only among currently afforded competences that also have active primitive
+   readouts. If that returns a decision, it short-circuits the base admission
+   path. If it abstains, the base graph/generative admission path runs.
+4. Thus private-model proposals and generative proposals are not currently
+   fused into one score. Their ordering is explicit in runtime control flow:
+   private-model choice first, graph/generative fallback second. This is the
+   smallest defensible architecture description; do not refactor toward a
+   unified selector absent a concrete contradictory-decision case.
+5. At rest, retrieved episodic replay can seed non-factual offline Generative
+   Cognition state. This is a memory-to-generative bridge, not a direct motor
+   command or a demonstrated later decision benefit.
+
+This traced sequence is a code-level contract description, not a causal or
+utility result. Existing differential tests cover selected readout,
+competence-effect, generative-admission, and private-model paths separately;
+they do not establish the complete arbitration behavior across all paths.
+
 ### Practical order
 
 1. Complete per-owner records for assertion/effect semantics, admissible
@@ -232,11 +261,16 @@ Keep the following boundaries explicit:
    high-risk paths first: graph updates, predictor/outcome reconciliation,
    generative factual reconciliation, competence-effect evidence, and
    caller-supplied social/symbol/sequence assessments.
-3. Trace prospective decision arbitration across graph readouts, competence
-   effects, generative proposals, and private-model predictions. For episodic
-   memory, separately test or document whether retrieved/replayed episodes are
-   ever consumed by an internal decision path. Existing tests may establish
-   E2 only for the exact paths they differentially exercise.
+3. The private-model-first / base-admission-fallback ordering now has focused
+   control-flow regressions in
+   `symbiont/tests/unit/modeling/test_private_modeling_contract.py` (private
+   return short-circuits; abstention reaches the base path). These tests lock
+   precedence, not a joint score or outcome benefit. Keep current-body
+   execution authority separate. Do not run an outcome campaign for this
+   contract audit. For episodic memory, the internal replay-to-GC bridge is
+   established; only later decision consumption remains unproven. Existing
+   tests may establish E2 only for the exact paths they differentially
+   exercise.
 4. Only after those records expose genuinely identical semantics, evidence
    rules, lifecycle ownership, and consumers should a consolidation proposal
    be considered. This pass authorizes no merge, API redesign, or runtime
@@ -244,12 +278,12 @@ Keep the following boundaries explicit:
 5. Keep E3/E4 evaluation separate. No experiment was run or authorized here;
    usefulness or causal benefit remains unclaimed.
 
-The source audit found one factual correction needed in the prior draft: the
-runtime does provide episodic recall/prediction/replay APIs and retrospective
-consolidation into the cognitive graph. What remains unproven is an internal
-decision consumer for retrieved episodes and a differential episode-to-action
-effect. This correction does not raise the episodic subsystem above E1 for
-decision consumption.
+The source audit also confirms that episodic retrieval is consumed by a
+resting-only internal path to construct non-factual generative replay, in
+addition to retrospective consolidation into the cognitive graph. What remains
+unproven is an episode/replay-dependent later action decision and its
+differential effect. This does not raise episodic decision consumption above
+E1.
 
 ## 8. Acceptance condition
 
