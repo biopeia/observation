@@ -86,7 +86,10 @@ def stream_organism(handler: BaseHTTPRequestHandler, stream: ObservationBus) -> 
                 handler.wfile.write(b": heartbeat\n\n")
                 handler.wfile.flush()
     except CLIENT_ERRORS:
-        pass
+        # Expected browser lifecycle noise stays out of request logs, but the
+        # fact that the transport disconnected is retained as aggregate
+        # observer diagnostics exposed through /api/state.
+        stream.note_client_disconnect()
     finally:
         stream.unsubscribe(consumer)
 
