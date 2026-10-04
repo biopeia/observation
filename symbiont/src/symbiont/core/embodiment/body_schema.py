@@ -389,6 +389,31 @@ class BodySchemaEngine:
         self._sensorimotor_support = {}
         self._agentic_features = {}
 
+    def reset_for_new_embodiment(self) -> None:
+        """Withdraw learned facts about a replaced Body from active state.
+
+        The closed episode archive retains the exported schema as historical
+        evidence. The new Body starts without those facts being presented as
+        current-body knowledge; ordinary observations must rebuild its schema.
+        Stable identity salt is retained so opaque organism-scoped identifiers
+        remain deterministic for later observations.
+        """
+        self._parts.clear()
+        self._regions.clear()
+        self._channel_support.clear()
+        self._coactivity_support.clear()
+        self._dependency_evidence.clear()
+        self._previous_active_regions.clear()
+        self._pending_structural_channels.clear()
+        self._full_structural_review_required = True
+        self.reset_sensorimotor_view()
+        self._self_caused_channels.clear()
+        self._somatic_correlated_channels.clear()
+        self._external_channels.clear()
+        self._boundary_confidence = 0.0
+        self._boundary_revision_count = 0
+        self._boundary_disruption_score = 0.0
+
     @property
     def agentic_feature_refs(self) -> tuple[str, ...]:
         return tuple(sorted(self._agentic_features))

@@ -287,30 +287,36 @@ def test_current_body_authority_is_withdrawn(case: _Case) -> None:
 def test_knowledge_survives_as_knowledge_without_authority(case: _Case) -> None:
     restored = case.restore()
 
-    # Longitudinal BodySchema knowledge survives, while the old episode's
-    # body-boundary classification is retained only in history, not promoted
-    # as a fact about Body B.
+    # The prior BodySchema survives in the closed episode archive, but no
+    # Body A entry is exposed as active knowledge about Body B.
     prior_schema = _json(case.previous["body_schema"])
     current_schema = _json(case.transformed["body_schema"])
     prior_boundary = prior_schema["boundary_evidence"]
     body_schema_entry = next(entry for entry in REGISTER if entry.attribute == "_body_schema")
     assert dict(body_schema_entry.nested_reembodiment) == {
-        "boundary_evidence": Reembodiment.INVALIDATED
+        "parts": Reembodiment.INVALIDATED,
+        "dependencies": Reembodiment.INVALIDATED,
+        "cognitive_learning": Reembodiment.INVALIDATED,
+        "sensorimotor_view": Reembodiment.INVALIDATED,
+        "boundary_evidence": Reembodiment.INVALIDATED,
     }
-    reset_boundary = {
-        "self_caused_channels": [],
-        "somatic_correlated_channels": [],
-        "external_channels": [],
-        "confidence": 0.0,
-        "revision_count": 0,
-        "disruption_score": 0.0,
+    assert current_schema["state"] == "undeveloped"
+    assert current_schema["parts"] == []
+    assert current_schema["dependencies"] == []
+    assert current_schema["cognitive_learning"] == {
+        "channel_support": [],
+        "coactivity_support": [],
+        "regions": [],
+        "dependency_evidence": [],
     }
-    prior_schema["boundary_evidence"] = reset_boundary
-    assert current_schema == prior_schema
+    assert current_schema["sensorimotor_view"] == {"support": [], "agentic_features": []}
     assert current_schema["boundary_evidence"] != prior_boundary
+    assert restored.body_schema.state == "undeveloped"
+    assert restored.body_schema.part_count == 0
     assert case.transformed["embodiment_lifecycle"]["history"][0]["body_schema"] == (
         case.previous["body_schema"]
     )
+    assert current_schema["id_salt"] == prior_schema["id_salt"]
     assert prior_boundary["self_caused_channels"]
     assert {node.node_id for node in restored.cognitive_bridge.graph.nodes} == (
         case.graph_nodes_in_a
@@ -424,8 +430,8 @@ def test_the_whole_lifecycle_holds_per_register_entry(case: _Case) -> None:
     reembodied = case.restore(transformed)
     final = _json(reembodied.checkpoint())
 
-    # BodySchema's nested body-boundary authority has its own subfield rule:
-    # the old full schema is archived and only that active classification resets.
+    # BodySchema's active evidence resets for the new Body; the old full schema
+    # remains in the closed episode archive as historical evidence.
     preserved = (_fields(Reembodiment.PRESERVED) & set(resaved)) - {"body_schema"}
     invalidated = _fields(Reembodiment.INVALIDATED) & set(resaved)
     # ``actuation`` carries both the domain (authority invalidated) and the new

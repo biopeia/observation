@@ -18,6 +18,7 @@ from symbiont.core.embodiment import (
     EmbodimentArchive,
     archive_episode_checkpoint,
 )
+from symbiont.core.embodiment.body_schema import BodySchemaEngine
 from symbiont.core.embodiment.longitudinal import (
     CONTRACT_FINGERPRINT_SCHEMA_VERSION,
     append_epoch_summary,
@@ -450,20 +451,18 @@ def prepare_fresh_embodiment_checkpoint(
         )
         result["embodiment_archive"] = archive.checkpoint()
     # The prior full BodySchema is retained in the closed episode archive.
-    # Its active boundary classification is body-relative, so it cannot remain
-    # current-body evidence after the transition.
+    # No learned entry is allowed to remain active as a fact about a different
+    # Body. Start a clean active schema with the same opaque identity salt.
     raw_body_schema = result.get("body_schema")
     if isinstance(raw_body_schema, dict):
-        boundary = raw_body_schema.get("boundary_evidence")
-        if isinstance(boundary, dict):
-            raw_body_schema["boundary_evidence"] = {
-                "self_caused_channels": [],
-                "somatic_correlated_channels": [],
-                "external_channels": [],
-                "confidence": 0.0,
-                "revision_count": 0,
-                "disruption_score": 0.0,
-            }
+        body_schema = BodySchemaEngine.restore(
+            raw_body_schema,
+            current_tick=int(previous.get("saved_at_tick") or 0),
+        )
+        body_schema.reset_for_new_embodiment()
+        result["body_schema"] = body_schema.export(
+            current_tick=int(previous.get("saved_at_tick") or 0)
+        )
     # A new physical Body always starts a new canonical episode. Never carry
     # the previous body/episode identity through the compatibility transform.
     result.pop("embodiment_episode", None)
@@ -700,9 +699,9 @@ def prepare_fresh_embodiment_checkpoint(
     )
 
     # The Symbiont itself is invariant across re-embodiment. Cognitive state,
-    # private models, self-model, sensory learning and longitudinal BodySchema
-    # structure are preserved. The old episode archive retains the complete
-    # BodySchema; only its current-body boundary classification is reset above.
+    # private models, self-model and sensory learning are preserved. The active
+    # BodySchema is fresh for the new Body; its prior complete schema remains
+    # in the closed episode archive as historical evidence.
     if historical_bridge is not None:
         result["cognitive_bridge"] = historical_bridge
 
