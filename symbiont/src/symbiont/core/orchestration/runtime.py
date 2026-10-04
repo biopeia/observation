@@ -2976,21 +2976,8 @@ class OrganismRuntime:
                         f"invalid body-owned actuator constitution: {exc}"
                     ) from exc
                 stored_fingerprint = raw_constitution.get("contract_fingerprint")
-                if stored_fingerprint is None:
-                    legacy_material = {
-                        "slots": raw_slots,
-                    }
-                    fingerprint_material = json.dumps(
-                        legacy_material,
-                        sort_keys=True,
-                        separators=(",", ":"),
-                        allow_nan=False,
-                    )
-                    stored_fingerprint = hashlib.sha256(
-                        fingerprint_material.encode("utf-8")
-                    ).hexdigest()
                 if not isinstance(stored_fingerprint, str) or not stored_fingerprint:
-                    raise CheckpointError("invalid actuator contract fingerprint")
+                    raise CheckpointError("actuator contract fingerprint is missing or invalid")
                 restored_constitution = ActuatorSurface(
                     channels=channels,
                     contract_fingerprint=stored_fingerprint,

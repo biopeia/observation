@@ -217,3 +217,19 @@ def test_exploration_restore_rejects_missing_sensorimotor_checkpoint():
             bootstrap_semantic_senses=False,
             discover_senses=False,
         )
+
+
+def test_actuation_restore_rejects_missing_surface_fingerprint():
+    from symbiont.host.checkpoint import CheckpointError
+
+    runtime = _runtime()
+    payload = runtime.checkpoint()
+    del payload["actuation"]["constitution"]["contract_fingerprint"]
+
+    with pytest.raises(CheckpointError, match="fingerprint is missing or invalid"):
+        OrganismRuntime.from_checkpoint(
+            edited(payload),
+            bootstrap_semantic_senses=False,
+            discover_senses=False,
+            kernel_limits=KernelLimits(),
+        )
