@@ -89,6 +89,35 @@ def test_physics3d_bridge_propagates_run_identity_to_all_coherent_components() -
     assert frame["vitals"]["run_id"] == "run-identity"
 
 
+def test_bridge_uses_lab_known_identity_when_runtime_projection_omits_it() -> None:
+    sink = _Sink()
+    bridge = Physics3DObservationBridge(
+        sink,
+        run_id="run-known",
+        organism_id="organism-known",
+        body_id="body-known",
+    )
+    bridge.publish(
+        {"tick": 3, "alive": True},
+        physical_state={
+            "body_kind": "anthropomorphic-v6",
+            "joints": [],
+            "links": [],
+        },
+    )
+    bridge.publish_rich_state({"tick": 3, "runtime": {}, "cognition": {}})
+
+    by_type = {event["type"]: event for event in sink.events}
+    frame = by_type["observed_frame"]
+    assert frame["run_id"] == "run-known"
+    assert frame["organism_id"] == "organism-known"
+    assert frame["body_id"] == "body-known"
+    assert frame["cognition"]["organism_id"] == "organism-known"
+    assert frame["cognition"]["body_id"] == "body-known"
+    assert by_type["mind_snapshot"]["organism_id"] == "organism-known"
+    assert by_type["mind_snapshot"]["body_id"] == "body-known"
+
+
 def test_slow_consumer_rebase_is_visible_and_counted() -> None:
     bus = ObservationBus(queue_size=1, history_size=8, anchor_interval=64)
     consumer = bus.subscribe()
@@ -102,6 +131,33 @@ def test_slow_consumer_rebase_is_visible_and_counted() -> None:
     assert status["consumer_overflows"] == 1
     assert status["subscribers"] == 1
     assert status["queue_capacity"] == 1
+
+
+def test_world_scene_overflow_rebase_is_visible() -> None:
+    bus = ObservationBus(queue_size=1, history_size=8)
+    consumer = bus.subscribe()
+    bus.push(
+        {
+            "type": "world_scene",
+            "mode": "anchor",
+            "scene_revision": 1,
+            "entities": [],
+            "run_id": "r",
+        }
+    )
+    bus.push(
+        {
+            "type": "world_scene",
+            "mode": "anchor",
+            "scene_revision": 2,
+            "entities": [],
+            "run_id": "r",
+        }
+    )
+
+    payload = _payload(consumer.get_nowait())
+    assert payload["type"] == "world_scene"
+    assert payload["transport"]["rebase"] == "consumer_overflow"
 
 
 def test_history_rotation_reconnect_is_materialized_and_visible() -> None:
