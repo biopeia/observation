@@ -43,18 +43,25 @@ mechanism it checks still exists, or archive it as superseded under the rules in
 equivalence, records provenance and publishes one `agentctl/*` candidate. Classification
 is intentionally deferred to `publish`; `context` does not duplicate it.
 
-- **ORDINARY** — a green candidate auto-promotes through the configured integration mode.
-  Legacy mode requires it to remain current with `main`; merge-queue mode validates the
-  composed `merge_group` before integration.
+- **ORDINARY** — a green candidate auto-promotes through serialized PR integration. If
+  `main` advanced after candidate CI, the promotion workflow rebases the candidate with
+  `force-with-lease`; that new SHA receives fresh CI and then retries promotion. A
+  candidate is merged only when it is current with `main` and its required check is green.
 - **SCIENTIFIC** — equivalence may downgrade to ORDINARY; otherwise external review.
 - **FROZEN** — never edit completed evidence in place; create a new version.
 - **CONSTITUTIONAL** — Accepted ADR + external owner review.
 
 GitHub Actions is the sole technical validation gate. A governed candidate SHA is
 validated once on its candidate branch. Opening its PR is the review handoff, not a
-second execution of the same engineering CI. Integrating an already validated SHA into
-`main` likewise does not repeat candidate CI; when merge queue is enabled, the newly
-composed merge-group tree is validated because it is new integration evidence.
+second execution of the same engineering CI. Integrating a current validated SHA into
+`main` does not repeat candidate CI. If `main` changed, the rebased candidate is a new
+composition and is therefore validated again before integration.
+
+Serialized promotion is deliberate. `promote-main` permits only one ORDINARY promotion
+attempt at a time. This prevents autonomous agents from repeatedly invalidating one
+another. Branch protection must require PRs, `governed-ci-gate`, and the branch to be up
+to date before merge. Those repository-side rules are the final race guard; workflow
+logic does not bypass them.
 
 ## Authority is not validation impact
 
