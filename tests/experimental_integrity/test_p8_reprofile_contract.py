@@ -22,9 +22,11 @@ def test_p8_local_runner_is_the_canonical_full_reprofile_entrypoint() -> None:
     assert '"addopts="' in runner
 
 
-def test_p8_ci_report_is_non_blocking_and_quick_only() -> None:
+def test_p8_continuous_assurance_report_is_non_blocking_and_quick_only() -> None:
     root = _root()
-    workflow = (root / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    workflow = (root / ".github" / "workflows" / "continuous-assurance.yml").read_text(
+        encoding="utf-8"
+    )
 
     job = workflow[workflow.index("  performance-report:") :]
     assert "continue-on-error: true" in job
