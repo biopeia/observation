@@ -524,23 +524,19 @@ class CausalEvidenceLedger:
 
     @classmethod
     def restore(cls, payload: dict[str, Any]) -> "CausalEvidenceLedger":
-        """Restore v3, or migrate v1/v2 motor evidence.
-
-        Historical evidence predates attempts and intervention families; those
-        identities are left unknown (None) rather than reconstructed.  Every
-        historical item carried a motor command, so none becomes passive.
-        """
         version = payload.get("schema_version")
-        if version not in (1, 2, 3, cls.SCHEMA_VERSION):
+        if version != cls.SCHEMA_VERSION:
             raise ValueError("unsupported causal-evidence checkpoint")
-        capacity = int(payload.get("capacity", 4096))
-        passive_capacity = payload.get("passive_capacity")
+        if not {"capacity", "passive_capacity", "evidence", "passive_evidence"}.issubset(payload):
+            raise ValueError("incomplete causal-evidence checkpoint")
+        capacity = int(payload["capacity"])
+        passive_capacity = payload["passive_capacity"]
         obj = cls(
             capacity=capacity,
             passive_capacity=(int(passive_capacity) if isinstance(passive_capacity, int) else None),
         )
-        raw_items = payload.get("evidence", [])
-        raw_passive = payload.get("passive_evidence", []) if version in (3, 4) else []
+        raw_items = payload["evidence"]
+        raw_passive = payload["passive_evidence"]
         if not isinstance(raw_items, list) or not isinstance(raw_passive, list):
             raise ValueError("invalid causal evidence")
         for raw, passive in ((raw_items[-obj._capacity :], False), (raw_passive, True)):
@@ -548,17 +544,15 @@ class CausalEvidenceLedger:
                 if not isinstance(item, dict):
                     raise ValueError("invalid causal evidence item")
                 normalized = dict(item)
-                # Schema 3 and older carried no atoms; they are not reconstructed.
-                normalized["effect_atoms"] = tuple(normalized.get("effect_atoms", ()))
-                if version not in (3, cls.SCHEMA_VERSION):
-                    if not normalized.get("action_ref"):
-                        raise ValueError("historical causal evidence lacks its motor command")
-                    normalized.setdefault("competence_id", None)
-                    normalized.setdefault("effect_id", None)
-                    normalized["attempt_id"] = None
-                    normalized["intervention_signature_id"] = None
-                    normalized["commitment_id"] = None
-                    normalized["window_start_tick"] = None
+                required = {
+                    "evidence_id", "attempt_id", "intervention_signature_id", "commitment_id",
+                    "competence_id", "effect_id", "context_ref", "observation_tick",
+                    "transition_id", "action_ref", "prior_state_ref", "resulting_state_ref",
+                    "prediction_ref", "window_start_tick", "effect_atoms",
+                }
+                if not required.issubset(normalized):
+                    raise ValueError("incomplete causal evidence item")
+                normalized["effect_atoms"] = tuple(normalized["effect_atoms"])
                 evidence = CausalEvidence(**normalized)
                 if evidence.is_passive is not passive:
                     raise ValueError("causal evidence stored in the wrong window class")

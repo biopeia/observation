@@ -130,3 +130,16 @@ def test_lifecycle_transitions_are_traced_and_evidence_revalidates():
     ]
     restored = CompetenceExecutionBindingRegistry.restore(registry.checkpoint())
     assert restored.items == registry.items
+
+
+def test_binding_restore_rejects_old_schema_and_missing_current_fields():
+    registry = CompetenceExecutionBindingRegistry()
+    old = registry.checkpoint()
+    old["schema_version"] = 1
+    with pytest.raises(ValueError, match="unsupported competence execution binding"):
+        CompetenceExecutionBindingRegistry.restore(old)
+
+    incomplete = registry.checkpoint()
+    incomplete.pop("revision_history")
+    with pytest.raises(ValueError, match="incomplete competence execution binding"):
+        CompetenceExecutionBindingRegistry.restore(incomplete)

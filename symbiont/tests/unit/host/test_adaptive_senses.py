@@ -372,10 +372,10 @@ def test_export_withholds_lagged_accumulators_below_their_own_sample_count() -> 
     assert relation["b_to_a"] is None
 
 
-# --- B05: old sum-based PairAccumulator checkpoints migrate, not zero out ---
+# --- B05: old sum-based PairAccumulator checkpoints are rejected ---
 
 
-def test_pair_accumulator_migrates_legacy_sum_based_payload() -> None:
+def test_pair_accumulator_rejects_legacy_sum_based_payload() -> None:
     from symbiont.host.adaptive import PairAccumulator
 
     legacy = {
@@ -386,10 +386,8 @@ def test_pair_accumulator_migrates_legacy_sum_based_payload() -> None:
         "sum_yy": 364.0,
         "sum_xy": 182.0,
     }
-    restored = PairAccumulator.from_payload(legacy)
-
-    assert restored.count == 6
-    assert restored.correlation == pytest.approx(1.0)
+    with pytest.raises(ValueError, match="incomplete pair accumulator checkpoint"):
+        PairAccumulator.from_payload(legacy)
 
 
 def test_pair_accumulator_rejects_non_finite_moments() -> None:

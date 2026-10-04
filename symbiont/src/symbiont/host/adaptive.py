@@ -212,36 +212,17 @@ class PairAccumulator:
 
     @classmethod
     def from_payload(cls, payload: dict[str, Any]) -> "PairAccumulator":
-        count = _require_nonneg_int(payload.get("count", 0), "count")
-        legacy_keys = {"sum_x", "sum_y", "sum_xx", "sum_yy", "sum_xy"}
-        if legacy_keys.issubset(payload) and not {
-            "mean_x",
-            "mean_y",
-            "m2_x",
-            "m2_y",
-            "c_xy",
-        }.issubset(payload):
-            sum_x = _require_finite(payload["sum_x"], "sum_x")
-            sum_y = _require_finite(payload["sum_y"], "sum_y")
-            sum_xx = _require_finite(payload["sum_xx"], "sum_xx")
-            sum_yy = _require_finite(payload["sum_yy"], "sum_yy")
-            sum_xy = _require_finite(payload["sum_xy"], "sum_xy")
-            if count == 0:
-                return cls()
-            mean_x = sum_x / count
-            mean_y = sum_y / count
-            m2_x = max(0.0, sum_xx - (sum_x * sum_x) / count)
-            m2_y = max(0.0, sum_yy - (sum_y * sum_y) / count)
-            c_xy = sum_xy - (sum_x * sum_y) / count
-            return cls(count=count, mean_x=mean_x, mean_y=mean_y, m2_x=m2_x, m2_y=m2_y, c_xy=c_xy)
-
-        mean_x = _require_finite(payload.get("mean_x", 0.0), "mean_x")
-        mean_y = _require_finite(payload.get("mean_y", 0.0), "mean_y")
-        m2_x = _require_finite(payload.get("m2_x", 0.0), "m2_x")
-        m2_y = _require_finite(payload.get("m2_y", 0.0), "m2_y")
+        required = {"count", "mean_x", "mean_y", "m2_x", "m2_y", "c_xy"}
+        if not required.issubset(payload):
+            raise ValueError("incomplete pair accumulator checkpoint")
+        count = _require_nonneg_int(payload["count"], "count")
+        mean_x = _require_finite(payload["mean_x"], "mean_x")
+        mean_y = _require_finite(payload["mean_y"], "mean_y")
+        m2_x = _require_finite(payload["m2_x"], "m2_x")
+        m2_y = _require_finite(payload["m2_y"], "m2_y")
         if m2_x < 0.0 or m2_y < 0.0:
             raise ValueError("m2_x and m2_y must be non-negative")
-        c_xy = _require_finite(payload.get("c_xy", 0.0), "c_xy")
+        c_xy = _require_finite(payload["c_xy"], "c_xy")
         return cls(count=count, mean_x=mean_x, mean_y=mean_y, m2_x=m2_x, m2_y=m2_y, c_xy=c_xy)
 
 

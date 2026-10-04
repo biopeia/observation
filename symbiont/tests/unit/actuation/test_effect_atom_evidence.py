@@ -63,32 +63,15 @@ def test_atom_opportunities_match_a_brute_force_count_under_eviction():
     assert ledger.source_atoms(field="intervention_signature_id", value=signature) == dict(hits)
 
 
-def test_atoms_round_trip_and_schema_3_restores_without_atoms():
+def test_atoms_round_trip_and_older_schema_is_rejected():
     acquisition = fresh_acquisition()
     act(acquisition, 0, {A: 0.5}, {"signal.a": 0.4})
     rest(acquisition, 2, {"signal.c": 0.5})
     payload = acquisition.causal_evidence.checkpoint()
     restored = CausalEvidenceLedger.restore(payload)
     assert restored.checkpoint() == payload
-    legacy = {**payload, "schema_version": 3}
-    legacy["evidence"] = [
-        {key: value for key, value in item.items() if key != "effect_atoms"}
-        for item in payload["evidence"]
-    ]
-    legacy["passive_evidence"] = [
-        {key: value for key, value in item.items() if key != "effect_atoms"}
-        for item in payload["passive_evidence"]
-    ]
-    old = CausalEvidenceLedger.restore(legacy)
-    assert all(item.effect_atoms == () for item in old.intervention_evidence)
-    assert (
-        old.atom_opportunities(
-            _atom({"signal.a": 0.4}),
-            field="intervention_signature_id",
-            values=(old.intervention_evidence[0].intervention_signature_id,),
-        )[1]
-        == 0
-    )
+    with pytest.raises(ValueError, match="unsupported causal-evidence checkpoint"):
+        CausalEvidenceLedger.restore({**payload, "schema_version": 3})
 
 
 def test_evidence_rejects_unsorted_or_foreign_atoms():
@@ -108,64 +91,8 @@ def test_evidence_rejects_unsorted_or_foreign_atoms():
         CausalEvidence(**base, effect_atoms=("effect.123",))
 
 
-def _strip_atoms(payload):
-    legacy = {**payload, "schema_version": 3}
-    for key in ("evidence", "passive_evidence"):
-        legacy[key] = [
-            {k: v for k, v in item.items() if k != "effect_atoms"} for item in payload[key]
-        ]
-    return legacy
-
-
-def test_pre_atom_evidence_migrates_to_the_exact_atoms_of_its_effect():
-    source = fresh_acquisition()
-    act(source, 0, {A: 0.5}, {"signal.a": 0.4, "signal.b": -0.3})
-    act(source, 2, {B: 0.5}, {"signal.c": 0.9})
-    rest(source, 4, {"signal.d": 0.5})
-    expected = {
-        item.evidence_id: item.effect_atoms
-        for item in (
-            *source.causal_evidence.intervention_evidence,
-            *source.causal_evidence.passive_evidence,
-        )
-    }
-    restored = fresh_acquisition()
-    restored.restore_causal_state(
-        effect_space=source.effect_space.checkpoint(),
-        causal_evidence=_strip_atoms(source.causal_evidence.checkpoint()),
-        acquisition=None,
-        body_schema=None,
-    )
-    ledger = restored.causal_evidence
-    got = {
-        item.evidence_id: item.effect_atoms
-        for item in (*ledger.intervention_evidence, *ledger.passive_evidence)
-    }
-    assert got == expected
-    assert restored.atom_migration == (3, 0)
-    # Incremental atom counts are rebuilt with the migrated items.
-    item = ledger.intervention_evidence[0]
-    assert (
-        ledger.atom_opportunities(
-            item.effect_atoms[0],
-            field="intervention_signature_id",
-            values=(item.intervention_signature_id,),
-        )[1]
-        == 1
-    )
-
-
-def test_evidence_whose_effect_was_evicted_is_counted_unresolved():
-    source = fresh_acquisition()
-    act(source, 0, {A: 0.5}, {"signal.a": 0.4})
-    payload = source.effect_space.checkpoint()
-    payload["support"] = []  # the effect is no longer known
-    restored = fresh_acquisition()
-    restored.restore_causal_state(
-        effect_space=payload,
-        causal_evidence=_strip_atoms(source.causal_evidence.checkpoint()),
-        acquisition=None,
-        body_schema=None,
-    )
-    assert restored.atom_migration == (0, 1)
-    assert restored.causal_evidence.intervention_evidence[0].effect_atoms == ()
+def test_evidence_items_require_latest_atom_field():
+    payload = CausalEvidenceLedger().checkpoint()
+    payload["evidence"] = [{"evidence_id": "old"}]
+    with pytest.raises(ValueError, match="incomplete causal evidence item"):
+        CausalEvidenceLedger.restore(payload)
