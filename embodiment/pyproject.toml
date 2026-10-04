@@ -10,9 +10,8 @@ requires-python = ">=3.12"
 dependencies = []
 
 [project.optional-dependencies]
-# embodiment.physics3d bodies run on MuJoCo (ADR-0066). PyBullet stays declared
-# only until the Lab runtime is ported on the substrate-cut branch.
-physics3d = ["pybullet>=3.2.7,<4", "mujoco>=3.14,<4"]
+# embodiment.physics3d bodies run on MuJoCo (ADR-0066).
+physics3d = ["mujoco>=3.14,<4"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

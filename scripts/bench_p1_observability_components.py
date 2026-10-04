@@ -19,7 +19,7 @@ import tempfile
 import time
 from pathlib import Path
 
-import pybullet
+import mujoco
 
 from lab.app.physics3d.monitor.viewer import UnifiedViewerProcess
 from lab.physics3d.runtime import Physics3DEmbodimentRuntime
@@ -188,7 +188,7 @@ def main() -> None:
         "classification": "exploratory-component-profile",
         "platform": platform.platform(),
         "python": platform.python_version(),
-        "pybullet_module_build": pybullet.getAPIVersion(),
+        "mujoco_version": mujoco.__version__,
         "seed": 127,
         "payload_bytes_json": len(encoded.encode()),
         "sample_count": sample_count,

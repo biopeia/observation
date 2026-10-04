@@ -111,4 +111,4 @@ forbidden_modules = ["lab"]
 name = "The organism imports no physics, tensor or imaging backend"
 type = "forbidden"
 source_modules = ["symbiont"]
-forbidden_modules = ["pybullet", "torch", "numpy", "PIL"]
+forbidden_modules = ["mujoco", "torch", "numpy", "PIL"]

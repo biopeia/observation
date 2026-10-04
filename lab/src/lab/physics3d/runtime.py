@@ -1,6 +1,6 @@
-"""Canonical Symbiont runtime embodied in a PyBullet body.
+"""Canonical Symbiont runtime embodied in a simulated physical body.
 
-PyBullet is an apparatus: it supplies physical senses and executes delivered
+The physics engine is an apparatus: it supplies physical senses and executes delivered
 opaque motor actuation. Cognition, BodySchema, physiology, metabolism, private
 experience and SLM state remain inside the canonical organism runtime.
 """
@@ -98,7 +98,7 @@ WORLD_BODY_ID = 0  # the ground plane is a geom of MuJoCo's world body
 
 
 class PhysicsServerDisconnected(RuntimeError):
-    """Raised when the user closes the PyBullet GUI/server."""
+    """Raised when the user closes the physics scene."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -224,7 +224,7 @@ class Tick3D:
 
 
 class Physics3DEmbodimentRuntime:
-    """One canonical organism runtime coupled to one physical PyBullet body."""
+    """One canonical organism runtime coupled to one simulated physical body."""
 
     def __init__(
         self,
@@ -1045,7 +1045,7 @@ class Physics3DEmbodimentRuntime:
         return payload
 
     def passive_physical_state(self) -> dict[str, object]:
-        """Return the last completed pose without querying/rendering PyBullet."""
+        """Return the last completed pose without querying the engine."""
         return dict(self._last_physical_state)
 
     def drain_presentation_pose_frames(self) -> list[dict[str, object]]:

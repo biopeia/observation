@@ -1,4 +1,4 @@
-"""Hard-limited anthropomorphic Physics3D body backed by PyBullet URDF.
+"""Hard-limited anthropomorphic Physics3D body described as URDF, simulated by MuJoCo.
 
 Human-readable anatomy exists only inside this apparatus module. Symbiont sees
 only opaque rec.N/eff.N channels. The URDF is generated from the canonical
@@ -22,14 +22,11 @@ from embodiment.physics3d.mechanics import (
     JointSpec,
     JointTopology,
     SegmentSpec,
-    SurfaceMaterial,
 )
 
 BODY_KIND = "anthropomorphic-v6"
 # 7: the state carries the engine state needed to continue exactly (ADR-0066).
 BODY_STATE_SCHEMA_VERSION = 7
-PHYSICS_SOLVER_ITERATIONS = 120
-PHYSICS_SOLVER_RESIDUAL_THRESHOLD = 1e-9
 PHYSICS_CONSTRAINT_ERP = 0.8
 PASSIVE_TONE_STIFFNESS_FRACTION = 0.55
 PASSIVE_TONE_TORQUE_CAP_FRACTION = 0.45
@@ -367,19 +364,6 @@ def build_anthropomorphic_urdf() -> str:
     )
 
 
-def configure_physics_solver(client_id: int, time_step: float) -> None:
-    """Canonical constraint solver settings for the anthropomorphic body."""
-    import pybullet
-
-    pybullet.setPhysicsEngineParameter(
-        numSolverIterations=PHYSICS_SOLVER_ITERATIONS,
-        solverResidualThreshold=PHYSICS_SOLVER_RESIDUAL_THRESHOLD,
-        erp=PHYSICS_CONSTRAINT_ERP,
-        fixedTimeStep=float(time_step),
-        physicsClientId=client_id,
-    )
-
-
 def _end_range_resistance(
     spec: JointSpec,
     *,
@@ -421,39 +405,6 @@ def _passive_postural_tone(
     return max(
         -elastic_cap,
         min(elastic_cap, stiffness * (rest - position)),
-    )
-
-
-def apply_surface_material(
-    body_id: int,
-    link_index: int,
-    material: SurfaceMaterial,
-    *,
-    client_id: int,
-) -> None:
-    import pybullet
-
-    _apply_surface_material(pybullet, body_id, link_index, material, client_id=client_id)
-
-
-def _apply_surface_material(
-    backend,
-    body_id: int,
-    link_index: int,
-    material: SurfaceMaterial,
-    *,
-    client_id: int,
-) -> None:
-    backend.changeDynamics(
-        body_id,
-        link_index,
-        lateralFriction=material.lateral_friction,
-        spinningFriction=material.spinning_friction,
-        rollingFriction=material.rolling_friction,
-        restitution=material.restitution,
-        linearDamping=material.linear_damping,
-        angularDamping=material.angular_damping,
-        physicsClientId=client_id,
     )
 
 

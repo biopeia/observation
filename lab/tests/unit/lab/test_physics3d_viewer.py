@@ -25,8 +25,9 @@ def test_application_owned_monitor_has_no_broken_relative_physics_imports():
     source = inspect.getsource(physics3d_monitor._viewer_main)
     assert "from .humanoid" not in source
     assert "from .resource" not in source
-    assert "from embodiment.physics3d.humanoid import HumanoidPhysics" in source
-    assert "from environment.physics3d.resource import PhysicalResource" in source
+    # The monitor draws exported poses; it builds no body and holds no engine.
+    for engine_name in ("pybullet", "mujoco", "HumanoidPhysics", "PhysicalResource"):
+        assert engine_name not in source
 
 
 def test_physics3d_runtime_accepts_embedded_viewer_bridge():

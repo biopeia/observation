@@ -25,7 +25,7 @@ FOREIGN = ("symbiont", "modality", "environment", "lab")
 
 
 @pytest.mark.skipif(
-    any(importlib.util.find_spec(name) for name in FOREIGN[:4] if name != "pybullet"),
+    any(importlib.util.find_spec(name) for name in FOREIGN[:4] if name != "mujoco"),
     reason="meaningful only where this library is installed alone",
 )
 def test_no_other_domain_is_installed_or_loaded() -> None:
@@ -42,7 +42,7 @@ def test_body_contracts_are_complete_without_any_other_domain() -> None:
 
 
 def test_vision_body_extends_the_v6_contract_and_leaves_the_array_to_the_caller() -> None:
-    descriptor = vision_body_descriptor(lambda _pybullet, _client: None)
+    descriptor = vision_body_descriptor(lambda _scene: None)
     visual = visual_receptor_contract_ids()
     assert len(visual) == len(set(visual)) == VISUAL_RECEPTOR_COUNT
     assert not set(visual) & set(ANTHROPOMORPHIC_V6.receptor_ids)

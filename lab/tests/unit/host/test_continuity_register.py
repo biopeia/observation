@@ -187,7 +187,7 @@ def test_open_gaps_are_exactly_the_audit_findings() -> None:
 
 
 def test_apparatus_fields_name_real_physics3d_state() -> None:
-    pytest.importorskip("pybullet")
+    pytest.importorskip("mujoco")
     from lab.physics3d.runtime import Physics3DEmbodimentRuntime
     from symbiont.core.embodiment import transition as reembodiment
 

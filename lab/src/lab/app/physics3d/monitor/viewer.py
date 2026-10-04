@@ -1,6 +1,6 @@
 """Physics3D desktop monitor owned by the Symbiont Lab application layer.
 
-PyBullet remains in the parent process as the physical apparatus. This module
+The physics engine stays in the parent process as the physical apparatus. This module
 runs one Tkinter window in a separate process and receives bounded evaluator
 snapshots plus RGB camera frames. It can only send camera/viewer lifecycle
 commands back to the parent; there is no control path into cognition.
@@ -21,23 +21,12 @@ from typing import Any, Mapping, Sequence
 from embodiment.physics3d.humanoid import (
     JOINT_SPECS,
     JOINT_TOPOLOGY,
-    SEGMENTS,
-)
-from embodiment.physics3d.mechanics import (
-    CARRIER_MASS,
 )
 from lab.app.physics3d.geometry import _convex_hull_2d, _point_in_polygon_2d
 from lab.app.physics3d.monitor.converters import (
     record_to_snapshot,
     snapshot_to_physical_state,
 )
-
-HUMANOID_LINK_MASSES = tuple(
-    SEGMENTS[topology.child_link].mass if topology.child_link in SEGMENTS else CARRIER_MASS
-    for topology in JOINT_TOPOLOGY
-)
-HUMANOID_BASE_MASS = SEGMENTS["pelvis"].mass
-HUMANOID_TOTAL_MASS = HUMANOID_BASE_MASS + sum(HUMANOID_LINK_MASSES)
 
 _UNIT_CIRCLE_18 = tuple(
     (math.cos(math.radians(deg)), math.sin(math.radians(deg))) for deg in range(0, 360, 18)
@@ -602,11 +591,7 @@ def _viewer_main(
         from tkinter import ttk
 
         import numpy as np
-        import pybullet as p
         from PIL import Image, ImageDraw, ImageTk
-
-        from embodiment.physics3d.humanoid import HumanoidPhysics
-        from environment.physics3d.resource import PhysicalResource
     except ImportError as exc:
         print(f"Physics3D unified viewer unavailable: {exc.__class__.__name__}: {exc}")
         return
@@ -640,41 +625,6 @@ def _viewer_main(
         root.geometry("1560x920")
         root.minsize(1200, 720)
     root.configure(bg=bg)
-
-    render_client = p.connect(p.DIRECT)
-    if render_client < 0:
-        raise RuntimeError("unified viewer could not create passive PyBullet renderer")
-    preferred_renderer = p.ER_TINY_RENDERER
-    try:
-        test_view = p.computeViewMatrixFromYawPitchRoll((0.0, 0.0, 0.0), 2.0, 0.0, -20.0, 0.0, 2)
-        test_proj = p.computeProjectionMatrixFOV(60.0, 1.0, 0.1, 10.0)
-        test_img = p.getCameraImage(
-            16,
-            16,
-            viewMatrix=test_view,
-            projectionMatrix=test_proj,
-            renderer=p.ER_BULLET_HARDWARE_OPENGL,
-            flags=p.ER_NO_SEGMENTATION_MASK,
-            physicsClientId=render_client,
-        )
-        if len(test_img[2]) > 0:
-            preferred_renderer = p.ER_BULLET_HARDWARE_OPENGL
-    except Exception:
-        preferred_renderer = p.ER_TINY_RENDERER
-
-    p.setGravity(0.0, 0.0, -9.81, physicsClientId=render_client)
-    plane_shape = p.createCollisionShape(
-        p.GEOM_PLANE,
-        planeNormal=(0.0, 0.0, 1.0),
-        physicsClientId=render_client,
-    )
-    p.createMultiBody(
-        baseMass=0.0,
-        baseCollisionShapeIndex=plane_shape,
-        physicsClientId=render_client,
-    )
-    render_body = HumanoidPhysics(render_client)
-    render_resource = PhysicalResource(render_client)
 
     # Grid setup for root: Header, Workspace, Bottom Panel
     root.grid_rowconfigure(0, weight=0)
@@ -2024,33 +1974,9 @@ def _viewer_main(
 
     def render_scene(physical_state: dict[str, Any]) -> None:
         nonlocal photo_ref, last_resource_pos, last_resource_alpha, pick_targets
-        render_body.restore_physical_state(
-            physical_state,
-            strict_anatomical_limits=False,
-        )
+        # The scene is drawn from the exported poses alone; this process
+        # holds no physics engine.
         resource_state = physical_state.get("locomotion_resource")
-        if isinstance(resource_state, dict):
-            position = resource_state.get("position")
-            if isinstance(position, (list, tuple)) and len(position) == 3:
-                pos_tup = (float(position[0]), float(position[1]), float(position[2]))
-                if pos_tup != last_resource_pos:
-                    p.resetBasePositionAndOrientation(
-                        render_resource.body_id,
-                        pos_tup,
-                        (0.0, 0.0, 0.0, 1.0),
-                        physicsClientId=render_client,
-                    )
-                    last_resource_pos = pos_tup
-            remaining = float(resource_state.get("remaining", 0.0))
-            alpha = 1.0 if remaining > 0.0 else 0.15
-            if alpha != last_resource_alpha:
-                p.changeVisualShape(
-                    render_resource.body_id,
-                    -1,
-                    rgbaColor=(0.52, 0.78, 0.36, alpha),
-                    physicsClientId=render_client,
-                )
-                last_resource_alpha = alpha
         viewport_width = scene_label.winfo_width()
         viewport_height = scene_label.winfo_height()
         if viewport_width <= 8 or viewport_height <= 8:
@@ -2058,9 +1984,8 @@ def _viewer_main(
         width = max(420, min(1280, int(viewport_width)))
         height = max(280, min(720, int(viewport_height)))
         pick_targets = []
-        base_position, _ = p.getBasePositionAndOrientation(
-            render_body.body_id,
-            physicsClientId=render_client,
+        base_position = tuple(
+            float(value) for value in physical_state.get("base_position", (0.0, 0.0, 0.0))
         )
         if smooth_pos[0] == 0.0 and smooth_pos[1] == 0.0:
             smooth_pos[0] = float(base_position[0])
@@ -2074,24 +1999,31 @@ def _viewer_main(
             float(smooth_pos[1] + pan_offset[1]),
             float(camera.target_z),
         )
-        view = p.computeViewMatrixFromYawPitchRoll(
-            cameraTargetPosition=target,
-            distance=camera.distance,
-            yaw=camera.yaw,
-            pitch=camera.pitch,
-            roll=0.0,
-            upAxisIndex=2,
+        # Orbit camera: yaw about the vertical, pitch below the horizon.
+        yaw, pitch = math.radians(camera.yaw), math.radians(camera.pitch)
+        eye = np.array(
+            [
+                target[0] + camera.distance * math.cos(pitch) * math.sin(yaw),
+                target[1] - camera.distance * math.cos(pitch) * math.cos(yaw),
+                target[2] - camera.distance * math.sin(pitch),
+            ]
         )
-        projection = p.computeProjectionMatrixFOV(
-            fov=55.0,
-            aspect=width / height,
-            nearVal=0.05,
-            farVal=25.0,
-        )
-
-        # Precompute unified View-Projection matrix for high-speed scalar projection
-        v_m = np.asarray(view, dtype=float).reshape((4, 4), order="F")
-        p_m = np.asarray(projection, dtype=float).reshape((4, 4), order="F")
+        forward = np.asarray(target) - eye
+        forward /= np.linalg.norm(forward)
+        right = np.cross(forward, (0.0, 0.0, 1.0))
+        right /= np.linalg.norm(right)
+        up = np.cross(right, forward)
+        v_m = np.identity(4)
+        v_m[0, :3], v_m[1, :3], v_m[2, :3] = right, up, -forward
+        v_m[:3, 3] = -v_m[:3, :3] @ eye
+        near, far = 0.05, 25.0
+        focal = 1.0 / math.tan(math.radians(55.0) / 2.0)
+        p_m = np.zeros((4, 4))
+        p_m[0, 0] = focal / (width / height)
+        p_m[1, 1] = focal
+        p_m[2, 2] = (far + near) / (near - far)
+        p_m[2, 3] = 2.0 * far * near / (near - far)
+        p_m[3, 2] = -1.0
         vp = p_m @ v_m
         m00, m01, m02, m03 = float(vp[0, 0]), float(vp[0, 1]), float(vp[0, 2]), float(vp[0, 3])
         m10, m11, m12, m13 = float(vp[1, 0]), float(vp[1, 1]), float(vp[1, 2]), float(vp[1, 3])
@@ -2115,31 +2047,7 @@ def _viewer_main(
                 return None
             return sx, sy
 
-        try:
-            image_data = p.getCameraImage(
-                width=width,
-                height=height,
-                viewMatrix=view,
-                projectionMatrix=projection,
-                renderer=preferred_renderer,
-                flags=p.ER_NO_SEGMENTATION_MASK,
-                physicsClientId=render_client,
-            )
-        except Exception:
-            image_data = p.getCameraImage(
-                width=width,
-                height=height,
-                viewMatrix=view,
-                projectionMatrix=projection,
-                renderer=p.ER_TINY_RENDERER,
-                flags=p.ER_NO_SEGMENTATION_MASK,
-                physicsClientId=render_client,
-            )
-
-        # High-performance C-level byte buffer unpacking
-        image = Image.frombuffer(
-            "RGBA", (width, height), bytearray(image_data[2]), "raw", "RGBA", 0, 1
-        )
+        image = Image.new("RGBA", (width, height), (13, 17, 23, 255))
         draw = ImageDraw.Draw(image, "RGBA")
 
         # ---------------------------------------------------------
@@ -2273,12 +2181,34 @@ def _viewer_main(
         # ---------------------------------------------------------
         # 6. BATCH LINK STATES, CONTACTS & SUPPORT POLYGON
         # ---------------------------------------------------------
-        all_link_states = p.getLinkStates(
-            render_body.body_id,
-            list(range(15)),
-            computeForwardKinematics=True,
-            physicsClientId=render_client,
-        )
+        link_positions = {
+            int(item["link_index"]): tuple(float(value) for value in item["position"])
+            for item in physical_state.get("links", ())
+            if isinstance(item, dict)
+        }
+        # Indexed like the engine's link states were: the position is field 4.
+        all_link_states = [
+            (None, None, None, None, link_positions.get(index, base_position))
+            for index in range(15)
+        ]
+        # The body itself, in place of a rendered mesh: a segment from each
+        # link to the link it hangs from, and a marker on every link.
+        screen_by_name = {
+            str(item["link_name"]): _project(tuple(float(value) for value in item["position"]))
+            for item in physical_state.get("links", ())
+            if isinstance(item, dict)
+        }
+        for topology in JOINT_TOPOLOGY:
+            ends = (
+                screen_by_name.get(topology.parent_link),
+                screen_by_name.get(topology.child_link),
+            )
+            if None not in ends:
+                draw.line(ends, fill=(148, 163, 184, 200), width=3)
+        for marker in screen_by_name.values():
+            if marker is not None:
+                mx, my = marker
+                draw.ellipse((mx - 4, my - 4, mx + 4, my + 4), fill=(203, 213, 225, 230))
 
         for joint_idx, link_state in enumerate(all_link_states):
             screen_point = _project(tuple(float(v) for v in link_state[4]))
@@ -2344,20 +2274,9 @@ def _viewer_main(
         # ---------------------------------------------------------
         # 7. CENTER OF MASS (CoM) & STABILITY POLYGON
         # ---------------------------------------------------------
-        com_x = HUMANOID_BASE_MASS * float(base_position[0])
-        com_y = HUMANOID_BASE_MASS * float(base_position[1])
-        com_z = HUMANOID_BASE_MASS * float(base_position[2])
-        for link_idx, mass in enumerate(HUMANOID_LINK_MASSES):
-            if link_idx < len(all_link_states):
-                ls = all_link_states[link_idx]
-                com_x += mass * float(ls[0][0])
-                com_y += mass * float(ls[0][1])
-                com_z += mass * float(ls[0][2])
-
-        com_3d = (
-            com_x / HUMANOID_TOTAL_MASS,
-            com_y / HUMANOID_TOTAL_MASS,
-            com_z / HUMANOID_TOTAL_MASS,
+        # The body reports its own centre of mass with every exported pose.
+        com_3d = tuple(
+            float(value) for value in physical_state.get("center_of_mass", base_position)
         )
         com_ground = (com_3d[0], com_3d[1], 0.0)
 
@@ -3293,22 +3212,9 @@ def _viewer_main(
                 font=("TkFixedFont", 10),
             )
 
-    renderer_closed = False
-
-    def disconnect_renderer() -> None:
-        nonlocal renderer_closed
-        if renderer_closed:
-            return
-        renderer_closed = True
-        try:
-            p.disconnect(physicsClientId=render_client)
-        except Exception:
-            pass
-
     def request_stop() -> None:
         if command_queue is not None:
             _put_latest(command_queue, {"type": "stop"})
-        disconnect_renderer()
         if embedded:
             status_pill_var.set("● DETENIDO")
             sim_state_pill_var.set("DETENIDO")
@@ -3335,7 +3241,6 @@ def _viewer_main(
             if message.get("type") == "frame":
                 frames.append(message)
         if should_close:
-            disconnect_renderer()
             if embedded:
                 status_pill_var.set("● DETENIDO")
                 sim_state_pill_var.set("DETENIDO")

@@ -24,7 +24,7 @@ from pathlib import Path
 FIRST_PARTY = ("symbiont", "environment", "modality", "embodiment", "lab")
 # Packages whose direct children are architectural units of their own.
 SPLIT = ("symbiont", "lab", "symbiont.core", "lab.studies")
-EXTERNAL_HEAVY = ("pybullet", "torch", "numpy", "PIL")
+EXTERNAL_HEAVY = ("mujoco", "torch", "numpy", "PIL")
 
 
 def discover(roots: list[Path]) -> dict[str, Path]:

@@ -39,7 +39,7 @@ def run_replay(telemetry_file: Path) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Run a canonical Symbiont runtime in a PyBullet body or replay current telemetry"
+        description="Run a canonical Symbiont runtime in a simulated physical body or replay current telemetry"
     )
     parser.add_argument(
         "--replay",
@@ -51,7 +51,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--headless",
         action="store_true",
-        help="run PyBullet DIRECT without a window",
+        help="run without a window",
     )
     parser.add_argument(
         "--ticks",
@@ -66,7 +66,7 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="physical world recipe; resume preserves the saved world",
     )
-    parser.add_argument("--hz", type=int, default=240, help="PyBullet physics frequency")
+    parser.add_argument("--hz", type=int, default=240, help="physics frequency")
     parser.add_argument(
         "--cognition-hz",
         type=int,
@@ -101,7 +101,7 @@ def main(argv: list[str] | None = None) -> int:
         "--body-state-file",
         type=Path,
         default=DEFAULT_BODY_FILE,
-        help="optional PyBullet pose for resuming this embodiment",
+        help="optional body pose for resuming this embodiment",
     )
     parser.add_argument(
         "--telemetry-file",
@@ -123,7 +123,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--fresh-body",
         action="store_true",
-        help="load the Symbiont runtime but ignore its previous PyBullet pose",
+        help="load the Symbiont runtime but ignore its previous body pose",
     )
     parser.add_argument(
         "--new-symbiont",
@@ -133,7 +133,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--no-monitor",
         action="store_true",
-        help="disable the unified 3D evaluator window (uses native PyBullet GUI)",
+        help="disable the unified 3D evaluator window (uses the engine's native window)",
     )
     parser.add_argument(
         "--no-private-model-training",

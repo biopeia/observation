@@ -49,7 +49,7 @@ def test_humanoid_hard_limits_hold_under_deterministic_actuation():
     assert math.isfinite(max_speed_seen)
     assert math.isfinite(max_total_speed_seen)
     assert max_total_speed_seen < 150.0
-    # Not asserted: each joint's declared max_velocity. PyBullet clamped joint
+    # Not asserted: each joint's declared max_velocity. The previous engine clamped joint
     # speed to it; MuJoCo has no such clamp and this excitation reaches about
     # twice the largest ceiling. Whether and how to enforce it is a
     # recalibration question (ADR-0066), not something to hide in a test.

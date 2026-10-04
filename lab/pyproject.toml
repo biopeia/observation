@@ -17,7 +17,7 @@ physics3d = [
   "embodiment[physics3d]",
   "modality[vision]",
   "environment[physics3d]",
-  "pybullet>=3.2.7,<4",
+  "mujoco>=3.14,<4",
   "torch>=2.4,<3",
   "numpy>=1.26,<3",
   "pillow>=10,<13",

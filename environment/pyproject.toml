@@ -10,8 +10,8 @@ requires-python = ">=3.12"
 dependencies = []
 
 [project.optional-dependencies]
-# environment.physics3d builds and moves PyBullet fixtures.
-physics3d = ["pybullet>=3.2.7,<4"]
+# environment.physics3d adds fixtures to a scene it is handed; it imports no engine.
+physics3d = []
 
 [tool.setuptools.packages.find]
 where = ["src"]

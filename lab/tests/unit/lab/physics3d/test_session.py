@@ -10,7 +10,7 @@ from lab.app.physics3d.session import (
 from lab.observation.bus import ObservationBus
 
 
-def test_physics3d_session_supervises_clean_stop_without_pybullet() -> None:
+def test_physics3d_session_supervises_clean_stop_without_an_engine() -> None:
     started = threading.Event()
     release = threading.Event()
     terminal = threading.Event()
