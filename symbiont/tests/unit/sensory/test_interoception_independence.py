@@ -30,6 +30,10 @@ def _intrinsic(telemetry: object | None, mode: str) -> dict[str, object]:
         if InteroceptionProvider.organism_facing(capability.capability_id)
     )
     return {
+        # The full organism-state identity is stronger than comparing a few
+        # physiological projections: passive host instrumentation must not
+        # perturb any persisted subject state.
+        "state_hash": runtime.state_hash(),
         "body": runtime.living_body_state,
         "metabolism": runtime._metabolism.snapshot(),
         "integrity": runtime._homeostasis.integrity,

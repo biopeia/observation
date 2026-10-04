@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import math
 import time
-from dataclasses import replace
 from typing import Protocol
 
 from ..host.contracts import Capability, CapabilityKind
@@ -10,13 +9,9 @@ from ..host.readings import ReadingPrivacyClass, ReadingQuality, SensorReading, 
 
 
 class HostTelemetry(Protocol):
-    """Host measurements carried alongside interoception; supplied from outside."""
+    """Passive observer hook supplied from outside the organism."""
 
     def observe_tick(self, latency: float) -> None: ...
-
-    def discover(self) -> tuple[Capability, ...]: ...
-
-    def sample(self, capabilities: tuple[Capability, ...]) -> tuple[SensorReading, ...]: ...
 
 
 class InteroceptionProvider:
@@ -30,9 +25,10 @@ class InteroceptionProvider:
     - internal.waste_pressure: bounded retained-degradation pressure
 
     These are intrinsic: they are computed from the organism's own state and
-    need no host. Measurements of the host process (``host_telemetry``) are a
-    separate, optional source. They are published under this provider's
-    persisted id but stay apparatus evidence and never reach organism learning.
+    need no host. The optional host telemetry hook receives timing for the
+    apparatus observer, but its measurements are never exposed through this
+    organism-facing provider. Observer instrumentation must not alter the
+    organism's discoverable signal topology or learned state.
     """
 
     provider_id = "interoception"
@@ -105,9 +101,7 @@ class InteroceptionProvider:
         self._waste_pressure = max(0.0, min(1.0, float(waste_pressure)))
 
     def discover(self) -> tuple[Capability, ...]:
-        host = self._host_telemetry.discover() if self._host_telemetry is not None else ()
         return (
-            *(replace(capability, source=self.provider_id) for capability in host),
             Capability(
                 capability_id="internal.epistemic_surprise",
                 kind=CapabilityKind.SIGNAL,
@@ -151,15 +145,7 @@ class InteroceptionProvider:
         available_ids = {
             cap.capability_id for cap in capabilities if cap.source == self.provider_id
         }
-        own = tuple(cap for cap in capabilities if cap.source == self.provider_id)
-        readings: list[SensorReading] = (
-            [
-                replace(reading, source=self.provider_id)
-                for reading in self._host_telemetry.sample(own)
-            ]
-            if self._host_telemetry is not None
-            else []
-        )
+        readings: list[SensorReading] = []
 
         if "internal.epistemic_surprise" in available_ids:
             readings.append(
@@ -211,9 +197,9 @@ class InteroceptionProvider:
     def normalize_for_organism(self, reading: SensorReading) -> SensorReading:
         """Project only admitted organism-facing internal readings.
 
-        Host telemetry remains apparatus-only evidence and
-        pass through unchanged. Only capabilities admitted by organism_facing()
-        are normalized for adaptive sensing and cognition.
+        Non-interoceptive readings pass through unchanged. Only capabilities
+        admitted by organism_facing() are normalized for adaptive sensing and
+        cognition. Host process measurements are not produced by this provider.
         """
         if reading.source != self.provider_id or not self.organism_facing(reading.capability_id):
             return reading

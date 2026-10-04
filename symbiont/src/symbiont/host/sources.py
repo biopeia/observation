@@ -18,8 +18,8 @@ from .readings import ReadingProvider
 class HostSenseSources:
     discovery_providers: tuple[DiscoveryProvider, ...] = ()
     reading_providers: tuple[ReadingProvider, ...] = ()
-    # The provider through which the organism's interoceptive channels are offered, if any.
-    # host process measurements, published alongside the organism's interoception
+    # Optional passive observer hook. It may receive timing, but its process
+    # measurements are not offered as organism capabilities or readings.
     process_telemetry: Any | None = None
     # "available" | "unavailable": whether host senses could be offered at all.
     availability: str = "unavailable"

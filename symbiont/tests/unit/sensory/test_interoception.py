@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from symbiont.host.readings import ReadingQuality, Unit
+from symbiont.host.readings import Unit
 from symbiont.sensory.interoception import InteroceptionProvider, ShamInteroceptionProvider
 
 from .fake_telemetry import FakeTelemetry
 
 
 def _provider(provider_type=InteroceptionProvider):
-    """Interoception with the host telemetry published alongside it."""
+    """Interoception with an external passive observer hook."""
     return provider_type(host_telemetry=FakeTelemetry())
 
 
@@ -16,8 +16,7 @@ def test_interoception_provider_discovery():
     caps = provider.discover()
     cap_ids = {c.capability_id for c in caps}
 
-    assert "internal.tick_latency" in cap_ids
-    assert "internal.memory_rss" in cap_ids
+    assert cap_ids == set(InteroceptionProvider.ORGANISM_CAPABILITY_IDS)
     assert "internal.epistemic_surprise" in cap_ids
     assert "internal.metabolic_reserve" in cap_ids
     assert "internal.integrity" in cap_ids
@@ -45,10 +44,6 @@ def test_interoception_provider_sampling_and_update():
 
     readings = {r.capability_id: r for r in provider.sample(caps)}
 
-    assert readings["internal.tick_latency"].value == 0.042
-    assert readings["internal.tick_latency"].unit == Unit.SECOND
-    assert readings["internal.tick_latency"].quality == ReadingQuality.NOMINAL
-
     assert readings["internal.epistemic_surprise"].value == 0.15
     assert readings["internal.epistemic_surprise"].unit == Unit.RATIO
 
@@ -59,11 +54,8 @@ def test_interoception_provider_sampling_and_update():
     assert readings["internal.repair_pressure"].value == 0.2
     assert readings["internal.waste_pressure"].value == 0.1
 
-    # Memory RSS should be positive numeric on Linux/POSIX
-    mem_reading = readings["internal.memory_rss"]
-    assert mem_reading.unit == Unit.BYTE
-    if mem_reading.value is not None:
-        assert mem_reading.value > 0
+    # Host timing is passed to the observer but never enters organism readings.
+    assert set(readings) == set(InteroceptionProvider.ORGANISM_CAPABILITY_IDS)
 
 
 def test_interoception_organism_projection_is_bounded_and_uses_ratio_units():
@@ -85,8 +77,6 @@ def test_interoception_organism_projection_is_bounded_and_uses_ratio_units():
             assert reading.value is not None
             assert 0.0 <= reading.value <= 1.0
 
-    assert projected["internal.tick_latency"].unit == Unit.SECOND
-    assert projected["internal.memory_rss"].unit == Unit.BYTE
     assert projected["internal.epistemic_surprise"].value == 1.0
     assert projected["internal.metabolic_reserve"].value == 0.0
 
@@ -114,17 +104,9 @@ def test_sham_interoception_preserves_manifest_but_projects_neutral_values():
         for reading in projected
         if InteroceptionProvider.organism_facing(reading.capability_id)
     ]
-    apparatus_only = [
-        reading
-        for reading in projected
-        if not InteroceptionProvider.organism_facing(reading.capability_id)
-    ]
     assert organism_projected
     assert all(reading.value == 0.5 for reading in organism_projected)
-    assert {reading.capability_id for reading in apparatus_only} == {
-        "internal.tick_latency",
-        "internal.memory_rss",
-    }
+    assert len(organism_projected) == len(projected) == len(capabilities)
     assert provider.local_action_pressure() == 0.5
 
 
@@ -161,18 +143,22 @@ def test_interoception_physiological_refresh_does_not_reset_computational_channe
         waste_pressure=0.3,
     )
     readings = {item.capability_id: item for item in provider.sample(provider.discover())}
-    assert readings["internal.tick_latency"].value == 0.25
     assert readings["internal.epistemic_surprise"].value == 0.75
     assert readings["internal.metabolic_reserve"].value == 0.2
     assert readings["internal.integrity"].value == 0.4
 
 
-def test_an_unavailable_host_measurement_is_published_without_a_value():
+def test_host_telemetry_is_not_published_as_an_organism_measurement():
     provider = InteroceptionProvider(host_telemetry=FakeTelemetry(memory_rss=None))
-    readings = {item.capability_id: item for item in provider.sample(provider.discover())}
+    capabilities = provider.discover()
+    readings = provider.sample(capabilities)
 
-    assert readings["internal.memory_rss"].unit == Unit.BYTE
-    assert readings["internal.memory_rss"].value is None
+    assert {item.capability_id for item in capabilities} == set(
+        InteroceptionProvider.ORGANISM_CAPABILITY_IDS
+    )
+    assert {item.capability_id for item in readings} == set(
+        InteroceptionProvider.ORGANISM_CAPABILITY_IDS
+    )
 
 
 def test_without_host_telemetry_only_the_organism_channels_exist():
