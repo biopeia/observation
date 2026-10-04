@@ -30,6 +30,7 @@ mindmap
       ADR-0035 Verdad somática unificada
       ADR-0036 Memoria de encarnación hipotética
       ADR-0040 Lazo sensorimotor sin prefiltrado
+      ADR-0070 Modelos Physics3D por morfología
     Cognición & Plasticidad
       ADR-0015 Kernel cerrado y límites finitos
       ADR-0016 Replay mental contrafactual
@@ -101,6 +102,7 @@ mindmap
 | **[ADR-0035](ADR-0035-canonical-somatic-physiology-unified-physical-truth.md)** | Canonical Somatic Physiology: Single Unified Physical Truth | Aceptado | Unificación de la verdad fisiológica y metabólica en el cuerpo vivo (`LivingBody`); eliminación de ledgers paralelos de supervivencia. |
 | **[ADR-0036](ADR-0036-hypothesis-driven-reactivation-of-embodiment-memory.md)** | Hypothesis-Driven Reactivation of Embodiment Memory | Aceptado | Recuperación de esquemas corporales históricos como hipótesis no operativas que requieren re-validación empírica ante la re-encarnación. |
 | **[ADR-0040](ADR-0040-sensorimotor-loop-closure-and-prohibition-of-action-prefiltering.md)** | Sensorimotor Loop Closure and Prohibition of Action Pre-Filtering | Aceptado | Cierre simétrico del bucle motor sin pre-filtrado de acciones por obstáculos; derecho al fallo y aprendizaje causal por consecuencias. |
+| **[ADR-0070](ADR-0070-physics3d-body-models-by-morphology.md)** | Physics3D Body Models by Morphology | Accepted | Cada morfología tiene módulo y contrato físicos propios; hexápodo de 18 DoF, brazo 6R con base fija; entradas provisionales sin calibración ni afirmación de capacidad. |
 
 ### 4. Cognición & Plasticidad
 

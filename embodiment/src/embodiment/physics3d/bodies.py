@@ -11,6 +11,7 @@ from typing import Any, Callable
 
 from embodiment.physics3d.asymmetric import ASYMMETRIC_SPEC, AsymmetricPhysics
 from embodiment.physics3d.crawler import CRAWLER_SPEC, CrawlerPhysics
+from embodiment.physics3d.hexapod import HEXAPOD_SPEC, HexapodPhysics
 from embodiment.physics3d.humanoid import (
     BODY_KIND,
     BODY_STATE_SCHEMA_VERSION,
@@ -28,6 +29,7 @@ from embodiment.physics3d.humanoid import (
 from embodiment.physics3d.mechanics import (
     GROUND_MATERIAL,
 )
+from embodiment.physics3d.robotic_arm import ROBOTIC_ARM_SPEC, RoboticArmPhysics
 from embodiment.physics3d.vision import (
     VISION_BODY_KIND,
     VISION_TOTAL_RECEPTOR_COUNT,
@@ -182,6 +184,49 @@ ASYMMETRIC_V1 = BodyDescriptor(
     observer_base_link_name=ASYMMETRIC_SPEC.base_link_name,
 )
 
+HEXAPOD_V1 = BodyDescriptor(
+    body_kind=HEXAPOD_SPEC.body_kind,
+    display_name="Hexapod",
+    version=HEXAPOD_SPEC.state_schema_version,
+    motor_dof=HEXAPOD_SPEC.motor_dof,
+    receptor_count=HEXAPOD_SPEC.total_receptor_count,
+    effector_count=HEXAPOD_SPEC.effector_count,
+    receptor_ids=HEXAPOD_SPEC.receptor_ids(),
+    interoceptive_receptor_ids=HEXAPOD_SPEC.interoceptive_receptor_ids(),
+    effector_ids=HEXAPOD_SPEC.effector_ids(),
+    apparatus_factory=HexapodPhysics,
+    ground_material=GROUND_MATERIAL,
+    observer_joint_specs=HEXAPOD_SPEC.joint_specs,
+    observer_contact_region_names=(HEXAPOD_SPEC.base_link_name, *HEXAPOD_SPEC.contact_link_names),
+    observer_segments=HEXAPOD_SPEC.segments,
+    observer_joint_topology=HEXAPOD_SPEC.joint_topology,
+    observer_fixed_link_topology=HEXAPOD_SPEC.fixed_link_topology,
+    observer_base_link_name=HEXAPOD_SPEC.base_link_name,
+)
+
+ROBOTIC_ARM_V1 = BodyDescriptor(
+    body_kind=ROBOTIC_ARM_SPEC.body_kind,
+    display_name="Fixed-base robotic arm",
+    version=ROBOTIC_ARM_SPEC.state_schema_version,
+    motor_dof=ROBOTIC_ARM_SPEC.motor_dof,
+    receptor_count=ROBOTIC_ARM_SPEC.total_receptor_count,
+    effector_count=ROBOTIC_ARM_SPEC.effector_count,
+    receptor_ids=ROBOTIC_ARM_SPEC.receptor_ids(),
+    interoceptive_receptor_ids=ROBOTIC_ARM_SPEC.interoceptive_receptor_ids(),
+    effector_ids=ROBOTIC_ARM_SPEC.effector_ids(),
+    apparatus_factory=RoboticArmPhysics,
+    ground_material=GROUND_MATERIAL,
+    observer_joint_specs=ROBOTIC_ARM_SPEC.joint_specs,
+    observer_contact_region_names=(
+        ROBOTIC_ARM_SPEC.base_link_name,
+        *ROBOTIC_ARM_SPEC.contact_link_names,
+    ),
+    observer_segments=ROBOTIC_ARM_SPEC.segments,
+    observer_joint_topology=ROBOTIC_ARM_SPEC.joint_topology,
+    observer_fixed_link_topology=ROBOTIC_ARM_SPEC.fixed_link_topology,
+    observer_base_link_name=ROBOTIC_ARM_SPEC.base_link_name,
+)
+
 
 def vision_body_descriptor(apparatus_factory: Callable[[int], Any]) -> BodyDescriptor:
     """ADR-0011: vision is a new body kind; the v6 contract stays byte-identical.
@@ -214,6 +259,8 @@ __all__ = [
     "ANTHROPOMORPHIC_V6",
     "CRAWLER_V1",
     "ASYMMETRIC_V1",
+    "HEXAPOD_V1",
+    "ROBOTIC_ARM_V1",
     "BodyDescriptor",
     "BodyRegistry",
     "vision_body_descriptor",

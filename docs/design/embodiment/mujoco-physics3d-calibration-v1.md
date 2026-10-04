@@ -5,13 +5,15 @@ document_type: design
 domain: embodiment
 status: proposed
 canonical: false
-implementation_status: not_started
+implementation_status: partial
 language: en
 ---
 # MuJoCo Physics3D Apparatus Calibration v1
 
-**State:** exploratory apparatus-calibration proposal; not approved, frozen, or
-implemented. It authorizes no parameter changes, runs, or scientific campaign.
+**State:** exploratory apparatus-calibration proposal; not approved or frozen.
+Some source-level models and deterministic mechanical-contract tests are
+implemented under ADR-0070. This proposal authorizes no parameter changes,
+calibration runs, or scientific campaign.
 
 ## 1. Purpose and limits
 
@@ -23,7 +25,9 @@ competence, biological robustness, or equivalence with the retired PyBullet
 apparatus. The closed A7 PyBullet protocol and its numerical settings are
 historical and non-transferable.
 
-This proposal does not authorize experiments. Any later scientific study
+ADR-0070 separately authorizes source-level hexapod and fixed-base robotic-arm
+models plus deterministic mechanical-contract tests. This proposal does not
+authorize calibration, parameter changes, or experiments. Any later scientific study
 requires its own reviewed and frozen protocol plus explicit owner
 authorization. Calibration results must not be presented as scientific
 outcomes. Do not tune the organism or its behavior to satisfy apparatus
