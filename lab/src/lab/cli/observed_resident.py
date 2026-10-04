@@ -114,6 +114,11 @@ def main(argv: list[str] | None = None) -> int:
         description="Stream a resident self-discovering Symbiont to Observatory"
     )
     parser.add_argument("--state-file", type=Path, default=Path(DEFAULT_STATE_FILE).expanduser())
+    parser.add_argument(
+        "--first-boot",
+        action="store_true",
+        help="explicitly permit creating a new organism when --state-file is absent",
+    )
     parser.add_argument("--interval", type=float, default=DEFAULT_TICK_INTERVAL_SECONDS)
     parser.add_argument("--checkpoint-every", type=int, default=DEFAULT_CHECKPOINT_TICKS)
     parser.add_argument(
@@ -172,6 +177,11 @@ def main(argv: list[str] | None = None) -> int:
 
         runtime_class = PrivateModelOrganismRuntime
     if existing_payload is None:
+        if not args.first_boot:
+            parser.error(
+                f"checkpoint is missing at {args.state_file}; "
+                "use --first-boot only to create a new organism"
+            )
         try:
             _load_first_launch_cognition(args, runtime_kwargs)
         except (OSError, ValueError, json.JSONDecodeError) as exc:

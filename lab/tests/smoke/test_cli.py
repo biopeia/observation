@@ -162,7 +162,7 @@ def test_cli_host_checkpoint_round_trips():
     )
     assert export_result.returncode == 0
     checkpoint = json.loads(export_result.stdout)
-    assert checkpoint["schema_version"] == 11
+    assert checkpoint["schema_version"] == 12
 
     import_result = subprocess.run(
         [sys.executable, "-m", "lab.cli.main", "host", "checkpoint", "import"],
@@ -458,7 +458,7 @@ def test_cli_organism_run():
     payload = json.loads(result.stdout)
     assert len(payload["ticks"]) == 4
     assert [t["tick"] for t in payload["ticks"]] == [1, 2, 3, 4]
-    assert payload["checkpoint"]["schema_version"] == 11
+    assert payload["checkpoint"]["schema_version"] == 12
     assert payload["checkpoint"]["acclimation"]
     for tick in payload["ticks"]:
         assert isinstance(tick["narrative"], list) and tick["narrative"]
@@ -515,6 +515,7 @@ def test_cli_organism_run_resumes_cognition_without_repassing_genome_file(tmp_pa
             "1",
             "--state-file",
             str(state_file),
+            "--first-boot",
             "--genome-file",
             str(genome_file),
             "--graph-file",
@@ -679,6 +680,7 @@ def test_cli_organism_run_state_file_resumes_across_invocations(tmp_path):
             "1",
             "--state-file",
             str(state_file),
+            "--first-boot",
         ],
         capture_output=True,
         text=True,
@@ -709,6 +711,50 @@ def test_cli_organism_run_state_file_resumes_across_invocations(tmp_path):
     second_payload = json.loads(second.stdout)
     assert [t["tick"] for t in second_payload["ticks"]] == [4, 5]
     assert second_payload["checkpoint"]["saved_at_tick"] == 5
+
+
+def test_cli_organism_run_missing_state_file_does_not_create_replacement(tmp_path):
+    state_file = tmp_path / "expected-state.json"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "lab.cli.main",
+            "organism",
+            "run",
+            "--ticks",
+            "1",
+            "--state-file",
+            str(state_file),
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert "checkpoint is missing" in result.stderr
+    assert not state_file.exists()
+
+
+def test_observed_resident_requires_explicit_first_boot(tmp_path):
+    state_file = tmp_path / "resident-state.json"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "lab.cli.observed_resident",
+            "--state-file",
+            str(state_file),
+            "--max-ticks",
+            "1",
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert "use --first-boot" in result.stderr
+    assert not state_file.exists()
 
 
 def test_cli_organism_run_stops_early_at_max_ticks():
@@ -870,6 +916,7 @@ def test_cli_organism_probe_success_and_json(tmp_path):
             "3",
             "--state-file",
             str(state_file),
+            "--first-boot",
             "--min-samples",
             "1",
         ],

@@ -38,6 +38,11 @@ def build_organism_parser(parser: argparse.ArgumentParser) -> None:
     run_cmd.add_argument("--min-seconds-between-ticks", type=float, default=0.0)
     run_cmd.add_argument("--max-ticks", type=int, default=None)
     run_cmd.add_argument("--state-file")
+    run_cmd.add_argument(
+        "--first-boot",
+        action="store_true",
+        help="explicitly permit creating a new organism when --state-file is absent",
+    )
     run_cmd.add_argument("--advisory-consent", action="store_true")
     run_cmd.add_argument("--advisory-uncertainty-threshold", type=float, default=1.0)
     run_cmd.add_argument("--advisory-log")
@@ -64,6 +69,11 @@ def build_organism_parser(parser: argparse.ArgumentParser) -> None:
         "--state-file",
         default=DEFAULT_STATE_FILE,
         help="Durable abstract memory checkpoint",
+    )
+    live_cmd.add_argument(
+        "--first-boot",
+        action="store_true",
+        help="explicitly permit creating a new organism when --state-file is absent",
     )
     live_cmd.add_argument(
         "--interval",
@@ -201,6 +211,11 @@ def _runtime_for_run(args: argparse.Namespace) -> OrganismRuntime:
     existing_payload = load_checkpoint_file(args.state_file) if args.state_file else None
     if existing_payload is not None:
         return restore_canonical_resident(existing_payload, **kwargs)
+    if args.state_file and not args.first_boot:
+        raise SystemExit(
+            f"error: checkpoint is missing at {args.state_file}; "
+            "use --first-boot only to create a new organism"
+        )
     _load_cognition_from_args(args, kwargs)
     return create_canonical_organism(**kwargs)
 
@@ -318,6 +333,11 @@ def _run_live(args: argparse.Namespace) -> int:
     if existing_payload is not None:
         runtime = restore_canonical_resident(existing_payload, **kwargs)
     else:
+        if not args.first_boot:
+            raise SystemExit(
+                f"error: checkpoint is missing at {state_file}; "
+                "use --first-boot only to create a new organism"
+            )
         _load_cognition_from_args(args, kwargs)
         runtime = create_canonical_organism(**kwargs)
 
