@@ -456,10 +456,6 @@ class PopulationGenesisRuntime:
                 raise RuntimeError(
                     f"experimental contamination: sensory plasticity disabled for {organism_id}"
                 )
-            if runtime.heritable_genome is not None and runtime.heritable_genome.loci:
-                raise RuntimeError(
-                    f"experimental contamination: founder behavioral loci present for {organism_id}"
-                )
             replenishment = runtime.metabolism.checkpoint()["replenishment"]
             if any(float(value) != 0.0 for value in replenishment.values()):
                 raise RuntimeError(

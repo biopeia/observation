@@ -201,13 +201,6 @@ REGISTER: tuple[ContinuityEntry, ...] = (
     _core("_germline_state", "genetics.germline", _P, "germline_state", _KEEP),
     _core("_parent_ids", "genetics.inheritance", _P, "parent_ids", _KEEP),
     _core("_epigenetic_protocol", "genetics.inheritance", _P, "epigenetic_protocol", _KEEP),
-    _core(
-        "_heritable_genome",
-        "genetics (legacy)",
-        _R,
-        "heritable_genome",
-        _NA,
-    ),
     _core("_mutation_seed", "genetics", _P, "mutation_seed", _KEEP),
     _core("_epigenetic_priors", "genetics", _P, "epigenetic_priors", _KEEP),
     _core("_epigenetic_decay", "genetics", _P, "epigenetic_decay", _KEEP),

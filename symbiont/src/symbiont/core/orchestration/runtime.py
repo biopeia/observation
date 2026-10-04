@@ -317,7 +317,6 @@ class OrganismRuntime:
         body_schema: BodySchemaEngine | None = None,
         evidence_ledger: EvidenceRevisionLedger | None = None,
         genome: Genome | None = None,
-        heritable_genome: object | None = None,
         mutation_seed: int = 0,
         epigenetic_priors: tuple[EpigeneticPrior, ...] = (),
         epigenetic_decay: float = 0.05,
@@ -872,11 +871,6 @@ class OrganismRuntime:
             or any(item.key not in self._SUPPORTED_EPIGENETIC_KEYS for item in epigenetic_priors)
         ):
             raise ValueError("epigenetic_priors exceed bounded capacity")
-        # Historical heritable_genome input is no longer an operative genetic
-        # source. Reject non-null values rather than running two genomes.
-        if heritable_genome is not None:
-            raise ValueError("HeritableGenome is removed; pass Genome v2 via genome")
-        self._heritable_genome = None
         self._mutation_seed = mutation_seed
         self._epigenetic_priors = tuple(epigenetic_priors)
         self._epigenetic_decay = float(epigenetic_decay)
@@ -1664,11 +1658,6 @@ class OrganismRuntime:
     @property
     def genome(self) -> Genome | None:
         return self._genome
-
-    @property
-    def heritable_genome(self) -> None:
-        """Legacy surface: Genome v2 is the only operative genetic state."""
-        return None
 
     @property
     def epigenetic_priors(self) -> tuple[EpigeneticPrior, ...]:
@@ -2529,7 +2518,6 @@ class OrganismRuntime:
         )
         payload["parent_ids"] = list(self._parent_ids)
         payload["epigenetic_protocol"] = asdict(self._epigenetic_protocol)
-        payload["heritable_genome"] = None
         payload["mutation_seed"] = self._mutation_seed
         payload["epigenetic_priors"] = [
             {"key": prior.key, "value": prior.value} for prior in self._epigenetic_priors
@@ -2902,13 +2890,6 @@ class OrganismRuntime:
                 germline_state = restore_germline(raw_germline, genome)
             except (TypeError, ValueError) as exc:
                 raise CheckpointError(f"invalid germline checkpoint: {exc}") from exc
-
-        raw_heritable = normalized.get("heritable_genome")
-        if raw_heritable not in (None, {}):
-            raise CheckpointError(
-                "checkpoint carries a HeritableGenome payload; that format is no longer loaded"
-            )
-        heritable_genome = None
 
         gene_expression_state = None
         raw_expression = normalized.get("gene_expression")
@@ -3339,7 +3320,6 @@ class OrganismRuntime:
             body_schema=body_schema,
             evidence_ledger=evidence_ledger,
             genome=genome,
-            heritable_genome=heritable_genome,
             mutation_seed=int(normalized.get("mutation_seed", 0)),
             epigenetic_priors=epigenetic_priors,
             epigenetic_decay=float(normalized.get("epigenetic_decay", 0.05)),

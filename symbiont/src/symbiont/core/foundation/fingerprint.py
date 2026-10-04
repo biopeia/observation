@@ -90,7 +90,7 @@ def generate_runtime_fingerprint_from_runtime(
 
     Captures only declarative parameters, budgets, limits, and structures that govern
     behavior and developmental trajectory: software version, optional build identity,
-    effective physiology, full kernel limits, genome, heritable genome, mutation seed,
+    effective physiology, full kernel limits, genome, mutation seed,
     epigenetic configuration, attention budget, investigate ticks, conflict_z, min_samples,
     discovery modes, explicit metabolism, and autonomous behavior options.
 
