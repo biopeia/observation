@@ -623,6 +623,14 @@ class ArticulatedPhysics:
                     <= spec.upper + JOINT_LIMIT_SOLVER_TOLERANCE
                 ):
                     raise ValueError(f"joint state outside hard anatomical limit: {spec.name}")
+        else:
+            # Observer-only display of a recorded state: project an excursion
+            # onto the mechanical range instead of refusing to draw it.
+            projected = list(qpos)
+            for ordinal, spec in enumerate(self.SPEC.joint_specs):
+                lower, upper = _mechanical_joint_limits(spec)
+                projected[7 + ordinal] = min(max(projected[7 + ordinal], lower), upper)
+            qpos = tuple(projected)
         for address, value in zip(self._qpos_addresses, qpos):
             data.qpos[address] = value
         for address, value in zip(self._dof_addresses, qvel):
