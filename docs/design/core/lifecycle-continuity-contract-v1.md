@@ -195,7 +195,7 @@ Tests: `symbiont/tests/unit/core/test_canonical_birth.py`,
 
 The earlier schema-10 admission decision predates the current exact-schema
 loader and is not the live restore contract. The current runtime accepts only
-schema 14; schemas 1–12 are rejected, including schemas 10–12. No automatic
+schema 14; schemas 1–13 are rejected without migration. No automatic
 migration path is retained. Historical files and fixtures may remain readable
 as archival data, but archival readability is not runtime-format compatibility
 and neither establishes state continuity nor authorizes conversion into a live

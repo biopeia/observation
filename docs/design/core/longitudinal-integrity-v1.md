@@ -388,7 +388,7 @@ Those runs remain scientifically limited for claims depending on those effects.
 
 The matrix below records the original gate design. The implemented outer
 checkpoint policy is stricter: schema 14 is the only live-restorable outer
-schema, and schemas 1–12 are rejected without migration. The historical
+schema, and schemas 1–13 are rejected without migration. The historical
 compatibility cases below are archival evidence for the earlier migration
 policy; they are not current restore acceptance criteria. Migrations owned by
 an inner subsystem do not make an older outer checkpoint restorable.
