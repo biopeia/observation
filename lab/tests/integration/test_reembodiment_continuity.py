@@ -22,6 +22,8 @@ from lab.studies.learning.agency_acquisition_body import (
 )
 from symbiont.actuation.binding import BindingStatus
 from symbiont.cognition.limits import KernelLimits
+from symbiont.core.embodiment.contract import EmbodimentContract, PerceptualSurface
+from symbiont.core.embodiment.episode import EmbodimentEpisode
 from symbiont.core.embodiment.transition import (
     EmbodimentDescriptor,
     prepare_fresh_embodiment_checkpoint,
@@ -83,6 +85,66 @@ def _json(payload: dict) -> dict:
     return json.loads(json.dumps(payload))
 
 
+def _attach_current_episode(
+    payload: dict[str, Any],
+    body: CausalBody,
+    *,
+    organism: OrganismRuntime,
+    body_kind: str,
+    existing: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Attach the real schema-3 episode emitted by a live embodiment owner.
+
+    The causal-body learning study uses the generic organism runtime, which
+    does not itself own a body episode. Its re-embodiment fixture must therefore
+    supply the same current contract and canonical inference owners that the
+    Physics3D runtime writes, rather than exercising an episode-less checkpoint.
+    """
+    tick = int(payload["saved_at_tick"])
+    contract = EmbodimentContract(
+        perceptual_surface=PerceptualSurface.from_physical_ports(body.receptor_ids),
+        actuator_surface=body.surface,
+    )
+    if existing is None:
+        episode = EmbodimentEpisode.begin(
+            symbiont_id=organism.organism_id,
+            body_id=f"{body.provider_id}.body.{body.seed}",
+            epoch=1,
+            start_symbiont_tick=0,
+            contract=contract,
+        )
+        episode.embodiment_tick = tick
+    else:
+        episode = EmbodimentEpisode.restore(
+            existing,
+            contract=contract,
+            body_schema=organism.body_schema,
+            causal_evidence=organism.causal_evidence_ledger,
+            effect_model=organism.sensorimotor_effect_model,
+            controllability_model=organism.controllability_model,
+            agency_model=organism.agency_model,
+            execution_bindings=organism.competence_execution_bindings,
+            current_tick=tick,
+        )
+    episode.body_schema = organism.body_schema
+    episode.causal_evidence = organism.causal_evidence_ledger
+    episode.effect_model = organism.sensorimotor_effect_model
+    episode.controllability_model = organism.controllability_model
+    episode.agency_model = organism.agency_model
+    episode.execution_bindings = organism.competence_execution_bindings
+    payload["embodiment_episode"] = episode.checkpoint(current_tick=tick)
+    payload = update_lifecycle_for_checkpoint(
+        payload,
+        contract=EmbodimentDescriptor(
+            body_kind,
+            receptor_count=len(body.receptor_ids),
+            effector_count=len(body.surface.actuator_ids),
+        ),
+        state="active",
+    )
+    return stamp_checkpoint_identity(payload, transform="test-current-embodiment-episode")
+
+
 def _competence_ids(runtime: PrivateModelOrganismRuntime) -> set[str]:
     return {item.competence_id for item in runtime._action_domain.competence_library.items}
 
@@ -130,7 +192,12 @@ def test_each_runtime_layer_restores_its_registered_owner_and_transforms_it(
             confidence_class=4,
         )
 
-    saved = _json(source.checkpoint())
+    saved = _attach_current_episode(
+        _json(source.checkpoint()),
+        body_a,
+        organism=source,
+        body_kind=f"continuity-layer-{layer}-body-a",
+    )
     restored = restore_canonical_organism(
         saved,
         runtime_type,
@@ -152,11 +219,7 @@ def test_each_runtime_layer_restores_its_registered_owner_and_transforms_it(
         **runtime_options,
     )
     fresh = _json(fresh_runtime.checkpoint())
-    previous = update_lifecycle_for_checkpoint(
-        saved,
-        contract=EmbodimentDescriptor("continuity-layer-body-a", 2, 2),
-        state="active",
-    )
+    previous = saved
     transformed = prepare_fresh_embodiment_checkpoint(
         previous,
         fresh,
@@ -301,11 +364,11 @@ class _Case:
         self.social_relations = _json(developed.social_ledger.checkpoint())
         self.symbol_grounding = _json(developed.symbol_grounding_ledger.checkpoint())
         self.sequence_grounding = _json(developed.sequence_grounding_ledger.checkpoint())
-        self.previous = _json(developed.checkpoint())
-        self.previous = update_lifecycle_for_checkpoint(
-            self.previous,
-            contract=EmbodimentDescriptor("causal-body-a", 4, 4),
-            state="active",
+        self.previous = _attach_current_episode(
+            _json(developed.checkpoint()),
+            body_a,
+            organism=developed,
+            body_kind="causal-body-a",
         )
         del developed
 
@@ -473,7 +536,7 @@ def test_identity_and_time_continue_and_the_transform_is_recorded(case: _Case) -
 
     assert case.transformed["organism_id"] == ORGANISM_ID
     assert case.transformed["saved_at_tick"] == DEVELOPMENT_TICKS
-    assert lineage["transforms"] == ["re-embodiment"]
+    assert lineage["transforms"][-1:] == ["re-embodiment"]
     assert lineage["parent_checkpoint_hash"] == case.previous["checkpoint_lineage"]["checkpoint_id"]
 
     restored = case.restore()
@@ -963,11 +1026,12 @@ def test_the_whole_lifecycle_holds_per_register_entry(case: _Case) -> None:
         min_samples=1,
         interoception_mode="absent",
     )
-    resaved = _json(restarted.checkpoint())
-    resaved = update_lifecycle_for_checkpoint(
-        resaved,
-        contract=EmbodimentDescriptor("causal-body-a", 4, 4),
-        state="active",
+    resaved = _attach_current_episode(
+        _json(restarted.checkpoint()),
+        body_a,
+        organism=restarted,
+        body_kind="causal-body-a",
+        existing=case.previous["embodiment_episode"],
     )
 
     # Restore followed by save is lossless for every field the register owns.
@@ -1023,7 +1087,7 @@ def test_the_whole_lifecycle_holds_per_register_entry(case: _Case) -> None:
 
     lineage = final["checkpoint_lineage"]
     assert lineage["parent_checkpoint_hash"] == transformed["checkpoint_lineage"]["checkpoint_id"]
-    assert lineage["transforms"] == ["re-embodiment"]
+    assert lineage["transforms"][-1:] == ["re-embodiment"]
     assert "unverified_legacy_origin" not in lineage
     assert not any(
         binding.status is BindingStatus.VALID
