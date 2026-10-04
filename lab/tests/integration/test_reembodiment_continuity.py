@@ -380,6 +380,43 @@ def test_current_body_authority_is_withdrawn(case: _Case) -> None:
 def test_knowledge_survives_as_knowledge_without_authority(case: _Case) -> None:
     restored = case.restore()
 
+    action_entry = next(entry for entry in REGISTER if entry.attribute == "_action_domain")
+    assert dict(action_entry.nested_reembodiment) == {
+        "action_domain.sensorimotor_v2.effect_space": Reembodiment.PRESERVED,
+        "action_domain.sensorimotor_v2.causal_evidence": Reembodiment.PRESERVED,
+        "action_domain.sensorimotor_v2.agency_acquisition": Reembodiment.PRESERVED,
+        "action_domain.sensorimotor_v2.exploration": Reembodiment.PRESERVED,
+        "action_domain.sensorimotor_v2.competences": Reembodiment.PRESERVED,
+        "action_domain.sensorimotor_v2.composition": Reembodiment.PRESERVED,
+        "action_domain.sensorimotor_v2.surface_binding": Reembodiment.REPLACED,
+        "action_domain.sensorimotor_v2.execution_bindings": Reembodiment.INVALIDATED,
+        "action_domain.sensorimotor_v2.binding_invalidation": Reembodiment.REPLACED,
+        "action_domain.active_commitment": Reembodiment.INVALIDATED,
+        "action_domain.last_executed_controller_seed_id": Reembodiment.INVALIDATED,
+        "action_domain.pending_motor_observation": Reembodiment.INVALIDATED,
+        "action_domain.pending_proprioception": Reembodiment.INVALIDATED,
+    }
+    prior_v2 = case.previous["actuation"]["action_domain"]["sensorimotor_v2"]
+    fresh_v2 = case.fresh["actuation"]["action_domain"]["sensorimotor_v2"]
+    current_action = case.transformed["actuation"]["action_domain"]
+    current_v2 = current_action["sensorimotor_v2"]
+    for field in (
+        "effect_space",
+        "causal_evidence",
+        "agency_acquisition",
+        "exploration",
+        "competences",
+        "composition",
+    ):
+        assert current_v2[field] == prior_v2[field], field
+    assert current_v2["surface_binding"] == fresh_v2["surface_binding"]
+    assert current_v2["execution_bindings"]["items"] == []
+    assert current_v2["binding_invalidation"] == "reembodiment"
+    assert current_action["active_commitment"] is None
+    assert current_action["last_executed_controller_seed_id"] is None
+    assert current_action["pending_motor_observation"] == []
+    assert current_action["pending_proprioception"] == {}
+
     # The prior BodySchema survives in the closed episode archive, but no
     # Body A entry is exposed as active knowledge about Body B.
     prior_schema = _json(case.previous["body_schema"])

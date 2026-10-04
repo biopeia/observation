@@ -87,7 +87,12 @@ def test_entries_are_internally_consistent() -> None:
         nested_paths = [path for path, _ in entry.nested_reembodiment]
         assert len(nested_paths) == len(set(nested_paths)), entry.attribute
         if entry.nested_reembodiment:
-            assert entry.reembodiment is Reembodiment.PRESERVED, entry.attribute
+            # Nested paths may document mixed behavior inside a field whose
+            # aggregate contract is authority invalidation.
+            assert entry.reembodiment in {
+                Reembodiment.PRESERVED,
+                Reembodiment.INVALIDATED,
+            }, entry.attribute
 
 
 def test_retired_heritable_genome_is_not_misclassified_as_reembodiment_state() -> None:

@@ -11,10 +11,10 @@ validated against the live runtimes by ``lab/tests/unit/host/test_continuity_reg
 so a new attribute or checkpoint field cannot be added unclassified.
 
 Nested state is owned by the subsystem named in ``owner`` through its own
-checkpoint contract; this register stops at the runtime boundary.
-``nested_reembodiment`` records explicitly audited exceptions when a
-checkpoint field is retained but selected nested paths are invalidated or
-replaced during re-embodiment.
+checkpoint contract. ``nested_reembodiment`` records explicitly audited
+subfield behavior when the aggregate checkpoint field has mixed re-embodiment
+semantics, including retained knowledge inside a field whose authority is
+invalidated.
 """
 
 from __future__ import annotations
@@ -321,6 +321,21 @@ REGISTER: tuple[ContinuityEntry, ...] = (
         # Live commitment, pending motor observation and the executive intention
         # are properties of this domain.
         extra_checkpoint_fields=("executive_intention",),
+        nested_reembodiment=(
+            ("action_domain.sensorimotor_v2.effect_space", _KEEP),
+            ("action_domain.sensorimotor_v2.causal_evidence", _KEEP),
+            ("action_domain.sensorimotor_v2.agency_acquisition", _KEEP),
+            ("action_domain.sensorimotor_v2.exploration", _KEEP),
+            ("action_domain.sensorimotor_v2.competences", _KEEP),
+            ("action_domain.sensorimotor_v2.composition", _KEEP),
+            ("action_domain.sensorimotor_v2.surface_binding", _BODY),
+            ("action_domain.sensorimotor_v2.execution_bindings", _VOID),
+            ("action_domain.sensorimotor_v2.binding_invalidation", _BODY),
+            ("action_domain.active_commitment", _VOID),
+            ("action_domain.last_executed_controller_seed_id", _VOID),
+            ("action_domain.pending_motor_observation", _VOID),
+            ("action_domain.pending_proprioception", _VOID),
+        ),
     ),
     _core("_actuation_enabled", "runtime configuration", _A, "actuation", _BODY),
     _core(
