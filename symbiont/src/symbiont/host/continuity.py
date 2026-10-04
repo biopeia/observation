@@ -292,7 +292,17 @@ REGISTER: tuple[ContinuityEntry, ...] = (
         _P,
         "development",
         _KEEP,
-        nested_reembodiment=(("previous_stressed", _BODY),),
+        nested_reembodiment=(
+            ("schema_version", _NA),
+            ("tick", _KEEP),
+            ("stress_ticks", _KEEP),
+            ("recovery_events", _KEEP),
+            ("repair_events", _KEEP),
+            ("excretion_events", _KEEP),
+            ("maintenance_burden", _KEEP),
+            ("retention_burden", _KEEP),
+            ("previous_stressed", _BODY),
+        ),
         nested_checkpoint_fields=("development",),
     ),
     # --- body, metabolism and physiology (same-Body restart) ---------------------

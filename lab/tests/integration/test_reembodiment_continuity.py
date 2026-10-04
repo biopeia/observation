@@ -442,6 +442,21 @@ def test_knowledge_survives_as_knowledge_without_authority(case: _Case) -> None:
     assert case.transformed["last_runtime_development_phase"] == case.previous[
         "last_runtime_development_phase"
     ]
+    development_entry = next(
+        entry for entry in REGISTER if entry.attribute == "_developmental_tracker"
+    )
+    assert set(dict(development_entry.nested_reembodiment)) == set(case.transformed["development"])
+    assert dict(development_entry.nested_reembodiment) == {
+        "schema_version": Reembodiment.NOT_APPLICABLE,
+        "tick": Reembodiment.PRESERVED,
+        "stress_ticks": Reembodiment.PRESERVED,
+        "recovery_events": Reembodiment.PRESERVED,
+        "repair_events": Reembodiment.PRESERVED,
+        "excretion_events": Reembodiment.PRESERVED,
+        "maintenance_burden": Reembodiment.PRESERVED,
+        "retention_burden": Reembodiment.PRESERVED,
+        "previous_stressed": Reembodiment.REPLACED,
+    }
 
     # The prior BodySchema survives in the closed episode archive, but no
     # Body A entry is exposed as active knowledge about Body B.
@@ -608,6 +623,30 @@ def test_reembodiment_withdraws_an_inflight_intention_before_checkpoint(case: _C
     assert transformed["executive_intention"]["formed"] == intention["formed"]
     assert transformed["executive_intention"]["counts"] == intention["counts"]
     assert transformed["executive_intention"]["outcome_evidence"] == intention["outcome_evidence"]
+
+
+def test_reembodiment_resets_only_body_specific_development_edge(case: _Case) -> None:
+    previous = _json(case.previous)
+    previous["development"]["previous_stressed"] = True
+    previous = stamp_checkpoint_identity(previous, transform="test-prior-body-stress-edge")
+
+    transformed = prepare_fresh_embodiment_checkpoint(
+        previous,
+        case.fresh,
+        contract=EmbodimentDescriptor(
+            body_kind="causal-body-b", receptor_count=6, effector_count=6
+        ),
+        canonical_contract_fingerprint=case.body_b.surface.contract_fingerprint,
+    )
+
+    assert transformed["development"]["previous_stressed"] is False
+    assert {
+        key: value
+        for key, value in transformed["development"].items()
+        if key != "previous_stressed"
+    } == {
+        key: value for key, value in previous["development"].items() if key != "previous_stressed"
+    }
 
 
 def test_a_modified_reembodied_checkpoint_is_rejected(case: _Case) -> None:

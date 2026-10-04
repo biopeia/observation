@@ -114,7 +114,17 @@ def test_developmental_tracker_resets_only_body_bound_stress_edge() -> None:
     entry = next(entry for entry in REGISTER if entry.attribute == "_developmental_tracker")
 
     assert entry.reembodiment is Reembodiment.PRESERVED
-    assert dict(entry.nested_reembodiment) == {"previous_stressed": Reembodiment.REPLACED}
+    assert dict(entry.nested_reembodiment) == {
+        "schema_version": Reembodiment.NOT_APPLICABLE,
+        "tick": Reembodiment.PRESERVED,
+        "stress_ticks": Reembodiment.PRESERVED,
+        "recovery_events": Reembodiment.PRESERVED,
+        "repair_events": Reembodiment.PRESERVED,
+        "excretion_events": Reembodiment.PRESERVED,
+        "maintenance_burden": Reembodiment.PRESERVED,
+        "retention_burden": Reembodiment.PRESERVED,
+        "previous_stressed": Reembodiment.REPLACED,
+    }
 
 
 def test_open_gaps_are_exactly_the_audit_findings() -> None:
