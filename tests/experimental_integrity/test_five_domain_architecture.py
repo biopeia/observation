@@ -25,7 +25,7 @@ _spec.loader.exec_module(depgraph)
 
 _, EDGES = depgraph.build(list(SOURCE_ROOTS))
 RUNTIME_EDGES = [edge for edge in EDGES if edge["kind"] != "typing"]
-HEAVY = ("<pybullet>", "<torch>", "<numpy>", "<PIL>")
+HEAVY = ("<mujoco>", "<torch>", "<numpy>", "<PIL>")
 
 
 def _edges(source: str, target: str) -> list[str]:

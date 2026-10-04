@@ -26,6 +26,24 @@ is about 70 % of a tick and physics 14–19 %; the engine spike is feasible;
 one revision per top-level state section saves only about 16 %. This meets
 the "reconsider if" condition of §14. The ordering and scope of the
 workstreams are with the owner before step 1 starts.
+
+**Engine replaced (2026-10-04):** Physics3D runs on MuJoCo and PyBullet is
+removed from every domain (ADR-0066). Bodies, world objects, the Lab runtime,
+the world observer and the monitor reach the engine through one scene object;
+`modality.vision` samples the receptor array with its own ray caster and
+imports no engine. The monitor draws exported poses and holds no engine.
+Earlier body checkpoints are rejected. The ground-friction and kinematic
+perturbation runner of the closed stability gate was removed with the engine
+it manipulated.
+
+Not done, and required before any new experiment: **recalibration**. Known
+differences from the previous world: joint velocity is not capped at each
+joint's declared maximum; joint limits are near-rigid; no restitution or
+per-link damping; friction between two surfaces is the larger coefficient
+rather than their product; the unactuated humanoid settles in about 1600
+steps (settling budget raised from six to ten simulated seconds); the vision
+luminance model (flat albedo, one fixed light, constant background) is
+provisional.
 See [`register.md`](../register.md).
 
 ## Local codes

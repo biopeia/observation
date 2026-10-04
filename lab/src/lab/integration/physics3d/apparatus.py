@@ -1,6 +1,6 @@
-"""PyBullet apparatus adapters for the canonical Symbiont runtime.
+"""Physics3D apparatus adapters for the canonical Symbiont runtime.
 
-PyBullet owns anatomy and physical truth. OrganismRuntime sees only bounded,
+The physics apparatus owns anatomy and physical truth. OrganismRuntime sees only bounded,
 opaque sensory capabilities and its inherited opaque actuator surface.
 """
 
@@ -174,7 +174,7 @@ class PhysicsDiscoveryProvider:
 
 
 class PhysicsReadingProvider:
-    """Sample one consistent PyBullet body state for the current runtime tick."""
+    """Sample one consistent physical body state for the current runtime tick."""
 
     provider_id = "physics3d-body"
 

@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-pybullet = pytest.importorskip("pybullet")
+pytest.importorskip("mujoco")
 
 from lab.physics3d.cli import main
 from lab.physics3d.persistence import read_symbiont_bundle_runtime

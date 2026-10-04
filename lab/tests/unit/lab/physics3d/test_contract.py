@@ -1,6 +1,5 @@
 import inspect
 import re
-import sys
 
 import pytest
 
@@ -12,7 +11,6 @@ from embodiment.physics3d.humanoid import (
     PHYSICAL_RECEPTOR_COUNT,
     TOTAL_RECEPTOR_COUNT,
     HumanoidPhysics,
-    apply_surface_material,
     build_anthropomorphic_urdf,
     effector_contract_ids,
     interoceptive_receptor_contract_ids,
@@ -23,7 +21,6 @@ from embodiment.physics3d.mechanics import (
     BODY_MATERIAL,
     GROUND_MATERIAL,
     MECHANICAL_LIMIT_GUARD,
-    SurfaceMaterial,
 )
 from lab.integration.physics3d.apparatus import (
     OpaqueBodyInteroception,
@@ -215,7 +212,7 @@ def test_new_physics3d_subjects_do_not_reuse_one_fixed_organism_identity():
     assert "secrets.token_hex(8)" in source
 
 
-def test_unified_viewer_mode_keeps_pybullet_native_gui_disabled():
+def test_unified_viewer_mode_keeps_native_engine_window_disabled():
     import lab.physics3d.cli as cli
 
     source = inspect.getsource(cli.run)
@@ -244,45 +241,6 @@ def test_every_motor_joint_has_one_bounded_mechanical_limit():
     assert set(JOINT_LIMITS) == set(range(MOTOR_DOF))
     for limit in JOINT_LIMITS.values():
         assert limit.lower < limit.upper
-
-
-def test_surface_material_propagates_contact_physics_explicitly(monkeypatch):
-    class FakeBullet:
-        def __init__(self):
-            self.kwargs = None
-
-        def changeDynamics(self, body_id, link_index, **kwargs):
-            self.kwargs = (body_id, link_index, kwargs)
-
-    fake = FakeBullet()
-    material = SurfaceMaterial(
-        lateral_friction=0.7,
-        spinning_friction=0.04,
-        rolling_friction=0.003,
-        restitution=0.1,
-        linear_damping=0.02,
-        angular_damping=0.06,
-    )
-
-    monkeypatch.setitem(sys.modules, "pybullet", fake)
-    apply_surface_material(
-        11,
-        3,
-        material,
-        client_id=9,
-    )
-
-    body_id, link_index, kwargs = fake.kwargs
-    assert (body_id, link_index) == (11, 3)
-    assert kwargs == {
-        "lateralFriction": 0.7,
-        "spinningFriction": 0.04,
-        "rollingFriction": 0.003,
-        "restitution": 0.1,
-        "linearDamping": 0.02,
-        "angularDamping": 0.06,
-        "physicsClientId": 9,
-    }
 
 
 def test_humanoid_restore_rejects_malformed_engine_state_without_touching_the_body():
@@ -690,11 +648,14 @@ def test_visual_body_restore_projects_large_solver_excursion_without_mutating_so
     assert payload["engine_state"]["qpos"][7 + shoulder] == pytest.approx(raw_position)
 
 
-def test_monitor_uses_visual_only_non_strict_body_projection():
+def test_monitor_draws_recorded_poses_without_restoring_a_body():
     import lab.app.physics3d.monitor.viewer as monitor
 
     source = inspect.getsource(monitor._viewer_main)
-    assert "strict_anatomical_limits=False" in source
+    # Display reads the recorded poses and never restores them into a body,
+    # so a recorded solver excursion cannot be refused or altered.
+    assert "restore_physical_state" not in source
+    assert 'physical_state.get("links", ())' in source
 
 
 def test_passive_postural_tone_is_body_owned_and_bounded():

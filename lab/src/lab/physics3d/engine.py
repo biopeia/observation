@@ -354,8 +354,8 @@ def run(
     time_step = 1.0 / float(rates.physics_hz)
     cognition_period = 1.0 / float(rates.cognition_hz)
     physics_substeps_per_tick = rates.physics_substeps_per_cognition
-    # Normal interactive mode renders PyBullet in DIRECT and embeds the camera
-    # image into the unified evaluator window. The native PyBullet GUI remains
+    # Normal interactive mode draws exported poses in the unified evaluator
+    # window. The engine's own native window remains
     # available only when the evaluator is explicitly disabled.
     _startup("restoring_runtime")
     runtime = Physics3DEmbodimentRuntime(
@@ -857,7 +857,7 @@ def run(
             exit_cause = "operator_stop" if stop_requested else "budget_exhausted"
     except PhysicsServerDisconnected:
         exit_cause = "physics_disconnected"
-        print("PyBullet window closed; ending embodiment cleanly.")
+        print("Physics window closed; ending embodiment cleanly.")
     except KeyboardInterrupt:
         exit_cause = "operator_stop"
     finally:

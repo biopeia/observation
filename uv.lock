@@ -586,14 +586,10 @@ source = { editable = "embodiment" }
 [package.optional-dependencies]
 physics3d = [
     { name = "mujoco" },
-    { name = "pybullet" },
 ]
 
 [package.metadata]
-requires-dist = [
-    { name = "mujoco", marker = "extra == 'physics3d'", specifier = ">=3.14,<4" },
-    { name = "pybullet", marker = "extra == 'physics3d'", specifier = ">=3.2.7,<4" },
-]
+requires-dist = [{ name = "mujoco", marker = "extra == 'physics3d'", specifier = ">=3.14,<4" }]
 provides-extras = ["physics3d"]
 
 [[package]]
@@ -601,13 +597,7 @@ name = "environment"
 version = "0.90.0"
 source = { editable = "environment" }
 
-[package.optional-dependencies]
-physics3d = [
-    { name = "pybullet" },
-]
-
 [package.metadata]
-requires-dist = [{ name = "pybullet", marker = "extra == 'physics3d'", specifier = ">=3.2.7,<4" }]
 provides-extras = ["physics3d"]
 
 [[package]]
@@ -897,11 +887,11 @@ modeling = [
 ]
 physics3d = [
     { name = "embodiment", extra = ["physics3d"] },
-    { name = "environment", extra = ["physics3d"] },
+    { name = "environment" },
     { name = "modality", extra = ["vision"] },
+    { name = "mujoco" },
     { name = "numpy" },
     { name = "pillow" },
-    { name = "pybullet" },
     { name = "torch" },
 ]
 
@@ -913,9 +903,9 @@ requires-dist = [
     { name = "environment", extras = ["physics3d"], marker = "extra == 'physics3d'", editable = "environment" },
     { name = "modality", editable = "modality" },
     { name = "modality", extras = ["vision"], marker = "extra == 'physics3d'", editable = "modality" },
+    { name = "mujoco", marker = "extra == 'physics3d'", specifier = ">=3.14,<4" },
     { name = "numpy", marker = "extra == 'physics3d'", specifier = ">=1.26,<3" },
     { name = "pillow", marker = "extra == 'physics3d'", specifier = ">=10,<13" },
-    { name = "pybullet", marker = "extra == 'physics3d'", specifier = ">=3.2.7,<4" },
     { name = "rich", specifier = ">=15" },
     { name = "symbiont", editable = "symbiont" },
     { name = "torch", marker = "extra == 'modeling'", specifier = ">=2.4,<3" },
@@ -1688,12 +1678,6 @@ sdist = { url = "https://files.pythonhosted.org/packages/73/21/d250cfca8ff30c2e5
 wheels = [
     { url = "https://files.pythonhosted.org/packages/9b/bf/7595e817906a29453ba4d99394e781b6fabe55d21f3c15d240f85dd06bb1/py_serializable-2.1.0-py3-none-any.whl", hash = "sha256:b56d5d686b5a03ba4f4db5e769dc32336e142fc3bd4d68a8c25579ebb0a67304", size = 23045, upload-time = "2025-07-21T09:56:46.848Z" },
 ]
-
-[[package]]
-name = "pybullet"
-version = "3.2.7"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/de/95/b9a98cd4ed948d4f25a7d0b13cb0c1f87e58dc6d113be9e18940641eb25f/pybullet-3.2.7.tar.gz", hash = "sha256:042879db8d101ac7590dee475fc6aded508b85fe1273fdbbfde1d88bd200e14f", size = 80508379, upload-time = "2025-01-30T00:34:00.527Z" }
 
 [[package]]
 name = "pycparser"

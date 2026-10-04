@@ -2,7 +2,7 @@
 """L6.9.4: deterministic CognitiveGraph activation scaling benchmark.
 
 Measures the cost of the graph hot path itself, independent of host sensing,
-World, PyBullet, telemetry and OrganismRuntime orchestration. Synthetic graphs
+World, physics, telemetry and OrganismRuntime orchestration. Synthetic graphs
 are deterministic and intentionally exceed canonical KernelLimits only inside
 this benchmark apparatus so we can observe scaling before a future learned
 graph ever reaches those sizes.
