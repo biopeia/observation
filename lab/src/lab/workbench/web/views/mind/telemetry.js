@@ -1,5 +1,68 @@
 import { tel } from './state.js';
 
+function assignComplete(data, fields) {
+  for (const [target, source] of fields) {
+    // Each body/cognition/vitals event is a complete projection for that
+    // channel at one tick. Missing therefore means "not observed now", not
+    // "repeat the last observation". Preserve explicit false/0/null exactly.
+    tel[target] = Object.hasOwn(data, source) ? data[source] : null;
+  }
+}
+
+const BODY_FIELDS = [
+  ['tick', 'tick'],
+  ['metabolicReserve', 'metabolic_reserve'],
+];
+
+const COGNITION_FIELDS = [
+  ['tick', 'tick'],
+  ['schemaConf', 'schema_confidence'],
+  ['schemaParts', 'schema_parts'],
+  ['schemaSensory', 'schema_sensory_parts'],
+  ['schemaCognitive', 'schema_cognitive_regions'],
+  ['embodimentEpoch', 'embodiment_epoch'],
+  ['reacclimationRemaining', 'reacclimation_remaining'],
+  ['reacclimating', 'reacclimating'],
+  ['motorOrigin', 'motor_origin'],
+  ['motorOriginDetail', 'motor_origin_detail'],
+  ['predictorCount', 'predictor_count'],
+  ['sensorimotorPatterns', 'sensorimotor_patterns'],
+  ['motorPrimitives', 'motor_primitives'],
+  ['cognitiveMotorPrimitives', 'cognitive_motor_primitives'],
+  ['motorRepertoireSize', 'motor_repertoire_size'],
+  ['recurrentPrimitiveCandidates', 'recurrent_primitive_candidates'],
+  ['maxPrimitiveSamples', 'max_primitive_samples'],
+  ['fullCompetenceGateCandidates', 'full_competence_gate_candidates'],
+  ['motorReadoutNodes', 'motor_readout_nodes'],
+  ['primitiveReadoutNodes', 'primitive_readout_nodes'],
+  ['cognitiveMotorOutputEdges', 'cognitive_motor_output_edges'],
+  ['cognitiveConcepts', 'cognitive_concepts'],
+  ['cognitiveReadouts', 'cognitive_readouts'],
+  ['predictionError', 'prediction_error'],
+  ['prospective', 'prospective_selected'],
+  ['prospectiveEV', 'prospective_expected_value'],
+  ['slmActive', 'slm_active'],
+  ['slmModels', 'slm_models'],
+];
+
+const VITAL_FIELDS = [
+  ['tick', 'tick'],
+  ['alive', 'alive'],
+  ['jointMotion', 'joint_motion'],
+  ['activeEffectors', 'active_effectors'],
+  ['resourceDistance', 'resource_distance'],
+  ['resourceProgress', 'resource_progress'],
+  ['resourceRemaining', 'resource_remaining'],
+  ['absorbedEnergy', 'absorbed_energy'],
+  ['displacement', 'displacement_from_origin'],
+  ['mechanicalWork', 'mechanical_work_joules'],
+  ['positiveActuatorWork', 'positive_actuator_work_joules'],
+  ['negativeActuatorWork', 'negative_actuator_work_joules'],
+  ['absoluteActuatorWork', 'absolute_actuator_work_joules'],
+  ['netActuatorWork', 'net_actuator_work_joules'],
+  ['metabolicCost', 'metabolic_work_cost'],
+];
+
 /**
  * Apply one lightweight /api/organism event to shared telemetry state.
  * Returns true when a known telemetry type was consumed.
@@ -8,59 +71,17 @@ export function applyTelemetryEvent(data) {
   if (!data?.type) return false;
 
   if (data.type === 'body') {
-    tel.tick = data.tick ?? tel.tick;
-    tel.metabolicReserve = data.metabolic_reserve ?? tel.metabolicReserve;
+    assignComplete(data, BODY_FIELDS);
     return true;
   }
 
   if (data.type === 'cognition') {
-    tel.tick = data.tick ?? tel.tick;
-    tel.schemaConf = data.schema_confidence ?? tel.schemaConf;
-    tel.schemaParts = data.schema_parts ?? tel.schemaParts;
-    tel.schemaSensory = data.schema_sensory_parts ?? tel.schemaSensory;
-    tel.schemaCognitive = data.schema_cognitive_regions ?? tel.schemaCognitive;
-    tel.embodimentEpoch = data.embodiment_epoch ?? tel.embodimentEpoch;
-    tel.reacclimationRemaining = data.reacclimation_remaining ?? tel.reacclimationRemaining;
-    tel.reacclimating = data.reacclimating ?? tel.reacclimating;
-    tel.motorOrigin = data.motor_origin ?? tel.motorOrigin;
-    tel.motorOriginDetail = data.motor_origin_detail ?? tel.motorOriginDetail;
-    tel.predictorCount = data.predictor_count ?? tel.predictorCount;
-    tel.sensorimotorPatterns = data.sensorimotor_patterns ?? tel.sensorimotorPatterns;
-    tel.motorPrimitives = data.motor_primitives ?? tel.motorPrimitives;
-    tel.cognitiveMotorPrimitives = data.cognitive_motor_primitives ?? tel.cognitiveMotorPrimitives;
-    tel.motorRepertoireSize = data.motor_repertoire_size ?? tel.motorRepertoireSize;
-    tel.recurrentPrimitiveCandidates = data.recurrent_primitive_candidates ?? tel.recurrentPrimitiveCandidates;
-    tel.maxPrimitiveSamples = data.max_primitive_samples ?? tel.maxPrimitiveSamples;
-    tel.fullCompetenceGateCandidates = data.full_competence_gate_candidates ?? tel.fullCompetenceGateCandidates;
-    tel.motorReadoutNodes = data.motor_readout_nodes ?? tel.motorReadoutNodes;
-    tel.primitiveReadoutNodes = data.primitive_readout_nodes ?? tel.primitiveReadoutNodes;
-    tel.cognitiveMotorOutputEdges = data.cognitive_motor_output_edges ?? tel.cognitiveMotorOutputEdges;
-    tel.cognitiveConcepts = data.cognitive_concepts ?? tel.cognitiveConcepts;
-    tel.cognitiveReadouts = data.cognitive_readouts ?? tel.cognitiveReadouts;
-    tel.predictionError = data.prediction_error ?? tel.predictionError;
-    tel.prospective = data.prospective_selected ?? tel.prospective;
-    tel.prospectiveEV = data.prospective_expected_value ?? tel.prospectiveEV;
-    tel.slmActive = data.slm_active ?? tel.slmActive;
-    tel.slmModels = data.slm_models ?? tel.slmModels;
+    assignComplete(data, COGNITION_FIELDS);
     return true;
   }
 
   if (data.type === 'vitals') {
-    tel.tick = data.tick ?? tel.tick;
-    tel.alive = data.alive ?? tel.alive;
-    tel.jointMotion = data.joint_motion ?? tel.jointMotion;
-    tel.activeEffectors = data.active_effectors ?? tel.activeEffectors;
-    tel.resourceDistance = data.resource_distance ?? tel.resourceDistance;
-    tel.resourceProgress = data.resource_progress ?? tel.resourceProgress;
-    tel.resourceRemaining = data.resource_remaining ?? tel.resourceRemaining;
-    tel.absorbedEnergy = data.absorbed_energy ?? tel.absorbedEnergy;
-    tel.displacement = data.displacement_from_origin ?? tel.displacement;
-    tel.mechanicalWork = data.mechanical_work_joules ?? tel.mechanicalWork;
-    tel.positiveActuatorWork = data.positive_actuator_work_joules ?? tel.positiveActuatorWork;
-    tel.negativeActuatorWork = data.negative_actuator_work_joules ?? tel.negativeActuatorWork;
-    tel.absoluteActuatorWork = data.absolute_actuator_work_joules ?? tel.absoluteActuatorWork;
-    tel.netActuatorWork = data.net_actuator_work_joules ?? tel.netActuatorWork;
-    tel.metabolicCost = data.metabolic_work_cost ?? tel.metabolicCost;
+    assignComplete(data, VITAL_FIELDS);
     return true;
   }
 
