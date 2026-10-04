@@ -56,6 +56,7 @@ class BodyDescriptor:
     observer_contact_region_names: tuple[str, ...] = ()
     observer_segments: Any = None
     observer_joint_topology: tuple[Any, ...] = ()
+    observer_fixed_link_topology: tuple[Any, ...] = ()
     observer_base_link_name: str | None = None
     # Active-sensor budget for this apparatus. v6 admits ~152 sensors
     # (receptors plus proprioceptive derivations); larger surfaces need more
@@ -92,6 +93,14 @@ class BodyDescriptor:
                         "axis": [float(value) for value in self.observer_joint_specs[index].axis],
                     }
                     for index, topology in enumerate(self.observer_joint_topology)
+                ],
+                "fixed_links": [
+                    {
+                        "parent": str(topology.parent_link),
+                        "child": str(topology.child_link),
+                        "origin": [float(value) for value in topology.origin],
+                    }
+                    for topology in self.observer_fixed_link_topology
                 ],
             },
         }
@@ -134,7 +143,7 @@ ANTHROPOMORPHIC_V6 = BodyDescriptor(
 
 CRAWLER_V1 = BodyDescriptor(
     body_kind=CRAWLER_SPEC.body_kind,
-    display_name="Crawler",
+    display_name="Four-legged crawler",
     version=CRAWLER_SPEC.state_schema_version,
     motor_dof=CRAWLER_SPEC.motor_dof,
     receptor_count=CRAWLER_SPEC.total_receptor_count,
@@ -151,6 +160,7 @@ CRAWLER_V1 = BodyDescriptor(
     ),
     observer_segments=CRAWLER_SPEC.segments,
     observer_joint_topology=CRAWLER_SPEC.joint_topology,
+    observer_fixed_link_topology=CRAWLER_SPEC.fixed_link_topology,
     observer_base_link_name=CRAWLER_SPEC.base_link_name,
 )
 

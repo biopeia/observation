@@ -22,6 +22,14 @@ def test_p8_local_runner_is_the_canonical_full_reprofile_entrypoint() -> None:
     assert '"addopts="' in runner
 
 
+def test_p8_reprofile_stays_out_of_candidate_ci() -> None:
+    root = _root()
+    workflow = (root / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+
+    assert "  performance-report:" not in workflow
+    assert "scripts/reprofile_performance.py" not in workflow
+
+
 def test_p8_continuous_assurance_report_is_non_blocking_and_quick_only() -> None:
     root = _root()
     workflow = (root / ".github" / "workflows" / "continuous-assurance.yml").read_text(

@@ -42,6 +42,13 @@ INTEROCEPTIVE_RECEPTOR_COUNT = 4
 
 
 @dataclass(frozen=True, slots=True)
+class FixedLinkTopology:
+    parent_link: str
+    child_link: str
+    origin: tuple[float, float, float]
+
+
+@dataclass(frozen=True, slots=True)
 class ArticulatedBodySpec:
     body_kind: str
     state_schema_version: int
@@ -52,6 +59,7 @@ class ArticulatedBodySpec:
     segments: Mapping[str, SegmentSpec]
     contact_link_names: tuple[str, ...]
     structural_neighbour_names: tuple[tuple[str, str], ...]
+    fixed_link_topology: tuple[FixedLinkTopology, ...] = ()
     body_material: SurfaceMaterial = BODY_MATERIAL
 
     @property
@@ -185,7 +193,11 @@ def build_articulated_urdf(spec: ArticulatedBodySpec) -> str:
     ):
         raise ValueError("joint topology order must match joint specs")
 
-    links = {spec.base_link_name, *(item.child_link for item in spec.joint_topology)}
+    links = {
+        spec.base_link_name,
+        *(item.child_link for item in spec.joint_topology),
+        *(item.child_link for item in spec.fixed_link_topology),
+    }
     link_xml = [
         _segment_link_xml(name, spec.segments[name])
         if name in spec.segments
@@ -207,6 +219,14 @@ def build_articulated_urdf(spec: ArticulatedBodySpec) -> str:
     <limit lower="{lower:.12g}" upper="{upper:.12g}" effort="{joint.max_motor_torque:.12g}" velocity="{joint.max_velocity:.12g}"/>
     <dynamics damping="{joint.passive_damping:.12g}" friction="0"/>
   </joint>"""
+        )
+    for topo in spec.fixed_link_topology:
+        joint_xml.append(
+            f'''\n  <joint name="{topo.child_link}_fixed" type="fixed">
+    <parent link="{topo.parent_link}"/>
+    <child link="{topo.child_link}"/>
+    <origin xyz="{_fmt(topo.origin)}" rpy="0 0 0"/>
+  </joint>'''
         )
     return (
         '<?xml version="1.0"?>\n'
@@ -234,6 +254,10 @@ class ArticulatedPhysics:
         self._link_index_by_name: dict[str, int] = {
             spec.base_link_name: -1,
             **{item.child_link: ordinal for ordinal, item in enumerate(spec.joint_topology)},
+            **{
+                item.child_link: len(spec.joint_topology) + ordinal
+                for ordinal, item in enumerate(spec.fixed_link_topology)
+            },
         }
         self._contact_links = (
             -1,

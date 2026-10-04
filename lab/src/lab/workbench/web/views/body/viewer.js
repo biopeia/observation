@@ -577,6 +577,10 @@ export class BodyViewer {
       linkNames.add(joint.parent);
       linkNames.add(joint.child);
     }
+    for (const link of model.fixedLinks ?? []) {
+      linkNames.add(link.parent);
+      linkNames.add(link.child);
+    }
 
     for (const name of linkNames) {
       const node = new THREE.Object3D();
@@ -612,6 +616,15 @@ export class BodyViewer {
       marker.visible = true;
       childNode.add(marker);
       this.jointMarkers[jdef.name] = marker;
+    }
+
+    for (const fixed of model.fixedLinks ?? []) {
+      const parentNode = this.linkObjs[fixed.parent];
+      const childNode = this.linkObjs[fixed.child];
+      if (!parentNode || !childNode) continue;
+      const [tx, ty, tz] = pbPos(...fixed.offset);
+      childNode.position.set(tx, ty, tz);
+      parentNode.add(childNode);
     }
 
     const baseLink = this.linkObjs[model.baseLink];
