@@ -67,9 +67,12 @@ def test_recorded_controls_do_not_change_state_identity() -> None:
     runtime = OrganismRuntime(**RUNTIME_KWARGS)
     runtime.tick()
     before = runtime.state_hash()
+    before_condition = _saved(runtime)["checkpoint_lineage"]["continuation_condition_hash"]
     runtime.set_cognitive_plasticity_enabled(False)
 
     assert runtime.state_hash() == before
+    after_condition = _saved(runtime)["checkpoint_lineage"]["continuation_condition_hash"]
+    assert after_condition != before_condition
 
 
 def test_launcher_supplied_limits_and_policy_are_reapplied() -> None:
