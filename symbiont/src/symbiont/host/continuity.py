@@ -742,6 +742,7 @@ class EnvelopeField:
     checkpoint_field: str
     purpose: str
     in_state_identity: bool
+    nested_checkpoint_fields: tuple[str, ...] = ()
 
 
 ENVELOPE_FIELDS: tuple[EnvelopeField, ...] = (
@@ -750,8 +751,31 @@ ENVELOPE_FIELDS: tuple[EnvelopeField, ...] = (
         "effective_config", "recorded constructor configuration reapplied on restore", True
     ),
     EnvelopeField("constitution_fingerprint", "hash of the genome constitution", True),
-    EnvelopeField("checkpoint_lineage", "state identity and parent of this save", False),
-    EnvelopeField("runtime_provenance", "software and schema that produced the save", False),
+    EnvelopeField(
+        "checkpoint_lineage",
+        "state identity and parent of this save",
+        False,
+        (
+            "checkpoint_id",
+            "parent_checkpoint_hash",
+            "identity_scope",
+            "schema_version",
+            "continuation_condition_hash",
+            "transforms",
+            "unverified_legacy_origin",
+        ),
+    ),
+    EnvelopeField(
+        "runtime_provenance",
+        "software and schema that produced the save",
+        False,
+        (
+            "software_version",
+            "checkpoint_schema_version",
+            "session_controls",
+            "changed_since_restore",
+        ),
+    ),
 )
 
 

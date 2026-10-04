@@ -63,6 +63,17 @@ def test_every_checkpoint_field_is_owned(layer: str, persist_replay_state: bool)
     assert owned - written <= CONDITIONAL_FIELDS
 
 
+def test_nested_checkpoint_envelope_fields_are_inventoried() -> None:
+    runtime = _runtime(LAYERS[0])
+    payload = runtime.checkpoint()
+    for envelope in ENVELOPE_FIELDS:
+        if not envelope.nested_checkpoint_fields:
+            continue
+        nested = payload[envelope.checkpoint_field]
+        assert isinstance(nested, dict), envelope.checkpoint_field
+        assert set(nested) <= set(envelope.nested_checkpoint_fields), envelope.checkpoint_field
+
+
 def test_state_identity_flag_matches_the_hashed_payload() -> None:
     runtime = _runtime(LAYERS[-1])
     hashed = set(runtime._build_checkpoint_payload()) - {"runtime_provenance"}
