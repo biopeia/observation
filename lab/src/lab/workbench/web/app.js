@@ -5,7 +5,7 @@ import { mount as mountVision, update as updateVision, unmount as unmountVision 
 import { RuntimeStatePoller } from './runtime-state.js';
 
 const ROOT_ID = 'view-root';
-const ROUTE_ALIASES = { lab: 'home', experiments: 'home', body: 'embodiment' };
+const ROUTE_ALIASES = { body: 'embodiment' };
 const ROUTES = {
   home: {
     mount: (root, state) => mountHome(root, state),

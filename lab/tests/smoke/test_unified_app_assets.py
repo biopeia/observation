@@ -55,3 +55,16 @@ def test_fleet_stream_is_available_without_observatory() -> None:
         server.shutdown()
         server.server_close()
         time.sleep(0.1)
+
+
+def test_workbench_has_no_retired_demo_routes_or_stale_telemetry_label() -> None:
+    from lab.server.server import WEB_ROOT
+
+    app = (WEB_ROOT / "app.js").read_text(encoding="utf-8")
+    viewer = (WEB_ROOT / "views" / "body" / "viewer.js").read_text(encoding="utf-8")
+
+    assert "const ROUTE_ALIASES = { body: 'embodiment' };" in app
+    assert "lab: 'home'" not in app
+    assert "experiments: 'home'" not in app
+    assert "Legacy/demo telemetry" not in viewer
+    assert "Sparse pose frames can carry joint angles" in viewer

@@ -1125,8 +1125,8 @@ export class BodyViewer {
       return;
     }
 
-    // Legacy/demo telemetry has joint angles instead of authoritative link
-    // poses. It remains presentation-only and is interpolated deterministically.
+    // Sparse pose frames can carry joint angles without authoritative link
+    // poses. Keep this presentation-only fallback deterministic.
     for (const jdef of this.bodyModel.joints) {
       const a = from.jointAngles.get(jdef.name);
       const b = to.jointAngles.get(jdef.name);
