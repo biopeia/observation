@@ -62,10 +62,9 @@ def test_owner_facing_restore_adopts_cognition_from_current_schema_checkpoint():
     assert lineage["transforms"][-1] == "canonical-cognition-adoption"
 
 
-def test_an_organism_born_under_the_current_schema_records_no_legacy_origin():
+def test_an_organism_born_under_the_current_schema_starts_a_clean_lineage():
     born = OrganismRuntime(bootstrap_semantic_senses=False)
     restarted = OrganismRuntime.from_checkpoint(born.checkpoint(), bootstrap_semantic_senses=False)
 
     lineage = restarted.checkpoint()["checkpoint_lineage"]
-    assert "unverified_legacy_origin" not in lineage
     assert "transforms" not in lineage

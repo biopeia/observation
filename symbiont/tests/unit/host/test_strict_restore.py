@@ -59,7 +59,7 @@ def test_identity_cannot_be_dropped_from_a_current_save() -> None:
     saved = _saved(LAYERS[0])
     del saved["checkpoint_lineage"]["identity_scope"]
 
-    with pytest.raises(CheckpointError, match="no verifiable checkpoint_lineage"):
+    with pytest.raises(CheckpointError, match="unsupported identity_scope"):
         OrganismRuntime.from_checkpoint(saved, **RUNTIME_KWARGS)
 
 

@@ -12,8 +12,6 @@ from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from symbiont.host.checkpoint import has_unverified_legacy_origin
-
 
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
@@ -111,7 +109,6 @@ def inspect_snapshot_source(source: Path) -> dict[str, Any]:
         ),
         "capturable": organism.is_file() and body.is_file(),
         **(_bundle_metadata(organism) if organism.is_file() else {}),
-        **(_origin_metadata(organism) if organism.is_file() else {}),
         **(_body_metadata(body) if body.is_file() else {}),
     }
 
@@ -214,7 +211,6 @@ def archive_snapshot(
             "scenario": scenario,
             "models_source": models_source,
             **_bundle_metadata(organism),
-            **_origin_metadata(organism),
             **_body_metadata(body),
             "organism_sha256": _sha256(tmp / "organism.symbiont"),
             "body_sha256": _sha256(tmp / "body.json"),
@@ -243,22 +239,6 @@ def archive_snapshot(
     except Exception:
         shutil.rmtree(tmp, ignore_errors=True)
         raise
-
-
-def _origin_metadata(bundle: Path) -> dict[str, Any]:
-    """Whether the organism in a bundle descends from an unverified checkpoint.
-
-    Unreadable or absent runtime state is reported as unknown (``None``), never
-    as verified: callers that need a verified origin must treat it as a refusal.
-    """
-    try:
-        with zipfile.ZipFile(bundle) as archive:
-            payload = json.loads(archive.read("runtime.json"))
-    except (OSError, KeyError, ValueError, zipfile.BadZipFile):
-        return {"unverified_legacy_origin": None}
-    if not isinstance(payload, dict):
-        return {"unverified_legacy_origin": None}
-    return {"unverified_legacy_origin": has_unverified_legacy_origin(payload)}
 
 
 def verify_snapshot(

@@ -1088,7 +1088,6 @@ def test_the_whole_lifecycle_holds_per_register_entry(case: _Case) -> None:
     lineage = final["checkpoint_lineage"]
     assert lineage["parent_checkpoint_hash"] == transformed["checkpoint_lineage"]["checkpoint_id"]
     assert lineage["transforms"][-1:] == ["re-embodiment"]
-    assert "unverified_legacy_origin" not in lineage
     assert not any(
         binding.status is BindingStatus.VALID
         for binding in reembodied._action_domain.execution_bindings.items

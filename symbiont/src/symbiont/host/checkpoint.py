@@ -24,9 +24,7 @@ CHECKPOINT_SCHEMA_VERSION = 14
 # runtime controls affect future learning but are apparatus configuration, not
 # organism state. v13 persists birth-expression baselines for metaplastic
 # regulation. No migration is retained: prior schemas lack current contracts.
-IDENTITY_VERIFIED_SINCE_SCHEMA = 11
 IDENTITY_SCOPE = "organism-state-v1"
-UNVERIFIED_LEGACY_ORIGIN = "unverified_legacy_origin"
 # Save-event metadata and embodiment history written around the organism
 # checkpoint by the embodiment apparatus are not organism state identity.
 _IDENTITY_EXCLUDED_FIELDS = frozenset(
@@ -150,43 +148,14 @@ def continuation_condition_hash(controls: dict[str, Any]) -> str:
 
 
 def lineage_history(payload: dict[str, Any]) -> dict[str, Any]:
-    """The part of a checkpoint's lineage that every later save must carry.
-
-    ``transforms`` lists the authorized transforms the organism has been
-    through. ``unverified_legacy_origin`` records that some ancestor checkpoint
-    was accepted without a verifiable identity by a historical loader (schema
-    10 and earlier). Both are facts about organism history, not one save, so
-    they outlive the checkpoint that first recorded them.
-    """
+    """Return authorized state transforms that later saves must carry."""
     lineage = payload.get("checkpoint_lineage")
     lineage = lineage if isinstance(lineage, dict) else {}
     history: dict[str, Any] = {}
     transforms = lineage.get("transforms")
     if isinstance(transforms, list) and transforms:
         history["transforms"] = [str(item) for item in transforms]
-    if lineage.get(UNVERIFIED_LEGACY_ORIGIN) is True or "identity_scope" not in lineage:
-        history[UNVERIFIED_LEGACY_ORIGIN] = True
     return history
-
-
-def has_unverified_legacy_origin(payload: dict[str, Any]) -> bool:
-    """Whether this state, or an ancestor of it, was accepted without identity."""
-    return lineage_history(payload).get(UNVERIFIED_LEGACY_ORIGIN) is True
-
-
-def require_verified_origin(payload: dict[str, Any]) -> None:
-    """Fail closed for uses that need a subject of verifiable origin.
-
-    Confirmatory and held-out experiments must not start from a state whose
-    history includes a checkpoint that was never identity-checked
-    (research programme A2, subject provenance).
-    """
-    if has_unverified_legacy_origin(payload):
-        raise CheckpointError(
-            "checkpoint has an unverified legacy origin: an ancestor was saved "
-            "before state identity was verifiable, so it cannot be used where a "
-            "verified origin is required"
-        )
 
 
 def stamp_checkpoint_identity(payload: dict[str, Any], *, transform: str) -> dict[str, Any]:
@@ -210,15 +179,18 @@ def stamp_checkpoint_identity(payload: dict[str, Any], *, transform: str) -> dic
         **history,
         "transforms": [*history.get("transforms", []), transform],
     }
-    if _saved_by_current_schema(stamped):
-        provenance = stamped.get("runtime_provenance")
-        controls = provenance.get("session_controls") if isinstance(provenance, dict) else None
-        if isinstance(controls, dict):
-            lineage["continuation_condition_hash"] = continuation_condition_hash(controls)
-    # The schema the saving runtime declared travels with the state; a
-    # transform never upgrades a legacy checkpoint to a current one.
-    if "schema_version" in previous:
-        lineage["schema_version"] = previous["schema_version"]
+    provenance = stamped.get("runtime_provenance")
+    controls = provenance.get("session_controls") if isinstance(provenance, dict) else None
+    previous_condition_hash = previous.get("continuation_condition_hash")
+    if isinstance(controls, dict):
+        lineage["continuation_condition_hash"] = continuation_condition_hash(controls)
+    elif isinstance(previous_condition_hash, str):
+        # A transform may intentionally remove a required field. Preserve the
+        # prior condition identity so restore rejects the incomplete result.
+        lineage["continuation_condition_hash"] = previous_condition_hash
+    else:
+        raise CheckpointError("current checkpoint is missing required session_controls")
+    lineage["schema_version"] = CHECKPOINT_SCHEMA_VERSION
     stamped["checkpoint_lineage"] = lineage
     return stamped
 
@@ -226,90 +198,47 @@ def stamp_checkpoint_identity(payload: dict[str, Any], *, transform: str) -> dic
 def verify_checkpoint_identity(payload: dict[str, Any]) -> None:
     """Fail closed unless a checkpoint matches the identity it recorded.
 
-    Call it on the payload as loaded. A lineage block that declares an
-    ``identity_scope`` is verifiable and must match. One without it is a legacy
-    identifier (schema 10 and earlier) that covered only base runtime fields
-    and was never checked; it is accepted only from a legacy save.
+    The current checkpoint contract always records a verifiable lineage and
+    continuation-condition hash. Missing or obsolete identity metadata fails closed.
     """
     lineage = payload.get("checkpoint_lineage")
-    if isinstance(lineage, dict) and "identity_scope" in lineage:
-        if lineage["identity_scope"] != IDENTITY_SCOPE:
-            raise CheckpointError("checkpoint_lineage has an unsupported identity_scope")
-        try:
-            recomputed = checkpoint_state_hash(payload)
-        except (TypeError, ValueError) as exc:
-            raise CheckpointError(f"checkpoint state is not canonical JSON: {exc}") from exc
-        if lineage.get("checkpoint_id") != recomputed:
-            raise CheckpointError(
-                "checkpoint state does not match its recorded checkpoint_id; "
-                "the checkpoint was modified after it was saved"
-            )
-        if _saved_by_current_schema(payload):
-            provenance = payload.get("runtime_provenance")
-            if not isinstance(provenance, dict):
-                raise CheckpointError(
-                    "current-schema checkpoint is missing required field 'runtime_provenance'"
-                )
-            controls = provenance.get("session_controls")
-            if not isinstance(controls, dict):
-                raise CheckpointError(
-                    "current-schema checkpoint is missing required field 'session_controls'"
-                )
-            try:
-                expected = continuation_condition_hash(controls)
-            except (TypeError, ValueError) as exc:
-                raise CheckpointError(
-                    f"checkpoint continuation conditions are not canonical JSON: {exc}"
-                ) from exc
-            if lineage.get("continuation_condition_hash") != expected:
-                raise CheckpointError(
-                    "checkpoint continuation conditions do not match their recorded hash"
-                )
-        return
-    if _saved_by_current_schema(payload):
+    if not isinstance(lineage, dict):
         raise CheckpointError(
-            "checkpoint saved by a current runtime carries no verifiable checkpoint_lineage"
+            "current checkpoint is missing required checkpoint_lineage"
         )
-
-
-def _declared_schema(block: Any, key: str) -> int | None:
-    value = block.get(key) if isinstance(block, dict) else None
-    return value if isinstance(value, int) and not isinstance(value, bool) else None
-
-
-def _saved_by_current_schema(payload: dict[str, Any]) -> bool:
-    """Whether the runtime that saved this state declared a verifying schema.
-
-    Decided from what the saving runtime recorded — in the lineage block and in
-    runtime_provenance — which identity-verifying transforms carry over unchanged.
-    A verifiable ``identity_scope`` alone is not evidence of it: an authorized
-    transform gives a legacy checkpoint a verifiable identity without giving it
-    the fields that only a later schema writes.
-    """
-    declared = (
-        # The payload schema is itself a declaration by the writer. In
-        # particular, removing both provenance blocks from a current-schema
-        # checkpoint must not make it look like an unverified legacy payload.
-        _declared_schema(payload, "schema_version"),
-        _declared_schema(payload.get("checkpoint_lineage"), "schema_version"),
-        _declared_schema(payload.get("runtime_provenance"), "checkpoint_schema_version"),
-    )
-    return any(
-        version is not None and version >= IDENTITY_VERIFIED_SINCE_SCHEMA for version in declared
-    )
+    if lineage.get("identity_scope") != IDENTITY_SCOPE:
+        raise CheckpointError("checkpoint_lineage has an unsupported identity_scope")
+    try:
+        recomputed = checkpoint_state_hash(payload)
+    except (TypeError, ValueError) as exc:
+        raise CheckpointError(f"checkpoint state is not canonical JSON: {exc}") from exc
+    if lineage.get("checkpoint_id") != recomputed:
+        raise CheckpointError(
+            "checkpoint state does not match its recorded checkpoint_id; "
+            "the checkpoint was modified after it was saved"
+        )
+    normalize_checkpoint(payload)
+    provenance = payload.get("runtime_provenance")
+    if not isinstance(provenance, dict):
+        raise CheckpointError("current checkpoint is missing required field 'runtime_provenance'")
+    controls = provenance.get("session_controls")
+    if not isinstance(controls, dict):
+        raise CheckpointError("current checkpoint is missing required field 'session_controls'")
+    try:
+        expected = continuation_condition_hash(controls)
+    except (TypeError, ValueError) as exc:
+        raise CheckpointError(
+            f"checkpoint continuation conditions are not canonical JSON: {exc}"
+        ) from exc
+    if lineage.get("continuation_condition_hash") != expected:
+        raise CheckpointError("checkpoint continuation conditions do not match their recorded hash")
 
 
 def require_current_schema_fields(payload: dict[str, Any], *, layer: str) -> None:
     """Reject a current-schema checkpoint that lost acquired state.
 
-    Restore paths may default an absent field to a fresh subsystem when loading
-    partial or explicitly transformed payloads. This is not a schema migration:
-    this runtime accepts only its exact checkpoint schema. For a checkpoint
-    saved by the current runtime, absence is loss and must not become a healthy
-    empty subsystem.
+    Absence is loss and must not become a healthy empty subsystem.
     """
-    if not _saved_by_current_schema(payload):
-        return
     for field in sorted(required_checkpoint_fields(layer)):
         if field not in payload:
             raise CheckpointError(f"current-schema checkpoint is missing required field {field!r}")
@@ -328,7 +257,7 @@ def normalize_checkpoint(payload: dict[str, Any]) -> dict[str, Any]:
     schema_version = payload.get("schema_version")
     if isinstance(schema_version, bool) or not isinstance(schema_version, int):
         if schema_version is None:
-            raise CheckpointError("checkpoint payload is missing schema_version")
+            raise CheckpointError("current checkpoint is missing required field 'schema_version'")
         raise CheckpointError("checkpoint schema_version must be an integer")
     if schema_version > CHECKPOINT_SCHEMA_VERSION:
         raise CheckpointError(

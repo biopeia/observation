@@ -23,7 +23,6 @@ from symbiont.core.orchestration.runtime import (
 from symbiont.host.checkpoint import (
     CheckpointError,
     checkpoint_state_hash,
-    lineage_history,
     load_checkpoint_file,
     save_checkpoint_atomic,
     verify_checkpoint_identity,
@@ -48,8 +47,6 @@ __all__ = [
     # identity
     "checkpoint_state_hash",
     "verify_checkpoint_identity",
-    # lineage
-    "lineage_history",
     "SpeciesHeritage",
     "HeritagePattern",
     "__version__",

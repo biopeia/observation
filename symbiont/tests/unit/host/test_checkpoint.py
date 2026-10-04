@@ -205,7 +205,7 @@ def test_importing_into_a_stricter_min_samples_config_does_not_mark_it_learned()
     assert not restored.is_acclimated("cpu")
 
 
-# --- v0.46+: saved_at_tick, schema migration, atomic file persistence ---
+# --- Host checkpoint projection and atomic file persistence ---
 
 
 def test_saved_at_tick_omitted_when_not_given():
@@ -218,14 +218,10 @@ def test_saved_at_tick_round_trips():
     assert payload["saved_at_tick"] == 42
 
 
-def test_unknown_old_schema_version_with_no_migration_path_is_rejected():
-    with pytest.raises(CheckpointError):
-        import_checkpoint({"schema_version": 0})
-
-
-def test_previous_current_schema_is_rejected_without_expression_baseline_migration():
+@pytest.mark.parametrize("schema_version", [0, 12])
+def test_non_current_schema_is_rejected(schema_version):
     with pytest.raises(CheckpointError, match="loads only schema 14"):
-        import_checkpoint({"schema_version": 12})
+        import_checkpoint({"schema_version": schema_version})
 
 
 def test_newer_schema_version_is_rejected_as_unsupported():
@@ -387,7 +383,7 @@ def test_import_rejects_a_non_integer_count_in_drift():
         import_checkpoint(payload)
 
 
-# --- v0.53+: self-model and resident checkpoint migrations ---
+# --- Current checkpoint contract ---
 
 
 def test_current_schema_version_is_fourteen():

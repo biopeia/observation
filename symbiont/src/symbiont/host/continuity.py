@@ -781,7 +781,6 @@ ENVELOPE_FIELDS: tuple[EnvelopeField, ...] = (
             "schema_version",
             "continuation_condition_hash",
             "transforms",
-            "unverified_legacy_origin",
         ),
     ),
     EnvelopeField(
