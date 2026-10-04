@@ -65,16 +65,19 @@ hash and checkpoint.
 
 The migration deferred changes that affect energy trajectories or perception.
 The owner subsequently requested resolution of the consolidated audit issues;
-the telemetry-cost defect below is fixed in the current worktree. Its effect on
-canonical profile versioning must still be reconciled before publication.
+the telemetry-cost defect below is fixed, and its unchanged canonical-profile
+configuration is covered by an instrumentation-invariance regression test.
 
 - **Host telemetry costs the organism energy — FIXED locally (2026-10-04).**
   Perception metabolism is now charged only for organism-facing readings;
   apparatus process telemetry no longer changes energy. The former strict xfail
   is now a passing invariance test in
-  `symbiont/tests/unit/sensory/test_interoception_independence.py` (7 passed).
-  Canonical profile/version consequences still require checking against the
-  approved profile governance before publishing this correction.
+  `symbiont/tests/unit/sensory/test_interoception_independence.py` (6 passed).
+  Its `test_canonical_profile_v1_is_invariant_to_unperceived_host_telemetry`
+  case confirms the approved v1 runtime settings still expose no interoception
+  provider and produce the same state hash with process telemetry present or
+  absent. No v1 setting or profile-version change is made; historical runs with
+  non-canonical interoception settings were not re-audited.
 - **Interoception is only offered where host senses are.** The organism's own
   interoception is attached only when `discover_senses` is on and the Lab
   reports the host available. Kept as it was; a minimal `OrganismRuntime()`
@@ -153,7 +156,7 @@ unverified semantics and evidence.
 | --- | --- | --- |
 | SYM-01 continuation-condition integrity | **Implemented locally**; schema 12 verifies a separate condition hash and rejects missing contemporary controls | Hash is unkeyed integrity, not authentication; no publication claim yet |
 | SYM-02 silent rebirth on missing checkpoint | **Resolved in this repository**; required restore fails and first-boot creation is explicitly named; the replay CLI uses required restore | External deployments are outside this checkout and cannot be audited here |
-| SYM-03 observer telemetry changes organism energy | **Regression fixed locally**; instrumentation-invariance test passes | Reconcile trajectory impact with approved Canonical Organism Profile v1; no owner-approved profile consequence recorded yet |
+| SYM-03 observer telemetry changes organism energy | **Resolved for runtime and canonical profile v1** | Instrumentation invariance passes for intrinsic state in enabled/sham modes and for the approved v1 configuration; no profile setting/version change is required. Historical non-canonical trajectories were not re-audited |
 | SYM-04 BodySchema historical knowledge vs current-body authority | **Resolved for the canonical re-embodiment path** | The consumer audit found no active read of archived BodySchema priors; the current schema resets at transition and old content remains historical. No transfer-utility claim follows, and external consumers of exported snapshots are outside the audit scope |
 | SYM-05 exact checkpoint schema policy | **Implemented/documented**; only schema 12 restores | Historical checkpoints are archival evidence, not live-restorable organisms |
 | SYM-06 continuity register semantic correctness | **Sensory binding gap resolved; broader register audit remains open** | `_sensory_system` and `_adaptive_senses` now have an explicit split: acquired state is retained only as `BodySpecificMemory.sensory_prior`, while active models come from the fresh Body checkpoint. Regression and composite tests cover the boundary; this closes the identified source/capability-ID reuse path, not the remaining register-wide semantic audit |
@@ -185,15 +188,14 @@ active engine or execution authority. **SYM-04 is resolved for the canonical
 re-embodiment path.** No transfer-utility claim follows, and arbitrary external
 consumers of exported checkpoints or snapshots remain outside the audit scope.
 
-### Canonical-profile gate
+### Canonical-profile consequence of the telemetry correction
 
-The telemetry correction changes energy trajectories relative to the former
-instrumentation-coupled behavior. Canonical Organism Profile v1 is approved and
-immutable after use; this audit has not established an approved configuration
-consequence for the correction. Do not edit v1 or claim the correction is
-published as canonical until the applicable owner/governance decision is
-recorded. The mechanism-level fix and its profile-level adoption are separate
-statuses.
+The correction changes the defective instrumentation-coupled behavior, not the
+approved profile configuration. The focused invariance suite compares the
+approved `CANONICAL.runtime_kwargs()` with process telemetry absent/present and
+asserts both no interoception provider and an identical organism state hash.
+Canonical Organism Profile v1 remains unchanged; this does not retrospectively
+validate historical runs using non-canonical interoception settings.
 
 ## Other
 
