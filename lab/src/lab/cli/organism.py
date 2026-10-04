@@ -8,9 +8,6 @@ from pathlib import Path
 from typing import Any
 
 from lab.integration.organism import create_canonical_organism, restore_canonical_resident
-from symbiont.cognition.birth import load_base_genome, load_base_graph
-from symbiont.cognition.graph import CognitiveGraph, GraphError, load_graph_definition
-from symbiont.cognition.limits import KernelLimits
 from symbiont.api import (
     ConsentRevokedError,
     GovernedOrganism,
@@ -21,8 +18,11 @@ from symbiont.api import (
     TickBudgetExhaustedError,
     load_checkpoint_file,
 )
+from symbiont.cognition.birth import load_base_genome, load_base_graph
+from symbiont.cognition.graph import CognitiveGraph, GraphError, load_graph_definition
+from symbiont.cognition.limits import KernelLimits
 from symbiont.core import DefensiveAdvisor, append_advisories_to_log
-from symbiont.genetics.genome import Genome, GenomeCodec, GenomeError, legacy_validation_version
+from symbiont.genetics.genome import Genome, GenomeCodec, GenomeError
 
 
 def build_organism_parser(parser: argparse.ArgumentParser) -> None:
@@ -150,7 +150,7 @@ def _load_genome_file(path: str, *, kernel_limits: KernelLimits) -> Genome:
     codec.validate(
         genome,
         kernel_limits,
-        running_version=legacy_validation_version(genome.kernel_compatibility, _running_version()),
+        running_version=_running_version(),
     )
     return genome
 

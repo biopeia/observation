@@ -240,18 +240,6 @@ def satisfies_kernel_compatibility(spec: str, running_version: tuple[int, int, i
     return True
 
 
-def legacy_validation_version(
-    spec: str, running_version: tuple[int, int, int]
-) -> tuple[int, int, int]:
-    if (
-        spec in {">=0.55,<0.60", ">=0.59,<0.60"}
-        and running_version[0] == 0
-        and running_version[1] >= 60
-    ):
-        return (0, 59, 4)
-    return running_version
-
-
 def _range_to_dict(value: AdaptiveGeneRange) -> dict[str, float]:
     return {
         "baseline": value.baseline,
@@ -573,7 +561,6 @@ __all__ = [
     "StructuralGenes",
     "StructureGenes",
     "flatten_genes",
-    "legacy_validation_version",
     "parse_kernel_compatibility",
     "satisfies_kernel_compatibility",
     "_genome_to_plain_dict",

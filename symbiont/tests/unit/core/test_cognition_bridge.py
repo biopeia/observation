@@ -10,7 +10,7 @@ from symbiont.core.cognition.bridge import CognitiveBridge, TopologyHealth
 _GENOME_PAYLOAD = {
     "schema_version": 2,
     "genome_id": "genome_bridge0000000000000000000",
-    "kernel_compatibility": ">=0.55,<0.60",
+    "kernel_compatibility": ">=0.80,<1.00",
     "development": {
         "soft_node_budget": 64,
         "soft_edge_budget": 384,

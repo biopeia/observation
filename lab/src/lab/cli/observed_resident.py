@@ -71,7 +71,7 @@ def _load_first_launch_cognition(args: argparse.Namespace, runtime_kwargs: dict)
     from symbiont.cognition.birth import load_base_genome, load_base_graph
     from symbiont.cognition.graph import load_graph_definition
     from symbiont.cognition.limits import KernelLimits
-    from symbiont.genetics.genome import GenomeCodec, legacy_validation_version
+    from symbiont.genetics.genome import GenomeCodec
 
     kernel_limits = KernelLimits()
     if args.genome_file:
@@ -81,9 +81,7 @@ def _load_first_launch_cognition(args: argparse.Namespace, runtime_kwargs: dict)
         codec.validate(
             genome,
             kernel_limits,
-            running_version=legacy_validation_version(
-                genome.kernel_compatibility, _running_version_tuple()
-            ),
+            running_version=_running_version_tuple(),
         )
     else:
         genome = load_base_genome(
@@ -164,10 +162,10 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     from lab.integration.organism import create_canonical_organism, restore_canonical_resident
+    from symbiont.api import load_checkpoint_file
     from symbiont.core import OrganismRuntime, ResidentConfig, ResidentOrganism
     from symbiont.core.host.local_habitat import LocalHabitat
     from symbiont.core.social.capsule import CapsuleKeyPair
-    from symbiont.api import load_checkpoint_file
 
     runtime_kwargs: dict[str, object] = {}
     existing_payload = load_checkpoint_file(args.state_file)
