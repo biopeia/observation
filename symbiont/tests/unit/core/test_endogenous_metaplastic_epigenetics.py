@@ -165,7 +165,7 @@ def test_m5_inherited_mark_is_birth_expression_not_new_acquisition():
 
     assert germline.inherited_marks["plasticity.learning_rate.baseline"] == inherited
     assert germline.acquired_marks == {}
-    assert germline.birth_expression["plasticity.learning_rate.baseline"] == pytest.approx(0.10)
+    assert germline.birth_expression["plasticity.learning_rate.baseline"] == pytest.approx(0.18)
 
     sym = CleanEmbodimentSeed("m5-sym", genome=genome, germline=germline)
     assert sym.learning_rate == pytest.approx(0.18)

@@ -77,9 +77,24 @@ class GermlineState:
         *,
         inherited_marks: tuple[EpigeneticMark, ...] = (),
         acquired_capture_enabled: bool = False,
+        schema: GenomeSchema = DEFAULT_GENOME_SCHEMA,
     ) -> "GermlineState":
+        # Birth expression is the effective phenotype at birth, not the raw
+        # genotype. Inherited marks must not later look like a lifetime
+        # acquired deviation and be captured a second time.
+        birth_expression = dict(flatten_genes(genome))
+        for mark in inherited_marks:
+            base = birth_expression.get(mark.locus)
+            if base is None:
+                raise ValueError(f"inherited mark targets unknown locus {mark.locus!r}")
+            spec = schema.spec(mark.locus)
+            if not spec.regulable:
+                raise ValueError(f"inherited mark targets non-regulable locus {mark.locus!r}")
+            birth_expression[mark.locus] = spec.clamp(
+                float(base) + mark.delta * mark.strength
+            )
         return cls(
-            birth_expression=dict(flatten_genes(genome)),
+            birth_expression=birth_expression,
             inherited_marks={mark.locus: mark for mark in inherited_marks},
             acquired_marks={},
             acquired_capture_enabled=acquired_capture_enabled,
