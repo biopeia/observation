@@ -61,6 +61,7 @@ class ArticulatedBodySpec:
     structural_neighbour_names: tuple[tuple[str, str], ...]
     fixed_link_topology: tuple[FixedLinkTopology, ...] = ()
     body_material: SurfaceMaterial = BODY_MATERIAL
+    fixed_base: bool = False
 
     @property
     def motor_dof(self) -> int:
@@ -296,7 +297,8 @@ class ArticulatedPhysics:
         loaded = mujoco.MjSpec.from_string(urdf)
         frame = self.scene.spec.worldbody.add_frame(pos=[0.0, 0.0, float(spawn_height)])
         root = frame.attach_body(loaded.worldbody.first_body(), NAME_PREFIX, "")
-        root.add_freejoint(name=f"{NAME_PREFIX}root")
+        if not spec.fixed_base:
+            root.add_freejoint(name=f"{NAME_PREFIX}root")
         material = spec.body_material
         friction = [
             material.lateral_friction,
@@ -334,9 +336,18 @@ class ArticulatedPhysics:
         spec = self.SPEC
         scene = self.scene
         model = scene.model
-        root_joint = scene.name_to_id("joint", f"{NAME_PREFIX}root")
-        self._root_qpos = int(model.jnt_qposadr[root_joint])
-        self._root_dof = int(model.jnt_dofadr[root_joint])
+        self._root_body_id = scene.name_to_id("body", f"{NAME_PREFIX}{spec.base_link_name}")
+        if self.SPEC.fixed_base:
+            root_qpos: tuple[int, ...] = ()
+            root_dof: tuple[int, ...] = ()
+            self._joint_qpos_state_offset = 0
+        else:
+            root_joint = scene.name_to_id("joint", f"{NAME_PREFIX}root")
+            self._root_qpos = int(model.jnt_qposadr[root_joint])
+            self._root_dof = int(model.jnt_dofadr[root_joint])
+            root_qpos = tuple(range(self._root_qpos, self._root_qpos + 7))
+            root_dof = tuple(range(self._root_dof, self._root_dof + 6))
+            self._joint_qpos_state_offset = 7
         joint_ids = [
             scene.name_to_id("joint", f"{NAME_PREFIX}{item.name}") for item in spec.joint_specs
         ]
@@ -357,14 +368,8 @@ class ArticulatedPhysics:
         # Every engine body of this organism; ids move when the scene is rebuilt.
         self.body_ids = frozenset(self._body_id_by_link.values())
         self._link_by_body_id = {body: index for index, body in self._body_id_by_link.items()}
-        self._qpos_addresses = (
-            *range(self._root_qpos, self._root_qpos + 7),
-            *self._joint_qpos,
-        )
-        self._dof_addresses = (
-            *range(self._root_dof, self._root_dof + 6),
-            *self._joint_dof,
-        )
+        self._qpos_addresses = (*root_qpos, *self._joint_qpos)
+        self._dof_addresses = (*root_dof, *self._joint_dof)
         self._bound_revision = scene.revision
 
     def _current(self) -> tuple[Any, Any]:
@@ -398,6 +403,10 @@ class ArticulatedPhysics:
     def base_pose(self) -> tuple[list[float], list[float]]:
         """Base position and orientation as (x, y, z) and (x, y, z, w)."""
         _model, data = self._current()
+        if self.SPEC.fixed_base:
+            body = self._root_body_id
+            w, x, y, z = (float(value) for value in data.xquat[body])
+            return data.xpos[body].tolist(), [x, y, z, w]
         q = self._root_qpos
         w, x, y, z = (float(data.qpos[q + offset]) for offset in (3, 4, 5, 6))
         return [float(data.qpos[q + offset]) for offset in range(3)], [x, y, z, w]
@@ -411,6 +420,8 @@ class ArticulatedPhysics:
     def base_velocity(self) -> tuple[list[float], list[float]]:
         """Linear and angular base velocity, both in the world frame."""
         _model, data = self._current()
+        if self.SPEC.fixed_base:
+            return [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]
         v = self._root_dof
         linear = [float(data.qvel[v + offset]) for offset in range(3)]
         local = [float(data.qvel[v + offset]) for offset in (3, 4, 5)]
@@ -441,6 +452,7 @@ class ArticulatedPhysics:
                     continue
                 mujoco.mj_contactForce(model, data, index, force)
                 link = self._link_by_body_id[own]
+                other_link = self._link_by_body_id.get(other)
                 details.append(
                     {
                         "link_index": link,
@@ -451,7 +463,9 @@ class ArticulatedPhysics:
                         # Negative while the surfaces interpenetrate.
                         "distance": float(contact.dist),
                         "other_body_id": other,
-                        "other_link_name": name_by_link.get(self._link_by_body_id.get(other)),
+                        "other_link_name": name_by_link.get(other_link)
+                        if other_link is not None
+                        else None,
                     }
                 )
         return details
@@ -662,7 +676,7 @@ class ArticulatedPhysics:
             raise ValueError("body state contains non-finite values")
         if strict_anatomical_limits:
             for ordinal, spec in enumerate(self.SPEC.joint_specs):
-                position = qpos[7 + ordinal]
+                position = qpos[self._joint_qpos_state_offset + ordinal]
                 if not (
                     spec.lower - JOINT_LIMIT_SOLVER_TOLERANCE
                     <= position
@@ -675,7 +689,8 @@ class ArticulatedPhysics:
             projected = list(qpos)
             for ordinal, spec in enumerate(self.SPEC.joint_specs):
                 lower, upper = _mechanical_joint_limits(spec)
-                projected[7 + ordinal] = min(max(projected[7 + ordinal], lower), upper)
+                index = self._joint_qpos_state_offset + ordinal
+                projected[index] = min(max(projected[index], lower), upper)
             qpos = tuple(projected)
         for address, value in zip(self._qpos_addresses, qpos):
             data.qpos[address] = value
