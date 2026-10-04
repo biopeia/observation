@@ -677,7 +677,7 @@ class EnvelopeField:
 
 
 ENVELOPE_FIELDS: tuple[EnvelopeField, ...] = (
-    EnvelopeField("schema_version", "declared source schema for migrations", True),
+    EnvelopeField("schema_version", "declared outer checkpoint format version", True),
     EnvelopeField(
         "effective_config", "recorded constructor configuration reapplied on restore", True
     ),
