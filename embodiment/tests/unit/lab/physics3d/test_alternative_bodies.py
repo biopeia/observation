@@ -18,10 +18,13 @@ from embodiment.physics3d.humanoid import ANTHROPOMORPHIC_SPEC, HumanoidPhysics
 def test_alternative_body_urdf_contains_exact_motor_constitution(spec) -> None:
     urdf = build_articulated_urdf(spec)
 
-    assert urdf.count("<joint name=") == spec.motor_dof
+    assert urdf.count("<joint name=") == spec.motor_dof + len(spec.fixed_link_topology)
     assert urdf.count('type="revolute"') == spec.motor_dof
     for joint in spec.joint_specs:
         assert f'name="{joint.name}"' in urdf
+    for fixed in spec.fixed_link_topology:
+        assert f'name="{fixed.child_link}_fixed" type="fixed"' in urdf
+        assert f'<child link="{fixed.child_link}"/>' in urdf
 
 
 @pytest.mark.parametrize("spec", [CRAWLER_SPEC, ASYMMETRIC_SPEC])
@@ -80,9 +83,15 @@ def test_alternative_body_loads_headless(body_cls, spec) -> None:
     assert checkpoint["schema_version"] == spec.state_schema_version
     assert len(checkpoint["joints"]) == spec.motor_dof
     links = {spec.base_link_name, *(item.child_link for item in spec.joint_topology)}
+    links.update(item.child_link for item in spec.fixed_link_topology)
     assert checkpoint["total_mass"] == pytest.approx(
         sum(spec.segments[name].mass if name in spec.segments else 0.05 for name in links)
     )
+    if spec is CRAWLER_SPEC:
+        assert all(
+            name in body._link_index_by_name
+            for name in ("front_left_foot", "front_right_foot", "rear_left_foot", "rear_right_foot")
+        )
 
 
 @pytest.mark.parametrize(("body_cls", "spec"), BODIES)
