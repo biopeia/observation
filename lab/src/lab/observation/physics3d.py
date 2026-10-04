@@ -340,6 +340,10 @@ class Physics3DObservationBridge:
 
         components: dict[str, Any] = {}
         for event in runtime_tick_events(projected):
+            # Projection intentionally keeps its historical shape, but the
+            # bridge is the canonical identity boundary. Seal every emitted
+            # component with the same Lab/runtime identity as the coherent frame.
+            self._apply_known_identity(event, projected)
             self._sink.push(event)
             event_type = str(event.get("type") or "")
             if event_type:
