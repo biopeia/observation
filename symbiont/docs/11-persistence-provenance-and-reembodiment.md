@@ -22,7 +22,7 @@ there.
 `OrganismRuntime.checkpoint()` builds the organism payload, computes a state hash and records it as `checkpoint_lineage.checkpoint_id` together with the parent identifier and the identity scope. The hash covers the complete organism payload of the runtime that saved it — including modeled and private-model state — and excludes only `checkpoint_lineage`, `runtime_provenance` and the embodiment history the apparatus writes around the organism. Two saves of the same organism state therefore identify the same state whenever and under whatever version they were taken.
 
 Restore accepts only the exact current outer checkpoint schema (schema 14) and
-verifies its identity before restoring. Schemas 1–11 are rejected; the current
+verifies its identity before restoring. Schemas 1–13 are rejected; the current
 loader has no outer-schema migration path. An authorized transform that
 legitimately produces a different state — re-embodiment, temporal
 decontamination, adopting canonical cognition — re-identifies the result: the

@@ -1,5 +1,10 @@
 # Compatibility layer
 
+This is a migration-era record, not a statement that the loader still accepts
+the checkpoint schema that was current when this document was first written.
+The current runtime accepts schema 14 only; schemas 1–13 are archival-only and
+are rejected without outer-schema migration.
+
 **There is none.** The owner asked for no legacy and no compatibility shims
 while the migration was in progress, so the plan in `INSTRUCTIONS.md` §10
 (temporary re-exports from old paths) was not applied.
@@ -20,8 +25,9 @@ What was done instead:
 The migration itself changed no persisted format (verified through commit
 `2632ff40e`; see the validation report). Since then:
 
-- organism checkpoints moved to schema 12 by the owner's decision, with no
-  migration from schema 11: checkpoints written before `3b2a341d3` do not load;
+- at this migration snapshot, organism checkpoints had moved to schema 12 by
+  the owner's decision, with no migration from schema 11. This historical
+  policy was later superseded by strict schema-14 restore;
 - inline genome payloads were converted from schema 1 to schema 2 and verified
   to load to the same genome (same genome hash and genotype hash) before the
   schema-1 migration was removed;
@@ -38,11 +44,10 @@ trigger it), which a pre-existing import cycle depends on. See OI-6.
 ## Consequences of having no shim
 
 - Data written in removed formats no longer loads: organism checkpoints of
-  schema 1–10, genomes of schema 1, checkpoints carrying a `HeritableGenome`
-  payload, and Physics3D telemetry v3/v4. The current organism loader accepts
-  schema 12 only, so schema-11 checkpoints are also archival-only and cannot be
-  restored directly. This includes anything of those ages under `.symbiont/` in
-  the source repository. Physics3D telemetry v4.1 is unaffected.
+  schema 1–13, genomes of schema 1, checkpoints carrying a `HeritableGenome`
+  payload, and Physics3D telemetry v3/v4. No outer-checkpoint schema migration
+  is available. This includes anything of those ages under `.symbiont/` in the
+  source repository. Physics3D telemetry v4.1 is unaffected.
 - External code or notebooks that import `symbiont_lab`, `symbiont_world`,
   `observatory` or the old `symbiont.core.<name>` aliases must be updated.
 - Experiment runner scripts inside completed experiments
