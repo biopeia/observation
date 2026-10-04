@@ -1,4 +1,8 @@
-schema_version = 2
-mode = "ci-gated-candidate-v3"
+schema_version = 3
+mode = "impact-routed-candidate-v4"
 normal_entrypoint = "python scripts/agentctl.py publish --message <message>"
-note = "Only a successful, still-current ORDINARY candidate may auto-promote. SCIENTIFIC and CONSTITUTIONAL candidates require external review; FROZEN evidence is versioned rather than modified."
+candidate_ci_event = "push"
+impact_planner_mode = "observe-only"
+merge_queue_variable = "USE_MERGE_QUEUE"
+continuous_assurance = true
+note = "Each candidate SHA receives one governed engineering CI. ORDINARY candidates auto-promote through legacy current-main fast-forward unless USE_MERGE_QUEUE=true, in which case GitHub validates the composed merge_group before integration. SCIENTIFIC and CONSTITUTIONAL candidates require external review; FROZEN evidence is versioned rather than modified."
