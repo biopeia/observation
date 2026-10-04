@@ -218,6 +218,27 @@ def test_canonical_contract_fingerprint_drives_archive_and_lifecycle() -> None:
     assert all(item["contract_fingerprint"] for item in memories)
 
 
+def test_pre_epoch_lifecycle_fallback_is_explicitly_the_legacy_profile() -> None:
+    """No lifecycle metadata means the bounded historical v4 assumption."""
+    payload = _checkpoint(vital_state="active")
+    payload.pop("embodiment_lifecycle")
+
+    summary = lifecycle_summary(payload)
+
+    assert summary["state"] == "dormant"
+    assert summary["epoch"] == 1
+    assert summary["current"] == {
+        "body_kind": "anthropomorphic-v4",
+        "receptor_count": 107,
+        "effector_count": 62,
+        "started_tick": 0,
+        "body_vital_state": "active",
+    }
+    # This compatibility projection carries no physical body/episode identity.
+    assert "body_id" not in summary["current"]
+    assert "embodiment_id" not in summary["current"]
+
+
 def test_legacy_embodiment_memory_migrates_one_way_into_core_archive() -> None:
     legacy = {
         "schema_version": 1,
