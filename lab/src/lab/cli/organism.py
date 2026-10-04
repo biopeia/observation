@@ -11,19 +11,18 @@ from lab.integration.organism import create_canonical_organism, restore_canonica
 from symbiont.cognition.birth import load_base_genome, load_base_graph
 from symbiont.cognition.graph import CognitiveGraph, GraphError, load_graph_definition
 from symbiont.cognition.limits import KernelLimits
-from symbiont.core import (
+from symbiont.api import (
     ConsentRevokedError,
-    DefensiveAdvisor,
     GovernedOrganism,
     OrganismRuntime,
     RateLimitedError,
     ResidentConfig,
     ResidentOrganism,
     TickBudgetExhaustedError,
-    append_advisories_to_log,
+    load_checkpoint_file,
 )
+from symbiont.core import DefensiveAdvisor, append_advisories_to_log
 from symbiont.genetics.genome import Genome, GenomeCodec, GenomeError, legacy_validation_version
-from symbiont.host.checkpoint import load_checkpoint_file
 
 
 def build_organism_parser(parser: argparse.ArgumentParser) -> None:
