@@ -26,9 +26,10 @@ cost table of §2 no longer holds at the current baseline: the organism step
 is about 70 % of a tick and physics 14–19 %; the engine spike is feasible;
 one revision per top-level state section saves only about 16 %. This meets
 the "reconsider if" condition of §14. The ordering and scope of the
-workstreams were pending owner disposition before step 1. The owner has since
-authorized drafting a proposed, exploratory MuJoCo/vision apparatus-calibration
-design; this does not authorize implementation, runs, or experiments. See
+workstreams were pending owner disposition before step 1. On 2026-10-05 the
+owner approved the bounded MuJoCo/vision apparatus-calibration design; that
+approval is not an execution-protocol freeze and authorizes no parameter
+changes, calibration runs, or experiments. See
 [MuJoCo Physics3D Apparatus Calibration v1](../embodiment/mujoco-physics3d-calibration-v1.md).
 
 **Engine replaced (2026-10-04):** Physics3D runs on MuJoCo and PyBullet is
