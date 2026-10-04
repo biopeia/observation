@@ -56,6 +56,39 @@ def test_fresh_body_schema_is_explicitly_undeveloped():
     }
 
 
+def test_reembodiment_withdraws_active_body_schema_but_keeps_opaque_namespace():
+    schema = BodySchemaEngine(id_salt="a" * 32)
+    schema.observe_self_model({"signal.old": _evidence()}, tick=4)
+    schema.observe_agency_boundary(
+        observed_channels={"opaque.self", "opaque.external"},
+        self_caused_channels={"opaque.self"},
+    )
+    schema.observe_agentic_sensorimotor_evidence(
+        causal_source_ref="source.old",
+        effect_id="effect.old",
+        feature_refs=("signal.old",),
+        controllability_confidence=0.8,
+        agency_confidence=0.7,
+        tick=4,
+    )
+    assert schema.part_count == 1
+    assert schema.sensorimotor_dependency_evidence_count == 1
+    assert schema.boundary_confidence > 0.0
+
+    schema.reset_for_new_embodiment()
+
+    current = schema.export(current_tick=4)
+    assert schema.state == "undeveloped"
+    assert schema.part_count == 0
+    assert schema.agentic_feature_refs == ()
+    assert schema.sensorimotor_dependency_evidence_count == 0
+    assert schema.self_caused_channels == ()
+    assert schema.somatic_correlated_channels == ()
+    assert schema.external_channels == ()
+    assert schema.boundary_confidence == 0.0
+    assert current["id_salt"] == "a" * 32
+
+
 def test_established_self_model_evidence_creates_one_opaque_sensory_part():
     schema = BodySchemaEngine()
     schema.observe_self_model({"compute.logical_cpu": _evidence()}, tick=12)
