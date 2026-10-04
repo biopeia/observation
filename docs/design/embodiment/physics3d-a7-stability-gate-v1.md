@@ -3,7 +3,7 @@ id: design.embodiment.physics3d-a7-stability-gate-v1
 title: "Physics3D A7 Stability Gate V1"
 document_type: design
 domain: embodiment
-status: approved
+status: closed
 canonical: false
 implementation_status: not_started
 migrated_on: 2026-10-03
@@ -15,9 +15,12 @@ language: en
 > **Apparatus affected (2026-10-04).** [ADR-0066](../../adr/ADR-0066-mujoco-physics-engine-and-engine-independent-vision.md)
 > replaces PyBullet at the substrate cut
 > ([Simulation Substrate Cut v1](../core/simulation-substrate-cut-v1.md), §8).
-> This gate is specified against PyBullet 3.2.7. Whether it runs before the
-> cut, is re-specified after it, or is closed as not assessable is an open
-> owner decision.
+> This gate is specified against PyBullet 3.2.7.
+>
+> **Closed as not assessable (owner decision, 2026-10-04).** The cut removes
+> the apparatus this gate measures, so it is not run before the cut and no
+> result is claimed. Nothing here carries over by argument: stability on the
+> new substrate needs its own protocol, specified against that substrate.
 
 **Lifecycle:** proposed protocol; not frozen. No campaign has been authorized or
 run under this document.
