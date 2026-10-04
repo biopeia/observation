@@ -7,7 +7,12 @@ import pytest
 
 from symbiont.core.orchestration.runtime import OrganismRuntime
 from symbiont.genetics.genome import Genome, GenomeCodec
-from symbiont.genetics.germline import EpigeneticMark, EpigeneticProtocol, GermlineState
+from symbiont.genetics.germline import (
+    EpigeneticMark,
+    EpigeneticProtocol,
+    GermlineState,
+    InheritancePackage,
+)
 
 
 def _genome(genome_id: str) -> Genome:
@@ -107,3 +112,14 @@ def test_epigenetic_marks_are_not_transmitted_without_enabled_protocol() -> None
     package = runtime.inheritance_package()
 
     assert package.epigenetic_marks == ()
+
+
+@pytest.mark.parametrize("generation", [True, 1.0, "1"])
+def test_inheritance_package_rejects_non_integer_generation(generation: object) -> None:
+    with pytest.raises(ValueError, match="generation must be an integer"):
+        InheritancePackage(
+            genome=_genome("invalid-inheritance-generation"),
+            epigenetic_marks=(),
+            parent_ids=("parent",),
+            generation=generation,  # type: ignore[arg-type]
+        )

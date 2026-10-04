@@ -183,12 +183,22 @@ class InheritancePackage:
     generation: int
 
     def __post_init__(self) -> None:
-        if not self.parent_ids or any(not parent_id for parent_id in self.parent_ids):
+        if not isinstance(self.genome, Genome):
+            raise ValueError("inheritance package requires a Genome v2 genome")
+        if not isinstance(self.parent_ids, tuple) or not self.parent_ids or any(
+            not isinstance(parent_id, str) or not parent_id for parent_id in self.parent_ids
+        ):
             raise ValueError("inheritance package requires non-empty parent identifiers")
         if len(set(self.parent_ids)) != len(self.parent_ids):
             raise ValueError("inheritance package parent identifiers must be unique")
+        if isinstance(self.generation, bool) or not isinstance(self.generation, int):
+            raise ValueError("offspring generation must be an integer")
         if self.generation < 1:
             raise ValueError("offspring generation must be at least 1")
+        if not isinstance(self.epigenetic_marks, tuple) or any(
+            not isinstance(mark, EpigeneticMark) for mark in self.epigenetic_marks
+        ):
+            raise ValueError("inheritance package marks must be EpigeneticMark values")
         loci = [mark.locus for mark in self.epigenetic_marks]
         if len(set(loci)) != len(loci):
             raise ValueError("inheritance package marks must have unique loci")
