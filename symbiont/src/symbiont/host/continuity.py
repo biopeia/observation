@@ -769,6 +769,15 @@ REGISTER: tuple[ContinuityEntry, ...] = (
         _KEEP,
         restore_path=_PRIVATE_RESTORE,
     ),
+    _upper(
+        PRIVATE_MODEL,
+        "_shared_fact_identity",
+        "modeling.private_runtime",
+        _A,
+        "private_model_config",
+        _KEEP,
+        restore_path=_PRIVATE_RESTORE,
+    ),
     *(
         _upper(
             PRIVATE_MODEL,
