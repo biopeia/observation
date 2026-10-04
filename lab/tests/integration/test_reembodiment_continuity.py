@@ -315,6 +315,18 @@ def test_symbiont_owned_state_is_preserved_exactly(case: _Case) -> None:
 
 
 def test_body_owned_state_comes_from_the_fresh_body(case: _Case) -> None:
+    mixed_checkpoint_fields = {
+        field for entry in REGISTER for field in entry.nested_checkpoint_fields
+    }
+    registered_fresh_fields = {
+        field
+        for entry in REGISTER
+        if entry.reembodiment is Reembodiment.REPLACED
+        for field in entry.checkpoint_fields
+        if field not in mixed_checkpoint_fields
+    }
+    assert registered_fresh_fields == FRESH_BODY_FIELDS
+
     for field in sorted(FRESH_BODY_FIELDS):
         assert case.transformed[field] == case.fresh[field], field
     assert case.transformed["last_runtime_vital_state"] == "active"
