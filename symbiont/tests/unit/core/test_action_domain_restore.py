@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from symbiont.actuation.competence import (
     CompetenceEvidence,
     MotorCompetence,
@@ -9,7 +11,7 @@ from symbiont.core.domains.action import ActionDomain
 from symbiont.core.embodiment.body_schema import BodySchemaEngine
 
 
-def test_schema3_roundtrip_preserves_execution_binding_authority() -> None:
+def test_schema4_roundtrip_preserves_execution_binding_authority() -> None:
     surface = derive_actuator_constitution(1, physical_contract="body.roundtrip")
     domain = ActionDomain(
         organism_id="organism.roundtrip",
@@ -57,3 +59,19 @@ def test_schema3_roundtrip_preserves_execution_binding_authority() -> None:
         restored_competence,
         surface_fingerprint=surface.contract_fingerprint,
     )
+
+
+@pytest.mark.parametrize("schema_version", [1, 2, 3])
+def test_restore_rejects_older_sensorimotor_schemas(schema_version: int) -> None:
+    surface = derive_actuator_constitution(1, physical_contract="body.old-schema")
+    domain = ActionDomain(
+        organism_id="organism.old-schema",
+        enabled=True,
+        surface=surface,
+    )
+
+    with pytest.raises(ValueError, match="unsupported sensorimotor v2 checkpoint schema"):
+        domain.restore_v2(
+            {"schema_version": schema_version},
+            body_schema=BodySchemaEngine(),
+        )

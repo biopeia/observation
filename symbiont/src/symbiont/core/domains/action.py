@@ -6,7 +6,6 @@ import hashlib
 import json
 import math
 from collections.abc import Callable, Iterable
-from copy import deepcopy
 from dataclasses import dataclass, replace
 from typing import Any, Mapping
 
@@ -2407,46 +2406,33 @@ class ActionDomain:
         payload: Mapping[str, Any],
         *,
         body_schema: BodySchemaEngine,
-        fingerprint_migration: tuple[str, str] | None = None,
     ) -> None:
-        """Restore canonical Sensorimotor v2 state into this domain.
+        """Restore the current Sensorimotor v2 schema into this domain.
 
-        Schema 1 is migrated from competence-local surface bindings. Schemas 2
-        to 4 restore the explicit execution-binding registry. Schemas 3 and 4
-        carry current Embodiment identity. Schema 4 adds acquired intervention
-        families and learned ActionDimensions. All body-specific authority is
-        validated against the currently attached actuator surface.
+        Body-specific authority is validated against the currently attached
+        actuator surface. Older nested schemas are not migrated.
         """
         schema = int(payload.get("schema_version") or 0)
-        if schema not in {1, 2, 3, 4}:
+        if schema != 4:
             raise ValueError("unsupported sensorimotor v2 checkpoint schema")
 
-        if schema in {3, 4}:
-            raw_surface_binding = payload.get("surface_binding")
-            if not isinstance(raw_surface_binding, Mapping):
-                raise ValueError("sensorimotor surface binding is missing")
-            stored_fingerprint = raw_surface_binding.get("contract_fingerprint")
-            if (
-                isinstance(stored_fingerprint, str)
-                and fingerprint_migration is not None
-                and stored_fingerprint == fingerprint_migration[0]
-            ):
-                stored_fingerprint = fingerprint_migration[1]
-            if self.surface is not None and stored_fingerprint != self.surface.contract_fingerprint:
-                raise ValueError("sensorimotor state belongs to another actuator surface")
-            raw_embodiment_id = raw_surface_binding.get("embodiment_id")
-            if raw_embodiment_id is not None:
-                if not isinstance(raw_embodiment_id, str) or not raw_embodiment_id:
-                    raise ValueError("invalid action-domain embodiment id")
-                self.embodiment_id = raw_embodiment_id
+        raw_surface_binding = payload.get("surface_binding")
+        if not isinstance(raw_surface_binding, Mapping):
+            raise ValueError("sensorimotor surface binding is missing")
+        stored_fingerprint = raw_surface_binding.get("contract_fingerprint")
+        if self.surface is not None and stored_fingerprint != self.surface.contract_fingerprint:
+            raise ValueError("sensorimotor state belongs to another actuator surface")
+        raw_embodiment_id = raw_surface_binding.get("embodiment_id")
+        if raw_embodiment_id is not None:
+            if not isinstance(raw_embodiment_id, str) or not raw_embodiment_id:
+                raise ValueError("invalid action-domain embodiment id")
+            self.embodiment_id = raw_embodiment_id
 
         raw_effects = payload.get("effect_space")
         raw_evidence = payload.get("causal_evidence")
-        raw_acquisition = payload.get("agency_acquisition") if schema == 4 else None
-        if schema == 4 and not isinstance(raw_acquisition, Mapping):
+        raw_acquisition = payload.get("agency_acquisition")
+        if not isinstance(raw_acquisition, Mapping):
             raise ValueError("sensorimotor v4 agency acquisition state is missing")
-        # Sensorimotor v3 and older never acquired dimensions; the migration
-        # starts with none rather than regenerating them from the surface.
         self.acquisition.restore_causal_state(
             effect_space=raw_effects if isinstance(raw_effects, Mapping) else None,
             causal_evidence=raw_evidence if isinstance(raw_evidence, Mapping) else None,
@@ -2519,64 +2505,11 @@ class ActionDomain:
             )
         self.competence_library = restored_library
 
-        if schema in {2, 3, 4}:
-            raw_bindings = payload.get("execution_bindings")
-            binding_payload = deepcopy(raw_bindings) if isinstance(raw_bindings, Mapping) else None
-            if binding_payload is not None and fingerprint_migration is not None:
-                old_fp, new_fp = fingerprint_migration
-                raw_items = binding_payload.get("items")
-                if isinstance(raw_items, list):
-                    for item in raw_items:
-                        if isinstance(item, dict) and item.get("surface_fingerprint") == old_fp:
-                            item["surface_fingerprint"] = new_fp
-            self.execution_bindings = CompetenceExecutionBindingRegistry.restore(binding_payload)
-            self.binding_invalidation = str(payload.get("binding_invalidation", "off"))
-        else:
-            migrated = CompetenceExecutionBindingRegistry()
-            for legacy_item in raw_competences:
-                if not isinstance(legacy_item, Mapping):
-                    continue
-                competence_id = str(legacy_item.get("competence_id") or "")
-                surface = legacy_item.get("surface_binding")
-                if (
-                    isinstance(surface, str)
-                    and fingerprint_migration is not None
-                    and surface == fingerprint_migration[0]
-                ):
-                    surface = fingerprint_migration[1]
-                effect_id = legacy_item.get("effect_id")
-                matching = tuple(
-                    evidence
-                    for evidence in self.causal_evidence.evidence
-                    if evidence.competence_id == competence_id and evidence.effect_id == effect_id
-                )
-                refs = tuple(evidence.evidence_id for evidence in matching)
-                if (
-                    competence_id
-                    and isinstance(surface, str)
-                    and surface
-                    and isinstance(effect_id, str)
-                    and effect_id
-                    and refs
-                ):
-                    competence = restored_library.get(competence_id)
-                    migrated.bind_from_evidence(
-                        competence_id=competence_id,
-                        surface_fingerprint=surface,
-                        effect_id=effect_id,
-                        evidence_refs=refs,
-                        reliability=(
-                            competence.evidence.reproducibility if competence is not None else 0.0
-                        ),
-                        controllability=(
-                            competence.evidence.controllability if competence is not None else 0.0
-                        ),
-                        tick=max(
-                            (evidence.observation_tick for evidence in matching),
-                            default=0,
-                        ),
-                    )
-            self.execution_bindings = migrated
+        raw_bindings = payload.get("execution_bindings")
+        if not isinstance(raw_bindings, Mapping):
+            raise ValueError("sensorimotor execution bindings are missing")
+        self.execution_bindings = CompetenceExecutionBindingRegistry.restore(raw_bindings)
+        self.binding_invalidation = str(payload.get("binding_invalidation", "off"))
 
         raw_composition = payload.get("composition")
         if isinstance(raw_composition, Mapping):
