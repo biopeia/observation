@@ -16,10 +16,10 @@ let presentationIdentity = null;
 function physicalIdentity(state) {
   const physics = state?.sources?.physics3d ?? null;
   if (!physics?.run_id) return null;
-  // A managed re-embodiment is a new run. body_kind is retained as an explicit
-  // apparatus boundary so a future in-run morphology change cannot reuse pose,
-  // trajectory, interpolation or observer-history buffers accidentally.
-  return `${physics.run_id}|${physics.body_kind ?? ''}`;
+  // Managed runs expose the concrete body ref when known. Keep body_kind too:
+  // morphology is an apparatus boundary even when a future source omits a
+  // durable body ref. Any change recreates observer-owned physical state.
+  return `${physics.run_id}|${physics.body_ref ?? ''}|${physics.body_kind ?? ''}`;
 }
 
 function createViewer(root, domain) {
