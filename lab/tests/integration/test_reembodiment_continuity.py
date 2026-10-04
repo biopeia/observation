@@ -417,6 +417,16 @@ def test_knowledge_survives_as_knowledge_without_authority(case: _Case) -> None:
     assert current_action["pending_motor_observation"] == []
     assert current_action["pending_proprioception"] == {}
 
+    lifecycle_entry = next(entry for entry in REGISTER if entry.attribute == "_lifecycle_domain")
+    assert dict(lifecycle_entry.nested_reembodiment) == {
+        "last_runtime_vital_state": Reembodiment.REPLACED,
+        "last_runtime_development_phase": Reembodiment.PRESERVED,
+    }
+    assert case.transformed["last_runtime_vital_state"] == "active"
+    assert case.transformed["last_runtime_development_phase"] == case.previous[
+        "last_runtime_development_phase"
+    ]
+
     # The prior BodySchema survives in the closed episode archive, but no
     # Body A entry is exposed as active knowledge about Body B.
     prior_schema = _json(case.previous["body_schema"])

@@ -456,6 +456,10 @@ REGISTER: tuple[ContinuityEntry, ...] = (
         "first_life_history_events",
         _KEEP,
         extra_checkpoint_fields=("last_runtime_vital_state", "last_runtime_development_phase"),
+        nested_reembodiment=(
+            ("last_runtime_vital_state", _BODY),
+            ("last_runtime_development_phase", _KEEP),
+        ),
     ),
     _core(
         "_regulation_domain",
