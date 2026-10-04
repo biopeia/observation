@@ -29,9 +29,7 @@ def test_transitive_importers_fall_back_when_breadth_exceeded() -> None:
 
 
 def test_test_hits_impacted_module_prefixes() -> None:
-    assert test_impact._test_hits_modules(
-        {"symbiont.core.runtime", "pytest"}, {"symbiont.core"}
-    )
+    assert test_impact._test_hits_modules({"symbiont.core.runtime", "pytest"}, {"symbiont.core"})
     assert not test_impact._test_hits_modules({"pytest"}, {"symbiont.core"})
 
 
