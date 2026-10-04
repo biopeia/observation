@@ -75,6 +75,7 @@ class _Case:
     def __init__(self) -> None:
         body_a = CausalBody(actuator_count=4, seed=127)
         developed = _subject(body_a)
+        self.initial = _json(developed.checkpoint())
         run_ticks(developed, body_a, DEVELOPMENT_TICKS)
         habitat = SocialHabitat(EcologicalResourcePool({"food": 1.0}))
         habitat.admit(ORGANISM_ID)
@@ -206,13 +207,19 @@ def test_body_a_development_is_not_trivial(case: _Case) -> None:
     assert case.graph_nodes_in_a
     assert case.experience_in_a
     assert case.previous["gene_expression"]
+    assert case.previous["gene_expression"]["update_count"] > 0
     assert case.previous["gene_expression"]["effective_structural_plasticity"] > 0.0
+    assert case.previous["gene_expression"] != case.initial["gene_expression"]
     assert case.previous["development"]["tick"] == DEVELOPMENT_TICKS
+    assert case.previous["development"] != case.initial["development"]
+    assert case.previous["self_model"]
     assert case.previous["signal_knowledge"]["profiles"]
     assert case.previous["generative_cognition"]["hypotheses"]
     assert case.previous["episodic_memory"]["episodes"]
     assert case.previous["experience_ledger"]["records"]
     assert case.previous["body_schema"]["parts"]
+    assert case.previous["body_schema"]["cognitive_learning"]["regions"]
+    assert case.previous["body_schema"]["boundary_evidence"]["self_caused_channels"]
     assert case.previous["sensory_system"]["sensors"]
     action_state = case.previous["actuation"]["action_domain"]
     assert action_state["sensorimotor_v2"]["causal_evidence"]
@@ -227,6 +234,10 @@ def test_body_a_development_is_not_trivial(case: _Case) -> None:
     assert case.own_social_claims
     assert case.previous["social_evidence_ledger"]["held"]
     assert case.previous["social_ledger"]["relations"]
+    # The current runtime does not support acquired epigenetic prior keys. This
+    # fixture therefore asserts the absence rather than implying such state is
+    # part of the tested continuity claim; SYM-10 remains a separate gap.
+    assert case.previous["epigenetic_priors"] == []
 
 
 def test_symbiont_owned_state_is_preserved_exactly(case: _Case) -> None:
