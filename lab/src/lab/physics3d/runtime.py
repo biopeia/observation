@@ -251,15 +251,51 @@ class PyBulletEmbodimentRuntime:
                 raise RuntimeError("physical checkpoint is missing locomotion_resource")
             if not isinstance(physical_state.get("locomotion_evaluator"), Mapping):
                 raise RuntimeError("physical checkpoint is missing locomotion_evaluator")
+            evaluator = physical_state["locomotion_evaluator"]
+            evaluator_fields = {
+                "initial_resource_distance",
+                "minimum_resource_distance",
+                "action_source_counts",
+            }
+            if set(evaluator) != evaluator_fields:
+                raise RuntimeError("physical checkpoint has an invalid locomotion_evaluator")
+            source_counts = evaluator["action_source_counts"]
+            expected_sources = {
+                "exploration",
+                "competence",
+                "protection",
+                "prospection",
+                "regulation",
+                "none",
+            }
+            if not isinstance(source_counts, Mapping) or set(source_counts) != expected_sources:
+                raise RuntimeError("physical checkpoint has invalid action_source_counts")
             if not isinstance(physical_state.get("body_interoception"), Mapping):
                 raise RuntimeError("physical checkpoint is missing body_interoception")
             if not isinstance(physical_state.get("origin_xy"), list):
                 raise RuntimeError("physical checkpoint is missing origin_xy")
-            if (
-                runtime_checkpoint is not None
-                and not isinstance(runtime_checkpoint.get("embodiment_episode"), Mapping)
-            ):
-                raise RuntimeError("current Physics3D checkpoint is missing embodiment_episode")
+        if runtime_checkpoint is not None:
+            required_embodiment_fields = (
+                "embodiment_episode",
+                "embodiment_lifecycle",
+                "embodiment_archive",
+            )
+            missing = [
+                key
+                for key in required_embodiment_fields
+                if not isinstance(runtime_checkpoint.get(key), Mapping)
+            ]
+            if missing:
+                raise RuntimeError(
+                    "current Physics3D checkpoint is missing embodiment fields: "
+                    + ", ".join(missing)
+                )
+            if "embodiment_epoch_summaries" in runtime_checkpoint:
+                summaries = runtime_checkpoint["embodiment_epoch_summaries"]
+                if not isinstance(summaries, list) or any(
+                    not isinstance(item, Mapping) for item in summaries
+                ):
+                    raise RuntimeError("current Physics3D checkpoint has invalid epoch summaries")
         try:
             import pybullet as p
         except ImportError as exc:
@@ -367,37 +403,12 @@ class PyBulletEmbodimentRuntime:
             self._origin_xy = (float(base_position[0]), float(base_position[1]))
 
         current_distance = self.resource.distance_to(tuple(float(value) for value in base_position))
-        evaluator_state = (
-            physical_state.get("locomotion_evaluator")
-            if isinstance(physical_state, Mapping)
-            else None
-        )
+        evaluator_state = physical_state["locomotion_evaluator"] if physical_state else None
         if isinstance(evaluator_state, Mapping):
-            self._initial_resource_distance = float(
-                evaluator_state.get("initial_resource_distance", current_distance)
-            )
-            self._minimum_resource_distance = float(
-                evaluator_state.get("minimum_resource_distance", current_distance)
-            )
-            raw_counts = evaluator_state.get(
-                "action_source_counts",
-                evaluator_state.get("motor_origin_counts", {}),
-            )
-            if not isinstance(raw_counts, Mapping):
-                raw_counts = {}
-            self._action_source_counts = {
-                "exploration": int(raw_counts.get("exploration", raw_counts.get("babbling", 0))),
-                "competence": int(
-                    raw_counts.get(
-                        "competence",
-                        int(raw_counts.get("cognition", 0)) + int(raw_counts.get("primitive", 0)),
-                    )
-                ),
-                "protection": int(raw_counts.get("protection", 0)),
-                "prospection": int(raw_counts.get("prospection", 0)),
-                "regulation": int(raw_counts.get("regulation", 0)),
-                "none": int(raw_counts.get("none", 0)),
-            }
+            self._initial_resource_distance = float(evaluator_state["initial_resource_distance"])
+            self._minimum_resource_distance = float(evaluator_state["minimum_resource_distance"])
+            raw_counts = evaluator_state["action_source_counts"]
+            self._action_source_counts = {key: int(raw_counts[key]) for key in raw_counts}
         else:
             self._initial_resource_distance = current_distance
             self._minimum_resource_distance = current_distance

@@ -125,7 +125,18 @@ def test_runtime_rejects_physical_checkpoint_missing_current_contract_field(fiel
         "lab_world": {"name": "flat-v1"},
         "body_id": "body.current",
         "locomotion_resource": {},
-        "locomotion_evaluator": {},
+        "locomotion_evaluator": {
+            "initial_resource_distance": 1.0,
+            "minimum_resource_distance": 1.0,
+            "action_source_counts": {
+                "exploration": 0,
+                "competence": 0,
+                "protection": 0,
+                "prospection": 0,
+                "regulation": 0,
+                "none": 0,
+            },
+        },
         "body_interoception": {},
         "origin_xy": [0.0, 0.0],
     }
@@ -142,15 +153,46 @@ def test_runtime_rejects_current_restore_without_embodiment_episode():
         "lab_world": {"name": "flat-v1"},
         "body_id": "body.current",
         "locomotion_resource": {},
-        "locomotion_evaluator": {},
+        "locomotion_evaluator": {
+            "initial_resource_distance": 1.0,
+            "minimum_resource_distance": 1.0,
+            "action_source_counts": {
+                "exploration": 0,
+                "competence": 0,
+                "protection": 0,
+                "prospection": 0,
+                "regulation": 0,
+                "none": 0,
+            },
+        },
         "body_interoception": {},
         "origin_xy": [0.0, 0.0],
     }
 
-    with pytest.raises(RuntimeError, match="missing embodiment_episode"):
+    with pytest.raises(RuntimeError, match="missing embodiment fields.*embodiment_episode"):
         PyBulletEmbodimentRuntime(
             gui=False, physical_state=physical_state, runtime_checkpoint={}
         )
+
+
+def test_runtime_rejects_deprecated_locomotion_evaluator_aliases():
+    from lab.physics3d.runtime import PyBulletEmbodimentRuntime
+
+    physical_state = {
+        "lab_world": {"name": "flat-v1"},
+        "body_id": "body.current",
+        "locomotion_resource": {},
+        "locomotion_evaluator": {
+            "initial_resource_distance": 1.0,
+            "minimum_resource_distance": 1.0,
+            "motor_origin_counts": {"babbling": 1, "cognition": 0},
+        },
+        "body_interoception": {},
+        "origin_xy": [0.0, 0.0],
+    }
+
+    with pytest.raises(RuntimeError, match="invalid locomotion_evaluator"):
+        PyBulletEmbodimentRuntime(gui=False, physical_state=physical_state)
 
 
 def test_home_launch_keeps_environment_in_laboratory_run(tmp_path):
