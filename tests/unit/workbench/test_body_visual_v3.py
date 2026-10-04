@@ -32,7 +32,7 @@ def test_body_visual_v3_exposes_real_com_and_contacts_only_as_observation() -> N
     viewer = _read(VIEWER)
 
     assert '"center_of_mass"' in humanoid
-    assert '"contacts": self._contact_details()' in humanoid
+    assert '"contacts": self.contact_details()' in humanoid
     assert 'event["center_of_mass"]' in observation
     assert 'event["contacts"]' in observation
     assert "updateObserverSpatialOverlays(data)" in viewer

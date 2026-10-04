@@ -12,13 +12,7 @@ import random
 from dataclasses import asdict, dataclass
 from typing import Iterable
 
-from embodiment.physics3d.humanoid import (
-    HumanoidPhysics,
-    apply_surface_material,
-)
-from embodiment.physics3d.mechanics import (
-    GROUND_MATERIAL,
-)
+from embodiment.physics3d.humanoid import HumanoidPhysics
 from lab.modeling import SparseEchoStateRegressor
 
 
@@ -61,36 +55,27 @@ class EmbodiedSensorimotorShadowStudy:
         return asdict(self)
 
 
-def _new_apparatus(pybullet, *, seed: int, time_step: float):
+def _new_apparatus(*, seed: int, time_step: float):
     del seed  # retained in the signature to keep the harness explicit/deterministic
-    client_id = pybullet.connect(pybullet.DIRECT)
-    if client_id < 0:
-        raise RuntimeError("failed to connect to PyBullet")
-    pybullet.setGravity(0.0, 0.0, -9.81, physicsClientId=client_id)
-    pybullet.setTimeStep(time_step, physicsClientId=client_id)
-    pybullet.setPhysicsEngineParameter(
-        numSolverIterations=30,
-        fixedTimeStep=time_step,
-        physicsClientId=client_id,
-    )
-    plane_shape = pybullet.createCollisionShape(
-        pybullet.GEOM_PLANE,
-        planeNormal=(0.0, 0.0, 1.0),
-        physicsClientId=client_id,
-    )
-    plane_id = pybullet.createMultiBody(
-        baseMass=0.0,
-        baseCollisionShapeIndex=plane_shape,
-        physicsClientId=client_id,
-    )
-    apply_surface_material(plane_id, -1, GROUND_MATERIAL, client_id=client_id)
-    apparatus = HumanoidPhysics(client_id)
-    # Match the embodiment runtime's passive settling before observations.
+    try:
+        from embodiment.physics3d.scene import PhysicsScene
+
+        scene = PhysicsScene(timestep=time_step)
+    except ImportError as exc:  # pragma: no cover - optional apparatus dependency
+        raise RuntimeError("install the physics3d extra to run this study") from exc
+    scene.add_ground()
+    apparatus = HumanoidPhysics(scene)
+    # Passive settling before observations.
     apparatus.apply_effectors({})
-    for _ in range(720):
+    _advance(scene, apparatus, 720)
+    return scene, apparatus
+
+
+def _advance(scene, apparatus, substeps: int) -> None:
+    for _ in range(substeps):
         apparatus.prepare_physics_substep()
-        pybullet.stepSimulation(physicsClientId=client_id)
-    return client_id, apparatus
+        scene.step()
+    scene.forward()  # bring link poses and contacts up to the new joint state
 
 
 def _action(rng: random.Random, effector_ids: tuple[str, ...]) -> list[float]:
@@ -103,31 +88,21 @@ def _action(rng: random.Random, effector_ids: tuple[str, ...]) -> list[float]:
 
 
 def _trace(*, seed: int, ticks: int, substeps: int) -> tuple[list[list[float]], list[list[float]]]:
-    try:
-        import pybullet
-    except ImportError as exc:  # pragma: no cover - optional apparatus dependency
-        raise RuntimeError("install the physics3d extra to run this study") from exc
-
-    client_id, apparatus = _new_apparatus(pybullet, seed=seed, time_step=1.0 / 240.0)
+    scene, apparatus = _new_apparatus(seed=seed, time_step=1.0 / 240.0)
     rng = random.Random(seed)
     observations: list[list[float]] = []
     actions: list[list[float]] = []
-    try:
-        for _ in range(ticks):
-            observations.append(
-                [
-                    float(apparatus.sample_receptors()[receptor_id])
-                    for receptor_id in apparatus.receptor_ids
-                ]
-            )
-            current_action = _action(rng, apparatus.effector_ids)
-            actions.append(current_action)
-            apparatus.apply_effectors(dict(zip(apparatus.effector_ids, current_action)))
-            for _ in range(substeps):
-                apparatus.prepare_physics_substep()
-                pybullet.stepSimulation(physicsClientId=client_id)
-    finally:
-        pybullet.disconnect(physicsClientId=client_id)
+    for _ in range(ticks):
+        observations.append(
+            [
+                float(apparatus.sample_receptors()[receptor_id])
+                for receptor_id in apparatus.receptor_ids
+            ]
+        )
+        current_action = _action(rng, apparatus.effector_ids)
+        actions.append(current_action)
+        apparatus.apply_effectors(dict(zip(apparatus.effector_ids, current_action)))
+        _advance(scene, apparatus, substeps)
     return observations, actions
 
 

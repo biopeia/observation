@@ -12,7 +12,7 @@ from dataclasses import asdict, dataclass
 from typing import Iterable
 
 from embodiment.physics3d.humanoid import effector_contract_ids
-from lab.studies.learning.embodied_sensorimotor_shadow import _action, _new_apparatus
+from lab.studies.learning.embodied_sensorimotor_shadow import _action, _advance, _new_apparatus
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,31 +50,20 @@ def _rollout(
     intervention_tick: int | None,
     target_effector: int | None,
 ) -> list[list[float]]:
-    try:
-        import pybullet
-    except ImportError as exc:  # pragma: no cover - optional apparatus dependency
-        raise RuntimeError("install the physics3d extra to run this study") from exc
-    client_id, apparatus = _new_apparatus(pybullet, seed=seed, time_step=1.0 / 240.0)
+    scene, apparatus = _new_apparatus(seed=seed, time_step=1.0 / 240.0)
     observations: list[list[float]] = []
-    try:
-        for tick, original in enumerate(actions):
-            values = list(original)
-            if (
-                intervention_tick is not None
-                and target_effector is not None
-                and tick >= intervention_tick
-            ):
-                values[target_effector] = 0.0
-            sampled = apparatus.sample_receptors()
-            observations.append(
-                [float(sampled[receptor_id]) for receptor_id in apparatus.receptor_ids]
-            )
-            apparatus.apply_effectors(dict(zip(apparatus.effector_ids, values)))
-            for _ in range(substeps):
-                apparatus.prepare_physics_substep()
-                pybullet.stepSimulation(physicsClientId=client_id)
-    finally:
-        pybullet.disconnect(physicsClientId=client_id)
+    for tick, original in enumerate(actions):
+        values = list(original)
+        if (
+            intervention_tick is not None
+            and target_effector is not None
+            and tick >= intervention_tick
+        ):
+            values[target_effector] = 0.0
+        sampled = apparatus.sample_receptors()
+        observations.append([float(sampled[receptor_id]) for receptor_id in apparatus.receptor_ids])
+        apparatus.apply_effectors(dict(zip(apparatus.effector_ids, values)))
+        _advance(scene, apparatus, substeps)
     return observations
 
 
