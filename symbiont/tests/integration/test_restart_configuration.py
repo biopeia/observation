@@ -109,6 +109,37 @@ def test_a_different_continuation_is_recorded_as_a_changed_condition() -> None:
     ]
 
 
+@pytest.mark.parametrize(
+    ("control", "recorded", "override"),
+    [
+        ("cognitive_plasticity_enabled", True, False),
+        ("predictor_promotion_enabled", True, False),
+    ],
+)
+@pytest.mark.parametrize("runtime_type", [OrganismRuntime, PrivateModelOrganismRuntime])
+def test_explicit_learning_control_override_is_applied_and_recorded(
+    control: str, recorded: bool, override: bool, runtime_type
+) -> None:
+    runtime = runtime_type(**RUNTIME_KWARGS)
+    getattr(runtime, f"set_{control}")(recorded)
+    saved = _saved(runtime)
+
+    restored = runtime_type.from_checkpoint(
+        saved, **RUNTIME_KWARGS, **{control: override}
+    )
+
+    assert getattr(restored, f"_{control}") is override
+    assert _saved(restored)["runtime_provenance"]["changed_since_restore"] == [control]
+
+
+@pytest.mark.parametrize("control", ["cognitive_plasticity_enabled", "predictor_promotion_enabled"])
+def test_explicit_learning_control_override_must_be_boolean(control: str) -> None:
+    saved = _saved(OrganismRuntime(**RUNTIME_KWARGS))
+
+    with pytest.raises(CheckpointError, match=f"{control} override must be boolean"):
+        OrganismRuntime.from_checkpoint(saved, **RUNTIME_KWARGS, **{control: "false"})
+
+
 def test_checkpoint_without_recorded_controls_fails_closed() -> None:
     runtime = OrganismRuntime(**RUNTIME_KWARGS)
     runtime.tick()

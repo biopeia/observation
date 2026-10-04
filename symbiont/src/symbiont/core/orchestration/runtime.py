@@ -2648,7 +2648,21 @@ class OrganismRuntime:
         save_checkpoint_atomic(payload, path)
 
     @classmethod
-    def from_checkpoint(cls, payload: dict[str, Any], **kwargs: Any) -> Self:
+    def from_checkpoint(
+        cls,
+        payload: dict[str, Any],
+        *,
+        cognitive_plasticity_enabled: bool | None = None,
+        predictor_promotion_enabled: bool | None = None,
+        **kwargs: Any,
+    ) -> Self:
+        """Restore state and recorded controls, applying explicit controls as new conditions."""
+        for name, value in (
+            ("cognitive_plasticity_enabled", cognitive_plasticity_enabled),
+            ("predictor_promotion_enabled", predictor_promotion_enabled),
+        ):
+            if value is not None and not isinstance(value, bool):
+                raise CheckpointError(f"{name} override must be boolean or None")
         actuator_constitution_override = kwargs.pop(
             "actuator_constitution_override",
             None,
@@ -3401,11 +3415,15 @@ class OrganismRuntime:
                 raise CheckpointError(
                     "checkpoint expression_regulator differs from the active continuation"
                 )
-            if "cognitive_plasticity_enabled" in recorded_controls:
+            if cognitive_plasticity_enabled is not None:
+                runtime.set_cognitive_plasticity_enabled(cognitive_plasticity_enabled)
+            elif "cognitive_plasticity_enabled" in recorded_controls:
                 runtime.set_cognitive_plasticity_enabled(
                     recorded_controls["cognitive_plasticity_enabled"]
                 )
-            if "predictor_promotion_enabled" in recorded_controls:
+            if predictor_promotion_enabled is not None:
+                runtime.set_predictor_promotion_enabled(predictor_promotion_enabled)
+            elif "predictor_promotion_enabled" in recorded_controls:
                 runtime.set_predictor_promotion_enabled(
                     recorded_controls["predictor_promotion_enabled"]
                 )
