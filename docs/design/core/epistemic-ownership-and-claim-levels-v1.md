@@ -99,7 +99,32 @@ requirements, revision rules, lifecycle ownership, and consumer authority.
 - No scientific run is authorized by this document. Any E3/E4 claim must satisfy
   the repository's experiment, review, and publication gates independently.
 
-## 6. Acceptance condition
+## 6. Source trace started on 2026-10-04
+
+This is a bounded source map, not completion of the owner audit in §2 or the
+acceptance condition in §7.
+It records direct observations from the current runtime implementation. A
+checkpoint field or read path is not, by itself, evidence that a representation
+is epistemically sound or that it changes a decision.
+
+| Candidate owner | Runtime / persistence owner | Production read path found | What remains unproven or unaudited |
+|---|---|---|---|
+| CognitiveGraph | `OrganismRuntime._cognitive_bridge`; exported in `cognitive_bridge` by `OrganismRuntime._build_checkpoint_payload()`; implementation in `symbiont/cognition/graph.py` and `symbiont/core/cognition/bridge.py` | `core.domains.cognition` and structural planning read graph structure | Full evidence provenance and revision path from each writer to every factual/action consumer; a discriminating test showing which decisions depend on graph state |
+| SignalKnowledge | `OrganismRuntime._signal_knowledge`; checkpoint field `signal_knowledge`; implementation in `symbiont/core/signals/knowledge.py` | Runtime tick wiring passes the engine into cognition services (`core/orchestration/runtime.py`) | Exact proposition semantics, support/revision rules, and a traced downstream decision whose result changes when only this state changes |
+| Generative hypotheses | `OrganismRuntime._generative_cognition`; checkpoint field `generative_cognition`; implementation under `symbiont/cognition/generative/` | Runtime reads anticipated effects and epistemic values when building action-domain services; the reconciler also receives factual outcomes | Whether hypotheses alter candidate ranking or action choice in a controlled, state-differential test; no E3/E4 utility claim follows from these reads |
+| Social evidence | `ModeledOrganismRuntime._social_evidence_ledger`; checkpoint field `social_evidence_ledger`; implementation in `symbiont/modeling/culture.py` | Cultural retention/validation and explicit claim receive/originate/retransmit APIs in `symbiont/modeling/runtime.py` | A canonical peer-claim assessment → reconciliation → accepted-knowledge → organism-decision path is not established; no general trust authority is implied |
+
+The source paths above can be checked in `symbiont/core/orchestration/runtime.py`
+and `symbiont/modeling/runtime.py`; current focused tests include
+`symbiont/tests/unit/core/test_cognition_bridge.py`,
+`symbiont/tests/unit/core/test_signal_knowledge.py`,
+`symbiont/tests/unit/cognition/test_generative_cognition_persistence.py`, and
+`symbiont/tests/unit/core/test_social.py`. These suites cover their named
+mechanisms and/or persistence; they do not jointly satisfy the missing
+consumer-differential audit above. Continue the source trace for the remaining
+§4 candidates before treating SYM-07 as resolved.
+
+## 7. Acceptance condition
 
 This design remains proposed until an owner-approved audit fills every required
 field in §2 for the candidate systems in §4, with links to implementation and
