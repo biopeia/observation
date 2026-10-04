@@ -75,12 +75,16 @@ transition. Historical archive records and epoch summaries describe the closed
 episode; they are not restored as current BodySchema or injected into current
 body facts.
 
-The active BodySchema consumers are the embodiment and action domains and the
-observer-safe runtime projection. Following re-embodiment, these see the empty
-new-body schema until it is rebuilt from new observations. Each action-domain
-boundary observation uses channels from the just-closed transition and considers
-only agency estimates updated after the current episode began. Current physical
-facts come from the new Body's sensors and physiology. Execution authority is
+The active BodySchema is updated by the embodiment domain, action domain, and
+sensorimotor-acquisition path. Runtime summaries and the observer-safe projection
+read that active state; the individual history records its confidence alongside
+the Body and episode identifiers. After re-embodiment, these paths start from
+the empty new-body schema until it is rebuilt from new observations. Episode
+archives and epoch summaries capture the closing Body's evidence with that
+episode's identity; archive lookup does not restore a historical BodySchema into
+the active schema. Each action-domain boundary observation considers only
+agency estimates updated after the current episode began. Current physical facts
+come from the new Body's sensors and physiology. Execution authority is
 separately withdrawn by the action-domain transition.
 
 Evidence scope: `lab/tests/integration/test_reembodiment_continuity.py` verifies
