@@ -60,6 +60,10 @@ export class PhysicalObservationBoundary {
   scheduleIdentityChange() {
     if (this.remountScheduled) return;
     this.remountScheduled = true;
+    // The stream detected the boundary before /api/state necessarily did.
+    // Forget the state-side baseline so the first subsequent poll establishes
+    // the new identity instead of forcing a redundant second remount.
+    this.presentationIdentity = null;
     queueMicrotask(() => {
       this.remountScheduled = false;
       this.onIdentityChange();
@@ -69,7 +73,12 @@ export class PhysicalObservationBoundary {
   update(viewer, state) {
     this.drainTransportIssues(viewer);
     const nextIdentity = stateIdentity(state);
-    if (!nextIdentity || nextIdentity === this.presentationIdentity) return false;
+    if (!nextIdentity) return false;
+    if (this.presentationIdentity === null) {
+      this.presentationIdentity = nextIdentity;
+      return false;
+    }
+    if (nextIdentity === this.presentationIdentity) return false;
     this.presentationIdentity = nextIdentity;
     return true;
   }
