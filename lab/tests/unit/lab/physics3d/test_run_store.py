@@ -190,12 +190,12 @@ def test_changed_contract_is_reembodiment_not_incompatible(tmp_path) -> None:
             '{"organism_id":"symbiont:persistent","saved_at_tick":12,'
             '"living_body":{"vital_state":"active"},'
             '"embodiment_lifecycle":{"schema_version":1,"state":"dormant","epoch":1,'
-            '"current":{"body_kind":"anthropomorphic-v4","receptor_count":107,'
+            '"current":{"body_kind":"anthropomorphic-v6","receptor_count":107,'
             '"effector_count":62,"started_tick":0,"body_vital_state":"active"},'
             '"history":[]}}',
         )
     (organism_dir / "metadata.json").write_text(
-        '{"ref":"org-old","body_kind":"anthropomorphic-v4",'
+        '{"ref":"org-old","body_kind":"anthropomorphic-v6",'
         '"receptor_count":107,"effector_count":62}',
         encoding="utf-8",
     )

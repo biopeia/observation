@@ -738,7 +738,7 @@ def test_dead_checkpoint_closes_epoch_summary_and_archives_memory() -> None:
         "state": "active",
         "epoch": 4,
         "current": {
-            "body_kind": "anthropomorphic-v4",
+            "body_kind": "anthropomorphic-v6",
             "receptor_count": 107,
             "effector_count": 62,
             "started_tick": 0,
