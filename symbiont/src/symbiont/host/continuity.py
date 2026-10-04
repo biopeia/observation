@@ -341,10 +341,12 @@ REGISTER: tuple[ContinuityEntry, ...] = (
         # are properties of this domain.
         extra_checkpoint_fields=("executive_intention",),
         nested_reembodiment=(
+            ("action_domain.schema_version", _NA),
             ("action_domain.selection_threshold", _BODY),
             ("action_domain.actuator_evidence", _BODY),
             ("action_domain.competence_development", _BODY),
             ("action_domain.sensorimotor_v2.effect_space", _KEEP),
+            ("action_domain.sensorimotor_v2.schema_version", _NA),
             ("action_domain.sensorimotor_v2.causal_evidence", _KEEP),
             ("action_domain.sensorimotor_v2.agency_acquisition", _KEEP),
             ("action_domain.sensorimotor_v2.exploration", _KEEP),
@@ -357,6 +359,7 @@ REGISTER: tuple[ContinuityEntry, ...] = (
             ("action_domain.last_executed_controller_seed_id", _VOID),
             ("action_domain.pending_motor_observation", _VOID),
             ("action_domain.pending_proprioception", _VOID),
+            ("executive_intention.schema_version", _NA),
             ("executive_intention.active", _VOID),
             ("executive_intention.active_commitment_id", _VOID),
             ("executive_intention.progress_evidence", _VOID),

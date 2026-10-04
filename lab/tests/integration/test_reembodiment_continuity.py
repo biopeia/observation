@@ -384,10 +384,12 @@ def test_knowledge_survives_as_knowledge_without_authority(case: _Case) -> None:
 
     action_entry = next(entry for entry in REGISTER if entry.attribute == "_action_domain")
     assert dict(action_entry.nested_reembodiment) == {
+        "action_domain.schema_version": Reembodiment.NOT_APPLICABLE,
         "action_domain.selection_threshold": Reembodiment.REPLACED,
         "action_domain.actuator_evidence": Reembodiment.REPLACED,
         "action_domain.competence_development": Reembodiment.REPLACED,
         "action_domain.sensorimotor_v2.effect_space": Reembodiment.PRESERVED,
+        "action_domain.sensorimotor_v2.schema_version": Reembodiment.NOT_APPLICABLE,
         "action_domain.sensorimotor_v2.causal_evidence": Reembodiment.PRESERVED,
         "action_domain.sensorimotor_v2.agency_acquisition": Reembodiment.PRESERVED,
         "action_domain.sensorimotor_v2.exploration": Reembodiment.PRESERVED,
@@ -400,6 +402,7 @@ def test_knowledge_survives_as_knowledge_without_authority(case: _Case) -> None:
         "action_domain.last_executed_controller_seed_id": Reembodiment.INVALIDATED,
         "action_domain.pending_motor_observation": Reembodiment.INVALIDATED,
         "action_domain.pending_proprioception": Reembodiment.INVALIDATED,
+        "executive_intention.schema_version": Reembodiment.NOT_APPLICABLE,
         "executive_intention.active": Reembodiment.INVALIDATED,
         "executive_intention.active_commitment_id": Reembodiment.INVALIDATED,
         "executive_intention.progress_evidence": Reembodiment.INVALIDATED,
@@ -409,9 +412,23 @@ def test_knowledge_survives_as_knowledge_without_authority(case: _Case) -> None:
         "executive_intention.counts": Reembodiment.PRESERVED,
         "executive_intention.outcome_evidence": Reembodiment.PRESERVED,
     }
+    declared = dict(action_entry.nested_reembodiment)
+
+    def covered_fields(prefix: str) -> set[str]:
+        return {
+            path.removeprefix(f"{prefix}.").split(".", maxsplit=1)[0]
+            for path in declared
+            if path.startswith(f"{prefix}.")
+        }
+
+    current_action = case.transformed["actuation"]["action_domain"]
+    assert covered_fields("action_domain") == set(current_action)
+    assert covered_fields("action_domain.sensorimotor_v2") == set(
+        current_action["sensorimotor_v2"]
+    )
+    assert covered_fields("executive_intention") == set(case.transformed["executive_intention"])
     prior_v2 = case.previous["actuation"]["action_domain"]["sensorimotor_v2"]
     fresh_v2 = case.fresh["actuation"]["action_domain"]["sensorimotor_v2"]
-    current_action = case.transformed["actuation"]["action_domain"]
     current_v2 = current_action["sensorimotor_v2"]
     fresh_action = case.fresh["actuation"]["action_domain"]
     for field in ("selection_threshold", "actuator_evidence", "competence_development"):
