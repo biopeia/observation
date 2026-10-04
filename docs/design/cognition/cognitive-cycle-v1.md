@@ -242,6 +242,10 @@ them (already recorded as debt in the ownership audit §8). With §5.1 in
 force the boundary has a checkable form: a motor-caused note must carry a
 `causal.` reference.
 
+Status: F1 and F2 are closed only when `shared_fact_identity` is enabled
+(§13, W1); the default organism still behaves as described above. F3–F5 are
+open.
+
 None of F1–F5 is a correctness bug in a learner. Each is a place where the
 "same fact" cannot be recognised as the same.
 
@@ -417,6 +421,9 @@ _capture_private_frame(result) at tick t+1
                   when a transition closed this tick, else None
 _finalize_private_transition(previous, current)
     evidence = (current.factual_ref, *previous.evidence_refs, *current.evidence_refs)[:16]
+tick()
+    note_factual_outcome(evidence_refs=(current.factual_ref,))   # one event, one source
+        when the episode has a factual_ref, else the episode's references as before
 ```
 
 `last_transition` at the end of tick *t+1* is the transition closed during

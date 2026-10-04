@@ -515,3 +515,25 @@ def test_shared_fact_identity_is_inert_by_default():
     assert current.factual_ref is None
     assert not any(ref.startswith("causal.") for ref in episode.evidence_refs)
     assert "shared_fact_identity" not in runtime.checkpoint()["private_model_config"]
+
+
+def test_shared_fact_identity_reconciles_imagination_under_one_source(monkeypatch):
+    """Cognitive Cycle v1 F2: the same event is not counted once per signal reference."""
+    runtime = PrivateModelOrganismRuntime(
+        organism_id="private-shared-fact",
+        bootstrap_semantic_senses=False,
+        discover_senses=False,
+        shared_fact_identity=True,
+    )
+    frames = iter(_motor_frames(runtime))
+    monkeypatch.setattr(runtime, "_capture_private_frame", lambda result: next(frames))
+    notes: list[dict] = []
+    monkeypatch.setattr(
+        runtime.generative_cognition,
+        "note_factual_outcome",
+        lambda **note: notes.append(note) or 0,
+    )
+    runtime.tick()
+    runtime.tick()
+
+    assert [note["evidence_refs"] for note in notes] == [("causal.transition.abc",)]

@@ -862,7 +862,13 @@ class PrivateModelOrganismRuntime(ModeledOrganismRuntime):
                     self.generative_cognition.note_factual_outcome(
                         action_id=episode.action_token.removeprefix("action."),
                         outcome_tokens=episode.outcome_tokens,
-                        evidence_refs=episode.evidence_refs,
+                        # One event is one factual source, not one per signal
+                        # reference (Cognitive Cycle v1 F2).
+                        evidence_refs=(
+                            (current.factual_ref,)
+                            if current.factual_ref is not None
+                            else episode.evidence_refs
+                        ),
                         model_ids=("private-slm",),
                     )
                 self._schedule_observed_outcome_value_credit(
