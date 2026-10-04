@@ -134,12 +134,14 @@ types (`SensorReading`, `Capability`, `ActuatorConstitution`) directly from
 body internals. Giving each library small contracts of its own, as the target
 describes, is not done.
 
-**OI-6 — PRE-EXISTING: import cycle inside the organism.**
-`symbiont.cognition.checkpoint` and `symbiont.host.acclimation` fail with
-"partially initialized module" unless `symbiont.core` is imported first. The
-removed `symbiont.simulation` import used to hide this. `symbiont/__init__.py`
-now imports `symbiont.core` explicitly to keep the previous order. The cycle
-itself is not fixed.
+**OI-6 — CLOSED: leaf imports no longer rely on core initialization order.**
+Shared epistemic conventions and organism limits now live in the independent
+`symbiont.foundation` package, so cognition and host leaf modules do not import
+through `symbiont.core`. The top-level `symbiont` package loads its `core`
+facade on demand rather than eagerly. Subprocess regressions verify direct
+imports of `symbiont.cognition.checkpoint` and `symbiont.host.acclimation`
+without initializing `symbiont.core`, and verify the public core facade still
+loads on demand. The full Symbiont suite passes.
 
 **OI-15 — `core.cognition.bridge_compat`.**
 A 478-line mixin that forwards 42 private attributes of `CognitiveBridge` to
