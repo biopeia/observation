@@ -230,9 +230,11 @@ integration tests pass, but `agentctl`'s equivalence suite was not run.
 Frozen-evidence detection keys on `lab/experiments/`. `agentctl publish` and a
 remote CI run have not been performed. A local `agentctl ci-check` against the
 branch base fails because all 75 unpublished commits lack `Governance-Class`
-trailers; this is a range-history validation failure, not evidence that the
-final changed-file plan is wrong. The `observatory` lane and CI job names remain
-as labels for the still-active Lab Observatory subsystem.
+trailers; checking the current metadata-bearing documentation commit alone
+passes (`agentctl ci-check --base HEAD^ --head HEAD`). The range failure does
+not establish that the final changed-file plan is wrong. The `observatory` lane
+and CI job names remain as labels for the still-active Lab Observatory
+subsystem.
 
 **OI-12 — CLOSED for current documentation navigation.** The obsolete root
 `docs/architecture.md` exposition was replaced by a navigation page to the
