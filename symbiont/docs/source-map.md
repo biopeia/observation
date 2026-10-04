@@ -15,7 +15,7 @@ This ledger ensures that the existing documentation corpus is not silently disca
 | architecture | `adr/ADR-0006-evidence-revision-identity.md` | 22 |
 | architecture | `adr/ADR-0007-common-causal-eligibility.md` | 26 |
 | architecture | `adr/README.md` | 17 |
-| architecture | `architecture.md` | 817 |
+| architecture | `architecture.md` | 29 |
 | cognition | `design/archive/episodic-experience-memory-v1.md` | 204 |
 | observation-telemetry | `design/archive/physics3d-telemetry-v3.md` | 245 |
 | observation-telemetry | `design/archive/physics3d-telemetry-v4.md` | 212 |

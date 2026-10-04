@@ -227,11 +227,14 @@ Frozen-evidence detection keys on `lab/experiments/`. No `agentctl publish` or
 CI run was done, `ci_plan.py` still names an `observatory` lane, and
 the CI job names (`observatory-tests`, …) are unchanged.
 
-**OI-12 — Docs still describe removed systems.** `README.md` was updated to the
-new layout. Links to deleted files were turned into plain text and five rows
-dropped from `docs/explanation/concepts/SOURCES.md`, but the prose of
-`docs/architecture.md` and `docs/explanation/math/*` still describes the legacy
-agent simulation and the old package names.
+**OI-12 — CLOSED for current documentation navigation.** The obsolete root
+`docs/architecture.md` exposition was replaced by a navigation page to the
+canonical `symbiont/docs/` description; the portal no longer presents it as a
+unified current-state specification. Stale `docs/math/` references were
+replaced by the current mathematical map, and the web-source taxonomy now
+points to the canonical documentation. Historical design and research records
+remain available as history and are not asserted to describe current runtime
+behavior. Validation: documentation links and source-trace tests pass.
 
 **OI-13 — Generic top-level import names.** `lab`, `environment`, `modality`
 and `embodiment` could collide with a third-party package of the same name.

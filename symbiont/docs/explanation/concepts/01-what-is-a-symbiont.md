@@ -67,4 +67,4 @@ The immutable cognitive graph limits kernel is a frozen `dataclass` (`frozen=Tru
 
 ## Formal backing
 
-This chapter is definitional and architectural; it has no associated formal mathematical development. Chapters 2, 3, 4 and 8 of this series link to the mathematical compendium (`docs/math/`) where it corresponds to perception, cognition, attention and self-model.
+This chapter is definitional and architectural; it has no associated formal mathematical development. Chapters 2, 3, 4 and 8 of this series refer to the mathematical map (`symbiont/docs/14-mathematical-map.md`) where it corresponds to perception, cognition, attention and self-model.

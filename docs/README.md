@@ -4,13 +4,12 @@ The canonical scientific description of the current organism starts at **[`symbi
 
 That corpus is written as one connected work: it explains the organism from its epistemic foundations and domain boundaries down to runtime order, causal chains, state ownership, implementation anchors and experimental evidence. It is the recommended entry point for researchers who did not participate in the design of the project.
 
-The rest of `docs/` remains intentionally available because it contains the source material from which the canonical description is maintained:
+The rest of `docs/` remains available as decisions, proposals, research protocols and engineering records:
 
-- `architecture.md` provides the unified technical architecture and epistemological foundation.
+- `architecture.md` is a navigation page to the current architecture sources; it is not a second implementation specification.
 - `design/` contains specifications, implementation audits and research proposals. A specification records intended design; it must not be read automatically as a statement about current behaviour.
-- `explanation/` contains earlier explanatory treatments and the mathematical compendium.
 - `adr/` records accepted architectural decisions and their context.
-- `methodology/` and `design/experimentation/` describe experimental practice and individual protocols.
+- `methodology/` describes experimental practice and individual protocols.
 - `history/` (including `history/roadmap-log.md`) and `CHANGELOG.md` preserve development history; `roadmap.md` is the project-planning index.
 - `development/` documents engineering concerns that are useful to maintainers but are not part of the scientific description of the organism.
 

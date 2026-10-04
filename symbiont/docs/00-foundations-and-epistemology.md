@@ -42,7 +42,7 @@ The scientific question is not whether the metaphors sound biological. It is whe
 
 ### Principal sources
 
-- `docs/architecture.md`
+- `symbiont/docs/index.md` and its linked canonical chapters
 - `docs/adr/ADR-0001-two-package-boundary.md`
 - `docs/adr/ADR-0002-ground-truth-isolation.md`
 - `symbiont/docs/explanation/concepts/01-what-is-a-symbiont.md`

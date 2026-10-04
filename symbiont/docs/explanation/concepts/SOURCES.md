@@ -20,8 +20,8 @@ route/symbol/anchor cited truly exists.
 
 | Type | Valid sources | What for |
 | --- | --- | --- |
-| `normative` | `docs/adr/`, `docs/architecture.md`, `docs/design/`, `docs/methodology/research-programme.md` | definitions, boundaries, invariants |
-| `formal` | `docs/math/` | mathematical backing |
+| `normative` | `symbiont/docs/`, `docs/adr/`, `docs/design/`, `docs/methodology/research-programme.md` | definitions, boundaries, invariants |
+| `formal` | `symbiont/docs/14-mathematical-map.md` | mathematical backing |
 | `implementation` | `src/`, `observatory/` + tests | actually implemented behavior |
 | `empirical` | `research/` + tests/studies | experimentally observed results |
 | `historical` | `docs/CHANGELOG.md`, `docs/history/` | historical context, not proof of current state |
@@ -57,7 +57,7 @@ permitted forms.
 | boundary-enforced-import | implementation | 01#evidencia | tests/experimental_integrity/test_ground_truth_boundary.py::test_ast_symbiont_never_imports_symbiont_lab |
 | kernel-inmutable-limits | implementation | 01#mecanismo | symbiont/src/symbiont/cognition/limits.py::KernelLimits |
 | kernel-inmutable-design | normative | 01#mecanismo | symbiont/docs/explanation/concepts/03-cognition-and-plasticity.md |
-| funcion-no-decoracion | normative | 01#no-metafora | docs/architecture.md |
+| funcion-no-decoracion | normative | 01#no-metafora | symbiont/docs/00-foundations-and-epistemology.md |
 | privacidad-capability | implementation | 02#mecanismo | symbiont/src/symbiont/host/contracts.py::Capability |
 | privacidad-reading-class | implementation | 02#mecanismo | symbiont/src/symbiont/host/readings.py::ReadingPrivacyClass |
 | welford-running-stats | implementation | 02#mecanismo | symbiont/src/symbiont/host/acclimation.py::RunningStats |

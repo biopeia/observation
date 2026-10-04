@@ -12,12 +12,12 @@ def test_architecture_directory_and_old_file_are_gone():
     assert not (REPO_ROOT / "docs" / "artificial-life-model.md").exists()
 
 
-def test_merged_architecture_file_contains_all_three_sources_verbatim():
+def test_architecture_page_routes_to_current_canonical_sources():
     text = (REPO_ROOT / "docs" / "architecture.md").read_text(encoding="utf-8")
-    # One hard-to-fake line from each absorbed document:
-    assert "El repositorio Symbiont Lab está estructurado como un monorepo" in text
-    assert "## 1. Marco Epistemológico y Fundamento de Vida Artificial" in text
-    assert "## Artificial life, not simulated biology" in text
+    assert "../symbiont/docs/index.md" in text
+    assert "legacy package layout" in text
+    assert "current-state specification" in text
+    assert "docs/math/" not in text
 
 
 def test_portal_index_points_at_merged_file():
@@ -27,29 +27,17 @@ def test_portal_index_points_at_merged_file():
     assert "artificial-life-model.md" not in text or "docs/architecture.md" in text
 
 
-def test_fuentes_taxonomy_points_at_merged_file():
+def test_fuentes_taxonomy_points_at_canonical_architecture_sources():
     text = (REPO_ROOT / "symbiont" / "docs" / "explanation" / "concepts" / "SOURCES.md").read_text(
         encoding="utf-8"
     )
-    assert "docs/architecture.md" in text
-    assert "docs/architecture/" not in text
+    assert "symbiont/docs/" in text
+    assert "symbiont/docs/14-mathematical-map.md" in text
+    assert "docs/math/" not in text
 
 
-def test_merged_architecture_file_relative_links_resolve():
-    """Regression test for the merge-relocation link-depth bug.
-
-    docs/architecture/README.md and docs/architecture/entidad-symbiont.md
-    used to live two directories deep; docs/architecture.md (the merge
-    target) lives one directory deep. Every relative link carried over
-    verbatim from those two source files needed its ``../`` depth adjusted
-    by exactly one level (``../../src/...`` -> ``../src/...``, and
-    ``../adr/`` / ``../safety/`` / ``../design/`` / ``../math/`` -> bare
-    ``adr/`` / ``safety/`` / ``design/`` / ``math/``). This test parses
-    every markdown link in the merged file and asserts it resolves to a
-    real file on disk from docs/architecture.md's own location, so a
-    future re-merge or edit can't silently reintroduce the same
-    depth-mismatch bug.
-    """
+def test_architecture_page_relative_links_resolve():
+    """Keep the current architecture navigation page's local links valid."""
     doc_path = REPO_ROOT / "docs" / "architecture.md"
     text = doc_path.read_text(encoding="utf-8")
     links = _MARKDOWN_LINK_RE.findall(text)
@@ -68,19 +56,19 @@ def test_merged_architecture_file_relative_links_resolve():
         if not target.exists():
             broken.append(f"{link} -> {target}")
 
-    assert checked > 60, f"expected 60+ resolvable local links, found {checked}"
+    assert checked >= 5, f"expected the current source links, found {checked}"
     assert not broken, "broken relative link(s) in docs/architecture.md:\n" + "\n".join(broken)
 
 
-def test_root_readme_points_at_merged_file():
+def test_root_readme_points_at_architecture_navigation_page():
     text = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
     assert "artificial-life-model.md" not in text
     assert "docs/architecture.md" in text
 
 
-def test_web_readme_points_at_merged_file():
+def test_web_readme_points_at_current_canonical_description():
     text = (REPO_ROOT / "symbiont" / "docs" / "explanation" / "concepts" / "README.md").read_text(
         encoding="utf-8"
     )
-    assert "docs/architecture/" not in text
-    assert "docs/architecture.md" in text
+    assert "symbiont/docs/index.md" in text
+    assert "docs/math/" not in text

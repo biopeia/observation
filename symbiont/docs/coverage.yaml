@@ -36,7 +36,7 @@ sources:
   lines: 17
 - path: architecture.md
   area: architecture
-  lines: 817
+  lines: 29
 - path: design/archive/episodic-experience-memory-v1.md
   area: cognition
   lines: 204
