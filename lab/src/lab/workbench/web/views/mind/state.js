@@ -16,6 +16,7 @@ export const motorEpochEvents = [];
 
 export const developmentScope = {
   organismId: null,
+  activeRunId: null,
   observedStartTick: null,
   baselinePoint: null,
   lastPersistedTick: null,
@@ -27,6 +28,10 @@ export const streamState = {
   source: null,
   instanceId: null,
   runId: null,
+  organismId: null,
+  bodyId: null,
+  embodimentId: null,
+  topologyRevision: null,
   lastTelemetryAt: null,
   lastSnapshotAt: null,
   lastCoherentFrameAt: null,
@@ -112,6 +117,7 @@ export const snap = {
   agencyAcquisition: null,
   affordances: [],
   executiveIntention: null,
+  availability: null,
 };
 
 export const observerUsage = {
@@ -218,6 +224,10 @@ export function resetMindDataState() {
     source: null,
     instanceId: null,
     runId: null,
+    organismId: null,
+    bodyId: null,
+    embodimentId: null,
+    topologyRevision: null,
     lastTelemetryAt: null,
     lastSnapshotAt: null,
     lastCoherentFrameAt: null,
@@ -242,6 +252,7 @@ export function resetMindDataState() {
   motorHistory.length = 0;
   motorEpochEvents.length = 0;
   developmentScope.organismId = null;
+  developmentScope.activeRunId = null;
   developmentScope.observedStartTick = null;
   developmentScope.baselinePoint = null;
   developmentScope.lastPersistedTick = null;
