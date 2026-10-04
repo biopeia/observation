@@ -11,7 +11,7 @@ from symbiont.agency.prospective import ExecutiveAdmissionPolicy
 from symbiont.cognition.limits import KernelLimits
 from symbiont.core.orchestration.runtime import OrganismRuntime
 from symbiont.genetics.expression import ExpressionRegulator
-from symbiont.host.checkpoint import CheckpointError
+from symbiont.host.checkpoint import CheckpointError, continuation_condition_hash
 from symbiont.modeling.private_runtime import PrivateModelOrganismRuntime
 
 RUNTIME_KWARGS = dict(bootstrap_semantic_senses=True, discover_senses=False, min_samples=1)
@@ -117,6 +117,43 @@ def test_checkpoint_without_recorded_controls_fails_closed() -> None:
     del saved["runtime_provenance"]["changed_since_restore"]
 
     with pytest.raises(CheckpointError, match="missing required field 'session_controls'"):
+        OrganismRuntime.from_checkpoint(saved, **RUNTIME_KWARGS)
+
+
+@pytest.mark.parametrize(
+    "control",
+    [
+        "cognitive_plasticity_enabled",
+        "predictor_promotion_enabled",
+        "persist_replay_state",
+        "kernel_limits",
+        "executive_admission_policy",
+        "expression_regulator",
+    ],
+)
+def test_checkpoint_with_incomplete_rehashed_controls_fails_closed(control: str) -> None:
+    runtime = OrganismRuntime(**RUNTIME_KWARGS)
+    saved = _saved(runtime)
+    controls = saved["runtime_provenance"]["session_controls"]
+    del controls[control]
+    saved["checkpoint_lineage"]["continuation_condition_hash"] = (
+        continuation_condition_hash(controls)
+    )
+
+    with pytest.raises(CheckpointError, match="invalid session_controls provenance"):
+        OrganismRuntime.from_checkpoint(saved, **RUNTIME_KWARGS)
+
+
+def test_checkpoint_with_unknown_rehashed_control_fails_closed() -> None:
+    runtime = OrganismRuntime(**RUNTIME_KWARGS)
+    saved = _saved(runtime)
+    controls = saved["runtime_provenance"]["session_controls"]
+    controls["unrecognized_control"] = True
+    saved["checkpoint_lineage"]["continuation_condition_hash"] = (
+        continuation_condition_hash(controls)
+    )
+
+    with pytest.raises(CheckpointError, match="unexpected: unrecognized_control"):
         OrganismRuntime.from_checkpoint(saved, **RUNTIME_KWARGS)
 
 

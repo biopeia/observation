@@ -160,6 +160,25 @@ def _recorded_session_controls(normalized: dict[str, Any]) -> dict[str, Any] | N
     raw = provenance["session_controls"]
     if not isinstance(raw, dict):
         raise CheckpointError("invalid session_controls provenance")
+    required = {
+        "cognitive_plasticity_enabled",
+        "predictor_promotion_enabled",
+        "persist_replay_state",
+        "kernel_limits",
+        "executive_admission_policy",
+        "expression_regulator",
+    }
+    if raw.keys() != required:
+        missing = sorted(required - raw.keys())
+        unexpected = sorted(raw.keys() - required)
+        details = []
+        if missing:
+            details.append(f"missing: {', '.join(missing)}")
+        if unexpected:
+            details.append(f"unexpected: {', '.join(unexpected)}")
+        raise CheckpointError(
+            "invalid session_controls provenance (" + "; ".join(details) + ")"
+        )
     controls: dict[str, Any] = {}
     for name in (
         "cognitive_plasticity_enabled",
