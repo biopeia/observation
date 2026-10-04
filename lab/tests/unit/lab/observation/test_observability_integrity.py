@@ -3,7 +3,11 @@ from __future__ import annotations
 import json
 
 from lab.observation.bus import ObservationBus
-from lab.observation.contracts import COMPLETED_FRAME_CONTRACT, ObservedFrame
+from lab.observation.contracts import (
+    COMPLETED_FRAME_CONTRACT,
+    OBSERVATION_IDENTITY_CONTRACT,
+    ObservedFrame,
+)
 from lab.observation.physics3d import Physics3DObservationBridge
 
 
@@ -42,7 +46,9 @@ def test_coherent_frame_contract_carries_scientific_identity() -> None:
     assert event["embodiment_id"] == "embodiment-3"
     assert event["topology_revision"] == 9
     assert event["provenance"]["contract"] == COMPLETED_FRAME_CONTRACT
-    assert COMPLETED_FRAME_CONTRACT == "completed-render-frame-v2"
+    assert COMPLETED_FRAME_CONTRACT == "completed-render-frame-v1"
+    assert event["provenance"]["identity_contract"] == OBSERVATION_IDENTITY_CONTRACT
+    assert OBSERVATION_IDENTITY_CONTRACT == "observation-identity-v1"
 
 
 def test_physics3d_bridge_propagates_run_identity_to_all_coherent_components() -> None:
