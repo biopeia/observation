@@ -736,6 +736,59 @@ def test_knowledge_survives_as_knowledge_without_authority(case: _Case) -> None:
     )
 
 
+def test_preserved_bridge_readouts_cannot_authorize_old_body_after_restore_ticks(
+    case: _Case,
+) -> None:
+    """Longitudinal readouts survive, but action authority needs fresh bindings."""
+    entry = next(item for item in REGISTER if item.attribute == "_cognitive_bridge")
+    assert dict(entry.nested_reembodiment)["graph.nodes"] is Reembodiment.PRESERVED
+    assert dict(entry.nested_reembodiment)["graph.edges"] is Reembodiment.PRESERVED
+
+    action_entry = next(item for item in REGISTER if item.attribute == "_action_domain")
+    assert (
+        dict(action_entry.nested_reembodiment)[
+            "action_domain.sensorimotor_v2.execution_bindings"
+        ]
+        is Reembodiment.INVALIDATED
+    )
+
+    restored = case.restore()
+    prior_competences = _competence_ids(restored) & case.competences_in_a
+    assert prior_competences
+    assert not any(
+        restored._action_domain.competence_is_executable(competence)
+        for competence in restored._action_domain.competence_library.items
+        if competence.competence_id in prior_competences
+    )
+
+    cognition = None
+    for _ in range(3):
+        tick_result = restored.tick()
+        cognition = tick_result.cognition
+        assert not any(
+            restored._action_domain.competence_is_executable(competence)
+            for competence in restored._action_domain.competence_library.items
+            if competence.competence_id in prior_competences
+        )
+
+    assert cognition is not None
+    # Existing primitive readouts remain available as retained cognition.
+    assert set(cognition.readouts_for_family("primitive")) & prior_competences
+    # The actual consumer refuses readouts without an executable, freshly-bound
+    # competence candidate. Its early no-candidate path emits no proposals.
+    proposals = restored._action_domain._direct_cognitive_proposals(
+        cognition,
+        (),
+        candidate_ids=(),
+        context_ref="",
+        resolver=None,
+        signal_references={},
+        services=None,
+        tick=restored.tick_count,
+    )
+    assert proposals == []
+
+
 def test_experience_continues_in_body_b_without_erasing_body_a_knowledge(
     case: _Case,
 ) -> None:
