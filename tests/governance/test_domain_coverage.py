@@ -90,8 +90,13 @@ def test_boundary_checks_are_constitutional() -> None:
 
 
 def test_no_policy_path_points_at_nothing() -> None:
+    # Matrix metadata tables such as validation_budget intentionally have no
+    # path selectors, so only path-owning sections participate in this check.
     patterns = [p for surface in SURFACES["surface"] for p in surface["paths"]] + [
-        p for section in MATRIX.values() if isinstance(section, dict) for p in section["paths"]
+        p
+        for section in MATRIX.values()
+        if isinstance(section, dict)
+        for p in section.get("paths", [])
     ]
     dead = [
         pattern
