@@ -77,7 +77,7 @@ def test_runtime_reconciles_imagination_against_the_causal_fact_reference() -> N
 
 
 def test_model_output_cannot_be_recorded_as_observed() -> None:
-    """§3, §15 decision 1: no subsystem manufactures factual authority."""
+    """§3 / ADR-0068 decision 1: no subsystem manufactures factual authority."""
     with pytest.raises(ValueError, match="model-generated content cannot be marked observed"):
         ExperienceRecord(
             record_id="model.x",

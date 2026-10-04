@@ -120,10 +120,11 @@ construction or by a test; the rest are contract only.
 | Memory consolidation | what is retained | reinterpret the experience | — |
 | Epistemic investigation | whether to observe again | choose motor action | ✔ ADR-0005 |
 | Provenance | how a state came to exist | count as evidence for the claim | ✔ outward-only subscribers |
-| Cognitive Atlas / Observatory | explain the above to the researcher | take part in it | ✔ pure projection in `lab/observation/atlas.py`; Constitution §13 |
+| Cognitive Atlas / Observatory | explain the above to the researcher | take part in it | ✔ pure projection in the Lab (`lab/src/lab/observation/atlas.py`); Constitution §13 |
 
-Two rules follow from the table. They are proposed as global invariants;
-§15 holds the decision text for the owner:
+Two rules follow from the table. They are the decision of
+[ADR-0068](../../adr/ADR-0068-factual-authority-and-single-experienced-event.md)
+(Accepted):
 
 - **No cognitive subsystem manufactures factual authority.** Factual
   authority enters only through direct observation, the observed consequence
@@ -215,8 +216,9 @@ consequence.
 unrelated references.** `runtime.tick` calls `note_factual_outcome` with
 `("causal.{transition_id}",)` for `competence-effect`; the private runtime
 calls it again for the same physical consequence with up to 16 synthesized
-references for `private-slm`. `model_ids` keeps the two calls on disjoint
-hypotheses, so no hypothesis is reconciled twice. But
+references for `private-slm`. `model_ids` restricts each call to
+hypotheses sourced from that model, and a hypothesis is reconciled only
+while `HYPOTHESIZED` or `PREDICTED`, so none is reconciled twice. But
 `note_factual_sources` adds every reference to the representation's source
 set and `GenerativeConsolidationSignal.source_diversity` is the size of that
 set (`cognition/generative/consolidation.py`). One event can therefore count
@@ -404,7 +406,7 @@ change would carry; only W0 is in this change.
 
 | Wave | Content | Class | Needs before it lands |
 |---|---|---|---|
-| **W0** | This document; register entry; a structural test that locks the invariants of §2–§3 and §5.1 that already hold | SCIENTIFIC by surface (`docs/design/**`, `tests/experimental_integrity/**`); no organism code | Owner review |
+| **W0** | This document; ADR-0068 (Accepted); register entry; a structural test that locks the invariants of §2–§3 and §5.1 that already hold | CONSTITUTIONAL by surface (`docs/adr/**`), under ADR-0068 | Owner review of the candidate |
 | **W1** | Shared fact identity (F1, F2): a private episode whose action closed a `SensorimotorTransition` cites `causal.{transition_id}` first among its evidence references. **Mechanism implemented, off by default** (`shared_fact_identity`) | SCIENTIFIC when enabled | It changes `ExperienceRecord.content_hash` (ledger chain, corpus dedupe key) and `source_diversity`, hence retention protection. Enabling it requires an owner-approved comparison of retention and corpus composition with and without the shared reference |
 | **W2** | Provenance linkage and boundary check (F3, F4, F5): a motor-caused generative note must carry a `causal.` reference; `outcome_learning` events cite `CausalRef("transition", …)`; outcome-value credit retains the scheduling episode | ORDINARY if observer-equivalent, else SCIENTIFIC | Check that the checkpointed provenance frontier stays bounded (retire transition refs) and that no decision reads the new field |
 | **W3** | Evaluation vector (§10): carry executive history, endogenous value and predicted-outcome confidence as named `ActionEvaluation` fields on both admission routes; remove the product in `ProspectivePolicy` only if a contradictory-decision case is shown | SCIENTIFIC | A concrete case where the current gates and the vector disagree (ownership audit §7 item 4) |
@@ -438,58 +440,3 @@ does not approve W1–W6; each needs its own decision and, where marked
 SCIENTIFIC, external review and the stated measurement. A finding in §5.2 or
 §8 is a recorded gap, not a licence to change the organism so that a test
 passes.
-
-## 15. Proposed architecture decision (not accepted)
-
-Adding a global invariant needs an Accepted ADR and an owner decision
-(Constitution, "Architectural invariants"). The text below is the proposal.
-It is recorded here, not under `docs/adr/`, because an ADR is filed when the
-owner accepts it; nothing in this section is binding and the Constitution is
-not edited.
-
-**Title.** Factual authority and the single experienced event.
-
-**Relates to.** Constitution items 32–35, 38–39, 80–88, 135; ADR-0006,
-ADR-0014, ADR-0016, ADR-0025, ADR-0037.
-
-**Context.** Each mechanism already keeps prediction apart from observation
-locally: ADR-0037 demarcates imagination, ADR-0016 isolates replay,
-`ExperienceRecord` rejects model content marked observed, Generative
-Cognition holds no motor or ledger handle. The rule that holds *across*
-mechanisms is missing, and so is a common way to say "the same thing
-happened" (findings F1–F2).
-
-**Decision.**
-
-1. No cognitive subsystem manufactures factual authority. Factual authority
-   enters the organism only through direct observation, the observed
-   consequence of an action it executed, and source-attributed social
-   evidence, which stays attributed until reconciled. A prediction, replay,
-   hypothesis, counterfactual, model output or observational projection is
-   never a fact and never becomes one by being stored, repeated,
-   consolidated or displayed.
-2. One experienced event, many interpretations. A consequence that occurred
-   once has one identity and one provenance. Each learner keeps its own
-   record and epistemology and refers to that identity instead of
-   reconstructing the event.
-3. The identity of a motor-caused consequence is its
-   `SensorimotorTransition`: evidence reference `causal.{transition_id}`,
-   provenance reference `CausalRef("transition", transition_id)`. No new
-   record type.
-4. A consequence without a motor cause keeps its owner's identity; no motor
-   fact is invented for it.
-5. Reconciliation produces inference, not observation.
-
-**Consequences.** Decisions 1, 2, 4 and 5 describe boundaries the code
-already keeps locally. Decision 3 is not yet true of `main` by default;
-W1–W2 bring it about and are reviewed separately. A shared reference says
-two records concern one event; it does not make either more credible
-(Constitution items 80–88).
-
-**Alternatives rejected.** A new `ExperiencedTransition` record with a
-learning bus (the fact already has a canonical record; a bus adds an owner
-between the fact and its learners). A universal evidence manager (forces one
-evidence semantics on subsystems the audit found to differ). Leaving
-identities per subsystem (one event counted as several independent sources
-is a measurement artefact on a decision-relevant signal).
-
