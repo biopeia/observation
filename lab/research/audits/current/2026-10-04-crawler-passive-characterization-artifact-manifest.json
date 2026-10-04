@@ -1,0 +1,14 @@
+{
+  "artifacts": {
+    "crawler-passive-characterization.json": "sha256:e48268ac2260915b0432128659f1d5cb91f32009428556d51b90b7a5be3de235"
+  },
+  "overall_disposition": "reportable",
+  "protocol": "crawler-passive-characterization-v1",
+  "replicate_dispositions": [
+    "reportable",
+    "reportable"
+  ],
+  "run_id": "crawler-passive-characterization-20261004",
+  "runner_effective_config_sha256": "85247916aa735c4a69ef8d74aeba2d3e2c6ee0337d64ac400b2f783591480d18",
+  "source_commit": "61397bd652aeac26759fb07db04417655a2ddaef"
+}
