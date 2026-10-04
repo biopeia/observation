@@ -346,6 +346,8 @@ REGISTER: tuple[ContinuityEntry, ...] = (
             # learned sensorimotor state below is selectively retained.
             ("actuation.enabled", _BODY),
             ("actuation.constitution", _BODY),
+            ("actuation.pending_motor_observation", _BODY),
+            ("actuation.pending_proprioception", _BODY),
             ("action_domain.schema_version", _NA),
             ("action_domain.selection_threshold", _BODY),
             ("action_domain.actuator_evidence", _BODY),

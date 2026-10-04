@@ -386,6 +386,8 @@ def test_knowledge_survives_as_knowledge_without_authority(case: _Case) -> None:
     assert dict(action_entry.nested_reembodiment) == {
         "actuation.enabled": Reembodiment.REPLACED,
         "actuation.constitution": Reembodiment.REPLACED,
+        "actuation.pending_motor_observation": Reembodiment.REPLACED,
+        "actuation.pending_proprioception": Reembodiment.REPLACED,
         "action_domain.schema_version": Reembodiment.NOT_APPLICABLE,
         "action_domain.selection_threshold": Reembodiment.REPLACED,
         "action_domain.actuator_evidence": Reembodiment.REPLACED,
@@ -424,6 +426,7 @@ def test_knowledge_survives_as_knowledge_without_authority(case: _Case) -> None:
         }
 
     current_action = case.transformed["actuation"]["action_domain"]
+    assert covered_fields("actuation") | {"action_domain"} == set(case.transformed["actuation"])
     assert covered_fields("action_domain") == set(current_action)
     assert covered_fields("action_domain.sensorimotor_v2") == set(
         current_action["sensorimotor_v2"]
