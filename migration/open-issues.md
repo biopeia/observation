@@ -129,12 +129,13 @@ Whether `symbiont.modeling` and `symbiont.cognition.generative` are public
 surface is an open decision.
 
 **OI-17 — Domain contracts are implicit.**
-The libraries meet in the Lab through plain values and callables (a receptor
-array factory, opaque receptor ids, `Mapping[str, float]` samples), not through
-named protocols. `lab.integration.physics3d.apparatus` still builds organism
-types (`SensorReading`, `Capability`, `ActuatorConstitution`) directly from
-body internals. Giving each library small contracts of its own, as the target
-describes, is not done.
+The Lab-to-Physics3D apparatus adapter now declares a minimal structural
+protocol for receptor sampling, opaque receptor/effector ids, and motor port
+pairings. This narrows one implicit boundary, but the broader issue remains:
+other library hand-offs still use plain values/callables, and
+`lab.integration.physics3d.apparatus` still builds organism types
+(`SensorReading`, `Capability`, `ActuatorConstitution`) directly from body
+internals. Domain-owned contracts across those boundaries remain open.
 
 **OI-6 — CLOSED: leaf imports no longer rely on core initialization order.**
 Shared epistemic conventions and organism limits now live in the independent
