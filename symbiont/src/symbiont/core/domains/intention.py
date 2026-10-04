@@ -317,7 +317,9 @@ class IntentionDomain:
         tick: int,
         observed_effect_id: str | None = None,
         similarity: float | None = None,
+        transition_id: str | None = None,
     ) -> IntentOutcome:
+        """``transition_id`` names the observed fact that decided this outcome, if one did."""
         intent.transition(status, tick=tick, reason=reason)
         self.counts[status] += 1
         outcome = IntentOutcome(
@@ -342,6 +344,10 @@ class IntentionDomain:
         causes = [CausalRef("intent", intent.intent_id)]
         if self.active_commitment_id is not None:
             causes.append(CausalRef("commitment", self.active_commitment_id))
+        # ADR-0068: the interpretation cites the one experienced event.
+        fact = CausalRef("transition", transition_id) if transition_id is not None else None
+        if fact is not None:
+            causes.append(fact)
         self._emit(
             intent,
             tick=tick,
@@ -357,11 +363,11 @@ class IntentionDomain:
         )
         if self.provenance is not None:
             self.provenance.retire((CausalRef("intent", intent.intent_id),))
-        self._learn_from_outcome(outcome)
+        self._learn_from_outcome(outcome, fact=fact)
         return outcome
 
     # -- Executive Outcome Learning v1 ---------------------------------------------
-    def _learn_from_outcome(self, outcome: IntentOutcome) -> None:
+    def _learn_from_outcome(self, outcome: IntentOutcome, *, fact: CausalRef | None = None) -> None:
         """Real outcome -> executive evidence for its key; never causal evidence."""
         if not self.policy.executive_outcome_learning or outcome.anticipated_effect_id is None:
             return
@@ -403,6 +409,8 @@ class IntentionDomain:
             causes = [CausalRef("intent", outcome.intent_id)]
             if outcome.commitment_id is not None:
                 causes.append(CausalRef("commitment", outcome.commitment_id))
+            if fact is not None:
+                causes.append(fact)
             recorded = self.outcome_ledger.get(key)
             self.provenance.emit(
                 CausalEvent(
@@ -517,6 +525,7 @@ class IntentionDomain:
         embodiment_id: str | None,
         observed_atoms: tuple[str, ...] = (),
         known_features: frozenset[str] | None = None,
+        transition_id: str | None = None,
     ) -> IntentOutcome | None:
         """Reconcile the ACTIVE intent with what physically happened (§64-§70).
 
@@ -583,6 +592,7 @@ class IntentionDomain:
                         tick=tick,
                         observed_effect_id=observed_effect_id,
                         similarity=similarity,
+                        transition_id=transition_id,
                     )
             elif mismatched and not (self._expected_atoms and self._observed_atoms):
                 # A single mismatch leaves room for controller correction (§67).
@@ -595,6 +605,7 @@ class IntentionDomain:
                         tick=tick,
                         observed_effect_id=observed_effect_id,
                         similarity=similarity,
+                        transition_id=transition_id,
                     )
 
         if commitment_status is not None and commitment_status is not CommitmentStatus.ACTIVE:
