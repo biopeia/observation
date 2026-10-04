@@ -12,8 +12,6 @@ from symbiont.core.embodiment.longitudinal import contract_fingerprint
 from symbiont.core.embodiment.transition import (
     EmbodimentDescriptor,
     lifecycle_summary,
-    migrate_legacy_memory_store,
-    migrate_temporal_domains,
     prepare_fresh_embodiment_checkpoint,
     update_lifecycle_for_checkpoint,
 )
@@ -82,6 +80,17 @@ def _checkpoint(*, vital_state: str = "dead") -> dict:
                 "body_vital_state": vital_state,
             },
             "history": [],
+        },
+        "embodiment_episode": {
+            "schema_version": 3,
+            "embodiment_id": "embodiment.current",
+            "symbiont_id": "symbiont:persistent",
+            "body_id": "body.current",
+            "epoch": 1,
+            "state": "active",
+            "start_symbiont_tick": 0,
+            "embodiment_tick": 41,
+            "contract": {"contract_fingerprint": "motor-surface-62"},
         },
         "actuation": {
             "enabled": True,
@@ -222,31 +231,10 @@ def test_canonical_contract_fingerprint_drives_archive_and_lifecycle() -> None:
     assert all(item["contract_fingerprint"] for item in memories)
 
 
-def test_pre_epoch_lifecycle_fallback_is_explicitly_the_legacy_profile() -> None:
-    """No lifecycle metadata means the bounded historical v4 assumption."""
+def test_missing_lifecycle_metadata_is_unavailable_not_inferred() -> None:
     payload = _checkpoint(vital_state="active")
     payload.pop("embodiment_lifecycle")
-
-    summary = lifecycle_summary(payload)
-
-    assert summary["state"] == "dormant"
-    assert summary["epoch"] == 1
-    assert summary["current"] == {
-        "body_kind": "anthropomorphic-v4",
-        "receptor_count": 107,
-        "effector_count": 62,
-        "started_tick": 0,
-        "body_vital_state": "active",
-    }
-    # This compatibility projection carries no physical body/episode identity.
-    assert "body_id" not in summary["current"]
-    assert "embodiment_id" not in summary["current"]
-
-
-def test_current_checkpoint_without_lifecycle_metadata_is_not_guessed_as_legacy() -> None:
-    payload = _checkpoint(vital_state="active")
-    payload["schema_version"] = CHECKPOINT_SCHEMA_VERSION
-    payload.pop("embodiment_lifecycle")
+    payload.pop("embodiment_episode")
 
     summary = lifecycle_summary(payload)
 
@@ -256,6 +244,38 @@ def test_current_checkpoint_without_lifecycle_metadata_is_not_guessed_as_legacy(
         "current": {},
         "history_count": 0,
     }
+
+
+def test_current_checkpoint_without_lifecycle_metadata_is_not_guessed_as_legacy() -> None:
+    payload = _checkpoint(vital_state="active")
+    payload["schema_version"] = CHECKPOINT_SCHEMA_VERSION
+    payload.pop("embodiment_lifecycle")
+    payload.pop("embodiment_episode")
+
+    summary = lifecycle_summary(payload)
+
+    assert summary == {
+        "state": "unavailable",
+        "epoch": 0,
+        "current": {},
+        "history_count": 0,
+    }
+
+
+@pytest.mark.parametrize("episode_schema", [None, 2])
+def test_reembodiment_requires_current_episode_schema(episode_schema: int | None) -> None:
+    payload = _checkpoint(vital_state="active")
+    if episode_schema is None:
+        payload.pop("embodiment_episode")
+    else:
+        payload["embodiment_episode"]["schema_version"] = episode_schema
+
+    with pytest.raises(ValueError, match="current embodiment episode schema"):
+        prepare_fresh_embodiment_checkpoint(
+            payload,
+            _fresh(),
+            contract=EmbodimentDescriptor("new-body", 2, 2),
+        )
 
 
 @pytest.mark.parametrize(
@@ -269,6 +289,7 @@ def test_current_checkpoint_without_lifecycle_metadata_is_not_guessed_as_legacy(
 def test_current_checkpoint_without_lifecycle_cannot_reembody_as_legacy(marker: str) -> None:
     payload = _checkpoint(vital_state="active")
     payload.pop("embodiment_lifecycle")
+    payload.pop("embodiment_episode")
     if marker == "schema_version":
         payload["schema_version"] = CHECKPOINT_SCHEMA_VERSION
     elif marker == "runtime_provenance.checkpoint_schema_version":
@@ -276,7 +297,7 @@ def test_current_checkpoint_without_lifecycle_cannot_reembody_as_legacy(marker: 
     else:
         payload["checkpoint_lineage"] = {"schema_version": CHECKPOINT_SCHEMA_VERSION}
 
-    with pytest.raises(ValueError, match="refusing legacy body fallback"):
+    with pytest.raises(ValueError, match="unsupported checkpoint state"):
         prepare_fresh_embodiment_checkpoint(
             payload,
             _fresh(),
@@ -301,7 +322,7 @@ def test_current_checkpoint_with_malformed_lifecycle_cannot_reembody_as_legacy(
     payload["schema_version"] = CHECKPOINT_SCHEMA_VERSION
     payload["embodiment_lifecycle"] = {"schema_version": 1, "current": current}
 
-    with pytest.raises(ValueError, match="refusing legacy body fallback"):
+    with pytest.raises(ValueError, match="unsupported checkpoint state"):
         prepare_fresh_embodiment_checkpoint(
             payload,
             _fresh(),
@@ -384,6 +405,7 @@ def test_reembodiment_rejects_tampered_current_checkpoint_before_restamping() ->
 def test_current_schema_provenance_also_blocks_legacy_lifecycle_fallback() -> None:
     payload = _checkpoint(vital_state="active")
     payload.pop("embodiment_lifecycle")
+    payload.pop("embodiment_episode")
     payload["runtime_provenance"] = {"checkpoint_schema_version": CHECKPOINT_SCHEMA_VERSION}
 
     summary = lifecycle_summary(payload)
@@ -395,46 +417,13 @@ def test_current_schema_provenance_also_blocks_legacy_lifecycle_fallback() -> No
 def test_current_schema_lineage_also_blocks_legacy_lifecycle_fallback() -> None:
     payload = _checkpoint(vital_state="active")
     payload.pop("embodiment_lifecycle")
+    payload.pop("embodiment_episode")
     payload["checkpoint_lineage"] = {"schema_version": CHECKPOINT_SCHEMA_VERSION}
 
     summary = lifecycle_summary(payload)
 
     assert summary["state"] == "unavailable"
     assert summary["current"] == {}
-
-
-def test_legacy_embodiment_memory_migrates_one_way_into_core_archive() -> None:
-    legacy = {
-        "schema_version": 1,
-        "contracts": [
-            {
-                "contract_fingerprint": "contract.old",
-                "first_seen_epoch": 1,
-                "last_seen_epoch": 3,
-                "body_schema": {"state": "established"},
-                "historical_primitives": [
-                    {
-                        "primitive_id": "primitive.old",
-                        "embodiment_fingerprint": "motor.old",
-                        "sequence": [],
-                    }
-                ],
-                "motor_cognitive_surface": {"nodes": [], "edges": []},
-                "private_model_ids": ["model.old"],
-                "state": "historical",
-            }
-        ],
-    }
-
-    from symbiont.core.embodiment import EmbodimentArchive
-
-    archive = migrate_legacy_memory_store(EmbodimentArchive(), legacy)
-    matches = archive.for_contract("contract.old")
-    assert len(matches) == 1
-    memory = matches[0]
-    assert memory.body_id.startswith("legacy-body.")
-    assert memory.private_model_ids == ("model.old",)
-    assert memory.historical_motor_candidates[0]["primitive_id"] == "primitive.old"
 
 
 def test_dead_body_reembodiment_preserves_identity_but_revalidates_body_knowledge() -> None:
@@ -476,27 +465,16 @@ def test_dead_body_reembodiment_preserves_identity_but_revalidates_body_knowledg
     sensorimotor = transformed["actuation"]["sensorimotor"]
     assert sensorimotor["schema_version"] == 10
     assert sensorimotor["primitives"] == []
-    assert sensorimotor["historical_candidates"] == [
-        {
-            "primitive_id": "primitive.old",
-            "embodiment_fingerprint": "motor-surface-62",
-            "sequence": [
-                [["actuator.0", 5]],
-                [["actuator.1", 5]],
-                [["actuator.2", 5]],
-                [["actuator.3", 5]],
-            ],
-        }
-    ]
+    assert sensorimotor["historical_candidates"] == []
 
     lifecycle = lifecycle_summary(transformed)
     assert lifecycle["state"] == "active"
     assert lifecycle["epoch"] == 2
     assert lifecycle["history_count"] == 1
     current = transformed["embodiment_lifecycle"]["current"]
-    assert current["contract_relation"] == "known-contract"
-    assert current["known_contract_memory"] is True
-    assert current["candidate_private_model_ids"] == ["model-1"]
+    assert current["contract_relation"] == "changed"
+    assert current["known_contract_memory"] is False
+    assert current["candidate_private_model_ids"] == []
     assert transformed["embodiment_lifecycle"]["history"][0]["end_body_vital_state"] == "dead"
     assert len(transformed["embodiment_epoch_summaries"]) == 1
     assert "embodiment_memory" not in transformed
@@ -700,7 +678,7 @@ def test_stopping_marks_symbiont_dormant_without_changing_body_death_state() -> 
     assert updated["embodiment_lifecycle"]["state"] == "dormant"
 
 
-def test_known_contract_return_recovers_hypotheses_without_restoring_authority() -> None:
+def test_repeated_reembodiment_requires_episode_and_does_not_restore_authority() -> None:
     humanoid = _checkpoint(vital_state="active")
     crawler = prepare_fresh_embodiment_checkpoint(
         humanoid,
@@ -710,6 +688,21 @@ def test_known_contract_return_recovers_hypotheses_without_restoring_authority()
     crawler["saved_at_tick"] = 80
     crawler["living_body"]["age_ticks"] = 39
     crawler["living_body"]["vital_state"] = "active"
+    crawler["embodiment_episode"] = deepcopy(humanoid["embodiment_episode"])
+    crawler["embodiment_episode"].update(
+        {
+            "embodiment_id": "embodiment.crawler",
+            "body_id": "body.crawler",
+            "epoch": 2,
+            "start_symbiont_tick": 41,
+            "embodiment_tick": 39,
+            "contract": {
+                "contract_fingerprint": crawler["embodiment_lifecycle"]["current"][
+                    "contract_fingerprint"
+                ]
+            },
+        }
+    )
     crawler = stamp_checkpoint_identity(crawler, transform="test-advance-crawler")
 
     returned = prepare_fresh_embodiment_checkpoint(
@@ -719,150 +712,19 @@ def test_known_contract_return_recovers_hypotheses_without_restoring_authority()
     )
 
     current = returned["embodiment_lifecycle"]["current"]
-    assert current["known_contract_memory"] is True
-    assert current["contract_relation"] == "known-contract"
-    assert current["candidate_private_model_ids"] == ["model-1"]
+    assert current["known_contract_memory"] is False
+    assert current["contract_relation"] == "changed"
+    assert current["candidate_private_model_ids"] == []
 
     sensorimotor = returned["actuation"]["sensorimotor"]
     assert sensorimotor["primitives"] == []
-    assert [item["primitive_id"] for item in sensorimotor["historical_candidates"]] == [
-        "primitive.old"
-    ]
+    assert sensorimotor["historical_candidates"] == []
 
     assert returned["body_schema"]["state"] == "undeveloped"
     assert returned["body_schema"]["parts"] == []
     assert returned["embodiment_lifecycle"]["history"][0]["body_schema"] == humanoid["body_schema"]
     assert returned["cognitive_bridge"] == humanoid["cognitive_bridge"]
     assert returned["private_model_registry"] == humanoid["private_model_registry"]
-
-
-def test_temporal_migration_repairs_only_unambiguous_global_body_age() -> None:
-    payload = _checkpoint(vital_state="dead")
-    payload["saved_at_tick"] = 10_000
-    payload["living_body"]["age_ticks"] = 10_000
-    payload["living_body"]["death_tick"] = 10_000
-    payload["physiology"] = {"death_tick": 10_000}
-    payload["embodiment_lifecycle"] = {
-        "schema_version": 1,
-        "state": "dormant",
-        "epoch": 3,
-        "current": {
-            "body_kind": "anthropomorphic-v4",
-            "receptor_count": 107,
-            "effector_count": 62,
-            "started_tick": 8_000,
-        },
-        "history": [],
-    }
-
-    migrated = migrate_temporal_domains(payload)
-
-    assert migrated["living_body"]["age_ticks"] == 2_000
-    assert migrated["living_body"]["death_tick"] == 2_000
-    assert migrated["physiology"]["death_tick"] == 2_000
-    assert migrated["living_body"]["senescence"] == 0.5
-    assert migrated["temporal_migration"]["source_age_ticks"] == 10_000
-    assert migrated["temporal_migration"]["body_age_ticks"] == 2_000
-
-
-def test_temporal_migration_is_recorded_and_never_reconstructs_physiology() -> None:
-    """Longitudinal Integrity v1 §13: only clock coordinates are corrected."""
-    payload = _checkpoint(vital_state="dead")
-    payload["saved_at_tick"] = 10_000
-    payload["living_body"]["age_ticks"] = 10_000
-    payload["living_body"]["death_tick"] = 10_000
-    payload["embodiment_lifecycle"] = {
-        "schema_version": 1,
-        "state": "dormant",
-        "epoch": 3,
-        "current": {
-            "body_kind": "anthropomorphic-v4",
-            "receptor_count": 107,
-            "effector_count": 62,
-            "started_tick": 8_000,
-        },
-        "history": [],
-    }
-
-    migrated = migrate_temporal_domains(payload)
-
-    # The correction is explicit provenance, not a silent rewrite.
-    assert migrated["temporal_migration"]["kind"] == "global_tick_to_body_age"
-    assert migrated["checkpoint_lineage"]["transforms"] == ["temporal-decontamination"]
-    # Everything the contaminated clock already produced is left as it was.
-    clock_coordinates = {"age_ticks", "death_tick"}
-    for key, value in payload["living_body"].items():
-        if key not in clock_coordinates:
-            assert migrated["living_body"][key] == value, key
-    for field in ("metabolism", "homeostasis", "degradation"):
-        if field in payload:
-            assert migrated[field] == payload[field], field
-
-    # The record survives a later re-embodiment instead of being laundered away.
-    reembodied = prepare_fresh_embodiment_checkpoint(
-        migrated,
-        _fresh(),
-        contract=EmbodimentDescriptor(
-            body_kind="anthropomorphic-v4", receptor_count=107, effector_count=62
-        ),
-    )
-    assert reembodied["temporal_migration"] == migrated["temporal_migration"]
-    assert reembodied["checkpoint_lineage"]["transforms"] == [
-        "temporal-decontamination",
-        "re-embodiment",
-    ]
-
-
-def test_temporal_migration_fails_safe_on_ambiguous_age() -> None:
-    payload = _checkpoint(vital_state="active")
-    payload["saved_at_tick"] = 10_000
-    payload["living_body"]["age_ticks"] = 7_777
-    payload["embodiment_lifecycle"] = {
-        "schema_version": 1,
-        "state": "dormant",
-        "epoch": 2,
-        "current": {
-            "body_kind": "anthropomorphic-v4",
-            "receptor_count": 107,
-            "effector_count": 62,
-            "started_tick": 8_000,
-        },
-        "history": [],
-    }
-
-    migrated = migrate_temporal_domains(payload)
-
-    assert migrated["living_body"]["age_ticks"] == 7_777
-    assert "temporal_migration" not in migrated
-
-
-def test_temporal_migration_rejects_tampered_current_checkpoint() -> None:
-    payload = _checkpoint(vital_state="active")
-    payload["schema_version"] = CHECKPOINT_SCHEMA_VERSION
-    payload["saved_at_tick"] = 10_000
-    payload["living_body"]["age_ticks"] = 10_000
-    payload["embodiment_lifecycle"] = {
-        "schema_version": 1,
-        "state": "dormant",
-        "epoch": 3,
-        "current": {
-            "body_kind": "body-v1",
-            "receptor_count": 2,
-            "effector_count": 2,
-            "started_tick": 8_000,
-        },
-        "history": [],
-    }
-    payload["runtime_provenance"] = {
-        "checkpoint_schema_version": CHECKPOINT_SCHEMA_VERSION,
-        "session_controls": {},
-    }
-    payload["checkpoint_lineage"] = {"schema_version": CHECKPOINT_SCHEMA_VERSION}
-    payload = stamp_checkpoint_identity(payload, transform="test-current-checkpoint")
-    payload["self_model"] = {"tampered": True}
-
-    with pytest.raises(ValueError, match="does not match its recorded checkpoint_id"):
-        migrate_temporal_domains(payload)
 
 
 def test_dead_checkpoint_closes_epoch_summary_and_archives_memory() -> None:
@@ -902,7 +764,6 @@ def test_dead_checkpoint_closes_epoch_summary_and_archives_memory() -> None:
     assert summary["mechanical_work_total"] == 3.0
     assert summary["reacclimation_completed"] is True
     assert updated["embodiment_lifecycle"]["current"]["closed"] is True
-    assert updated["embodiment_memory"]["contracts"]
 
 
 def test_contract_fingerprint_changes_when_opaque_motor_unit_grouping_changes() -> None:
@@ -993,69 +854,6 @@ def test_lifecycle_recomputes_pre_v2_contract_fingerprint() -> None:
         receptor_count=107,
         effector_count=62,
     )
-
-
-def test_legacy_known_contract_memory_maps_to_canonical_v3_identity() -> None:
-    previous = _checkpoint(vital_state="active")
-    fresh = _fresh()
-    descriptor = EmbodimentDescriptor("anthropomorphic-v6", 107, 62)
-
-    legacy_surface = ActuatorSurface.from_count(
-        descriptor.effector_count,
-        fingerprint_material=(
-            f"{descriptor.body_kind}:{descriptor.receptor_count}:{descriptor.effector_count}"
-        ),
-    )
-    legacy_equivalent = deepcopy(fresh)
-    legacy_equivalent["actuation"]["constitution"]["contract_fingerprint"] = (
-        legacy_surface.contract_fingerprint
-    )
-    legacy_fp = contract_fingerprint(
-        legacy_equivalent,
-        receptor_count=descriptor.receptor_count,
-        effector_count=descriptor.effector_count,
-    )
-    previous["embodiment_memory"] = {
-        "schema_version": 1,
-        "contracts": [
-            {
-                "contract_fingerprint": legacy_fp,
-                "first_seen_epoch": 1,
-                "last_seen_epoch": 1,
-                "body_schema": {"state": "established"},
-                "historical_primitives": [
-                    {
-                        "primitive_id": "primitive.return",
-                        "embodiment_fingerprint": "legacy-surface",
-                        "sequence": [],
-                    }
-                ],
-                "motor_cognitive_surface": {"nodes": [], "edges": []},
-                "private_model_ids": ["model.return"],
-                "state": "historical",
-            }
-        ],
-    }
-
-    canonical = "canonical.contract.v3"
-    transformed = prepare_fresh_embodiment_checkpoint(
-        previous,
-        fresh,
-        contract=descriptor,
-        canonical_contract_fingerprint=canonical,
-    )
-
-    current = transformed["embodiment_lifecycle"]["current"]
-    assert current["contract_relation"] == "known-contract"
-    assert current["known_contract_memory"] is True
-    assert current["candidate_private_model_ids"] == ["model.return"]
-    canonical_memories = [
-        item
-        for item in transformed["embodiment_archive"]["body_memories"]
-        if item["contract_fingerprint"] == canonical
-    ]
-    assert canonical_memories
-    assert any(item["private_model_ids"] == ["model.return"] for item in canonical_memories)
 
 
 def test_canonical_action_domain_reembodiment_preserves_knowledge_not_authority() -> None:
@@ -1224,7 +1022,9 @@ def test_reembodiment_carries_learned_dimensions_as_unbound_knowledge() -> None:
         acquisition=learned,
     )
     previous = _checkpoint(vital_state="active")
-    previous["actuation"]["sensorimotor_v2"] = old_domain.checkpoint_v2()
+    prior_v2 = old_domain.checkpoint_v2()
+    prior_v2["execution_bindings"] = old_domain.execution_bindings.checkpoint()
+    previous["actuation"]["sensorimotor_v2"] = prior_v2
 
     new_surface = derive_actuator_constitution(3, physical_contract="transplant-body")
     fresh_domain = ActionDomain(
