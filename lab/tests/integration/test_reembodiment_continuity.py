@@ -31,6 +31,7 @@ from symbiont.core.regulation.reactive_memory import ReactiveMemory
 from symbiont.core.regulation.reactivity import InnateReactivity
 from symbiont.core.social import SocialHabitat
 from symbiont.core.social.interactions import EcologicalResourcePool
+from symbiont.genetics.germline import EpigeneticMark, EpigeneticProtocol
 from symbiont.host.checkpoint import CheckpointError, stamp_checkpoint_identity
 from symbiont.host.continuity import REGISTER, Reembodiment
 from symbiont.modeling import (
@@ -72,6 +73,7 @@ def _subject(body: CausalBody) -> PrivateModelOrganismRuntime:
         organism_id=ORGANISM_ID,
         runtime_class=PrivateModelOrganismRuntime,
         factorized_effects=True,
+        epigenetic_protocol=EpigeneticProtocol(enabled=True, acquired_capture_enabled=True),
     )
 
 
@@ -91,6 +93,15 @@ class _Case:
         developed = _subject(body_a)
         self.initial = _json(developed.checkpoint())
         run_ticks(developed, body_a, DEVELOPMENT_TICKS)
+        assert developed.germline_state is not None
+        developed.germline_state.acquired_marks["plasticity.learning_rate.baseline"] = (
+            EpigeneticMark(
+                locus="plasticity.learning_rate.baseline",
+                delta=0.01,
+                strength=0.5,
+                generations_left=2,
+            )
+        )
         habitat = SocialHabitat(EcologicalResourcePool({"food": 1.0}))
         habitat.admit(ORGANISM_ID)
         habitat.admit("reembodiment-peer")
@@ -259,6 +270,9 @@ def test_body_a_development_is_not_trivial(case: _Case) -> None:
     assert case.previous["gene_expression"]
     assert case.previous["gene_expression"]["update_count"] > 0
     assert case.previous["gene_expression"]["effective_structural_plasticity"] > 0.0
+    assert case.previous["genome"]
+    assert case.previous["germline_state"]["acquired_marks"]
+    assert case.previous["epigenetic_protocol"]["enabled"] is True
     assert case.previous["gene_expression"] != case.initial["gene_expression"]
     assert case.previous["development"]["tick"] == DEVELOPMENT_TICKS
     assert case.previous["development"] != case.initial["development"]
@@ -315,6 +329,8 @@ def test_symbiont_owned_state_is_preserved_exactly(case: _Case) -> None:
     # a Body fact: a fresh Body always starts active.
     assert changed <= {"last_runtime_vital_state"}
     assert len(preserved & set(case.previous)) > 40
+    assert case.transformed["germline_state"] == case.previous["germline_state"]
+    assert case.transformed["genome"] == case.previous["genome"]
 
 
 def test_body_owned_state_comes_from_the_fresh_body(case: _Case) -> None:
