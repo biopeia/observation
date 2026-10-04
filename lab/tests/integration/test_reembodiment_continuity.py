@@ -29,7 +29,7 @@ from symbiont.core.embodiment.transition import (
 )
 from symbiont.core.social import SocialHabitat
 from symbiont.core.social.interactions import EcologicalResourcePool
-from symbiont.host.checkpoint import CheckpointError
+from symbiont.host.checkpoint import CheckpointError, stamp_checkpoint_identity
 from symbiont.host.continuity import REGISTER, Reembodiment
 from symbiont.modeling import (
     ArchitectureId,
@@ -397,6 +397,11 @@ def test_knowledge_survives_as_knowledge_without_authority(case: _Case) -> None:
         "action_domain.last_executed_controller_seed_id": Reembodiment.INVALIDATED,
         "action_domain.pending_motor_observation": Reembodiment.INVALIDATED,
         "action_domain.pending_proprioception": Reembodiment.INVALIDATED,
+        "executive_intention.active": Reembodiment.INVALIDATED,
+        "executive_intention.active_commitment_id": Reembodiment.INVALIDATED,
+        "executive_intention.progress_evidence": Reembodiment.INVALIDATED,
+        "executive_intention.consecutive_mismatches": Reembodiment.INVALIDATED,
+        "executive_intention.reconciliation_trace": Reembodiment.INVALIDATED,
     }
     prior_v2 = case.previous["actuation"]["action_domain"]["sensorimotor_v2"]
     fresh_v2 = case.fresh["actuation"]["action_domain"]["sensorimotor_v2"]
@@ -528,7 +533,9 @@ def test_registered_nested_reembodiment_paths_resolve_in_checkpoint(case: _Case)
     for entry in REGISTER:
         for path, _policy in entry.nested_reembodiment:
             candidates = {
-                root if path == root else f"{root}.{path}"
+                path
+                if path == root or path.startswith(f"{root}.")
+                else f"{root}.{path}"
                 for root in entry.nested_checkpoint_fields
             }
             assert sum(has_path(case.transformed, candidate) for candidate in candidates) == 1, (
@@ -536,6 +543,54 @@ def test_registered_nested_reembodiment_paths_resolve_in_checkpoint(case: _Case)
                 path,
                 candidates,
             )
+
+
+def test_reembodiment_withdraws_an_inflight_intention_before_checkpoint(case: _Case) -> None:
+    previous = _json(case.previous)
+    intention = previous["executive_intention"]
+    intention.update(
+        {
+            "active": {
+                "intent_id": "body-a-intention",
+                "competence_id": "body-a-competence",
+                "anticipated_effect_id": "effect.old-body",
+                "context_ref": None,
+                "embodiment_id": "body-a",
+                "origin_refs": [],
+                "prediction_ref": "prediction.old-body",
+                "confidence": 0.8,
+                "epistemic_relevance": 0.6,
+                "homeostatic_relevance": 0.4,
+                "supporting_affordance_id": "affordance.old-body",
+                "created_tick": DEVELOPMENT_TICKS - 2,
+                "activated_tick": DEVELOPMENT_TICKS - 1,
+                "last_progress_tick": DEVELOPMENT_TICKS - 1,
+                "status": "active",
+                "termination_reason": None,
+                "admission": "cognitive",
+            },
+            "active_commitment_id": "commitment.old-body",
+            "progress_evidence": 3,
+            "consecutive_mismatches": 2,
+            "reconciliation_trace": {"observed_atoms": ["body-a-signal"]},
+        }
+    )
+    previous = stamp_checkpoint_identity(previous, transform="test-seed-inflight-intention")
+
+    transformed = prepare_fresh_embodiment_checkpoint(
+        previous,
+        case.fresh,
+        contract=EmbodimentDescriptor(
+            body_kind="causal-body-b", receptor_count=6, effector_count=6
+        ),
+        canonical_contract_fingerprint=case.body_b.surface.contract_fingerprint,
+    )
+
+    assert transformed["executive_intention"]["active"] is None
+    assert transformed["executive_intention"]["active_commitment_id"] is None
+    assert transformed["executive_intention"]["progress_evidence"] == 0
+    assert transformed["executive_intention"]["consecutive_mismatches"] == 0
+    assert transformed["executive_intention"]["reconciliation_trace"] is None
 
 
 def test_a_modified_reembodied_checkpoint_is_rejected(case: _Case) -> None:

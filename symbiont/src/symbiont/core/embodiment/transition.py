@@ -790,6 +790,17 @@ def prepare_fresh_embodiment_checkpoint(
         previous,
         fresh_actuation,
     )
+    # An in-flight executive intention is bound to the closed embodiment even
+    # when its sensorimotor commitment has already been removed. Preserve the
+    # terminal counts and outcome ledger, but withdraw active intent and its
+    # body-specific reconciliation trace before stamping the new checkpoint.
+    raw_intention = result.get("executive_intention")
+    if isinstance(raw_intention, dict):
+        raw_intention["active"] = None
+        raw_intention["active_commitment_id"] = None
+        raw_intention["progress_evidence"] = 0
+        raw_intention["consecutive_mismatches"] = 0
+        raw_intention["reconciliation_trace"] = None
 
     # The Symbiont itself is invariant across re-embodiment. Cognitive state,
     # private models and self-model are preserved. Sensory learning is archived
