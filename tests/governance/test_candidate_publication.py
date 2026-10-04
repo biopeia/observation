@@ -26,8 +26,28 @@ def test_promotion_only_auto_promotes_ordinary_candidates() -> None:
     assert "only ORDINARY candidates are auto-promoted" in workflow
     assert "Owner-Approval:" not in workflow
     assert "candidate changes the trusted validation/governance control plane" in workflow
-    assert "USE_MERGE_QUEUE" in workflow
-    assert 'gh pr merge "$PR_NUMBER" --auto' in workflow
+
+
+def test_ordinary_promotion_serializes_and_revalidates_stale_candidates() -> None:
+    workflow = (ROOT / ".github/workflows/promote.yml").read_text(encoding="utf-8")
+
+    assert "group: promote-main" in workflow
+    assert "cancel-in-progress: false" in workflow
+    assert "USE_MERGE_QUEUE" not in workflow
+    assert "git rebase origin/main" in workflow
+    assert '--force-with-lease="refs/heads/$HEAD_BRANCH:$HEAD_SHA"' in workflow
+    assert 'gh pr merge "$PR_NUMBER" --rebase --delete-branch' in workflow
+    assert "candidate rebased" in workflow
+    assert "fresh CI will trigger the next serialized promotion attempt" in workflow
+
+
+def test_publication_policy_requires_current_branch_before_merge() -> None:
+    with (ROOT / "docs/governance/publication-policy.toml").open("rb") as handle:
+        policy = tomllib.load(handle)
+
+    assert policy["ordinary_integration"] == "serialized-rebase-revalidate-pr"
+    assert policy["require_up_to_date_before_merge"] is True
+    assert "merge_queue_variable" not in policy
 
 
 def test_validation_matrix_routes_ci_without_local_test_commands() -> None:
