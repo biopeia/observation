@@ -9,12 +9,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from embodiment.physics3d.alternative_bodies import (
-    ASYMMETRIC_SPEC,
-    CRAWLER_SPEC,
-    AsymmetricPhysics,
-    CrawlerPhysics,
-)
+from embodiment.physics3d.asymmetric import ASYMMETRIC_SPEC, AsymmetricPhysics
+from embodiment.physics3d.crawler import CRAWLER_SPEC, CrawlerPhysics
 from embodiment.physics3d.humanoid import (
     BODY_KIND,
     BODY_STATE_SCHEMA_VERSION,
