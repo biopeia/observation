@@ -356,7 +356,7 @@ class SensorySystem:
             selection_values = {
                 percept.sensor_id: float(percept.value)
                 for percept in outputs
-                if percept.sensor_id is not None and percept.value is not None
+                if percept.value is not None
             }
             identity_targets = {
                 sensor.sensor_id

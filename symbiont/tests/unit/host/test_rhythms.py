@@ -20,6 +20,8 @@ def _percept(name: str, value: float | None) -> Percept:
         unit=Unit.RATIO,
         quality=ReadingQuality.NOMINAL if value is not None else ReadingQuality.UNAVAILABLE,
         privacy_class=ReadingPrivacyClass.AGGREGATE,
+        sensor_id=f"sensor.host.{name}",
+        modality_id="modality.host",
     )
 
 

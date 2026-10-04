@@ -91,6 +91,8 @@ def test_rhythms_round_trip_through_checkpoint():
         unit=Unit.RATIO,
         quality=ReadingQuality.NOMINAL,
         privacy_class=ReadingPrivacyClass.AGGREGATE,
+        sensor_id="sensor.host.system_load",
+        modality_id="modality.host",
     )
     for _ in range(8):
         model.observe([percept], phase=CyclePhase.PHASE_0)

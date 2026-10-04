@@ -37,6 +37,8 @@ def test_known_capability_is_synthesized_into_its_percept_name():
     assert len(percepts) == 1
     assert percepts[0].name == "system_load"
     assert percepts[0].value == 0.4
+    assert percepts[0].sensor_id == "sensor.host.system_load"
+    assert percepts[0].modality_id == "modality.host"
 
 
 def test_unrecognized_capability_is_skipped_not_guessed_at():
@@ -73,6 +75,19 @@ def test_percept_rejects_malformed_name(bad_name):
     with pytest.raises(ValueError):
         Percept(
             name=bad_name,
+            value=1.0,
+            unit=Unit.RATIO,
+            quality=ReadingQuality.NOMINAL,
+            privacy_class=ReadingPrivacyClass.AGGREGATE,
+            sensor_id="sensor.test",
+            modality_id="modality.test",
+        )
+
+
+def test_percept_requires_sensor_and_modality_identity():
+    with pytest.raises(TypeError, match="sensor_id"):
+        Percept(
+            name="system_load",
             value=1.0,
             unit=Unit.RATIO,
             quality=ReadingQuality.NOMINAL,

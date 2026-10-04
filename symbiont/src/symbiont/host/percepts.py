@@ -15,42 +15,24 @@ _HAS_WHITESPACE = re.compile(r"\s").search
 
 @dataclass(slots=True, frozen=True)
 class Percept:
-    """A bounded percept emitted toward cognition.
-
-    Legacy callers may still construct a Percept directly from a host reading,
-    preserving the historical v0.34 contract. In adaptive sensory mode the
-    percept is emitted by an organism-owned SensorState: ``name`` is the
-    stable receptor identity. Source/provider lineage remains outside the
-    percept itself and is projected outward from SensorState only. Human host aliases are not required
-    by cognition.
-    """
+    """A bounded, sensor-identified percept emitted toward cognition."""
 
     name: str
     value: float | None
     unit: Unit
     quality: ReadingQuality
     privacy_class: ReadingPrivacyClass
-    # NOTE(legacy): Organism-owned sensory metadata. Legacy callers may omit it; the
-    # historical name/value/unit/quality contract remains unchanged.
-    sensor_id: str | None = None
-    modality_id: str | None = None
+    sensor_id: str
+    modality_id: str
     confidence: float = 1.0
 
     def __post_init__(self) -> None:
         if not isinstance(self.name, str) or not self.name or _HAS_WHITESPACE(self.name):
             raise ValueError("name must be a non-empty token")
-        if self.sensor_id is not None and (
-            not isinstance(self.sensor_id, str)
-            or not self.sensor_id
-            or _HAS_WHITESPACE(self.sensor_id)
-        ):
-            raise ValueError("sensor_id must be a non-empty token when present")
-        if self.modality_id is not None and (
-            not isinstance(self.modality_id, str)
-            or not self.modality_id
-            or _HAS_WHITESPACE(self.modality_id)
-        ):
-            raise ValueError("modality_id must be a non-empty token when present")
+        if not isinstance(self.sensor_id, str) or not self.sensor_id or _HAS_WHITESPACE(self.sensor_id):
+            raise ValueError("sensor_id must be a non-empty token")
+        if not isinstance(self.modality_id, str) or not self.modality_id or _HAS_WHITESPACE(self.modality_id):
+            raise ValueError("modality_id must be a non-empty token")
         if (
             isinstance(self.confidence, bool)
             or not isinstance(self.confidence, (int, float))
@@ -102,6 +84,8 @@ def synthesize_percepts(
                 unit=reading.unit,
                 quality=reading.quality,
                 privacy_class=reading.privacy_class,
+                sensor_id=f"sensor.host.{name}",
+                modality_id="modality.host",
             )
         )
     return tuple(percepts)
