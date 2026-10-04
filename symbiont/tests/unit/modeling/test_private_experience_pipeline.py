@@ -464,3 +464,54 @@ def test_private_runtime_resting_replays_factual_episode_without_new_experience(
     assert result.generative.states[0].origin == "replayed"
     assert len(runtime.experience_ledger.records) == factual_count
     assert runtime.generative_cognition.factual_contamination_count == 0
+
+
+def _motor_frames(runtime: PrivateModelOrganismRuntime):
+    actuation = Actuation(actuator_id="actuator.0123456789abcdef", requested=0.8, delivered=0.6)
+    base = dict(
+        snapshot=None,
+        percepts=(),
+        drift_observations={},
+        allocations=(),
+        investigated_capability=None,
+        evidence_gathered=0,
+        dissent=None,
+        narrative=(),
+    )
+    previous = runtime._capture_private_frame(
+        RuntimeTickResult(tick=1, actuation=actuation, actuations=(actuation,), **base)
+    )
+    # T1 of the next tick closes the attempt opened by that command.
+    runtime._action_domain.last_transition = SimpleNamespace(transition_id="transition.abc")
+    current = runtime._capture_private_frame(RuntimeTickResult(tick=2, **base))
+    return previous, current
+
+
+def test_shared_fact_identity_cites_the_causal_transition_first():
+    """Cognitive Cycle v1 W1: the private episode names the fact it interprets."""
+    runtime = PrivateModelOrganismRuntime(
+        organism_id="private-shared-fact",
+        bootstrap_semantic_senses=False,
+        discover_senses=False,
+        shared_fact_identity=True,
+    )
+    episode = runtime._finalize_private_transition(*_motor_frames(runtime))
+
+    assert episode.evidence_refs[0] == "causal.transition.abc"
+    assert len(episode.evidence_refs) <= 16
+    restored = PrivateModelOrganismRuntime.from_checkpoint(runtime.checkpoint())
+    assert restored._shared_fact_identity is True
+
+
+def test_shared_fact_identity_is_inert_by_default():
+    runtime = PrivateModelOrganismRuntime(
+        organism_id="private-shared-fact",
+        bootstrap_semantic_senses=False,
+        discover_senses=False,
+    )
+    previous, current = _motor_frames(runtime)
+    episode = runtime._finalize_private_transition(previous, current)
+
+    assert current.factual_ref is None
+    assert not any(ref.startswith("causal.") for ref in episode.evidence_refs)
+    assert "shared_fact_identity" not in runtime.checkpoint()["private_model_config"]
