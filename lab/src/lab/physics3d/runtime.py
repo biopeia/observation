@@ -582,8 +582,9 @@ class PyBulletEmbodimentRuntime:
             ):
                 raise RuntimeError("Physics3D checkpoint is missing canonical genome identity")
             # Genome identity is organism state, not a Physics3D body type.
-            # The strict Genome codec below validates/migrates its schema and
-            # hashes; Physics3D must not require a body-specific genome id.
+            # The strict Genome v2 codec below validates its schema and hashes;
+            # it does not migrate Genome v1. Physics3D must not require a
+            # body-specific genome id.
 
             restored_payload = dict(runtime_checkpoint)
             self._reembodied = physical_state is None
