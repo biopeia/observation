@@ -245,6 +245,24 @@ def test_load_checkpoint_file_returns_none_when_missing(tmp_path):
     assert load_checkpoint_file(tmp_path / "does-not-exist.json") is None
 
 
+def test_load_checkpoint_file_rejects_directory_instead_of_treating_it_as_missing(tmp_path):
+    path = tmp_path / "checkpoint.json"
+    path.mkdir()
+
+    with pytest.raises(CheckpointError, match="not a regular file"):
+        load_checkpoint_file(path)
+
+
+def test_load_checkpoint_file_rejects_dangling_symlink_instead_of_treating_it_as_missing(
+    tmp_path,
+):
+    path = tmp_path / "checkpoint.json"
+    path.symlink_to(tmp_path / "missing-target.json")
+
+    with pytest.raises(CheckpointError, match="dangling symlink"):
+        load_checkpoint_file(path)
+
+
 def test_load_checkpoint_file_rejects_invalid_json(tmp_path):
     path = tmp_path / "corrupt.json"
     path.write_text("{not valid json")

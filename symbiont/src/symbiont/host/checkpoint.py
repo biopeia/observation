@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import stat
 from hashlib import sha256
 from pathlib import Path
 from typing import Any
@@ -433,11 +434,21 @@ def load_checkpoint_file(path: str | Path) -> dict[str, Any] | None:
     corrupted data.
     """
     target = Path(path)
-    if not target.is_file():
+    try:
+        file_stat = target.stat()
+    except FileNotFoundError as exc:
+        if target.is_symlink():
+            raise CheckpointError(f"checkpoint path {target} is a dangling symlink") from exc
         return None
+    except OSError as exc:
+        raise CheckpointError(f"checkpoint path {target} cannot be inspected: {exc}") from exc
+    if not stat.S_ISREG(file_stat.st_mode):
+        raise CheckpointError(f"checkpoint path {target} is not a regular file")
     try:
         with target.open("r", encoding="utf-8") as handle:
             payload = json.load(handle)
+    except OSError as exc:
+        raise CheckpointError(f"checkpoint file {target} cannot be read: {exc}") from exc
     except json.JSONDecodeError as exc:
         raise CheckpointError(f"checkpoint file {target} is not valid JSON: {exc}") from exc
     if not isinstance(payload, dict):
