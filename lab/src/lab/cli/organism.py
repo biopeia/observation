@@ -166,9 +166,8 @@ def _load_cognition_from_args(args: argparse.Namespace, kwargs: dict) -> None:
     Every new organism receives the packaged base genome and empty germinal
     graph. A supplied genome replaces the base genome; a supplied graph
     replaces the base graph and still requires an explicitly supplied genome.
-    Existing checkpoints restore their learned cognition unchanged; legacy
-    checkpoints from before cognition existed adopt the canonical base without
-    losing their already-learned sensory or host memory.
+    Existing checkpoints restore their learned cognition unchanged. Checkpoints
+    without the current cognition contract are rejected by the restore boundary.
     """
     genome_file = getattr(args, "genome_file", None)
     graph_file = getattr(args, "graph_file", None)

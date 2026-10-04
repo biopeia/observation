@@ -61,9 +61,9 @@ def _write_topology(observatory_dir: Path, instance_id: str, payload: dict) -> N
 def _load_first_launch_cognition(args: argparse.Namespace, runtime_kwargs: dict) -> None:
     """Give every new Observatory resident canonical cognition.
 
-    Owner files are explicit first-birth overrides. Existing checkpoints with
-    cognition keep their learned topology; legacy cognition-less checkpoints
-    are adopted separately without discarding their already learned memory.
+    Owner files are explicit first-birth overrides. Existing checkpoints keep
+    their learned topology; checkpoints without the current cognition contract
+    are rejected by the restore boundary.
     """
     if args.graph_file and not args.genome_file:
         raise ValueError("--graph-file requires --genome-file")
