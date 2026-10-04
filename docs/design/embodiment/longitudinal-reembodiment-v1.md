@@ -337,7 +337,7 @@ BODY
 ## 11. Implementation order
 
 The historical “migrate checkpoints” item below is superseded by the current
-outer-checkpoint policy: only schema 13 restores, and older schemas are
+outer-checkpoint policy: only schema 14 restores, and older schemas are
 rejected. It is retained as specimen history, not an active runtime or
 implementation task. Any future archival conversion requires separate
 authorization and must not be described as organism continuation.

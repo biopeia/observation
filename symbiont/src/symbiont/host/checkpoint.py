@@ -18,7 +18,7 @@ from .drift import DriftAwareBaseline
 from .durable import durable_atomic_write
 from .rhythms import CyclePhase, RhythmModel
 
-CHECKPOINT_SCHEMA_VERSION = 13
+CHECKPOINT_SCHEMA_VERSION = 14
 # v10 -> v11 (Longitudinal Integrity v1 §4-§5) introduced organism-state
 # identity. v12 adds an independent hash of continuation conditions because
 # runtime controls affect future learning but are apparatus configuration, not

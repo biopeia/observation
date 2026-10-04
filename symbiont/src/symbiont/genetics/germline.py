@@ -55,6 +55,8 @@ class EpigeneticProtocol:
     min_capture_delta: float = 0.02
 
     def __post_init__(self) -> None:
+        if not isinstance(self.enabled, bool) or not isinstance(self.acquired_capture_enabled, bool):
+            raise ValueError("epigenetic protocol flags must be booleans")
         if not 0.0 <= self.decay <= 1.0:
             raise ValueError("epigenetic decay must be in [0,1]")
         if self.max_marks < 1:
@@ -179,6 +181,17 @@ class InheritancePackage:
     epigenetic_marks: tuple[EpigeneticMark, ...]
     parent_ids: tuple[str, ...]
     generation: int
+
+    def __post_init__(self) -> None:
+        if not self.parent_ids or any(not parent_id for parent_id in self.parent_ids):
+            raise ValueError("inheritance package requires non-empty parent identifiers")
+        if len(set(self.parent_ids)) != len(self.parent_ids):
+            raise ValueError("inheritance package parent identifiers must be unique")
+        if self.generation < 1:
+            raise ValueError("offspring generation must be at least 1")
+        loci = [mark.locus for mark in self.epigenetic_marks]
+        if len(set(loci)) != len(loci):
+            raise ValueError("inheritance package marks must have unique loci")
 
 
 __all__ = [

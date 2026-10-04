@@ -44,8 +44,15 @@ from ...cognition.generative import (
 from ...cognition.graph import CognitiveGraph
 from ...cognition.learning import ShadowPrediction
 from ...cognition.limits import KernelLimits
+from ...genetics.checkpoint import export_germline, restore_germline
 from ...genetics.expression import ExpressionRegulator, GeneExpressionState
 from ...genetics.genome import Genome
+from ...genetics.germline import (
+    EpigeneticMark,
+    EpigeneticProtocol,
+    GermlineState,
+    InheritancePackage,
+)
 from ...host.acclimation import HostAcclimation
 from ...host.adaptive import AdaptiveSenseModel, SamplingPlan
 from ...host.checkpoint import (
@@ -322,6 +329,10 @@ class OrganismRuntime:
         cognitive_graph: CognitiveGraph | None = None,
         cognitive_bridge: CognitiveBridge | None = None,
         gene_expression_state: GeneExpressionState | None = None,
+        germline_state: GermlineState | None = None,
+        epigenetic_protocol: EpigeneticProtocol | None = None,
+        inheritance_package: InheritancePackage | None = None,
+        parent_ids: tuple[str, ...] = (),
         expression_regulator: ExpressionRegulator | None = None,
         memory_consolidator: MemoryConsolidator | None = None,
         organism_id: str | None = None,
@@ -799,11 +810,54 @@ class OrganismRuntime:
         self._cognitive_self_namespace_key = derive_cognitive_self_namespace(
             private_body_schema["id_salt"]
         )
+        if inheritance_package is not None:
+            if genome is not None and genome != inheritance_package.genome:
+                raise ValueError("genome conflicts with inheritance_package")
+            if generation not in (0, inheritance_package.generation):
+                raise ValueError("generation conflicts with inheritance_package")
+            if parent_ids and parent_ids != inheritance_package.parent_ids:
+                raise ValueError("parent_ids conflict with inheritance_package")
+            genome = inheritance_package.genome
+            generation = inheritance_package.generation
+            self._generation = generation
+            parent_ids = inheritance_package.parent_ids
+            if germline_state is not None:
+                raise ValueError("germline_state cannot override inheritance_package marks")
+            germline_state = GermlineState.from_genome(
+                genome,
+                inherited_marks=inheritance_package.epigenetic_marks,
+                acquired_capture_enabled=(
+                    epigenetic_protocol is not None
+                    and epigenetic_protocol.enabled
+                    and epigenetic_protocol.acquired_capture_enabled
+                ),
+            )
+        if any(not isinstance(parent_id, str) or not parent_id for parent_id in parent_ids):
+            raise ValueError("parent_ids must contain non-empty strings")
+        if len(set(parent_ids)) != len(parent_ids):
+            raise ValueError("parent_ids must be unique")
+        self._parent_ids = tuple(parent_ids)
+        self._epigenetic_protocol = epigenetic_protocol or EpigeneticProtocol()
         self._genome = genome
+        if genome is None and germline_state is not None:
+            raise ValueError("germline_state requires Genome v2")
+        if genome is not None and germline_state is None:
+            germline_state = GermlineState.from_genome(
+                genome,
+                acquired_capture_enabled=(
+                    self._epigenetic_protocol.enabled
+                    and self._epigenetic_protocol.acquired_capture_enabled
+                ),
+            )
+        self._germline_state = germline_state
         self._gene_expression_state = (
             gene_expression_state
             if gene_expression_state is not None
-            else (GeneExpressionState.from_genome(genome) if genome is not None else None)
+            else (
+                GeneExpressionState.from_genome(genome, germline=self._germline_state)
+                if genome is not None
+                else None
+            )
         )
         self._expression_regulator = expression_regulator or ExpressionRegulator()
         if isinstance(mutation_seed, bool) or not isinstance(mutation_seed, int):
@@ -1026,6 +1080,14 @@ class OrganismRuntime:
     @property
     def gene_expression_state(self) -> GeneExpressionState | None:
         return self._gene_expression_state
+
+    @property
+    def germline_state(self) -> GermlineState | None:
+        return self._germline_state
+
+    @property
+    def parent_ids(self) -> tuple[str, ...]:
+        return self._parent_ids
 
     @property
     def reacclimation_remaining(self) -> int:
@@ -1453,6 +1515,8 @@ class OrganismRuntime:
             "explicit_metabolism": self._explicit_metabolism,
             "auto_promote_predictors": self._auto_promote_predictors,
             "generation": self._generation,
+            "parent_ids": list(self._parent_ids),
+            "epigenetic_protocol": asdict(self._epigenetic_protocol),
             "social_exchange_quantum": self._social_exchange_quantum,
             "social_exchange_cost": self._social_exchange_cost,
             "resting_requested": self._resting_requested,
@@ -1618,6 +1682,27 @@ class OrganismRuntime:
     @property
     def generation(self) -> int:
         return self._generation
+
+    def inheritance_package(self) -> InheritancePackage:
+        """Build an explicit Genome v2 package for resident offspring."""
+        if self._genome is None or self._germline_state is None:
+            raise ValueError("Genome v2 is required to create an inheritance package")
+        transmitted: list[EpigeneticMark] = []
+        if self._epigenetic_protocol.enabled:
+            marks = {
+                **self._germline_state.inherited_marks,
+                **self._germline_state.acquired_marks,
+            }
+            for _, mark in sorted(marks.items()):
+                decayed = mark.decay(self._epigenetic_protocol.decay)
+                if decayed is not None:
+                    transmitted.append(decayed)
+        return InheritancePackage(
+            genome=self._genome,
+            epigenetic_marks=tuple(transmitted),
+            parent_ids=(self._organism_id,),
+            generation=self._generation + 1,
+        )
 
     @property
     def social_habitat(self) -> SocialHabitat | None:
@@ -2330,6 +2415,23 @@ class OrganismRuntime:
             actuator_count=action_development.actuator_count,
             active_actuator_count=(action_development.active_actuator_count),
         )
+        if self._genome is not None and self._germline_state is not None:
+            expression = self._gene_expression_state
+            self._germline_state.capture_acquired_variation(
+                {
+                    "plasticity.learning_rate.baseline": expression.effective_learning_rate,
+                    "plasticity.structural_plasticity.baseline": (
+                        expression.effective_structural_plasticity
+                    ),
+                    "structure.growth_threshold.baseline": expression.effective_growth_threshold,
+                    "structure.pruning_threshold.baseline": (
+                        expression.effective_pruning_threshold
+                    ),
+                    "sensorimotor.spontaneous_activity_baseline": expression.exploration_drive,
+                },
+                genome=self._genome,
+                protocol=self._epigenetic_protocol,
+            )
 
         self._tick_count = context.symbiont_tick
         self._embodiment_domain.complete_context(context)
@@ -2424,6 +2526,13 @@ class OrganismRuntime:
             if self._gene_expression_state is not None
             else None
         )
+        payload["germline_state"] = (
+            export_germline(self._germline_state)
+            if self._germline_state is not None
+            else None
+        )
+        payload["parent_ids"] = list(self._parent_ids)
+        payload["epigenetic_protocol"] = asdict(self._epigenetic_protocol)
         payload["heritable_genome"] = None
         payload["mutation_seed"] = self._mutation_seed
         payload["epigenetic_priors"] = [
@@ -2769,6 +2878,36 @@ class OrganismRuntime:
             running_version=_parse_running_version(_symbiont_version),
         )
 
+        raw_protocol = normalized.get("epigenetic_protocol")
+        if not isinstance(raw_protocol, dict):
+            raise CheckpointError("invalid epigenetic protocol checkpoint")
+        try:
+            epigenetic_protocol = EpigeneticProtocol(**raw_protocol)
+        except (TypeError, ValueError) as exc:
+            raise CheckpointError(f"invalid epigenetic protocol checkpoint: {exc}") from exc
+        raw_parent_ids = normalized.get("parent_ids")
+        if (
+            not isinstance(raw_parent_ids, list)
+            or any(not isinstance(parent_id, str) or not parent_id for parent_id in raw_parent_ids)
+            or len(set(raw_parent_ids)) != len(raw_parent_ids)
+        ):
+            raise CheckpointError("invalid parent_ids checkpoint")
+        parent_ids = tuple(raw_parent_ids)
+        germline_state = None
+        raw_germline = normalized.get("germline_state")
+        if genome is None:
+            if raw_germline is not None:
+                raise CheckpointError("germline checkpoint requires Genome v2")
+        elif raw_germline is None:
+            raise CheckpointError("Genome v2 checkpoint is missing germline_state")
+        elif not isinstance(raw_germline, dict):
+            raise CheckpointError("invalid germline checkpoint")
+        else:
+            try:
+                germline_state = restore_germline(raw_germline, genome)
+            except (TypeError, ValueError) as exc:
+                raise CheckpointError(f"invalid germline checkpoint: {exc}") from exc
+
         raw_heritable = normalized.get("heritable_genome")
         if raw_heritable not in (None, {}):
             raise CheckpointError(
@@ -2780,7 +2919,11 @@ class OrganismRuntime:
         raw_expression = normalized.get("gene_expression")
         if genome is not None:
             if raw_expression is None:
-                gene_expression_state = GeneExpressionState.from_genome(genome)
+                if germline_state is None:
+                    raise CheckpointError("Genome v2 checkpoint is missing germline_state")
+                gene_expression_state = GeneExpressionState.from_genome(
+                    genome, germline=germline_state
+                )
             else:
                 if not isinstance(raw_expression, dict):
                     raise CheckpointError("invalid gene expression checkpoint")
@@ -3222,6 +3365,9 @@ class OrganismRuntime:
             epigenetic_decay=float(normalized.get("epigenetic_decay", 0.05)),
             cognitive_bridge=cognitive_bridge,
             gene_expression_state=gene_expression_state,
+            germline_state=germline_state,
+            epigenetic_protocol=epigenetic_protocol,
+            parent_ids=parent_ids,
             memory_consolidator=memory_consolidator,
             tick_count=max(
                 int(normalized.get("saved_at_tick") or 0),

@@ -46,9 +46,10 @@ does not contain it and is rejected; no migration is provided. This preserves
 the distinction between readable historical evidence and a checkpoint accepted
 as a live continuation.
 
-The current outer checkpoint schema is 13. It also persists the expression
-birth baselines required for correct post-restore metaplastic relaxation, and
-rejects schema 12 rather than inferring that state.
+The current outer checkpoint schema is 14. It persists the expression birth
+baselines required for correct post-restore metaplastic relaxation, plus
+Genome v2 germline state, parent IDs, and the explicit epigenetic protocol.
+Schema 13 is rejected rather than inferring those fields.
 
 ## 4. Evidence boundary
 

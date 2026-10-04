@@ -208,6 +208,9 @@ REGISTER: tuple[ContinuityEntry, ...] = (
         _KEEP,
         migration="absent: derived from the genome",
     ),
+    _core("_germline_state", "genetics.germline", _P, "germline_state", _KEEP),
+    _core("_parent_ids", "genetics.inheritance", _P, "parent_ids", _KEEP),
+    _core("_epigenetic_protocol", "genetics.inheritance", _P, "epigenetic_protocol", _KEEP),
     _core(
         "_heritable_genome",
         "genetics (legacy)",

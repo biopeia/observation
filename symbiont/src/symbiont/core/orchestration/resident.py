@@ -147,18 +147,27 @@ class ResidentOrganism:
                 child_id = f"{self.runtime.organism_id}-child-{child_suffix}"
                 from ...cognition.birth import load_base_graph
 
-                child_runtime = self._create_child(
-                    genome=self.runtime._genome,
-                    kernel_limits=self.runtime._kernel_limits,
-                    cognitive_graph=(
+                child_kwargs = {
+                    "kernel_limits": self.runtime._kernel_limits,
+                    "cognitive_graph": (
                         load_base_graph(kernel_limits=self.runtime._kernel_limits)
                         if self.runtime._kernel_limits
                         else None
                     ),
-                    organism_id=child_id,
-                    generation=self.runtime._generation + 1,
-                    explicit_metabolism=True,
-                )
+                    "organism_id": child_id,
+                    "generation": self.runtime._generation + 1,
+                    "explicit_metabolism": True,
+                }
+                if self.runtime._genome is not None:
+                    package = self.runtime.inheritance_package()
+                    child_kwargs.update(
+                        inheritance_package=package,
+                        genome=package.genome,
+                        generation=package.generation,
+                        parent_ids=package.parent_ids,
+                        epigenetic_protocol=self.runtime._epigenetic_protocol,
+                    )
+                child_runtime = self._create_child(**child_kwargs)
                 embryo_payload = child_runtime.checkpoint()
                 if self.habitat.deposit_embryo(embryo_payload, child_id) is not None:
                     # Deduct parental reproduction cost only for a deposited embryo

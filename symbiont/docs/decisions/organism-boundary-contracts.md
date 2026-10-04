@@ -75,31 +75,36 @@ explicit internal transition contract until an owner outside `symbiont`
 chooses a new public composition API. This change does not migrate or modify
 those external consumers.
 
-## D-5 — Current resident budding contract
+## D-5 — Resident budding is clonal Genome v2 inheritance
 
-Resident budding is a bounded **clonal seed operation**, not Genome v2
-reproduction. The child receives the parent's current `Genome` value, a new
-organism identifier, `generation + 1`, and a newly loaded birth cognitive
-graph. It does not currently receive an `InheritancePackage`, germline marks,
-or structured biological parentage. `create_child` is a composition seam; it
-does not itself define or enforce inheritance semantics.
+Resident budding uses an explicit Genome v2 `InheritancePackage`. It carries
+the unchanged parent's `Genome`, one structured parent identifier, the next
+generation, and only the germline marks admitted by the parent's explicit
+`EpigeneticProtocol`. The child receives a new organism identifier and a
+newly loaded birth cognitive graph. This is clonal inheritance: it does not
+recombine genomes or mutate alleles. `create_child` remains a composition
+seam, but the runtime supplies the package rather than leaving inheritance
+semantics implicit.
 
-This records current behavior and does not claim that the child is biological
-offspring under a richer genetic model. Recombination, mutation,
-transgenerational marks, or biological genealogy require a separate versioned
-inheritance policy and explicit persisted parent identifiers.
+The parent identifier is persisted organism lineage, not proof of a biological
+pedigree. The package and lineage are mechanical contracts; they do not claim
+that budding is biologically complete or scientifically useful.
 
 ## D-6 — Epigenetic state channels
 
-`EpigeneticPrior` and Genome v2 `EpigeneticMark`/`GermlineState` are separate
-state models and MUST NOT be implicitly converted or described as one
-inheritance mechanism. `EpigeneticPrior` is currently bounded, checkpointed,
-and decayed by the full runtime, but the audited path does not apply it to gene
-expression or pass it through resident budding. Genome v2 germline marks
-affect effective gene values when a `GermlineState` is explicitly provided;
-capture of acquired marks is disabled by default and requires an explicit
-protocol. Neither channel establishes that resident budding is
-transgenerational epigenetic inheritance.
+Genome v2 `EpigeneticMark`/`GermlineState` is the only epigenetic channel
+allowed to alter gene expression or enter resident inheritance packages.
+Acquired-mark capture and transmission require an explicit enabled
+`EpigeneticProtocol`; the default protocol transmits no marks. A captured mark
+must persist for the configured capture window and is generation-decayed when
+transmitted. `EpigeneticPrior` is legacy inert state: it MUST NOT influence
+expression or be described as inherited epigenetic state, and no conversion
+to Genome v2 marks is permitted.
+
+This integration defines a testable mechanism from expression deviation to
+captured mark to offspring birth expression. It does not establish that the
+mechanism improves adaptation, represents an empirically validated biological
+process, or causes a beneficial transgenerational outcome.
 
 The legacy `EpigeneticPrior` channel remains for compatibility until a
 separate checkpoint/API policy authorizes removal. Future code must name which
@@ -111,9 +116,11 @@ channel it uses and must not silently bridge them.
 |---|---|---|
 | C-1 public Embodiment exports | Implemented | Removed from `symbiont.api`; external consumers are not migrated here. |
 | C-2 dormant social trust prototypes | Implemented | Deleted unused prototype modules and removed aggregate exports. |
-| C-3 resident budding | Contract fixed by D-5 | Preserve clonal behavior for now; richer inheritance is a separately authorized feature. |
-| C-4 biological parentage | Deferred | Do not infer biological genealogy from `generation` or child ID formatting. Add structured parent IDs only with a defined lineage/checkpoint contract. |
-| C-5 epigenetic channels | Contract fixed by D-6 | Keep prior and Genome v2 germline channels distinct; no implicit migration or bridge. |
+| C-3 resident budding | Implemented | Explicit `InheritancePackage` carries unchanged Genome v2 plus parent/generation; no recombination or mutation. |
+| C-4 organism parent lineage | Implemented | Structured `parent_ids` persist and restore; they do not assert biological pedigree. |
+| C-5 epigenetic expression and inheritance | Implemented mechanically | Genome v2 germline is the sole expression/transmission channel; protocol is opt-in. No scientific utility claim follows. |
 
-No changes to `OrganismRuntime` decomposition (F-10) or checkpoint schema
-compatibility (F-11) are authorized by these decisions.
+The explicit germline, parentage, and protocol fields require outer checkpoint
+schema 14. Restore remains exact-schema-only and rejects schema 13 and earlier;
+there is no automatic migration. No change to `OrganismRuntime` decomposition
+(F-10) is included.

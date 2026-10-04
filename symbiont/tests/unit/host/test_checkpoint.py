@@ -222,7 +222,7 @@ def test_unknown_old_schema_version_with_no_migration_path_is_rejected():
 
 
 def test_previous_current_schema_is_rejected_without_expression_baseline_migration():
-    with pytest.raises(CheckpointError, match="loads only schema 13"):
+    with pytest.raises(CheckpointError, match="loads only schema 14"):
         import_checkpoint({"schema_version": 12})
 
 
@@ -388,5 +388,5 @@ def test_import_rejects_a_non_integer_count_in_drift():
 # --- v0.53+: self-model and resident checkpoint migrations ---
 
 
-def test_current_schema_version_is_thirteen():
-    assert CHECKPOINT_SCHEMA_VERSION == 13
+def test_current_schema_version_is_fourteen():
+    assert CHECKPOINT_SCHEMA_VERSION == 14
