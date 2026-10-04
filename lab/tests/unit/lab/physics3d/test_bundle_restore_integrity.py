@@ -142,7 +142,9 @@ def test_legacy_bundle_schema_is_rejected(tmp_path, manifest_free):
             entries["manifest.json"] = json.dumps(manifest)
 
     _rewrite(path, edit)
-    with pytest.raises(ValueError, match="(unsupported portable Symbiont bundle schema|no manifest.json)"):
+    with pytest.raises(
+        ValueError, match="(unsupported portable Symbiont bundle schema|no manifest.json)"
+    ):
         persistence.load_symbiont_bundle(path, tmp_path / "restored")
     assert not (tmp_path / "restored").exists()
 

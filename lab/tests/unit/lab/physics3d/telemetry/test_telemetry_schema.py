@@ -110,12 +110,12 @@ def test_reassembly_materializes_parents_before_extracted_children():
     assert canonical_json_bytes(restored) == canonical_json_bytes(state)
 
 
-
 def test_historical_layout_revisions_are_rejected():
     import pytest
 
     with pytest.raises(ValueError, match="unsupported telemetry layout revision: 1"):
         partition_state({}, layout_revision=1)
+
 
 def test_composite_edge_identity_is_order_independent_in_storage():
     first = [

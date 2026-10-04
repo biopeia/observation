@@ -362,21 +362,21 @@ class ArticulatedPhysics:
         return 0.5 + 0.5 * math.tanh(float(value) / max(scale, 1e-12))
 
     # -- kinematic reads ----------------------------------------------------------
-    def _joint_states(self) -> list[tuple[float, float]]:
+    def joint_states(self) -> list[tuple[float, float]]:
         _model, data = self._current()
         return [
             (float(data.qpos[position]), float(data.qvel[velocity]))
             for position, velocity in zip(self._joint_qpos, self._joint_dof)
         ]
 
-    def _base_pose(self) -> tuple[list[float], list[float]]:
+    def base_pose(self) -> tuple[list[float], list[float]]:
         """Base position and orientation as (x, y, z) and (x, y, z, w)."""
         _model, data = self._current()
         q = self._root_qpos
         w, x, y, z = (float(data.qpos[q + offset]) for offset in (3, 4, 5, 6))
         return [float(data.qpos[q + offset]) for offset in range(3)], [x, y, z, w]
 
-    def _base_velocity(self) -> tuple[list[float], list[float]]:
+    def base_velocity(self) -> tuple[list[float], list[float]]:
         """Linear and angular base velocity, both in the world frame."""
         _model, data = self._current()
         v = self._root_dof
@@ -389,7 +389,7 @@ class ArticulatedPhysics:
         ]
         return linear, angular
 
-    def _contact_details(self) -> list[dict[str, object]]:
+    def contact_details(self) -> list[dict[str, object]]:
         """Observer-side description of each contact this body takes part in."""
         model, data = self._current()
         mujoco = self.scene.mj
@@ -416,7 +416,10 @@ class ArticulatedPhysics:
                         "position": [float(value) for value in contact.pos],
                         "normal": [float(value) for value in contact.frame[:3]],
                         "normal_force": max(0.0, float(force[0])),
+                        # Negative while the surfaces interpenetrate.
+                        "distance": float(contact.dist),
                         "other_body_id": other,
+                        "other_link_name": name_by_link.get(self._link_by_body_id.get(other)),
                     }
                 )
         return details
@@ -452,14 +455,33 @@ class ArticulatedPhysics:
                     peak[link] = max(peak[link], normal)
         return active, peak, count
 
+    def mass_distribution(self) -> tuple[float, list[float]]:
+        """Total mass and world-frame centre of mass of the body."""
+        model, data = self._current()
+        total = 0.0
+        weighted = [0.0, 0.0, 0.0]
+        for body in self._body_id_by_link.values():
+            mass = max(0.0, float(model.body_mass[body]))
+            total += mass
+            for axis in range(3):
+                weighted[axis] += mass * float(data.xipos[body][axis])
+        if total <= 0.0:
+            return 0.0, self.base_pose()[0]
+        return total, [value / total for value in weighted]
+
+    def joint_torques(self) -> list[float]:
+        """Torque applied at each joint for the next step: command plus passive."""
+        _model, data = self._current()
+        return [float(data.qfrc_applied[address]) for address in self._joint_dof]
+
     # -- receptors and effectors -----------------------------------------------------
     def sample_receptors(self) -> Mapping[str, float]:
         values: list[float] = []
-        for position, velocity in self._joint_states():
+        for position, velocity in self.joint_states():
             values.extend((self._signed_unit(position, math.pi), self._signed_unit(velocity, 6.0)))
 
-        _position, orientation = self._base_pose()
-        linear_velocity, angular_velocity = self._base_velocity()
+        _position, orientation = self.base_pose()
+        linear_velocity, angular_velocity = self.base_velocity()
         values.extend(max(0.0, min(1.0, 0.5 + 0.5 * float(q))) for q in orientation)
         values.extend(self._signed_unit(v, 4.0) for v in linear_velocity)
         values.extend(self._signed_unit(v, 6.0) for v in angular_velocity)
@@ -498,7 +520,7 @@ class ArticulatedPhysics:
     def prepare_physics_substep(self) -> None:
         """Set each joint's torque for the next step: command plus end-range resistance."""
         _model, data = self._current()
-        for ordinal, (position, velocity) in enumerate(self._joint_states()):
+        for ordinal, (position, velocity) in enumerate(self.joint_states()):
             passive = self._passive_torque(
                 self.SPEC.joint_specs[ordinal], position=position, velocity=velocity
             )
@@ -508,7 +530,7 @@ class ArticulatedPhysics:
     def actuator_work_step(self, dt: float) -> ActuatorWork:
         if not math.isfinite(float(dt)) or dt <= 0.0:
             raise ValueError("dt must be finite and positive")
-        states = self._joint_states()
+        states = self.joint_states()
         positive = 0.0
         negative = 0.0
         for index, torque in self._applied_torque_by_joint.items():
@@ -532,9 +554,9 @@ class ArticulatedPhysics:
 
     # -- physical state -------------------------------------------------------------
     def export_physical_state(self) -> dict[str, object]:
-        model, data = self._current()
-        base_position, base_orientation = self._base_pose()
-        linear_velocity, angular_velocity = self._base_velocity()
+        _model, data = self._current()
+        base_position, base_orientation = self.base_pose()
+        linear_velocity, angular_velocity = self.base_velocity()
         joints = [
             {
                 "joint_index": int(index),
@@ -543,18 +565,12 @@ class ArticulatedPhysics:
                 "velocity": velocity,
                 "applied_torque": float(self._applied_torque_by_joint.get(index, 0.0)),
             }
-            for index, (position, velocity) in enumerate(self._joint_states())
+            for index, (position, velocity) in enumerate(self.joint_states())
         ]
 
         links: list[dict[str, object]] = []
-        weighted_com = [0.0, 0.0, 0.0]
-        total_mass = 0.0
         for name, index in sorted(self._link_index_by_name.items(), key=lambda item: item[1]):
             body = self._body_id_by_link[index]
-            mass = max(0.0, float(model.body_mass[body]))
-            total_mass += mass
-            for axis in range(3):
-                weighted_com[axis] += mass * float(data.xipos[body][axis])
             w, x, y, z = (float(value) for value in data.xquat[body])
             links.append(
                 {
@@ -564,11 +580,7 @@ class ArticulatedPhysics:
                     "orientation": [x, y, z, w],
                 }
             )
-        center_of_mass = (
-            [value / total_mass for value in weighted_com]
-            if total_mass > 0.0
-            else list(base_position)
-        )
+        total_mass, center_of_mass = self.mass_distribution()
         active_links, _peak, contact_count = self._contact_loads()
         return {
             "schema_version": self.SPEC.state_schema_version,
@@ -582,7 +594,7 @@ class ArticulatedPhysics:
             "joints": joints,
             "links": links,
             "contact_links": sorted(active_links),
-            "contacts": self._contact_details(),
+            "contacts": self.contact_details(),
             "contact_count": contact_count,
             # ADR-0066 decision 5: what the engine needs to continue this body
             # exactly.  The readable fields above are derived from it.

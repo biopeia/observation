@@ -95,9 +95,7 @@ def test_catalog_summary_does_not_materialize_private_models(tmp_path, monkeypat
         {
             "organism_id": "symbiont:test",
             "saved_at_tick": 7,
-            "private_model_registry": {
-                "records": [{"model_id": model_id, "state": "shadow"}]
-            },
+            "private_model_registry": {"records": [{"model_id": model_id, "state": "shadow"}]},
         },
         models_dir=models,
     )

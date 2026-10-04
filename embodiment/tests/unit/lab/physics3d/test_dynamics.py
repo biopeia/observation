@@ -34,7 +34,7 @@ def test_humanoid_hard_limits_hold_under_deterministic_actuation():
             body.prepare_physics_substep()
             scene.step()
 
-            states = body._joint_states()
+            states = body.joint_states()
             speeds = [abs(velocity) for _position, velocity in states]
             max_speed_seen = max(max_speed_seen, max(speeds, default=0.0))
             max_total_speed_seen = max(max_total_speed_seen, sum(speeds))

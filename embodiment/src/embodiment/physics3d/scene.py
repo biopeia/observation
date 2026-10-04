@@ -15,6 +15,8 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
+from embodiment.physics3d.mechanics import GROUND_MATERIAL, SurfaceMaterial
+
 DEFAULT_GRAVITY = (0.0, 0.0, -9.81)
 
 
@@ -31,6 +33,20 @@ class PhysicsScene:
         self.model = self.spec.compile()
         self.data = mujoco.MjData(self.model)
         self.revision = 0
+
+    def add_ground(self, material: SurfaceMaterial = GROUND_MATERIAL) -> None:
+        """Add the infinite ground plane, a geom of the world body (id 0)."""
+        self.spec.worldbody.add_geom(
+            name="ground",
+            type=self.mj.mjtGeom.mjGEOM_PLANE,
+            size=[0.0, 0.0, 1.0],
+            friction=[
+                material.lateral_friction,
+                material.spinning_friction,
+                material.rolling_friction,
+            ],
+        )
+        self.recompile()
 
     def recompile(self) -> None:
         """Rebuild the model after ``spec`` changed, keeping the physical state."""

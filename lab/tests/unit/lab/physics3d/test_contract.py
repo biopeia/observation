@@ -690,7 +690,7 @@ def test_visual_body_restore_projects_large_solver_excursion_without_mutating_so
     humanoid.restore_physical_state(payload, strict_anatomical_limits=False)
 
     _lower, mechanical_upper = mechanical_joint_limits(JOINT_SPECS[shoulder])
-    assert humanoid._joint_states()[shoulder][0] == pytest.approx(mechanical_upper)
+    assert humanoid.joint_states()[shoulder][0] == pytest.approx(mechanical_upper)
     assert payload["engine_state"]["qpos"][7 + shoulder] == pytest.approx(raw_position)
 
 
@@ -962,7 +962,7 @@ def test_articulated_body_reports_signed_and_absolute_actuator_work():
     from embodiment.physics3d.articulated import ArticulatedPhysics
 
     body = ArticulatedPhysics.__new__(ArticulatedPhysics)
-    body._joint_states = lambda: [(0.0, 2.0), (0.0, -3.0)]
+    body.joint_states = lambda: [(0.0, 2.0), (0.0, -3.0)]
     body._applied_torque_by_joint = {0: 4.0, 1: 5.0}
 
     work = body.actuator_work_step(0.5)

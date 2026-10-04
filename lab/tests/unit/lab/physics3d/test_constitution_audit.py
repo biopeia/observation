@@ -2,7 +2,7 @@ import math
 
 import pytest
 
-from lab.physics3d.settling import settle_passive_body
+from lab.physics3d.settling import SETTLING_MAX_STEPS, settle_passive_body
 from lab.studies.physics3d.constitution_audit import (
     GRAVITY,
     _connect_world,
@@ -13,37 +13,34 @@ from lab.studies.physics3d.constitution_audit import (
 
 
 def test_passive_body_converges_and_is_supported_by_ground():
-    pytest.importorskip("pybullet")
-    p, client_id, plane_id, body = _connect_world()
-    try:
-        settling = settle_passive_body(p, client_id, body)
-        assert settling.converged is True
-        assert settling.steps <= 1440
+    pytest.importorskip("mujoco")
+    scene, body = _connect_world()
+    settling = settle_passive_body(scene, body)
+    assert settling.converged is True
+    assert settling.steps < SETTLING_MAX_STEPS
 
-        mass = _total_mass(p, client_id, body)
-        expected_weight = mass * GRAVITY
+    mass = _total_mass(body)
+    expected_weight = mass * GRAVITY
 
-        forces = []
-        penetrations = []
-        body.apply_effectors({})
-        for _ in range(240):
-            body.prepare_physics_substep()
-            p.stepSimulation(physicsClientId=client_id)
-            normal, penetration, _contacts = _contact_metrics(p, client_id, body.body_id, plane_id)
-            forces.append(normal)
-            penetrations.append(penetration)
+    forces = []
+    penetrations = []
+    body.apply_effectors({})
+    for _ in range(240):
+        body.prepare_physics_substep()
+        scene.step()
+        normal, penetration, _contacts = _contact_metrics(body)
+        forces.append(normal)
+        penetrations.append(penetration)
 
-        mean_force = sum(forces) / len(forces)
-        assert mass > 0.0
-        assert expected_weight > 0.0
-        assert mean_force == pytest.approx(expected_weight, rel=0.20)
-        assert max(penetrations) < 0.01
-    finally:
-        p.disconnect(physicsClientId=client_id)
+    mean_force = sum(forces) / len(forces)
+    assert mass > 0.0
+    assert expected_weight > 0.0
+    assert mean_force == pytest.approx(expected_weight, rel=0.20)
+    assert max(penetrations) < 0.01
 
 
 def test_constitution_audit_separates_dimensionality_from_total_torque():
-    pytest.importorskip("pybullet")
+    pytest.importorskip("mujoco")
     result = run_constitution_audit(
         passive_steps=24,
         motor_dimensions=(1, 4),
@@ -95,7 +92,7 @@ def test_constitution_audit_separates_dimensionality_from_total_torque():
 
 
 def test_audit_work_decomposition_is_consistent():
-    pytest.importorskip("pybullet")
+    pytest.importorskip("mujoco")
     result = run_constitution_audit(
         passive_steps=8,
         motor_dimensions=(1,),
