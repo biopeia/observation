@@ -1,49 +1,92 @@
-schema_version = 3
+schema_version = 4
+
+# Engineering budgets are targets, not permissions to skip required evidence.
+# They make validation cost visible and reviewable.
+[validation_budget]
+ORDINARY = 120
+SCIENTIFIC = 240
+CONSTITUTIONAL = 600
+FROZEN = 0
 
 [docs]
 ci_lanes = ["docs"]
 paths = ["README.md", "docs/**", "symbiont/docs/**", "migration/**", "*/README.md", "AGENTS.md", "CLAUDE.md"]
 
+# Authority/governance material. Markdown-only changes stay documentation-only;
+# executable control-plane changes are widened by [ci_control] below.
 [governance]
 ci_lanes = ["governance"]
-paths = ["docs/governance/**", "AGENTS.md", "CLAUDE.md", "scripts/agentctl.py", "scripts/governance/**", "tests/governance/**", ".github/**", ".pre-commit-config.yaml", ".gitignore", ".agents/**", ".claude/**", ".codex/**", "pyproject.toml", "pyrightconfig.json", "uv.lock", "conftest.py"]
+paths = ["docs/governance/**", "AGENTS.md", "CLAUDE.md", ".agents/**", ".claude/**", ".codex/**", ".gitignore"]
 
-# A change to what a library declares, or to the checks that keep the domains
-# apart, runs everything.
+# The CI/governance implementation validates broadly because it decides what is
+# allowed to be narrow. This is the self-protection floor from ADR-0058.
+[ci_control]
+ci_lanes = ["governance", "architecture_integrity", "runtime_contracts", "experiment_mechanics", "canonical_full", "python_compat", "host_portability", "alpine", "protocol_mechanics", "physics3d", "modeling"]
+paths = ["scripts/agentctl.py", "scripts/governance/**", "tests/governance/**", ".github/workflows/**", ".github/CODEOWNERS", ".github/pull_request_template.md", "docs/governance/validation-matrix.toml", "docs/governance/change-surfaces.toml", "docs/governance/publication-policy.toml"]
+
+# Dependency/toolchain changes are cross-domain engineering changes but do not
+# become scientific merely because compatibility is exercised.
+[toolchain]
+ci_lanes = ["governance", "software_core", "architecture_integrity", "python_compat"]
+paths = ["pyproject.toml", "pyrightconfig.json", "uv.lock", "conftest.py", ".pre-commit-config.yaml"]
+
+# A change to what a library declares, or to the checks that keep domains apart,
+# receives the canonical repository suite as an explicit architecture fallback.
 [domain_boundaries]
-ci_lanes = ["architecture_integrity", "canonical_full"]
+ci_lanes = ["architecture_integrity", "canonical_full", "python_compat"]
 paths = ["symbiont/pyproject.toml", "embodiment/pyproject.toml", "modality/pyproject.toml", "environment/pyproject.toml", "lab/pyproject.toml", "scripts/check_isolation.py", "scripts/run_tests.py"]
 
 [subject]
-ci_lanes = ["software_core", "architecture_integrity"]
+ci_lanes = ["software_core", "architecture_integrity", "runtime_contracts"]
 paths = ["symbiont/src/symbiont/**", "symbiont/tests/**"]
 
+[subject_host]
+ci_lanes = ["software_core", "architecture_integrity", "runtime_contracts", "host_portability", "alpine"]
+paths = ["symbiont/src/symbiont/host/**", "symbiont/tests/unit/host/**"]
+
 [embodiment]
-ci_lanes = ["software_core", "architecture_integrity"]
+ci_lanes = ["architecture_integrity", "physics3d"]
 paths = ["embodiment/src/embodiment/**", "embodiment/tests/**"]
 
 [modality]
-ci_lanes = ["software_core", "architecture_integrity"]
+ci_lanes = ["architecture_integrity", "physics3d"]
 paths = ["modality/src/modality/**", "modality/tests/**"]
 
+# Generic Lab ownership. More specific Lab sections replace this section for a
+# path instead of accumulating it.
 [lab]
 ci_lanes = ["software_core", "architecture_integrity"]
 paths = ["lab/src/lab/**", "lab/tests/**"]
 
+[lab_physics3d]
+ci_lanes = ["architecture_integrity", "physics3d"]
+paths = ["lab/src/lab/physics3d/**", "lab/tests/unit/lab/physics3d/**", "lab/tests/integration/test_physics3d*.py"]
+
+[modeling]
+ci_lanes = ["modeling"]
+paths = ["lab/src/lab/modeling/**", "symbiont/tests/unit/modeling/**", "lab/tests/unit/modeling/**", "lab/tests/unit/lab/modeling/**", "lab/tests/integration/test_private_model*.py", "lab/tests/integration/test_training_ancestry*.py"]
+
 [world]
-ci_lanes = ["world", "architecture_integrity"]
+ci_lanes = ["world", "architecture_integrity", "physics3d"]
 paths = ["environment/src/environment/**", "environment/tests/**", "lab/src/lab/world/**", "lab/src/lab/integration/world/**"]
 
 [observatory]
-ci_lanes = ["observatory", "architecture_integrity"]
-# The launchers that publish to the Observatory live in the Lab; their contract
-# suite is lab/src/lab/observatory/tests, so a change to them must select this lane too.
-paths = ["lab/src/lab/observatory/**", "lab/src/lab/cli/observed_*.py"]
+ci_lanes = ["observatory"]
+# Presentation changes do not automatically prove an architecture impact. The
+# observed launchers are kept here because they publish Observatory contracts.
+paths = ["lab/src/lab/observatory/**", "lab/src/lab/workbench/**", "lab/src/lab/cli/observed_*.py"]
 
 [experiment_protocol]
-ci_lanes = ["experiment_mechanics", "architecture_integrity"]
-paths = ["lab/experiments/**", "lab/src/lab/studies/**", "docs/design/**", "lab/research/**"]
+ci_lanes = ["experiment_mechanics", "protocol_mechanics", "architecture_integrity"]
+paths = ["lab/experiments/**", "lab/src/lab/studies/**", "lab/research/**", "tests/experiments/**", "lab/tests/experiments/**"]
 
+# Designs are scientific authority surfaces, but Markdown-only edits do not run
+# behavioral suites; ci_plan applies that rule after classification.
+[scientific_design]
+ci_lanes = ["docs"]
+paths = ["docs/design/**", "docs/methodology/**"]
+
+# Repository-level tests with no more specific owner are a conservative fallback.
 [tests]
 ci_lanes = ["canonical_full"]
 paths = ["tests/**"]

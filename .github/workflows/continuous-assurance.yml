@@ -1,0 +1,193 @@
+name: Continuous Assurance
+
+on:
+  schedule:
+    - cron: '17 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: continuous-assurance-main
+  cancel-in-progress: true
+
+jobs:
+  canonical-full:
+    name: canonical-full (${{ matrix.suite }}, py3.12)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [symbiont, embodiment, modality, environment, lab, repository]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          enable-cache: true
+          python-version: '3.12'
+          cache-suffix: assurance-physics
+          cache-dependency-glob: |
+            uv.lock
+            pyproject.toml
+      - run: uv sync --frozen --extra dev --extra physics3d
+      - run: uv run --no-sync python scripts/run_tests.py ${{ matrix.suite }} -- -o addopts= -q
+
+  python-next:
+    name: python-compatibility (py3.13)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          enable-cache: true
+          python-version: '3.13'
+          cache-suffix: assurance-core
+          cache-dependency-glob: |
+            uv.lock
+            pyproject.toml
+      - run: uv sync --frozen --extra dev
+      - run: uv run --no-sync pytest -o addopts= symbiont/tests/experimental_integrity tests/experimental_integrity -q
+      - run: uv run --no-sync pytest lab/tests/smoke -q
+      - run: uv run --no-sync symbiont-lab --help
+
+  host-portability:
+    name: host-portability (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          enable-cache: true
+          python-version: '3.12'
+          cache-suffix: assurance-core
+          cache-dependency-glob: |
+            uv.lock
+            pyproject.toml
+      - shell: bash
+        run: uv sync --frozen --extra dev
+      - shell: bash
+        run: uv run --no-sync pytest symbiont/tests/unit/host symbiont/tests/unit/core -k "host or checkpoint or organism or governor or runtime or capsule" -q
+      - shell: bash
+        run: uv run --no-sync symbiont-lab host discover
+      - shell: bash
+        run: uv run --no-sync symbiont-lab host sample
+      - shell: bash
+        run: uv run --no-sync symbiont-lab organism run --ticks 2 --min-samples 1
+
+  host-constrained:
+    name: host-constrained (alpine/musl)
+    runs-on: ubuntu-latest
+    container:
+      image: python:3.12-alpine
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - run: apk add --no-cache gcc musl-dev libffi-dev openssl-dev cargo rust
+      - run: python -m pip install --no-cache-dir uv
+      - run: uv sync --frozen --extra dev
+      - run: uv run --no-sync pytest symbiont/tests/unit/host -q
+      - run: uv run --no-sync symbiont-lab host discover
+      - run: uv run --no-sync symbiont-lab host sample
+
+  performance-report:
+    name: performance-report (informational)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          enable-cache: true
+          python-version: '3.12'
+          cache-suffix: assurance-core
+          cache-dependency-glob: |
+            uv.lock
+            pyproject.toml
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: uv sync --frozen --extra dev
+      - run: uv run --no-sync python scripts/reprofile_performance.py --quick --output-dir .artifacts/p8
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: assurance-performance-${{ github.run_id }}
+          path: .artifacts/p8/
+          if-no-files-found: warn
+          retention-days: 30
+
+  assurance-gate:
+    name: continuous-assurance-gate
+    if: always()
+    needs: [canonical-full, python-next, host-portability, host-constrained]
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      CANONICAL: ${{ needs.canonical-full.result }}
+      PYTHON_NEXT: ${{ needs.python-next.result }}
+      PORTABILITY: ${{ needs.host-portability.result }}
+      ALPINE: ${{ needs.host-constrained.result }}
+    steps:
+      - name: Report assurance result without blocking normal publication
+        shell: bash
+        run: |
+          set -euo pipefail
+          FAILURES=""
+          for pair in \
+            "canonical-full:$CANONICAL" \
+            "python-3.13:$PYTHON_NEXT" \
+            "host-portability:$PORTABILITY" \
+            "alpine:$ALPINE"; do
+            name="${pair%%:*}"
+            result="${pair#*:}"
+            if [ "$result" != "success" ]; then
+              FAILURES="${FAILURES}${name}=${result}\n"
+            fi
+          done
+
+          if [ -z "$FAILURES" ]; then
+            echo "continuous assurance: PASS"
+            exit 0
+          fi
+
+          TITLE="Continuous assurance regression on main"
+          BODY=$(printf 'Automated continuous assurance detected a regression on `main`.\n\nRun: %s\n\n%s' \
+            "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            "$FAILURES")
+          EXISTING=$(gh issue list --repo "$REPO" --state open --search '"Continuous assurance regression on main" in:title' --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --repo "$REPO" --body "$BODY"
+          else
+            gh issue create --repo "$REPO" --title "$TITLE" --body "$BODY" --label bug
+          fi
+          printf '%b' "$FAILURES"
+          exit 1

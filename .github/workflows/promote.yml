@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 concurrency:
   group: promote-main
@@ -20,22 +21,75 @@ jobs:
       github.event.workflow_run.event == 'push' &&
       startsWith(github.event.workflow_run.head_branch, 'agentctl/')
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+      HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+      USE_MERGE_QUEUE: ${{ vars.USE_MERGE_QUEUE || 'false' }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0
 
-      - name: Verify candidate is still promotable
+      - name: Verify candidate authority and protected surfaces
+        id: verify
         shell: bash
-        env:
-          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
-          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
         run: |
           set -euo pipefail
           git fetch origin main "$HEAD_BRANCH"
 
           test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          test "$(git rev-parse "origin/$HEAD_BRANCH")" = "$HEAD_SHA"
+
+          MESSAGE="$(git log -1 --pretty=%B "$HEAD_SHA")"
+          grep -q '^Governance-Class:' <<<"$MESSAGE"
+          CLASS="$(sed -n 's/^Governance-Class:[[:space:]]*//p' <<<"$MESSAGE" | tail -n1)"
+
+          if [ "$CLASS" != "ORDINARY" ]; then
+            echo "REVIEW REQUIRED — only ORDINARY candidates are auto-promoted"
+            exit 1
+          fi
+
+          MERGE_BASE="$(git merge-base origin/main "$HEAD_SHA")"
+          CHANGED="$(git diff --name-only "$MERGE_BASE" "$HEAD_SHA")"
+          if grep -Eq '^(\.github/|docs/governance/|scripts/agentctl\.py$|scripts/governance/|tests/governance/|AGENTS\.md$|CLAUDE\.md$|\.pre-commit-config\.yaml$|pyproject\.toml$|pyrightconfig\.json$|uv\.lock$)' <<<"$CHANGED"; then
+            echo "REVIEW REQUIRED — candidate changes the trusted validation/governance control plane"
+            exit 1
+          fi
+
+          PR_NUMBER=$(gh pr list \
+            --head "$HEAD_BRANCH" \
+            --base main \
+            --state open \
+            --json number \
+            --jq '.[0].number // empty')
+          if [ -z "$PR_NUMBER" ]; then
+            echo "BLOCKED — governed candidate has no open PR targeting main"
+            exit 1
+          fi
+
+          echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "merge_base=$MERGE_BASE" >> "$GITHUB_OUTPUT"
+
+      - name: Enqueue validated ordinary candidate
+        if: env.USE_MERGE_QUEUE == 'true'
+        shell: bash
+        env:
+          PR_NUMBER: ${{ steps.verify.outputs.pr_number }}
+        run: |
+          set -euo pipefail
+          # With a merge queue required on main, GitHub validates the composed
+          # merge_group tree before integration. No merge method is specified
+          # because the queue owns final integration semantics.
+          gh pr merge "$PR_NUMBER" --auto
+          echo "candidate handed to GitHub merge queue: PR #$PR_NUMBER"
+
+      - name: Legacy fast-forward promotion
+        if: env.USE_MERGE_QUEUE != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
           CURRENT_MAIN="$(git rev-parse origin/main)"
           PARENT="$(git rev-parse "$HEAD_SHA^")"
           COMMIT_COUNT="$(git rev-list --count "$CURRENT_MAIN..$HEAD_SHA")"
@@ -45,27 +99,5 @@ jobs:
             exit 1
           fi
 
-          MESSAGE="$(git log -1 --pretty=%B "$HEAD_SHA")"
-          grep -q '^Governance-Class:' <<<"$MESSAGE"
-
-          CLASS="$(sed -n 's/^Governance-Class:[[:space:]]*//p' <<<"$MESSAGE" | tail -n1)"
-          if [ "$CLASS" = "SCIENTIFIC" ] || [ "$CLASS" = "CONSTITUTIONAL" ] || [ "$CLASS" = "FROZEN" ]; then
-            echo "REVIEW REQUIRED — only ORDINARY candidates are auto-promoted"
-            exit 1
-          fi
-
-          CHANGED="$(git diff --name-only "$CURRENT_MAIN" "$HEAD_SHA")"
-          if grep -Eq '^(\.github/|docs/governance/|scripts/agentctl\.py$|scripts/governance/|tests/governance/|AGENTS\.md$|CLAUDE\.md$|\.pre-commit-config\.yaml$|pyproject\.toml$|pyrightconfig\.json$)' <<<"$CHANGED"; then
-            echo "REVIEW REQUIRED — candidate changes the trusted validation/governance control plane"
-            exit 1
-          fi
-
-      - name: Fast-forward validated candidate into main
-        shell: bash
-        env:
-          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
-          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
-        run: |
-          set -euo pipefail
           git push origin "$HEAD_SHA:refs/heads/main"
           git push origin --delete "$HEAD_BRANCH" || true

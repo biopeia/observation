@@ -1,0 +1,91 @@
+schema_version = 1
+planner_mode = "observe-only"
+max_impacted_modules = 80
+
+# Phase 0 of ADR-0058: the planner records what it would run, while the existing
+# lane remains authoritative. Promotion to targeted execution requires evidence
+# that hypothetical selection has not missed failures.
+
+[lane.software_core]
+fallback = ["symbiont/tests", "lab/tests/unit", "lab/tests/integration", "tests/unit", "symbiont/tests/regression", "lab/tests/smoke"]
+
+[lane.physics3d]
+fallback = ["lab/tests/unit/lab/physics3d", "lab/tests/integration/test_physics3d_*.py", "lab/tests/integration/test_equivalence_suite.py", "embodiment/tests", "modality/tests"]
+
+[lane.modeling]
+fallback = ["symbiont/tests/unit/modeling", "lab/tests/unit/modeling", "lab/tests/unit/lab/modeling", "lab/tests/integration/test_private_model_*.py", "lab/tests/integration/test_training_ancestry_end_to_end.py"]
+
+[lane.world]
+fallback = ["environment/tests", "lab/tests/unit/lab/world"]
+
+[lane.observatory]
+fallback = ["lab/src/lab/observatory", "lab/tests/unit/observatory", "lab/tests/unit/workbench", "tests/unit/workbench"]
+
+[[ownership]]
+source = "symbiont/src/symbiont/**"
+tests = ["symbiont/tests/**/*.py", "tests/unit/**/*.py"]
+
+[[ownership]]
+source = "embodiment/src/embodiment/**"
+tests = ["embodiment/tests/**/*.py", "lab/tests/integration/test_physics3d_*.py"]
+
+[[ownership]]
+source = "modality/src/modality/**"
+tests = ["modality/tests/**/*.py", "lab/tests/integration/test_physics3d_*.py"]
+
+[[ownership]]
+source = "environment/src/environment/**"
+tests = ["environment/tests/**/*.py", "lab/tests/unit/lab/world/**/*.py"]
+
+[[ownership]]
+source = "lab/src/lab/observatory/**"
+tests = ["lab/src/lab/observatory/**/*.py", "lab/tests/unit/observatory/**/*.py", "lab/tests/unit/workbench/**/*.py", "tests/unit/workbench/**/*.py"]
+
+[[ownership]]
+source = "lab/src/lab/modeling/**"
+tests = ["lab/tests/unit/modeling/**/*.py", "lab/tests/unit/lab/modeling/**/*.py", "lab/tests/integration/test_private_model_*.py", "lab/tests/integration/test_training_ancestry*.py"]
+
+[[ownership]]
+source = "lab/src/lab/physics3d/**"
+tests = ["lab/tests/unit/lab/physics3d/**/*.py", "lab/tests/integration/test_physics3d_*.py"]
+
+[[ownership]]
+source = "lab/src/lab/**"
+tests = ["lab/tests/unit/**/*.py", "lab/tests/integration/**/*.py"]
+
+[[semantic_guard]]
+id = "checkpoint-persistence"
+paths = ["**/checkpoint*.py", "**/persistence*.py", "**/migration*.py", "**/schema*.py"]
+tests = ["tests/compatibility/**/*.py", "symbiont/tests/integration/**/*.py", "symbiont/tests/experimental_integrity/**/*.py"]
+
+[[semantic_guard]]
+id = "reembodiment-continuity"
+paths = ["**/*reembodiment*.py", "**/embodiment/transition.py", "**/*body_schema*.py"]
+tests = ["**/*reembodiment*.py", "**/*longitudinal*.py", "symbiont/tests/experimental_integrity/**/*.py"]
+
+[[semantic_guard]]
+id = "host-portability"
+paths = ["symbiont/src/symbiont/host/**"]
+tests = ["symbiont/tests/unit/host/**/*.py"]
+
+[[semantic_guard]]
+id = "scientific-run-control"
+paths = ["lab/src/lab/experiments/**", "lab/src/lab/studies/**", "lab/experiments/**"]
+tests = ["lab/tests/experiments/**/*.py", "tests/experiments/**/*.py", "tests/governance/**/*.py"]
+
+[[semantic_guard]]
+id = "governance-control-plane"
+paths = ["scripts/governance/**", "scripts/agentctl.py", ".github/workflows/**", "docs/governance/**"]
+tests = ["tests/governance/**/*.py", "tests/docs/**/*.py"]
+
+[fallback]
+paths = [
+  "scripts/governance/test_impact.py",
+  "docs/governance/test-impact-policy.toml",
+  "docs/governance/validation-matrix.toml",
+  "pyproject.toml",
+  "uv.lock",
+  "conftest.py",
+  "**/conftest.py",
+]
+dynamic_import_tokens = ["importlib.import_module", "__import__", "pkgutil.iter_modules", "entry_points"]

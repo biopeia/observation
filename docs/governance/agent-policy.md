@@ -43,12 +43,46 @@ mechanism it checks still exists, or archive it as superseded under the rules in
 equivalence, records provenance and publishes one `agentctl/*` candidate. Classification
 is intentionally deferred to `publish`; `context` does not duplicate it.
 
-- **ORDINARY** — green/current candidates may auto-promote.
+- **ORDINARY** — a green candidate auto-promotes through the configured integration mode.
+  Legacy mode requires it to remain current with `main`; merge-queue mode validates the
+  composed `merge_group` before integration.
 - **SCIENTIFIC** — equivalence may downgrade to ORDINARY; otherwise external review.
 - **FROZEN** — never edit completed evidence in place; create a new version.
 - **CONSTITUTIONAL** — Accepted ADR + external owner review.
 
-GitHub Actions is the sole technical validation gate.
+GitHub Actions is the sole technical validation gate. A governed candidate SHA is
+validated once on its candidate branch. Opening its PR is the review handoff, not a
+second execution of the same engineering CI. Integrating an already validated SHA into
+`main` likewise does not repeat candidate CI; when merge queue is enabled, the newly
+composed merge-group tree is validated because it is new integration evidence.
+
+## Authority is not validation impact
+
+Governance classification answers **who may authorize the change**. The versioned
+validation matrix answers **which technical surfaces must be exercised**. SCIENTIFIC or
+CONSTITUTIONAL authority does not by itself mean every platform, protocol or subsystem is
+causally affected.
+
+The CI planner therefore routes lanes from the changed surfaces and then performs a
+deterministic adversarial check. Unmapped changes or uncertain control-plane changes fail
+closed and widen validation. The control plane cannot narrow its own validation in the
+same change.
+
+ADR-0058 impact-based test selection starts in `observe-only` mode: it records direct
+ownership, reverse-import impact, semantic guards and fallback reasons, but cannot yet
+skip the authoritative lane. Narrower test execution requires a later evidence-backed
+rollout.
+
+## Continuous assurance
+
+Broad integration checks that do not need to block every candidate run periodically from
+`main`: canonical full-suite coverage, Python-next compatibility, host portability,
+Alpine/musl and performance reporting. A required continuous-assurance failure creates or
+updates a repository issue.
+
+Continuous assurance supplements presubmit evidence; it never replaces an explicitly
+selected candidate lane. If it finds a failure that candidate impact routing missed, the
+impact policy must gain a new ownership/semantic-guard rule or a wider fallback.
 
 ## Read-on-demand boundaries
 
