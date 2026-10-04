@@ -180,8 +180,9 @@ Important:
 
 Those runs remain scientifically contaminated.
 
-The migration only allows continuing the checkpoint with correct semantics in a
-new body.
+That migration was never retained as an outer-checkpoint restore path. Current
+restore rejects these older schemas; any future archival conversion would be a
+separately authorized offline operation, not continuation of a live organism.
 
 ---
 
