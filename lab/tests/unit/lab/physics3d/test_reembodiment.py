@@ -3,6 +3,8 @@ from __future__ import annotations
 from copy import deepcopy
 
 from symbiont.actuation.surface import ActuatorSurface
+from symbiont.core.cognition.host_self_model import RecencyClass
+from symbiont.core.embodiment.body_schema import BodySchemaEngine
 from symbiont.core.embodiment.longitudinal import contract_fingerprint
 from symbiont.core.embodiment.transition import (
     EmbodimentDescriptor,
@@ -15,6 +17,20 @@ from symbiont.core.embodiment.transition import (
 
 
 def _checkpoint(*, vital_state: str = "dead") -> dict:
+    body_schema = BodySchemaEngine(id_salt="0" * 32)
+    body_schema.observe_self_model(
+        {
+            "signal.old": {
+                "cost_class": 3,
+                "health_class": 12,
+                "confidence_class": 10,
+                "maturity_class": 6,
+                "recency_class": RecencyClass.CURRENT.value,
+            }
+        },
+        tick=41,
+    )
+    learned_body_schema = body_schema.export(current_tick=41)
     return {
         "saved_at_tick": 41,
         "organism_id": "symbiont:persistent",
@@ -39,7 +55,7 @@ def _checkpoint(*, vital_state: str = "dead") -> dict:
         "metabolism": {"marker": "old-metabolism"},
         "homeostasis": {"marker": "old-homeostasis"},
         "physiology": {"marker": "old-physiology"},
-        "body_schema": {"schema_version": 3, "state": "partial", "parts": [{"part_id": "old"}]},
+        "body_schema": learned_body_schema,
         "self_model": {"old-sense": {"confidence": 1}},
         "sensory_development": {"old": True},
         "sensory_system": {"old": True},
@@ -142,6 +158,7 @@ def _checkpoint(*, vital_state: str = "dead") -> dict:
 
 
 def _fresh(*, slots: int = 62) -> dict:
+    body_schema = BodySchemaEngine(id_salt="1" * 32).export(current_tick=41)
     return {
         "living_body": {
             "vital_state": "active",
@@ -150,7 +167,7 @@ def _fresh(*, slots: int = 62) -> dict:
         "metabolism": {"marker": "fresh-metabolism"},
         "homeostasis": {"marker": "fresh-homeostasis"},
         "physiology": {"marker": "fresh-physiology"},
-        "body_schema": {"schema_version": 3, "state": "undeveloped", "parts": []},
+        "body_schema": body_schema,
         "self_model": {},
         "sensory_development": {},
         "sensory_system": {"fresh": True},
@@ -263,7 +280,11 @@ def test_dead_body_reembodiment_preserves_identity_but_revalidates_body_knowledg
 
     assert transformed["living_body"]["vital_state"] == "active"
     assert transformed["living_body"]["energy_reserve"] == 1600.0
-    assert transformed["body_schema"] == previous["body_schema"]
+    assert transformed["body_schema"]["state"] == "undeveloped"
+    assert transformed["body_schema"]["parts"] == []
+    assert (
+        transformed["embodiment_lifecycle"]["history"][0]["body_schema"] == previous["body_schema"]
+    )
     assert transformed["actuation"]["states"] == {"fresh": {"health": 1.0}}
     assert transformed["actuation"]["proposer"] == {"learned": "fresh"}
 
@@ -322,7 +343,8 @@ def test_changed_contract_archives_old_schema_and_restarts_body_specific_learnin
     }
     assert transformed["cognitive_bridge"] == previous["cognitive_bridge"]
 
-    assert transformed["body_schema"] == previous["body_schema"]
+    assert transformed["body_schema"]["state"] == "undeveloped"
+    assert transformed["body_schema"]["parts"] == []
     assert transformed["self_model"] == previous["self_model"]
     assert transformed["sensory_development"] == previous["sensory_development"]
     assert transformed["sensory_system"] == previous["sensory_system"]
@@ -444,7 +466,6 @@ def test_every_reembodiment_preserves_symbiont_learned_state() -> None:
         "experience_ledger",
         "episodic_memory",
         "private_model_registry",
-        "body_schema",
         "self_model",
         "sensory_development",
         "sensory_system",
@@ -464,6 +485,8 @@ def test_every_reembodiment_preserves_symbiont_learned_state() -> None:
         )
         for key in learned_keys:
             assert transformed[key] == previous[key]
+        assert transformed["body_schema"]["state"] == "undeveloped"
+        assert transformed["body_schema"]["parts"] == []
 
 
 def test_stopping_marks_symbiont_dormant_without_changing_body_death_state() -> None:
@@ -505,7 +528,9 @@ def test_known_contract_return_recovers_hypotheses_without_restoring_authority()
         "primitive.old"
     ]
 
-    assert returned["body_schema"] == humanoid["body_schema"]
+    assert returned["body_schema"]["state"] == "undeveloped"
+    assert returned["body_schema"]["parts"] == []
+    assert returned["embodiment_lifecycle"]["history"][0]["body_schema"] == humanoid["body_schema"]
     assert returned["cognitive_bridge"] == humanoid["cognitive_bridge"]
     assert returned["private_model_registry"] == humanoid["private_model_registry"]
 
