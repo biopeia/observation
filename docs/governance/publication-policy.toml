@@ -1,5 +1,4 @@
 schema_version = 2
 mode = "ci-gated-candidate-v3"
-legacy_cutoff_commit = "9fa3b78c3d903edb1112492e74154e95c7c56280"
 normal_entrypoint = "python scripts/agentctl.py publish --message <message>"
 note = "Only a successful, still-current ORDINARY candidate may auto-promote. SCIENTIFIC and CONSTITUTIONAL candidates require external review; FROZEN evidence is versioned rather than modified."

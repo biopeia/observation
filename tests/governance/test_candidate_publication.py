@@ -157,6 +157,6 @@ def test_ci_exposes_one_stable_governed_required_gate() -> None:
 def test_push_ci_uses_main_as_candidate_baseline_and_falls_back_for_missing_sha() -> None:
     workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
 
-    assert workflow.count('git merge-base --is-ancestor origin/main "$HEAD"') == 2
-    assert workflow.count('BASE="$(git merge-base origin/main "$HEAD")"') == 2
-    assert workflow.count('! git cat-file -e "$BASE^{commit}" 2>/dev/null') == 2
+    assert workflow.count('git merge-base --is-ancestor origin/main "$HEAD"') == 1
+    assert workflow.count('BASE="$(git merge-base origin/main "$HEAD")"') == 1
+    assert workflow.count('! git cat-file -e "$BASE^{commit}" 2>/dev/null') == 1

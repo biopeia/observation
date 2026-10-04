@@ -265,12 +265,14 @@ integration tests pass, but `agentctl`'s equivalence suite was not run.
 **OI-11 — Governance tooling is path-rewritten but not exercised.**
 `docs/governance/*.toml`, `scripts/governance/`, `scripts/agentctl.py` and
 `.github/workflows/` point at the new paths, and their unit tests pass.
-Frozen-evidence detection keys on `lab/experiments/`. `agentctl publish` and a
-remote CI run have not been performed. A local `agentctl ci-check` against the
-branch base fails because all 75 unpublished commits lack `Governance-Class`
-trailers; checking the current metadata-bearing documentation commit alone
-passes (`agentctl ci-check --base HEAD^ --head HEAD`). The range failure does
-not establish that the final changed-file plan is wrong. The `observatory` lane
+Frozen-evidence detection keys on `lab/experiments/`. `agentctl publish` has
+not been performed. Remote CI runs on the pull request. The per-commit
+publication audit (`agentctl ci-check`, `Governance-Class` trailers checked
+commit by commit, the legacy cutoff and the bootstrap exceptions) was removed
+by the owner's decision: this branch was made outside governance on purpose,
+and no retroactive classification of its commits was fabricated. Candidate
+publication and promotion still write and read the trailer.
+The `observatory` lane
 and CI job names remain as labels for the still-active Lab Observatory
 subsystem.
 

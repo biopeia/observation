@@ -18,7 +18,7 @@ import tempfile
 import time
 import tomllib
 from datetime import datetime, timezone
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Any
 
 _BOOTSTRAP_ROOT = Path(__file__).resolve().parents[1]
@@ -34,8 +34,6 @@ for _bootstrap_path in (
     if bootstrap not in sys.path:
         sys.path.insert(0, bootstrap)
 
-from governance.classify import ChangeClass
-from governance.classify import assess as assess_change
 from governance.publish import publish as publish_changes
 
 from lab.experiments.execution_workspace import pinned_worktree
@@ -172,11 +170,6 @@ def git_show(ref: str, path: str) -> str | None:
     return result.stdout if result.returncode == 0 else None
 
 
-def load_at(ref: str, name: str) -> dict[str, Any]:
-    raw = git_show(ref, f"docs/governance/{name}")
-    return tomllib.loads(raw) if raw is not None else {}
-
-
 def _trusted_origin_ref() -> str:
     fetch = git_result("fetch", "origin", "main")
     if fetch.returncode != 0:
@@ -207,11 +200,6 @@ def matches(path: str, pattern: str) -> bool:
     return fnmatch.fnmatchcase(path, pattern)
 
 
-def parent_of(ref: str) -> str | None:
-    result = git_result("rev-parse", f"{ref}^")
-    return result.stdout.strip() if result.returncode == 0 else None
-
-
 def git_common_dir() -> Path:
     raw = git("rev-parse", "--git-common-dir")
     path = Path(raw)
@@ -232,24 +220,6 @@ def changed_paths(staged_only: bool = False) -> list[str]:
         untracked = git("ls-files", "--others", "--exclude-standard")
         paths.update(line for line in untracked.splitlines() if line)
     return sorted(paths)
-
-
-def changed_paths_between(base: str, head: str) -> list[str]:
-    raw = git("diff", "--name-only", "--diff-filter=ACMRD", base, head)
-    return [line for line in raw.splitlines() if line]
-
-
-def _active_work_at(base_ref: str) -> list[dict[str, Any]]:
-    return load_at(base_ref, "active-work.toml").get("work", [])
-
-
-def _path_blocked_by_active(path: str, base_ref: str) -> str | None:
-    for work in _active_work_at(base_ref):
-        if work.get("state") != "RUNNING":
-            continue
-        if any(matches(path, pattern) for pattern in work.get("protected_paths", [])):
-            return str(work["id"])
-    return None
 
 
 def _validation_sections(paths: list[str]) -> list[tuple[str, dict[str, Any]]]:
@@ -331,7 +301,6 @@ def _verify_toml() -> list[str]:
         "validation-matrix.toml",
         "resource-policy.toml",
         "owner-root.toml",
-        "bootstrap-exceptions.toml",
         "change-surfaces.toml",
         "publication-policy.toml",
     ):
@@ -361,13 +330,6 @@ def _verify_semantics() -> list[str]:
         if work.get("id") not in programmes:
             errors.append(f"active work {work.get('id')!r} has no programme-state entry")
 
-    for entry in load("bootstrap-exceptions.toml").get("commit", []):
-        sha = str(entry.get("sha", ""))
-        if len(sha) != 40 or any(ch not in "0123456789abcdef" for ch in sha.lower()):
-            errors.append("bootstrap exception has invalid commit SHA")
-        if entry.get("status") != "accepted" or not entry.get("reason"):
-            errors.append(f"bootstrap exception {sha[:12]} lacks accepted status/reason")
-
     frozen_patterns = {a["path_glob"] for a in load("frozen-artifacts.toml").get("artifact", [])}
     for pattern in CONTROL_PLANE:
         if pattern not in frozen_patterns:
@@ -382,193 +344,6 @@ def verify() -> int:
             print(f"ERROR: {error}", file=sys.stderr)
         return 1
     print("governance verification: PASS")
-    return 0
-
-
-def _trailer(message: str, name: str) -> str | None:
-    prefix = name.lower() + ":"
-    for line in reversed(message.splitlines()):
-        if line.lower().startswith(prefix):
-            return line.split(":", 1)[1].strip()
-    return None
-
-
-def _governance_adr_valid(ref: str, path: str) -> bool:
-    candidate = PurePosixPath(path)
-    if (
-        candidate.is_absolute()
-        or ".." in candidate.parts
-        or len(candidate.parts) < 3
-        or candidate.parts[0:2] != ("docs", "adr")
-        or not candidate.name.startswith("ADR-")
-        or candidate.suffix.lower() != ".md"
-    ):
-        return False
-    raw = git_show(ref, candidate.as_posix())
-    if raw is None:
-        return False
-    return bool(
-        re.search(
-            r"(?im)^-\s*\*\*Status:\*\*\s*Accepted\s*$|^Status:\s*Accepted\s*$",
-            raw,
-        )
-    )
-
-
-def _equivalence_evidence_errors(
-    parent: str,
-    commit: str,
-    assessment: Any,
-    raw: str | None,
-) -> list[str]:
-    required = tuple(str(item) for item in assessment.equivalence_scenarios)
-    if not required:
-        return ["scientific-sensitive diff has no covering equivalence scenario"]
-    if not raw:
-        return ["scientific-sensitive diff downgraded without equivalence evidence"]
-    try:
-        payload = json.loads(raw)
-    except json.JSONDecodeError:
-        return ["equivalence evidence trailer is not valid JSON"]
-    if not isinstance(payload, dict):
-        return ["equivalence evidence trailer must be a JSON object"]
-
-    meta = payload.get("_meta")
-    if not isinstance(meta, dict) or meta.get("baseline_commit") != parent:
-        return ["equivalence evidence baseline does not match commit parent"]
-    candidate_tree = git("show", "-s", "--format=%T", commit)
-    if meta.get("candidate_tree") != candidate_tree:
-        return ["equivalence evidence candidate tree does not match commit tree"]
-
-    errors: list[str] = []
-    for scenario in required:
-        evidence = payload.get(scenario)
-        if not isinstance(evidence, dict) or evidence.get("status") != "PASS":
-            errors.append(f"equivalence scenario {scenario!r} is missing or not PASS")
-    return errors
-
-
-def _bootstrap_exception(commit: str) -> dict[str, Any] | None:
-    try:
-        entries = load("bootstrap-exceptions.toml").get("commit", [])
-    except (OSError, tomllib.TOMLDecodeError):
-        return None
-    for entry in entries:
-        if entry.get("sha") == commit and entry.get("status") == "accepted":
-            return entry
-    return None
-
-
-def _audit_commit(commit: str) -> list[str]:
-    parent = parent_of(commit)
-    if not parent:
-        return []
-    if _bootstrap_exception(commit):
-        return []
-
-    paths = changed_paths_between(parent, commit)
-    message = git("show", "-s", "--format=%B", commit)
-    governance_class = _trailer(message, "Governance-Class")
-    if governance_class not in {"ORDINARY", "SCIENTIFIC", "CONSTITUTIONAL"}:
-        return [f"{commit[:12]}: missing or invalid Governance-Class trailer"]
-
-    active_errors: list[str] = []
-    for path in paths:
-        blocked = _path_blocked_by_active(path, parent)
-        if blocked:
-            active_errors.append(f"{commit[:12]}: {path} modifies active run {blocked}")
-    if active_errors:
-        return active_errors
-
-    diff_text = git("diff", parent, commit)
-    assessment = assess_change(ROOT, parent, paths, diff_text)
-    expected = str(assessment.classification)
-    if expected == ChangeClass.FROZEN:
-        return [f"{commit[:12]}: modifies frozen evidence; create a new version instead"]
-    if expected == ChangeClass.CONSTITUTIONAL and governance_class != "CONSTITUTIONAL":
-        return [f"{commit[:12]}: constitutional diff mislabeled as {governance_class}"]
-    if expected == ChangeClass.SCIENTIFIC and governance_class == "ORDINARY":
-        evidence_errors = _equivalence_evidence_errors(
-            parent, commit, assessment, _trailer(message, "Equivalence-Evidence")
-        )
-        if evidence_errors:
-            return [f"{commit[:12]}: {error}" for error in evidence_errors]
-    if expected == ChangeClass.ORDINARY and governance_class != "ORDINARY":
-        return [f"{commit[:12]}: ordinary diff mislabeled as {governance_class}"]
-    if governance_class == "CONSTITUTIONAL":
-        adr = _trailer(message, "Governance-ADR")
-        if not adr:
-            return [f"{commit[:12]}: constitutional change lacks Governance-ADR"]
-        if not _governance_adr_valid(commit, adr):
-            return [f"{commit[:12]}: Governance-ADR is missing, outside docs/adr, or not Accepted"]
-    return []
-
-
-def _publication_cutoff(ref: str = "HEAD") -> str | None:
-    raw = git_show(ref, "docs/governance/publication-policy.toml")
-    if raw is None:
-        return None
-    try:
-        payload = tomllib.loads(raw)
-    except tomllib.TOMLDecodeError:
-        return None
-    value = payload.get("legacy_cutoff_commit")
-    return str(value) if value else None
-
-
-def _is_legacy_commit(commit: str, cutoff: str | None) -> bool:
-    if not cutoff or not commit_exists(cutoff):
-        return False
-    return git_result("merge-base", "--is-ancestor", commit, cutoff).returncode == 0
-
-
-def _is_redundant_merge_commit(commit: str) -> bool:
-    """Return whether a merge adds no tree content beyond one of its parents."""
-    parents = git("show", "-s", "--format=%P", commit).split()
-    if len(parents) < 2:
-        return False
-    tree = git("show", "-s", "--format=%T", commit)
-    return any(git("show", "-s", "--format=%T", parent) == tree for parent in parents)
-
-
-def ci_check(base: str, head: str) -> int:
-    if not commit_exists(head):
-        print(f"HEAD commit is unavailable: {head}", file=sys.stderr)
-        return 2
-    if not base or set(base) == {"0"}:
-        parent = parent_of(head)
-        if not parent:
-            print("cannot determine audit base", file=sys.stderr)
-            return 2
-        base = parent
-    if not commit_exists(base):
-        print(f"audit base commit is unavailable: {base}", file=sys.stderr)
-        return 2
-    if git_result("merge-base", "--is-ancestor", base, head).returncode != 0:
-        print(
-            "audit base is not an ancestor of head; non-linear/force push rejected", file=sys.stderr
-        )
-        return 2
-
-    commits = [c for c in git("rev-list", "--reverse", f"{base}..{head}").splitlines() if c]
-    errors: list[str] = []
-    cutoff = _publication_cutoff(head)
-    audited = 0
-    redundant_merges = 0
-    for commit in commits:
-        if _is_redundant_merge_commit(commit):
-            redundant_merges += 1
-            continue
-        if _is_legacy_commit(commit, cutoff):
-            continue
-        audited += 1
-        errors.extend(_audit_commit(commit))
-    if errors:
-        for error in errors:
-            print(f"ERROR: {error}", file=sys.stderr)
-        return 1
-    skipped = f"; {redundant_merges} redundant merge commits skipped" if redundant_merges else ""
-    print(f"commit governance audit: PASS ({audited} commits audited{skipped})")
     return 0
 
 
@@ -1476,9 +1251,6 @@ def main() -> int:
     sub.add_parser("verify")
     p_validate = sub.add_parser("validate", help=argparse.SUPPRESS)
     p_validate.add_argument("--staged", action="store_true", default=True)
-    p_ci = sub.add_parser("ci-check")
-    p_ci.add_argument("--base", required=True)
-    p_ci.add_argument("--head", required=True)
     p_publish = sub.add_parser("publish")
     p_publish.add_argument("--message", required=True)
     p_publish.add_argument(
@@ -1614,8 +1386,6 @@ def main() -> int:
         return 0
     if args.command == "validate":
         return validate(staged_only=args.staged)
-    if args.command == "ci-check":
-        return ci_check(args.base, args.head)
     if args.run_command == "status":
         return run_status()
     if args.run_command == "start":

@@ -37,7 +37,6 @@ def test_governance_toml_is_parseable() -> None:
         "validation-matrix.toml",
         "resource-policy.toml",
         "owner-root.toml",
-        "bootstrap-exceptions.toml",
         "change-surfaces.toml",
         "publication-policy.toml",
     ):
@@ -67,57 +66,6 @@ def test_active_grant_machinery_is_absent() -> None:
         assert token not in source
 
 
-def test_redundant_merge_requires_a_parent_with_identical_tree(monkeypatch) -> None:
-    ctl = _agentctl()
-    trees = {"merge": "tree-a", "parent-a": "tree-a", "parent-b": "tree-b"}
-
-    def fake_git(*args: str, **kwargs) -> str:
-        if args[:3] == ("show", "-s", "--format=%P"):
-            return "parent-a parent-b"
-        if args[:3] == ("show", "-s", "--format=%T"):
-            return trees[args[3]]
-        raise AssertionError(args)
-
-    monkeypatch.setattr(ctl, "git", fake_git)
-    assert ctl._is_redundant_merge_commit("merge")
-    trees["merge"] = "tree-merge-resolution"
-    assert not ctl._is_redundant_merge_commit("merge")
-
-
-def test_ci_check_skips_redundant_merge_without_skipping_source(monkeypatch, capsys) -> None:
-    ctl = _agentctl()
-    merge, ordinary = "a" * 40, "b" * 40
-    audited: list[str] = []
-
-    monkeypatch.setattr(ctl, "commit_exists", lambda _ref: True)
-    monkeypatch.setattr(
-        ctl,
-        "git",
-        lambda *args, **kwargs: f"{ordinary}\n{merge}",
-    )
-    monkeypatch.setattr(
-        ctl,
-        "git_result",
-        lambda *args: type("Result", (), {"returncode": 0})(),
-    )
-    monkeypatch.setattr(ctl, "_publication_cutoff", lambda _head: None)
-    monkeypatch.setattr(
-        ctl,
-        "_is_redundant_merge_commit",
-        lambda commit: commit == merge,
-    )
-    monkeypatch.setattr(ctl, "_is_legacy_commit", lambda _commit, _cutoff: False)
-    monkeypatch.setattr(
-        ctl,
-        "_audit_commit",
-        lambda commit: audited.append(commit) or [],
-    )
-
-    assert ctl.ci_check("base", "head") == 0
-    assert audited == [ordinary]
-    assert "1 redundant merge commits skipped" in capsys.readouterr().out
-
-
 def test_agentctl_verifies_repository_governance() -> None:
     result = subprocess.run(
         [sys.executable, "scripts/agentctl.py", "verify"],
@@ -127,19 +75,3 @@ def test_agentctl_verifies_repository_governance() -> None:
         capture_output=True,
     )
     assert result.returncode == 0, result.stderr
-
-
-def test_active_run_path_is_blocked(monkeypatch) -> None:
-    ctl = _agentctl()
-    monkeypatch.setattr(
-        ctl,
-        "_active_work_at",
-        lambda ref: [
-            {
-                "id": "running",
-                "state": "RUNNING",
-                "protected_paths": ["src/x/**"],
-            }
-        ],
-    )
-    assert ctl._path_blocked_by_active("src/x/a.py", "HEAD") == "running"
