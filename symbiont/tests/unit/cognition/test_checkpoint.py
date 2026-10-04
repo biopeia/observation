@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+from dataclasses import replace
 
 import pytest
 
@@ -56,4 +57,15 @@ def test_restore_rejects_a_genome_that_no_longer_satisfies_kernel_limits():
     with pytest.raises(GenomeError):
         restore_genome_checkpoint(
             payload, kernel_limits=KernelLimits(max_nodes=1), running_version=_RUNNING_VERSION
+        )
+
+
+def test_restore_does_not_use_legacy_kernel_validation_for_old_genomes():
+    genome = GenomeCodec().load(VALID_PAYLOAD)
+    historical_genome = replace(genome, kernel_compatibility=">=0.55,<0.60")
+    payload = export_genome_checkpoint(historical_genome)
+
+    with pytest.raises(GenomeError, match="does not admit running version"):
+        restore_genome_checkpoint(
+            payload, kernel_limits=KernelLimits(), running_version=_RUNNING_VERSION
         )

@@ -8,20 +8,16 @@ from symbiont.genetics.genome import (
     GenomeCodec,
     GenomeError,
     _genome_to_plain_dict,
-    legacy_validation_version,
 )
 
 from .activation import MIN_NORMALIZER_SAMPLES, SensoryNormalizer
 from .graph import CognitiveGraph, GraphError, PlasticEdge, PlasticNode
 from .limits import KernelLimits
 from .metaplasticity import SafetyState
-from .types import WEIGHT_RANGE
 
 WEIGHT_CLASSES = 17
 WEIGHT_CODEC_VERSION = 3
 WEIGHT_DEADBAND = 0.01
-_LEGACY_WEIGHT_CODEC_VERSION = 2
-_LEGACY_WEIGHT_CLASSES = 17
 # NOTE: v3 keeps the same 17 classes but allocates substantially more resolution
 # near zero, where tentative and recently learned synapses actually live.
 _WEIGHT_MAGNITUDE_LEVELS = (
@@ -79,26 +75,6 @@ def dequantize_weight(class_id: int) -> float:
     return magnitude if class_id > center else -magnitude
 
 
-def _dequantize_weight_v2(class_id: int) -> float:
-    if (
-        isinstance(class_id, bool)
-        or not isinstance(class_id, int)
-        or not 0 <= class_id < _LEGACY_WEIGHT_CLASSES
-    ):
-        raise ValueError("invalid legacy weight class")
-    center = _LEGACY_WEIGHT_CLASSES // 2
-    if class_id == center:
-        return 0.0
-    step = max(abs(WEIGHT_RANGE[0]), abs(WEIGHT_RANGE[1])) / center
-    return (class_id - center) * step
-
-
-def dequantize_signed(class_id: int, bounds: tuple[float, float], num_classes: int) -> float:
-    low, high = bounds
-    ratio = class_id / (num_classes - 1)
-    return low + ratio * (high - low)
-
-
 def export_genome_checkpoint(genome: Genome | None) -> dict[str, Any] | None:
     if genome is None:
         return None
@@ -131,12 +107,7 @@ def restore_genome_checkpoint(
         raise GenomeError(
             "genotype checkpoint hash mismatch -- payload may be corrupted or tampered"
         )
-    # The 0.55-0.60 genome was the canonical format before the 0.80 kernel.
-    # Keep its immutable genome/hash while validating it against the last
-    # kernel it explicitly targeted.  This is a migration for persisted
-    # checkpoints only, not a relaxation of GenomeCodec.validate().
-    validation_version = legacy_validation_version(genome.kernel_compatibility, running_version)
-    codec.validate(genome, kernel_limits, running_version=validation_version)
+    codec.validate(genome, kernel_limits, running_version=running_version)
     return genome
 
 
@@ -229,13 +200,13 @@ def restore_graph_checkpoint(
         return None
     if not isinstance(payload, dict):
         raise GraphError("graph checkpoint payload must be an object")
-    codec_version = payload.get("weight_codec_version", 1)
+    codec_version = payload.get("weight_codec_version")
     if (
         isinstance(codec_version, bool)
         or not isinstance(codec_version, int)
-        or codec_version not in (1, _LEGACY_WEIGHT_CODEC_VERSION, WEIGHT_CODEC_VERSION)
+        or codec_version != WEIGHT_CODEC_VERSION
     ):
-        raise GraphError("unsupported graph weight codec version")
+        raise GraphError(f"graph checkpoint requires weight codec version {WEIGHT_CODEC_VERSION}")
 
     from .types import EdgeKind, NodeKind
 
@@ -260,33 +231,11 @@ def restore_graph_checkpoint(
                 source_id=str(entry["source_id"]),
                 target_id=str(entry["target_id"]),
                 kind=EdgeKind(entry["kind"]),
-                weight=(
-                    dequantize_weight(
-                        _require_class_id(
-                            entry["weight_class"],
-                            field="edge.weight_class",
-                            num_classes=WEIGHT_CLASSES,
-                        )
-                    )
-                    if codec_version == WEIGHT_CODEC_VERSION
-                    else (
-                        _dequantize_weight_v2(
-                            _require_class_id(
-                                entry["weight_class"],
-                                field="edge.weight_class",
-                                num_classes=_LEGACY_WEIGHT_CLASSES,
-                            )
-                        )
-                        if codec_version == _LEGACY_WEIGHT_CODEC_VERSION
-                        else dequantize_signed(
-                            _require_class_id(
-                                entry["weight_class"],
-                                field="edge.weight_class",
-                                num_classes=16,
-                            ),
-                            WEIGHT_RANGE,
-                            16,
-                        )
+                weight=dequantize_weight(
+                    _require_class_id(
+                        entry["weight_class"],
+                        field="edge.weight_class",
+                        num_classes=WEIGHT_CLASSES,
                     )
                 ),
                 plasticity=_require_finite(entry["plasticity"], "edge.plasticity"),

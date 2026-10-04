@@ -108,12 +108,16 @@ def test_restore_rejects_malformed_payload_type():
         restore_graph_checkpoint({"nodes": "not-a-list", "edges": []}, kernel_limits=KernelLimits())
 
 
-def test_restore_rejects_unknown_weight_codec_version():
+@pytest.mark.parametrize("codec_version", [None, 1, 2, 99])
+def test_restore_rejects_missing_or_noncurrent_weight_codec_version(codec_version):
     graph = CognitiveGraph(
         nodes=(_sense(), _concept()), edges=(_edge(),), kernel_limits=KernelLimits()
     )
     payload = export_graph_checkpoint(graph)
-    payload["weight_codec_version"] = 99
+    if codec_version is None:
+        del payload["weight_codec_version"]
+    else:
+        payload["weight_codec_version"] = codec_version
     with pytest.raises(GraphError, match="codec version"):
         restore_graph_checkpoint(payload, kernel_limits=KernelLimits())
 
@@ -191,18 +195,3 @@ def test_tentative_weight_does_not_collapse_to_zero_in_codec_v3():
     assert payload["edges"][0]["weight_class"] != 8
     assert restored.edges[0].weight != 0.0
     assert restored.edges[0].weight == pytest.approx(0.05, abs=0.02)
-
-
-def test_codec_v2_checkpoint_restores_with_legacy_linear_weight_mapping():
-    graph = CognitiveGraph(
-        nodes=(_sense(), _concept()),
-        edges=(_edge(weight=0.75),),
-        kernel_limits=KernelLimits(),
-    )
-    payload = export_graph_checkpoint(graph)
-    payload["weight_codec_version"] = 2
-    payload["edges"][0]["weight_class"] = 11
-
-    restored = restore_graph_checkpoint(payload, kernel_limits=KernelLimits())
-
-    assert restored.edges[0].weight == pytest.approx(0.75)
