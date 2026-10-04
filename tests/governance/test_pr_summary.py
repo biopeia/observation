@@ -48,13 +48,19 @@ def test_merge_body_replaces_existing_summary_instead_of_appending() -> None:
     assert "Tail" in marked
 
 
-def test_pr_summary_workflow_uses_trusted_base_definition() -> None:
+def test_pr_summary_workflow_uses_trusted_workflow_run_definition() -> None:
     workflow = (ROOT / ".github/workflows/pr-governance-summary.yml").read_text(encoding="utf-8")
 
-    assert "pull_request_target:" in workflow
-    assert "ref: ${{ github.event.pull_request.base.sha }}" in workflow
+    assert "workflow_run:" in workflow
+    assert 'workflows: ["CI"]' in workflow
+    assert "pull_request_target:" not in workflow
+    assert "ref: main" in workflow
     assert "pull-requests: write" in workflow
-    assert "github.event.pull_request.head.repo.full_name == github.repository" in workflow
+    assert "github.event.workflow_run.head_repository.full_name == github.repository" in workflow
+    assert "github.event.workflow_run.head_sha" in workflow
+    assert "Candidate advanced" in workflow
+    assert "git fetch origin \"$HEAD_SHA\"" in workflow
+    assert "python scripts/governance/pr_summary.py" in workflow
 
 
 def test_candidate_ci_is_not_duplicated_by_pr_or_main_push() -> None:
