@@ -35,11 +35,7 @@ def test_render_explains_authority_and_impact(monkeypatch) -> None:
 def test_merge_body_replaces_existing_summary_instead_of_appending() -> None:
     first = pr_summary.merge_body("Human context", "SUMMARY-ONE")
     marked = pr_summary.merge_body(
-        "Human context\n\n"
-        + pr_summary.BEGIN
-        + "\nold\n"
-        + pr_summary.END
-        + "\n\nTail",
+        "Human context\n\n" + pr_summary.BEGIN + "\nold\n" + pr_summary.END + "\n\nTail",
         pr_summary.BEGIN + "\nnew\n" + pr_summary.END,
     )
 
@@ -56,7 +52,7 @@ def test_pr_summary_workflow_uses_trusted_base_definition() -> None:
     workflow = (ROOT / ".github/workflows/pr-governance-summary.yml").read_text(encoding="utf-8")
 
     assert "pull_request_target:" in workflow
-    assert 'ref: ${{ github.event.pull_request.base.sha }}' in workflow
+    assert "ref: ${{ github.event.pull_request.base.sha }}" in workflow
     assert "pull-requests: write" in workflow
     assert "github.event.pull_request.head.repo.full_name == github.repository" in workflow
 
