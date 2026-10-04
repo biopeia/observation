@@ -2780,7 +2780,6 @@ class OrganismRuntime:
             actuator_constitution_override, ActuatorSurface
         ):
             raise CheckpointError("actuator_constitution_override must be an ActuatorSurface")
-        fingerprint_migration: tuple[str, str] | None = None
         # Identity is verified on the payload exactly as it was loaded: the
         # stored identifier describes that representation, not a migrated one.
         verify_checkpoint_identity(payload)
@@ -3030,9 +3029,8 @@ class OrganismRuntime:
                         restored_constitution.contract_fingerprint
                         != actuator_constitution.contract_fingerprint
                     ):
-                        fingerprint_migration = (
-                            restored_constitution.contract_fingerprint,
-                            actuator_constitution.contract_fingerprint,
+                        raise CheckpointError(
+                            "actuator constitution override changes contract fingerprint"
                         )
                 else:
                     actuator_constitution = restored_constitution
@@ -3072,23 +3070,9 @@ class OrganismRuntime:
                 if raw_sensorimotor is not None:
                     if not isinstance(raw_sensorimotor, dict):
                         raise CheckpointError("invalid canonical sensorimotor state")
-                    raw_sensorimotor_restore = deepcopy(raw_sensorimotor)
-                    if fingerprint_migration is not None:
-                        old_fp, new_fp = fingerprint_migration
-                        if raw_sensorimotor_restore.get("embodiment_fingerprint") == old_fp:
-                            raw_sensorimotor_restore["embodiment_fingerprint"] = new_fp
-                        for key in ("primitives", "historical_candidates"):
-                            raw_items = raw_sensorimotor_restore.get(key)
-                            if isinstance(raw_items, list):
-                                for item in raw_items:
-                                    if (
-                                        isinstance(item, dict)
-                                        and item.get("embodiment_fingerprint") == old_fp
-                                    ):
-                                        item["embodiment_fingerprint"] = new_fp
                     try:
                         competence_development = CompetenceDevelopmentEngine.restore(
-                            raw_sensorimotor_restore,
+                            raw_sensorimotor,
                             actuator_ids=actuator_constitution.actuator_ids,
                             organism_id=str(normalized.get("organism_id") or ""),
                             embodiment_fingerprint=actuator_constitution.contract_fingerprint,
@@ -3463,7 +3447,6 @@ class OrganismRuntime:
                     runtime._action_domain.restore_v2(
                         raw_v2,
                         body_schema=runtime._body_schema,
-                        fingerprint_migration=fingerprint_migration,
                     )
                 except (TypeError, ValueError, KeyError) as exc:
                     raise CheckpointError(f"invalid sensorimotor v2 checkpoint: {exc}") from exc
