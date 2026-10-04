@@ -6,6 +6,7 @@ from types import SimpleNamespace
 
 from symbiont.agency.affordance import ActionAffordance, affordance_id_for
 from symbiont.agency.intention import AdmissionRoute
+from symbiont.cognition.generative.agenda import AgendaSource, GenerativeTarget
 from symbiont.cognition.generative.resident import ResidentGenerativeCognition
 from symbiont.cognition.generative.types import (
     EpistemicOrigin,
@@ -21,6 +22,17 @@ def test_live_hypothesis_changes_production_admission_only_for_existing_affordan
     cognition = ResidentGenerativeCognition(organism_id="organism.generative-test")
     runtime = OrganismRuntime(
         organism_id="organism.generative-test", generative_cognition=cognition
+    )
+    cognition.agenda.add_target(
+        GenerativeTarget(
+            target_id="gc.prospective.competence.test",
+            source=AgendaSource.PROSPECTIVE_DECISION,
+            source_refs=("competence.test",),
+            created_tick=1,
+            uncertainty=0.6,
+            persistence=0.5,
+            recurrence=1,
+        )
     )
     state = GenerativeState(
         state_id="state.generated",
@@ -109,3 +121,35 @@ def test_live_hypothesis_changes_production_admission_only_for_existing_affordan
     assert decision.admission is AdmissionRoute.GENERATIVE
     assert decision.competence_id == "competence.test"
     assert hypothesis.hypothesis_id in decision.origin_refs
+
+    # The resident's factual-reconciliation API retires the unsupported
+    # prediction. This supplies a bounded evidence reference directly; it does
+    # not validate the upstream runtime's factual-outcome provenance.
+    cognition.calibration.record_prediction(
+        model_id="model.test",
+        operation=GenerativeOperation.PREDICT,
+        depth=state.depth,
+        uncertainty=state.uncertainty,
+    )
+    assert (
+        cognition.note_factual_outcome(
+            action_id="competence.test",
+            outcome_tokens=("effect.other",),
+            evidence_refs=("experience.factual",),
+            model_ids=("model.test",),
+        )
+        == 1
+    )
+    assert hypothesis.status.value == "contradicted"
+    assert (
+        runtime._choose_acquired_action(
+            cognition=SimpleNamespace(readouts_for_family=lambda _family: {}),
+            percepts=(),
+            affordances=(affordance,),
+            resolver=Resolver(),
+            context_ref="context.test",
+            signal_references={},
+            tick=2,
+        )
+        is None
+    )
