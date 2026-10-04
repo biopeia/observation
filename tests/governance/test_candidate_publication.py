@@ -22,11 +22,12 @@ def test_agentctl_publish_never_pushes_directly_to_main() -> None:
 
 def test_promotion_only_auto_promotes_ordinary_candidates() -> None:
     workflow = (ROOT / ".github/workflows/promote.yml").read_text(encoding="utf-8")
-    assert 'CLASS" = "SCIENTIFIC"' in workflow
-    assert 'CLASS" = "CONSTITUTIONAL"' in workflow
+    assert 'CLASS" != "ORDINARY"' in workflow
     assert "only ORDINARY candidates are auto-promoted" in workflow
     assert "Owner-Approval:" not in workflow
     assert "candidate changes the trusted validation/governance control plane" in workflow
+    assert "USE_MERGE_QUEUE" in workflow
+    assert 'gh pr merge "$PR_NUMBER" --auto' in workflow
 
 
 def test_validation_matrix_routes_ci_without_local_test_commands() -> None:
@@ -148,15 +149,18 @@ def test_ci_exposes_one_stable_governed_required_gate() -> None:
     ):
         assert f"      - {job}" in workflow
 
-    gate = workflow.split("  governed-ci-gate:", 1)[1].split("\n  performance-report:", 1)[0]
+    gate = workflow.split("  governed-ci-gate:", 1)[1]
     assert "performance-report" not in gate
     assert 'require_lane "host-portability"' in gate
     assert 'require_lane "python-compatibility"' in gate
 
 
-def test_push_ci_uses_main_as_candidate_baseline_and_falls_back_for_missing_sha() -> None:
+def test_push_ci_uses_main_as_candidate_baseline_and_handles_merge_groups() -> None:
     workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
 
     assert workflow.count('git merge-base --is-ancestor origin/main "$HEAD"') == 1
-    assert workflow.count('BASE="$(git merge-base origin/main "$HEAD")"') == 1
     assert workflow.count('! git cat-file -e "$BASE^{commit}" 2>/dev/null') == 1
+    assert 'if [ "$EVENT_NAME" = "merge_group" ]' in workflow
+    assert 'BASE="$MERGE_BASE"' in workflow
+    assert 'HEAD="$MERGE_HEAD"' in workflow
+    assert 'git merge-base origin/main "$HEAD"' in workflow
