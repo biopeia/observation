@@ -29,7 +29,11 @@ from symbiont.core.embodiment.longitudinal import (
     inject_memory_candidates,
     memory_for_contract,
 )
-from symbiont.host.checkpoint import CHECKPOINT_SCHEMA_VERSION, stamp_checkpoint_identity
+from symbiont.host.checkpoint import (
+    CHECKPOINT_SCHEMA_VERSION,
+    stamp_checkpoint_identity,
+    verify_checkpoint_identity,
+)
 from symbiont.host.continuity import LongitudinalContract
 
 # Longitudinal contract of the subject this module builds (issue #273).
@@ -488,6 +492,10 @@ def prepare_fresh_embodiment_checkpoint(
             "current-schema checkpoint lacks valid embodiment_lifecycle; "
             "refusing legacy body fallback"
         )
+    # Re-embodiment stamps a new identity after transforming the payload. Verify
+    # the source first, otherwise a caller could use this authorized transform
+    # to bless tampered current-schema state with a fresh checkpoint identity.
+    verify_checkpoint_identity(dict(previous))
     previous = migrate_temporal_domains(previous)
     result = deepcopy(dict(previous))
     # Archive the canonical episode before removing its current authority.

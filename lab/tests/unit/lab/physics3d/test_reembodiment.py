@@ -17,7 +17,7 @@ from symbiont.core.embodiment.transition import (
     prepare_fresh_embodiment_checkpoint,
     update_lifecycle_for_checkpoint,
 )
-from symbiont.host.checkpoint import CHECKPOINT_SCHEMA_VERSION
+from symbiont.host.checkpoint import CHECKPOINT_SCHEMA_VERSION, stamp_checkpoint_identity
 
 
 def _checkpoint(*, vital_state: str = "dead") -> dict:
@@ -312,6 +312,10 @@ def test_current_checkpoint_with_malformed_lifecycle_cannot_reembody_as_legacy(
 def test_reembodiment_does_not_count_new_body_activation_as_old_body_recovery() -> None:
     previous = _checkpoint(vital_state="active")
     previous["schema_version"] = CHECKPOINT_SCHEMA_VERSION
+    previous["runtime_provenance"] = {
+        "checkpoint_schema_version": CHECKPOINT_SCHEMA_VERSION,
+        "session_controls": {},
+    }
     previous["development"] = {
         "schema_version": DevelopmentalTracker.SCHEMA_VERSION,
         "tick": 41,
@@ -323,6 +327,8 @@ def test_reembodiment_does_not_count_new_body_activation_as_old_body_recovery() 
         "retention_burden": 0.3,
         "previous_stressed": True,
     }
+    previous["checkpoint_lineage"] = {"schema_version": CHECKPOINT_SCHEMA_VERSION}
+    previous = stamp_checkpoint_identity(previous, transform="test-current-checkpoint")
     fresh = _fresh()
     fresh["development"] = {
         "schema_version": DevelopmentalTracker.SCHEMA_VERSION,
@@ -354,6 +360,25 @@ def test_reembodiment_does_not_count_new_body_activation_as_old_body_recovery() 
         action_attempts=0,
     )
     assert snapshot.recovery_events == 2
+
+
+def test_reembodiment_rejects_tampered_current_checkpoint_before_restamping() -> None:
+    previous = _checkpoint(vital_state="active")
+    previous["schema_version"] = CHECKPOINT_SCHEMA_VERSION
+    previous["runtime_provenance"] = {
+        "checkpoint_schema_version": CHECKPOINT_SCHEMA_VERSION,
+        "session_controls": {},
+    }
+    previous["checkpoint_lineage"] = {"schema_version": CHECKPOINT_SCHEMA_VERSION}
+    previous = stamp_checkpoint_identity(previous, transform="test-current-checkpoint")
+    previous["self_model"] = {"tampered": True}
+
+    with pytest.raises(ValueError, match="does not match its recorded checkpoint_id"):
+        prepare_fresh_embodiment_checkpoint(
+            previous,
+            _fresh(),
+            contract=EmbodimentDescriptor("new-body", 2, 2),
+        )
 
 
 def test_current_schema_provenance_also_blocks_legacy_lifecycle_fallback() -> None:
@@ -685,6 +710,7 @@ def test_known_contract_return_recovers_hypotheses_without_restoring_authority()
     crawler["saved_at_tick"] = 80
     crawler["living_body"]["age_ticks"] = 39
     crawler["living_body"]["vital_state"] = "active"
+    crawler = stamp_checkpoint_identity(crawler, transform="test-advance-crawler")
 
     returned = prepare_fresh_embodiment_checkpoint(
         crawler,
