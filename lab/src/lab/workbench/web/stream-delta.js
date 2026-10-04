@@ -90,33 +90,61 @@ export class LiveObservationDecoder {
     this.states = new Map();
     this.revisions = new Map();
     this.waitingForAnchor = new Set();
+    this.issues = [];
   }
 
   reset() {
     this.states.clear();
     this.revisions.clear();
     this.waitingForAnchor.clear();
+    this.issues.length = 0;
+  }
+
+  recordIssue(issue) {
+    this.issues.push(issue);
+    if (this.issues.length > 16) this.issues.shift();
+  }
+
+  takeIssue() {
+    return this.issues.shift() ?? null;
   }
 
   decode(payload) {
     if (!payload || payload.type !== 'observation_delta') return payload;
-    if (payload.contract !== CONTRACT || typeof payload.channel !== 'string') return null;
+    if (payload.contract !== CONTRACT || typeof payload.channel !== 'string') {
+      this.recordIssue({ kind: 'schema-error', channel: payload?.channel ?? null });
+      return null;
+    }
 
     const channel = payload.channel;
     const revision = Number(payload.revision);
-    if (!Number.isInteger(revision) || revision < 1) return null;
+    if (!Number.isInteger(revision) || revision < 1) {
+      this.recordIssue({ kind: 'schema-error', channel });
+      return null;
+    }
 
     if (payload.kind === 'anchor') {
       const state = clone(payload.state);
-      if (!state || state.type !== channel) return null;
+      if (!state || state.type !== channel) {
+        this.recordIssue({ kind: 'schema-error', channel });
+        return null;
+      }
+      const recovering = this.waitingForAnchor.has(channel);
       this.states.set(channel, state);
       this.revisions.set(channel, revision);
       this.waitingForAnchor.delete(channel);
+      if (recovering) this.recordIssue({ kind: 'rebase', channel, revision });
       return state;
     }
 
-    if (payload.kind !== 'delta') return null;
-    if (this.waitingForAnchor.has(channel)) return null;
+    if (payload.kind !== 'delta') {
+      this.recordIssue({ kind: 'schema-error', channel });
+      return null;
+    }
+    if (this.waitingForAnchor.has(channel)) {
+      this.recordIssue({ kind: 'waiting-for-anchor', channel });
+      return null;
+    }
 
     const knownRevision = this.revisions.get(channel);
     const baseRevision = Number(payload.base_revision);
@@ -131,6 +159,13 @@ export class LiveObservationDecoder {
       this.waitingForAnchor.add(channel);
       this.states.delete(channel);
       this.revisions.delete(channel);
+      this.recordIssue({
+        kind: 'gap',
+        channel,
+        knownRevision: knownRevision ?? null,
+        baseRevision: Number.isInteger(baseRevision) ? baseRevision : null,
+        revision,
+      });
       return null;
     }
 
@@ -144,6 +179,7 @@ export class LiveObservationDecoder {
       this.waitingForAnchor.add(channel);
       this.states.delete(channel);
       this.revisions.delete(channel);
+      this.recordIssue({ kind: 'gap', channel, knownRevision, baseRevision, revision });
       return null;
     }
   }
