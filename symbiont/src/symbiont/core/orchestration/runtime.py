@@ -3402,7 +3402,6 @@ class OrganismRuntime:
                 )
                 restored_commitment = ActionCommitment.restore(
                     raw_commitment,
-                    fallback_surface_fingerprint=current_surface,
                 )
                 if restored_commitment.compatible_with(current_surface):
                     runtime._active_action_commitment = restored_commitment

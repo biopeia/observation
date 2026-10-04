@@ -18,6 +18,7 @@ class CommitmentStatus(StrEnum):
 
 @dataclass(slots=True)
 class ActionCommitment:
+    SCHEMA_VERSION = 1
     commitment_id: str
     proposal_id: str
     effect_target_id: str | None
@@ -79,6 +80,7 @@ class ActionCommitment:
 
     def checkpoint(self) -> dict[str, object]:
         return {
+            "schema_version": self.SCHEMA_VERSION,
             "commitment_id": self.commitment_id,
             "proposal_id": self.proposal_id,
             "effect_target_id": self.effect_target_id,
@@ -100,44 +102,67 @@ class ActionCommitment:
     def restore(
         cls,
         payload: dict[str, Any],
-        *,
-        fallback_surface_fingerprint: str | None = None,
-        fallback_embodiment_id: str | None = None,
     ) -> "ActionCommitment":
-        fingerprint = payload.get("surface_fingerprint")
-        if not isinstance(fingerprint, str) or not fingerprint:
-            fingerprint = fallback_surface_fingerprint
-        if not isinstance(fingerprint, str) or not fingerprint:
-            raise ValueError("legacy commitment requires an explicit current-surface migration")
+        required = {
+            "schema_version",
+            "commitment_id",
+            "proposal_id",
+            "effect_target_id",
+            "competence_id",
+            "started_tick",
+            "controller_id",
+            "surface_fingerprint",
+            "embodiment_id",
+            "intent_id",
+            "interruptibility",
+            "minimum_duration",
+            "maximum_duration",
+            "status",
+            "ended_tick",
+            "end_reason",
+        }
+        if set(payload) != required:
+            raise ValueError("action commitment checkpoint fields do not match the current schema")
+        if payload["schema_version"] != cls.SCHEMA_VERSION:
+            raise ValueError("unsupported action commitment checkpoint schema")
+        for field in ("commitment_id", "proposal_id", "controller_id", "surface_fingerprint"):
+            value = payload[field]
+            if not isinstance(value, str) or not value:
+                raise ValueError(f"action commitment {field} must be a non-empty string")
+        for field in ("effect_target_id", "competence_id", "embodiment_id", "intent_id", "end_reason"):
+            if payload[field] is not None and not isinstance(payload[field], str):
+                raise ValueError(f"action commitment {field} must be a string or null")
+        for field in ("started_tick", "minimum_duration"):
+            if isinstance(payload[field], bool) or not isinstance(payload[field], int):
+                raise ValueError(f"action commitment {field} must be an integer")
+        if payload["maximum_duration"] is not None and (
+            isinstance(payload["maximum_duration"], bool)
+            or not isinstance(payload["maximum_duration"], int)
+        ):
+            raise ValueError("action commitment maximum_duration must be an integer or null")
+        if payload["ended_tick"] is not None and (
+            isinstance(payload["ended_tick"], bool) or not isinstance(payload["ended_tick"], int)
+        ):
+            raise ValueError("action commitment ended_tick must be an integer or null")
+        if isinstance(payload["interruptibility"], bool) or not isinstance(
+            payload["interruptibility"], (int, float)
+        ):
+            raise ValueError("action commitment interruptibility must be numeric")
         obj = cls(
-            commitment_id=str(payload["commitment_id"]),
-            proposal_id=str(payload["proposal_id"]),
-            effect_target_id=payload.get("effect_target_id")
-            if isinstance(payload.get("effect_target_id"), str)
-            else None,
-            competence_id=payload.get("competence_id")
-            if isinstance(payload.get("competence_id"), str)
-            else None,
-            started_tick=int(payload["started_tick"]),
-            controller_id=str(payload["controller_id"]),
-            surface_fingerprint=fingerprint,
-            embodiment_id=(
-                payload.get("embodiment_id")
-                if isinstance(payload.get("embodiment_id"), str)
-                else fallback_embodiment_id
-            ),
-            intent_id=(
-                str(payload["intent_id"]) if isinstance(payload.get("intent_id"), str) else None
-            ),
-            interruptibility=float(payload.get("interruptibility", 1.0)),
-            minimum_duration=int(payload.get("minimum_duration", 0)),
-            maximum_duration=int(payload["maximum_duration"])
-            if payload.get("maximum_duration") is not None
-            else None,
-            status=CommitmentStatus(str(payload.get("status", "active"))),
+            commitment_id=payload["commitment_id"],
+            proposal_id=payload["proposal_id"],
+            effect_target_id=payload["effect_target_id"],
+            competence_id=payload["competence_id"],
+            started_tick=payload["started_tick"],
+            controller_id=payload["controller_id"],
+            surface_fingerprint=payload["surface_fingerprint"],
+            embodiment_id=payload["embodiment_id"],
+            intent_id=payload["intent_id"],
+            interruptibility=float(payload["interruptibility"]),
+            minimum_duration=payload["minimum_duration"],
+            maximum_duration=payload["maximum_duration"],
+            status=CommitmentStatus(payload["status"]),
         )
-        ended = payload.get("ended_tick")
-        obj.ended_tick = int(ended) if ended is not None else None
-        reason = payload.get("end_reason")
-        obj.end_reason = str(reason) if reason is not None else None
+        obj.ended_tick = payload["ended_tick"]
+        obj.end_reason = payload["end_reason"]
         return obj

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+from symbiont.actuation.commitment import ActionCommitment
 from symbiont.actuation.competence import (
     CompetenceEvidence,
     MotorCompetence,
@@ -75,3 +76,27 @@ def test_restore_rejects_older_sensorimotor_schemas(schema_version: int) -> None
             {"schema_version": schema_version},
             body_schema=BodySchemaEngine(),
         )
+
+
+def test_action_commitment_restore_requires_exact_current_checkpoint() -> None:
+    commitment = ActionCommitment(
+        commitment_id="commitment.current",
+        proposal_id="proposal.current",
+        effect_target_id=None,
+        competence_id=None,
+        started_tick=4,
+        controller_id="controller.current",
+        surface_fingerprint="surface.current",
+    )
+    payload = commitment.checkpoint()
+    assert ActionCommitment.restore(payload).checkpoint() == payload
+
+    old_payload = dict(payload)
+    old_payload.pop("schema_version")
+    with pytest.raises(ValueError, match="fields do not match"):
+        ActionCommitment.restore(old_payload)
+
+    incomplete_payload = dict(payload)
+    incomplete_payload.pop("surface_fingerprint")
+    with pytest.raises(ValueError, match="fields do not match"):
+        ActionCommitment.restore(incomplete_payload)
