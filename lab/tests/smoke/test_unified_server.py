@@ -159,7 +159,10 @@ def test_physics3d_catalog_endpoints_are_available(tmp_path) -> None:
         status, body = request(server, "/api/bodies")
         assert status == 200
         payload = json.loads(body)
-        assert payload["items"][0]["body_kind"] == "anthropomorphic-v6"
+        body_kinds = {item["body_kind"] for item in payload["items"]}
+        assert "anthropomorphic-v6" in body_kinds
+        assert "hexapod-v1" in body_kinds
+        assert "robotic-arm-v1" in body_kinds
 
         status, body = request(server, "/api/organisms")
         assert status == 200
