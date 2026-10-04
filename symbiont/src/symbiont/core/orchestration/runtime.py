@@ -2862,28 +2862,21 @@ class OrganismRuntime:
                 else:
                     actuator_constitution = restored_constitution
                 raw_action_domain = raw_actuation.get("action_domain")
-                if raw_action_domain is not None:
-                    if (
-                        not isinstance(raw_action_domain, dict)
-                        or raw_action_domain.get("schema_version") != 1
-                    ):
-                        raise CheckpointError("invalid canonical action_domain checkpoint")
-                    raw_evidence_state = raw_action_domain.get("actuator_evidence")
-                    raw_selection_threshold = raw_action_domain.get("selection_threshold", 0.1)
-                    raw_sensorimotor = raw_action_domain.get("competence_development")
-                    if not isinstance(raw_sensorimotor, dict):
-                        raise CheckpointError(
-                            "canonical action domain is missing competence_development"
-                        )
-                    raw_pending = raw_action_domain.get("pending_motor_observation")
-                    raw_proprio = raw_action_domain.get("pending_proprioception", {})
-                else:
-                    # Migration-only path for pre-ActionDomain checkpoints.
-                    raw_evidence_state = raw_actuation.get("proposer")
-                    raw_selection_threshold = raw_actuation.get("selection_threshold", 0.1)
-                    raw_sensorimotor = raw_actuation.get("sensorimotor")
-                    raw_pending = raw_actuation.get("pending_motor_observation")
-                    raw_proprio = raw_actuation.get("pending_proprioception", {})
+                if not isinstance(raw_action_domain, dict):
+                    raise CheckpointError(
+                        "current-schema enabled actuation is missing canonical action_domain"
+                    )
+                if raw_action_domain.get("schema_version") != 1:
+                    raise CheckpointError("invalid canonical action_domain checkpoint")
+                raw_evidence_state = raw_action_domain.get("actuator_evidence")
+                raw_selection_threshold = raw_action_domain.get("selection_threshold", 0.1)
+                raw_sensorimotor = raw_action_domain.get("competence_development")
+                if not isinstance(raw_sensorimotor, dict):
+                    raise CheckpointError(
+                        "canonical action domain is missing competence_development"
+                    )
+                raw_pending = raw_action_domain.get("pending_motor_observation")
+                raw_proprio = raw_action_domain.get("pending_proprioception", {})
                 if not isinstance(raw_evidence_state, dict):
                     raise CheckpointError("action domain actuator evidence is missing")
                 try:

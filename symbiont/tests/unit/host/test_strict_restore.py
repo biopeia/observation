@@ -6,6 +6,7 @@ import json
 
 import pytest
 
+from symbiont.actuation.surface import ActuatorSurface
 from symbiont.core.orchestration.runtime import OrganismRuntime
 from symbiont.host.checkpoint import (
     CHECKPOINT_SCHEMA_VERSION,
@@ -96,6 +97,20 @@ def test_current_schema_cannot_replace_episodic_memory_with_null() -> None:
 
     with pytest.raises(CheckpointError, match="null episodic_memory"):
         ModeledOrganismRuntime.from_checkpoint(saved, **RUNTIME_KWARGS)
+
+
+def test_current_schema_cannot_fall_back_to_pre_action_domain_layout() -> None:
+    runtime = OrganismRuntime(
+        **RUNTIME_KWARGS,
+        actuation_enabled=True,
+        actuator_constitution=ActuatorSurface.from_count(2),
+    )
+    saved = json.loads(json.dumps(runtime.checkpoint()))
+    del saved["actuation"]["action_domain"]
+    saved = stamp_checkpoint_identity(saved, transform="drop-action-domain")
+
+    with pytest.raises(CheckpointError, match="missing canonical action_domain"):
+        OrganismRuntime.from_checkpoint(saved, **RUNTIME_KWARGS)
 
 
 def test_non_canonical_state_is_rejected_as_a_checkpoint_error() -> None:
