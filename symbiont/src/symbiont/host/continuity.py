@@ -12,6 +12,9 @@ so a new attribute or checkpoint field cannot be added unclassified.
 
 Nested state is owned by the subsystem named in ``owner`` through its own
 checkpoint contract; this register stops at the runtime boundary.
+``nested_reembodiment`` records explicitly audited exceptions when a
+checkpoint field is retained but selected nested paths are invalidated or
+replaced during re-embodiment.
 """
 
 from __future__ import annotations
@@ -54,6 +57,7 @@ class ContinuityEntry:
     migration: str = "none"
     known_gap: str | None = None
     extra_checkpoint_fields: tuple[str, ...] = ()
+    nested_reembodiment: tuple[tuple[str, Reembodiment], ...] = ()
 
     @property
     def checkpoint_fields(self) -> tuple[str, ...]:
@@ -91,6 +95,7 @@ def _core(
     migration: str = "none",
     known_gap: str | None = None,
     extra_checkpoint_fields: tuple[str, ...] = (),
+    nested_reembodiment: tuple[tuple[str, Reembodiment], ...] = (),
 ) -> ContinuityEntry:
     return ContinuityEntry(
         attribute=attribute,
@@ -106,6 +111,7 @@ def _core(
         migration=migration,
         known_gap=known_gap,
         extra_checkpoint_fields=extra_checkpoint_fields,
+        nested_reembodiment=nested_reembodiment,
     )
 
 
@@ -246,7 +252,15 @@ REGISTER: tuple[ContinuityEntry, ...] = (
     _core("_reactive_memory", "regulation.reactivity", _P, "innate_reactivity", _KEEP),
     # --- self, body schema and cognition ------------------------------------------
     _core("_self_model", "cognition.self_model", _P, "self_model", _KEEP),
-    _core("_body_schema", "embodiment.body_schema", _P, "body_schema", _KEEP),
+    _core(
+        "_body_schema",
+        "embodiment.body_schema",
+        _P,
+        "body_schema",
+        _KEEP,
+        known_gap="SYM-04",
+        nested_reembodiment=(("boundary_evidence", _VOID),),
+    ),
     _core("_cognitive_bridge", "cognition.bridge", _P, "cognitive_bridge", _KEEP),
     _core("_memory_consolidator", "cognition.consolidation", _P, "memory", _KEEP),
     _core("_generative_cognition", "cognition.generative", _P, "generative_cognition", _KEEP),

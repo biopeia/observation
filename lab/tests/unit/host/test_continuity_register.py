@@ -22,9 +22,9 @@ from symbiont.modeling.private_runtime import PrivateModelOrganismRuntime
 from symbiont.modeling.runtime import ModeledOrganismRuntime
 
 RUNTIMES = dict(zip(LAYERS, (OrganismRuntime, ModeledOrganismRuntime, PrivateModelOrganismRuntime)))
-# Audit findings whose contract the code does not meet yet. None remain; a new
-# gap must be named here and in the register entry that carries it.
-OPEN_GAPS: set[str] = set()
+# Audit findings whose contract the code does not meet yet. A new gap must be
+# named here and in the register entry that carries it.
+OPEN_GAPS: set[str] = {"SYM-04"}
 
 
 def _runtime(layer: str, **kwargs: object) -> OrganismRuntime:
@@ -82,6 +82,10 @@ def test_entries_are_internally_consistent() -> None:
             assert entry.reembodiment is Reembodiment.INVALIDATED, entry.attribute
         if entry.continuity is ContinuityClass.MUST_REAPPLY_CONFIG:
             assert entry.checkpoint_field is not None, entry.attribute
+        nested_paths = [path for path, _ in entry.nested_reembodiment]
+        assert len(nested_paths) == len(set(nested_paths)), entry.attribute
+        if entry.nested_reembodiment:
+            assert entry.reembodiment is Reembodiment.PRESERVED, entry.attribute
 
 
 def test_open_gaps_are_exactly_the_audit_findings() -> None:

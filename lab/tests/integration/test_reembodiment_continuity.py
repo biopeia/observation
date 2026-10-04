@@ -293,6 +293,10 @@ def test_knowledge_survives_as_knowledge_without_authority(case: _Case) -> None:
     prior_schema = _json(case.previous["body_schema"])
     current_schema = _json(case.transformed["body_schema"])
     prior_boundary = prior_schema["boundary_evidence"]
+    body_schema_entry = next(entry for entry in REGISTER if entry.attribute == "_body_schema")
+    assert dict(body_schema_entry.nested_reembodiment) == {
+        "boundary_evidence": Reembodiment.INVALIDATED
+    }
     reset_boundary = {
         "self_caused_channels": [],
         "somatic_correlated_channels": [],
@@ -303,10 +307,11 @@ def test_knowledge_survives_as_knowledge_without_authority(case: _Case) -> None:
     }
     prior_schema["boundary_evidence"] = reset_boundary
     assert current_schema == prior_schema
-    assert prior_boundary["self_caused_channels"]
+    assert current_schema["boundary_evidence"] != prior_boundary
     assert case.transformed["embodiment_lifecycle"]["history"][0]["body_schema"] == (
         case.previous["body_schema"]
     )
+    assert prior_boundary["self_caused_channels"]
     assert {node.node_id for node in restored.cognitive_bridge.graph.nodes} == (
         case.graph_nodes_in_a
     )
