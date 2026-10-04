@@ -67,9 +67,27 @@ def test_transplant_closes_archives_and_replaces_embodiment_only() -> None:
         },
         tick=ind.symbiont.total_ticks,
     )
-    prior_schema = ind.symbiont.body_schema.export(current_tick=ind.symbiont.total_ticks)
+    ind.symbiont.body_schema.observe_cognition(
+        {
+            "schema_version": 1,
+            "channels": [
+                {
+                    "channel_id": "channel.cognition." + "a" * 32,
+                    "activity_class": 10,
+                }
+            ],
+        },
+        tick=ind.symbiont.total_ticks,
+    )
+    ind.symbiont.body_schema.observe_agency_boundary(
+        observed_channels={"opaque.self", "opaque.external"},
+        self_caused_channels={"opaque.self"},
+        somatic_correlated_channels=set(),
+        prediction_error=0.1,
+    )
     for _ in range(12):
         ind.step()
+    closed_schema = ind.symbiont.body_schema.export(current_tick=ind.symbiont.total_ticks)
 
     old_episode = ind.embodiment
     old_session = ind.session
@@ -99,12 +117,16 @@ def test_transplant_closes_archives_and_replaces_embodiment_only() -> None:
     assert archived is not None
     assert archived.last_embodiment_id == old_id
     assert archived.body_schema_prior is not None
-    assert [part["part_id"] for part in archived.body_schema_prior["parts"]] == [
-        part["part_id"] for part in prior_schema["parts"]
-    ]
+    assert archived.body_schema_prior["parts"] == closed_schema["parts"]
+    assert archived.body_schema_prior["cognitive_learning"] == closed_schema["cognitive_learning"]
+    assert archived.body_schema_prior["boundary_evidence"] == closed_schema["boundary_evidence"]
     current_schema = ind.symbiont.body_schema.export(current_tick=ind.symbiont.total_ticks)
     assert current_schema["state"] == "undeveloped"
     assert current_schema["parts"] == []
+    assert current_schema["cognitive_learning"]["channel_support"] == []
+    assert current_schema["cognitive_learning"]["regions"] == []
+    assert current_schema["boundary_evidence"]["self_caused_channels"] == []
+    assert current_schema["boundary_evidence"]["external_channels"] == []
     assert ind.symbiont.sensorimotor_model.relation_count == 0
     assert ind.symbiont.causal_evidence.evidence == ()
     assert ind.symbiont.agency_model.estimates == ()
