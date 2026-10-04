@@ -174,6 +174,18 @@ def _checkpoint(*, vital_state: str = "dead") -> dict:
     }
 
 
+def _current(payload: dict) -> dict:
+    """A hand-built payload given the identity every current checkpoint records."""
+    payload = dict(payload)
+    payload.setdefault("schema_version", CHECKPOINT_SCHEMA_VERSION)
+    payload.setdefault(
+        "runtime_provenance",
+        {"checkpoint_schema_version": CHECKPOINT_SCHEMA_VERSION, "session_controls": {}},
+    )
+    payload["checkpoint_lineage"] = {"schema_version": CHECKPOINT_SCHEMA_VERSION}
+    return stamp_checkpoint_identity(payload, transform="test-current-checkpoint")
+
+
 def _fresh(*, slots: int = 62) -> dict:
     body_schema = BodySchemaEngine(id_salt="1" * 32).export(current_tick=41)
     return {
@@ -220,7 +232,7 @@ def test_canonical_contract_fingerprint_drives_archive_and_lifecycle() -> None:
     fresh = _fresh()
     canonical = "canonical.contract.v3"
     transformed = prepare_fresh_embodiment_checkpoint(
-        previous,
+        _current(previous),
         fresh,
         contract=EmbodimentDescriptor("anthropomorphic-v6", 107, 62),
         canonical_contract_fingerprint=canonical,
@@ -433,7 +445,7 @@ def test_current_schema_lineage_also_blocks_legacy_lifecycle_fallback() -> None:
 def test_dead_body_reembodiment_preserves_identity_but_revalidates_body_knowledge() -> None:
     previous = _checkpoint()
     transformed = prepare_fresh_embodiment_checkpoint(
-        previous,
+        _current(previous),
         _fresh(),
         contract=EmbodimentDescriptor("anthropomorphic-v6", 107, 62),
     )
@@ -488,7 +500,7 @@ def test_dead_body_reembodiment_preserves_identity_but_revalidates_body_knowledg
 def test_changed_contract_archives_old_schema_and_restarts_body_specific_learning() -> None:
     previous = _checkpoint(vital_state="active")
     transformed = prepare_fresh_embodiment_checkpoint(
-        previous,
+        _current(previous),
         _fresh(slots=40),
         contract=EmbodimentDescriptor("compact-v1", 84, 40),
     )
@@ -617,7 +629,7 @@ def test_sensorimotor_v2_retains_knowledge_without_rebinding_to_new_body() -> No
     }
 
     transformed = prepare_fresh_embodiment_checkpoint(
-        previous,
+        _current(previous),
         fresh,
         contract=EmbodimentDescriptor("compact-v1", 84, 40),
     )
@@ -653,7 +665,7 @@ def test_every_reembodiment_preserves_symbiont_learned_state() -> None:
         (EmbodimentDescriptor("asymmetric-v1", 96, 40), _fresh(slots=40)),
     ):
         transformed = prepare_fresh_embodiment_checkpoint(
-            previous,
+            _current(previous),
             fresh,
             contract=descriptor,
         )
@@ -685,7 +697,7 @@ def test_stopping_marks_symbiont_dormant_without_changing_body_death_state() -> 
 def test_repeated_reembodiment_requires_episode_and_does_not_restore_authority() -> None:
     humanoid = _checkpoint(vital_state="active")
     crawler = prepare_fresh_embodiment_checkpoint(
-        humanoid,
+        _current(humanoid),
         _fresh(slots=40),
         contract=EmbodimentDescriptor("crawler-v1", 84, 40),
     )
@@ -776,9 +788,10 @@ def test_contract_fingerprint_changes_when_opaque_motor_unit_grouping_changes() 
         "competence_development": {"exclusive_actuator_groups": []}
     }
     grouped = deepcopy(base)
-    grouped["actuation"]["action_domain"]["competence_development"][
-        "exclusive_actuator_groups"
-    ] = [["actuator.a", "actuator.b"], ["actuator.c", "actuator.d"]]
+    grouped["actuation"]["action_domain"]["competence_development"]["exclusive_actuator_groups"] = [
+        ["actuator.a", "actuator.b"],
+        ["actuator.c", "actuator.d"],
+    ]
     regrouped = deepcopy(base)
     regrouped["actuation"]["action_domain"]["competence_development"][
         "exclusive_actuator_groups"
@@ -970,7 +983,7 @@ def test_canonical_action_domain_reembodiment_preserves_knowledge_not_authority(
     fresh_actuation.pop("pending_proprioception", None)
 
     transformed = prepare_fresh_embodiment_checkpoint(
-        previous,
+        _current(previous),
         fresh,
         contract=EmbodimentDescriptor("compact-v1", 84, 40),
     )
@@ -1039,7 +1052,7 @@ def test_reembodiment_carries_learned_dimensions_as_unbound_knowledge() -> None:
     fresh["actuation"]["sensorimotor_v2"] = fresh_domain.checkpoint_v2()
 
     transformed = prepare_fresh_embodiment_checkpoint(
-        previous,
+        _current(previous),
         fresh,
         contract=EmbodimentDescriptor("compact-v1", 84, 40),
     )

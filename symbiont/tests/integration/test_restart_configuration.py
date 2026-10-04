@@ -182,7 +182,7 @@ def test_current_schema_checkpoint_without_identity_or_provenance_fails_closed()
     del saved["checkpoint_lineage"]
     del saved["runtime_provenance"]
 
-    with pytest.raises(CheckpointError, match="no verifiable checkpoint_lineage"):
+    with pytest.raises(CheckpointError, match="missing required checkpoint_lineage"):
         OrganismRuntime.from_checkpoint(saved, **RUNTIME_KWARGS)
 
 

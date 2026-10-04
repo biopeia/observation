@@ -5,8 +5,8 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
-from symbiont.core.host.advisory import load_advisory_log
 from symbiont.api import load_checkpoint_file, save_checkpoint_atomic
+from symbiont.core.host.advisory import load_advisory_log
 
 __all__ = [
     "OperatorJudgment",

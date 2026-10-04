@@ -9,7 +9,6 @@ from modality.host.contracts import (
 )
 from modality.host.records import Capability as ModalityCapability
 from modality.host.records import CapabilityKind as ModalityCapabilityKind
-
 from symbiont.host.contracts import Capability, CapabilityKind
 from symbiont.host.readings import ReadingPrivacyClass, ReadingQuality, SensorReading, Unit
 

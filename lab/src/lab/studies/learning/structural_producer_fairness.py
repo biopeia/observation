@@ -122,7 +122,7 @@ def _trial(
     def register_next(producer_id: str) -> bool:
         index = candidate_index[producer_id]
         candidate_index[producer_id] += 1
-        return bridge._register_structural_candidate(
+        return bridge.register_structural_candidate(
             candidate_id=f"{producer_id}:{index}",
             family="synthetic",
             producer_id=producer_id,
@@ -138,7 +138,7 @@ def _trial(
     accepted_flood = 1
     for index in range(1, flood_hypotheses):
         accepted_flood += int(
-            bridge._register_structural_candidate(
+            bridge.register_structural_candidate(
                 candidate_id=f"{flood_id}:flood:{index}",
                 family="synthetic",
                 producer_id=flood_id,
@@ -152,13 +152,14 @@ def _trial(
     maximum_pending = max(
         sum(
             candidate.producer_id == producer_id
-            for candidate in bridge._structural_candidates.values()
+            for candidate in bridge._contention.candidates.values()
         )
         for producer_id in producer_ids
     )
 
     for _round_index in range(rounds):
-        winner_id, mutations, loser_ids = bridge._select_structural_candidate(
+        winner_id, mutations, loser_ids = bridge._contention.select(
+            frozen=bridge._safety_state.frozen,
             graph=graph,
             mutation_slots=limits.max_structural_mutations_per_consolidation,
             node_slots=limits.max_nodes,
@@ -167,12 +168,12 @@ def _trial(
         if winner_id is None or not mutations:
             raise RuntimeError("fairness study exhausted active producer proposals")
 
-        winner = bridge._structural_candidates[winner_id]
+        winner = bridge._contention.candidates[winner_id]
         producer_id = winner.producer_id
         schedule.append(producer_id)
         wins[producer_id] += 1
 
-        bridge._commit_contention_result(
+        bridge._contention.commit(
             winner_id=winner_id,
             loser_ids=loser_ids,
         )
@@ -184,7 +185,7 @@ def _trial(
             max(
                 sum(
                     candidate.producer_id == active_id
-                    for candidate in bridge._structural_candidates.values()
+                    for candidate in bridge._contention.candidates.values()
                 )
                 for active_id in producer_ids
             ),

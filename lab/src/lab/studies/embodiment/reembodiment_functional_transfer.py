@@ -33,6 +33,8 @@ from lab.studies.learning.agency_acquisition_body import (
 )
 from symbiont.actuation.binding import BindingStatus
 from symbiont.cognition.limits import KernelLimits
+from symbiont.core.embodiment.contract import EmbodimentContract, PerceptualSurface
+from symbiont.core.embodiment.episode import EmbodimentEpisode
 from symbiont.core.embodiment.transition import (
     EmbodimentDescriptor,
     prepare_fresh_embodiment_checkpoint,
@@ -139,9 +141,7 @@ def _newborn(seed: int, body: CausalBody) -> PrivateModelOrganismRuntime:
     )
 
 
-def _checkpoint_for_body(
-    runtime: PrivateModelOrganismRuntime, body: CausalBody
-) -> dict[str, Any]:
+def _checkpoint_for_body(runtime: PrivateModelOrganismRuntime, body: CausalBody) -> dict[str, Any]:
     """Save a subject with the current apparatus-owned embodiment contract.
 
     The study's synthetic host is not the Physics3D runtime, so it must attach
@@ -150,6 +150,20 @@ def _checkpoint_for_body(
     organism state hash deliberately excludes it.
     """
     payload = _json(runtime.checkpoint())
+    tick = int(payload.get("tick_count", 0))
+    payload["embodiment_episode"] = EmbodimentEpisode.begin(
+        symbiont_id=runtime.organism_id,
+        body_id="causal-body",
+        epoch=1,
+        start_symbiont_tick=0,
+        embodiment_id=f"embodiment.{runtime.organism_id}",
+        contract=EmbodimentContract(
+            perceptual_surface=PerceptualSurface.from_count(
+                ACTUATORS, fingerprint_material=f"count:{ACTUATORS}"
+            ),
+            actuator_surface=body.surface,
+        ),
+    ).checkpoint(current_tick=tick)
     return update_lifecycle_for_checkpoint(
         payload,
         contract=EmbodimentDescriptor(
@@ -278,8 +292,7 @@ def _entry_checkpoint(
     preserved = {
         field
         for entry in REGISTER
-        if entry.reembodiment is Reembodiment.PRESERVED
-        and not entry.nested_reembodiment
+        if entry.reembodiment is Reembodiment.PRESERVED and not entry.nested_reembodiment
         for field in entry.checkpoint_fields
     } - _SAVE_METADATA
     changed = {

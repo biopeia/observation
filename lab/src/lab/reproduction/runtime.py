@@ -9,10 +9,10 @@ from __future__ import annotations
 from typing import Any
 
 from lab.reproduction.authority import HabitatBirthAuthority
+from symbiont.api import OrganismRuntime
 from symbiont.cognition.birth import load_base_graph
 from symbiont.core.embodiment.metabolism import MetabolicLedger
 from symbiont.core.embodiment.physiology import LivingBodyState
-from symbiont.api import OrganismRuntime
 from symbiont.modeling.culture import SocialEvidenceLedger
 from symbiont.modeling.runtime import ModeledOrganismRuntime
 from symbiont.modeling.sequences import SequenceGroundingLedger
