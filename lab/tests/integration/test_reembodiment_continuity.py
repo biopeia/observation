@@ -384,6 +384,8 @@ def test_knowledge_survives_as_knowledge_without_authority(case: _Case) -> None:
 
     action_entry = next(entry for entry in REGISTER if entry.attribute == "_action_domain")
     assert dict(action_entry.nested_reembodiment) == {
+        "actuation.enabled": Reembodiment.REPLACED,
+        "actuation.constitution": Reembodiment.REPLACED,
         "action_domain.schema_version": Reembodiment.NOT_APPLICABLE,
         "action_domain.selection_threshold": Reembodiment.REPLACED,
         "action_domain.actuator_evidence": Reembodiment.REPLACED,

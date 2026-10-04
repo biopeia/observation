@@ -341,6 +341,11 @@ REGISTER: tuple[ContinuityEntry, ...] = (
         # are properties of this domain.
         extra_checkpoint_fields=("executive_intention",),
         nested_reembodiment=(
+            # The enclosing checkpoint field is an aggregate: the fresh
+            # embodiment owns its active flag and actuator surface, while the
+            # learned sensorimotor state below is selectively retained.
+            ("actuation.enabled", _BODY),
+            ("actuation.constitution", _BODY),
             ("action_domain.schema_version", _NA),
             ("action_domain.selection_threshold", _BODY),
             ("action_domain.actuator_evidence", _BODY),
