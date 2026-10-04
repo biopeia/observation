@@ -181,7 +181,7 @@ A deterministic lab study will feed the engine with **only opaque observations**
 | Regime changes or prediction fails | Claim revision, `contested` or `stale` status and observable reason. |
 | Absent or invalid sampling | Censored trial and updated coverage, never treated as zero. |
 | Multiple signals and full budget | Strict limits, deterministic eviction and stable memory. |
-| Save/restore | Claims and revisions continue; pending trials restarted or restored per contract; old schema migrates. |
+| Save/restore | Claims and revisions continue; pending trials restart or restore per contract. The historical proposal that an old outer checkpoint migrates is superseded: only outer checkpoint schema 12 is live-restorable; see §7. |
 | Semantic bootstrap disabled | Identical discoveries for any provider renaming leaving values and opaque IDs equivalent. |
 | Observatory Self | No name, manifest or privileged state enters the own knowledge panel. |
 | Sense click, SSE and replay | Exact ID, correct card after tick change/reconnection; v1/v2/v3 continue loading. |
