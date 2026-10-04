@@ -450,6 +450,8 @@ def test_knowledge_survives_as_knowledge_without_authority(case: _Case) -> None:
     prior_boundary = prior_schema["boundary_evidence"]
     body_schema_entry = next(entry for entry in REGISTER if entry.attribute == "_body_schema")
     assert dict(body_schema_entry.nested_reembodiment) == {
+        "id_salt": Reembodiment.PRESERVED,
+        "state": Reembodiment.REPLACED,
         "parts": Reembodiment.INVALIDATED,
         "dependencies": Reembodiment.INVALIDATED,
         "cognitive_learning": Reembodiment.INVALIDATED,

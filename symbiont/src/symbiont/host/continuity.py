@@ -270,6 +270,8 @@ REGISTER: tuple[ContinuityEntry, ...] = (
         "body_schema",
         _KEEP,
         nested_reembodiment=(
+            ("id_salt", _KEEP),
+            ("state", _BODY),
             ("parts", _VOID),
             ("dependencies", _VOID),
             ("cognitive_learning", _VOID),
