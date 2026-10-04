@@ -16,9 +16,7 @@ from .competence import (
 from .types import MotorIntent
 
 _HORIZONS = (1, 4, 16, 64)
-# Competence-development checkpoint schemas that restore as current-body
-# evidence (v9 migratable, v10 body-scoped, v11 current).
-RESTORABLE_SCHEMA_VERSIONS = (9, 10, 11)
+SENSORIMOTOR_SCHEMA_VERSION = 11
 _PRIMITIVE_TICKS = 4
 # Evidence independence and spontaneous motor persistence are distinct clocks.
 # An evidence block must be short enough to reject overlapping samples, while a
@@ -397,9 +395,7 @@ class CompetenceDevelopmentEngine:
             raise ValueError("sensorimotor learner requires unique actuator ids")
         self.gate = DEFAULT_COMPETENCE_GATE
         if embodiment_fingerprint is None:
-            embodiment_fingerprint = (
-                "legacy-surface:" + hashlib.sha256("|".join(ids).encode("utf-8")).hexdigest()
-            )
+            raise ValueError("sensorimotor requires an explicit embodiment fingerprint")
         if not isinstance(embodiment_fingerprint, str) or not embodiment_fingerprint:
             raise ValueError("embodiment_fingerprint must be a non-empty string")
         if max_concurrent is not None and (
@@ -1445,7 +1441,7 @@ class CompetenceDevelopmentEngine:
 
     def checkpoint(self) -> dict[str, object]:
         return {
-            "schema_version": 11,
+            "schema_version": SENSORIMOTOR_SCHEMA_VERSION,
             "actuator_ids": list(self._ids),
             "embodiment_fingerprint": self._embodiment_fingerprint,
             "exclusive_actuator_groups": [list(group) for group in self._exclusive_actuator_groups],
@@ -1538,30 +1534,36 @@ class CompetenceDevelopmentEngine:
         organism_id: str,
         embodiment_fingerprint: str | None = None,
     ) -> "CompetenceDevelopmentEngine":
-        # WARN(fail-closed): v9 changes both the physical motor-unit contract
-        # and the statistics used to decide recurrence/controllability.  Older
-        # learned evidence cannot be reinterpreted without rewriting causal
-        # history, so only the current schema is restorable.
         schema = _require_int(
             payload.get("schema_version", -1),
             field="sensorimotor schema_version",
             minimum=1,
-            maximum=11,
+            maximum=SENSORIMOTOR_SCHEMA_VERSION,
         )
-        if schema not in RESTORABLE_SCHEMA_VERSIONS:
-            raise ValueError(
-                "unsupported sensorimotor checkpoint: schema_version must be 9, 10 or 11"
-            )
+        if schema != SENSORIMOTOR_SCHEMA_VERSION:
+            raise ValueError("unsupported sensorimotor checkpoint schema")
+        if embodiment_fingerprint is None:
+            raise ValueError("sensorimotor restore requires the current embodiment fingerprint")
+        required_fields = {
+            "actuator_ids", "embodiment_fingerprint", "exclusive_actuator_groups", "smoothing",
+            "levels", "use_counts", "exploration_epoch", "exploration_ids", "probing_share",
+            "probe_unit", "probe_remaining", "frame_history", "episode_end_ticks", "horizon_stats",
+            "horizon_counts", "passive_effect_stat", "passive_direction_stats", "primitive_stats",
+            "primitives", "historical_candidates", "replay_id", "replay_step", "replay_source",
+            "primitive_stats_pressure", "primitives_pressure",
+        }
+        if not required_fields.issubset(payload):
+            raise ValueError("incomplete sensorimotor checkpoint")
 
         expected = tuple(str(value) for value in actuator_ids)
-        stored = tuple(str(value) for value in payload.get("actuator_ids", []))
+        stored = tuple(str(value) for value in payload["actuator_ids"])
         if stored != expected:
             raise ValueError("sensorimotor actuator constitution mismatch")
         allowed = set(expected)
 
         if "exclusive_actuator_groups" not in payload:
-            raise ValueError("sensorimotor v9 checkpoint is missing exclusive actuator groups")
-        raw_groups = payload.get("exclusive_actuator_groups")
+            raise ValueError("sensorimotor checkpoint is missing exclusive actuator groups")
+        raw_groups = payload["exclusive_actuator_groups"]
         if not isinstance(raw_groups, list):
             raise ValueError("invalid exclusive actuator groups")
         exclusive_groups: list[tuple[str, ...]] = []
@@ -1575,7 +1577,7 @@ class CompetenceDevelopmentEngine:
             organism_id=organism_id,
             max_concurrent=None,
             smoothing=_require_finite(
-                payload.get("smoothing", 0.28),
+                payload["smoothing"],
                 field="sensorimotor smoothing",
                 minimum=1e-12,
                 maximum=1.0,
@@ -1583,35 +1585,36 @@ class CompetenceDevelopmentEngine:
             embodiment_fingerprint=embodiment_fingerprint,
             exclusive_actuator_groups=exclusive_groups,
         )
-        if schema >= 10:
-            stored_scope = payload.get("embodiment_fingerprint")
-            if stored_scope != learner.embodiment_fingerprint:
-                raise ValueError("sensorimotor embodiment scope mismatch")
+        stored_scope = payload["embodiment_fingerprint"]
+        if stored_scope != embodiment_fingerprint:
+            raise ValueError("sensorimotor embodiment scope mismatch")
 
-        raw_levels = payload.get("levels", {})
-        if isinstance(raw_levels, Mapping):
-            learner._levels = {
-                actuator_id: _finite_unit(
-                    _require_finite(
-                        raw_levels.get(actuator_id, 0.0),
-                        field=f"sensorimotor level {actuator_id}",
-                        minimum=0.0,
-                        maximum=1.0,
-                    )
+        raw_levels = payload["levels"]
+        raw_counts = payload["use_counts"]
+        if not isinstance(raw_levels, Mapping) or set(raw_levels) != set(expected):
+            raise ValueError("invalid sensorimotor levels")
+        if not isinstance(raw_counts, Mapping) or set(raw_counts) != set(expected):
+            raise ValueError("invalid sensorimotor use counts")
+        learner._levels = {
+            actuator_id: _finite_unit(
+                _require_finite(
+                    raw_levels[actuator_id],
+                    field=f"sensorimotor level {actuator_id}",
+                    minimum=0.0,
+                    maximum=1.0,
                 )
-                for actuator_id in expected
-            }
-        raw_counts = payload.get("use_counts", {})
-        if isinstance(raw_counts, Mapping):
-            learner._use_counts = {
-                actuator_id: _require_int(
-                    raw_counts.get(actuator_id, 0),
-                    field=f"sensorimotor use count {actuator_id}",
-                )
-                for actuator_id in expected
-            }
+            )
+            for actuator_id in expected
+        }
+        learner._use_counts = {
+            actuator_id: _require_int(
+                raw_counts[actuator_id],
+                field=f"sensorimotor use count {actuator_id}",
+            )
+            for actuator_id in expected
+        }
 
-        raw_exploration_epoch = payload.get("exploration_epoch", payload.get("babble_epoch", -1))
+        raw_exploration_epoch = payload["exploration_epoch"]
         if (
             isinstance(raw_exploration_epoch, bool)
             or not isinstance(raw_exploration_epoch, int)
@@ -1619,34 +1622,32 @@ class CompetenceDevelopmentEngine:
         ):
             raise ValueError("invalid sensorimotor babble epoch")
         learner._exploration_epoch = raw_exploration_epoch
-        raw_exploration_ids = payload.get("exploration_ids", payload.get("babble_ids", []))
-        if isinstance(raw_exploration_ids, list):
-            restored_ids = tuple(str(value) for value in raw_exploration_ids)
-            if all(value in allowed for value in restored_ids):
-                # The selected opaque channels are part of the controller's
-                # next-step state.  Dropping them on restore changes the
-                # motor trajectory even when every learned statistic matches.
-                learner._exploration_ids = restored_ids
-        # Causal probing state (absent before probing existed: probing off).
-        raw_share = payload.get("probing_share", 0.0)
+        raw_exploration_ids = payload["exploration_ids"]
+        if not isinstance(raw_exploration_ids, list):
+            raise ValueError("invalid sensorimotor exploration ids")
+        restored_ids = tuple(str(value) for value in raw_exploration_ids)
+        if not all(value in allowed for value in restored_ids):
+            raise ValueError("sensorimotor exploration references unknown actuator")
+        learner._exploration_ids = restored_ids
+        raw_share = payload["probing_share"]
         if isinstance(raw_share, bool) or not isinstance(raw_share, (int, float)):
             raise ValueError("invalid probing share")
         if not 0.0 <= float(raw_share) <= 1.0:
             raise ValueError("invalid probing share")
         learner._probing_share = float(raw_share)
-        raw_unit = payload.get("probe_unit")
+        raw_unit = payload["probe_unit"]
         if isinstance(raw_unit, list) and tuple(str(v) for v in raw_unit) in set(
             learner._exploration_units
         ):
             learner._probe_unit = tuple(str(v) for v in raw_unit)
             learner._probe_remaining = _require_int(
-                payload.get("probe_remaining", 0),
+                payload["probe_remaining"],
                 field="probe_remaining",
                 minimum=0,
                 maximum=_PROBE_REPEATS,
             )
 
-        raw_horizon_stats = payload.get("horizon_stats", [])
+        raw_horizon_stats = payload["horizon_stats"]
         if isinstance(raw_horizon_stats, list):
             for item in raw_horizon_stats[:_MAX_HORIZON_STATS]:
                 if not isinstance(item, Mapping):
@@ -1678,7 +1679,7 @@ class CompetenceDevelopmentEngine:
         raw_passive_effect = payload.get("passive_effect_stat")
         if isinstance(raw_passive_effect, Mapping):
             learner._passive_effect_stat = _RunningStat.restore(raw_passive_effect)
-        raw_passive_directions = payload.get("passive_direction_stats", {})
+        raw_passive_directions = payload["passive_direction_stats"]
         if isinstance(raw_passive_directions, Mapping):
             learner._passive_direction_stats = {
                 str(signal_id): _RunningStat.restore(raw_stat)
@@ -1686,7 +1687,7 @@ class CompetenceDevelopmentEngine:
                 if isinstance(raw_stat, Mapping)
             }
 
-        raw_primitive_stats = payload.get("primitive_stats", [])
+        raw_primitive_stats = payload["primitive_stats"]
         if isinstance(raw_primitive_stats, list):
             for item in raw_primitive_stats[:_MAX_PRIMITIVE_STATS]:
                 if not isinstance(item, Mapping):
@@ -1771,7 +1772,7 @@ class CompetenceDevelopmentEngine:
                         if isinstance(raw_signal_stat, Mapping)
                     }
 
-        raw_horizons = payload.get("horizon_counts", {})
+        raw_horizons = payload["horizon_counts"]
         if isinstance(raw_horizons, Mapping):
             learner._horizon_counts = {
                 horizon: _require_int(
@@ -1781,7 +1782,7 @@ class CompetenceDevelopmentEngine:
                 for horizon in _HORIZONS
             }
 
-        raw_primitives = payload.get("primitives", [])
+        raw_primitives = payload["primitives"]
         if isinstance(raw_primitives, list):
             for item in raw_primitives[:_MAX_PRIMITIVES]:
                 if not isinstance(item, Mapping):
@@ -1814,16 +1815,13 @@ class CompetenceDevelopmentEngine:
                 learner._primitives[primitive.primitive_id] = primitive
                 learner._primitive_id_by_sequence[primitive.sequence] = primitive.primitive_id
 
-        raw_historical = payload.get("historical_candidates", [])
+        raw_historical = payload["historical_candidates"]
         if not isinstance(raw_historical, list) or len(raw_historical) > _MAX_PRIMITIVES:
             raise ValueError("invalid historical primitive candidates")
         for item in raw_historical:
             if not isinstance(item, Mapping):
                 raise ValueError("invalid historical primitive candidate")
-            if (
-                schema == 10
-                and item.get("embodiment_fingerprint") != learner.embodiment_fingerprint
-            ):
+            if item.get("embodiment_fingerprint") != learner.embodiment_fingerprint:
                 raise ValueError("historical primitive embodiment scope mismatch")
             primitive_id = item.get("primitive_id")
             if not isinstance(primitive_id, str) or not primitive_id:
@@ -1839,13 +1837,13 @@ class CompetenceDevelopmentEngine:
                 continue
             learner._historical_primitive_candidates[primitive_id] = sequence
             learner._primitive_id_by_sequence[sequence] = primitive_id
-        replay_id = payload.get("replay_id")
+        replay_id = payload["replay_id"]
         if replay_id is not None and not isinstance(replay_id, str):
             raise ValueError("invalid sensorimotor replay id")
         if isinstance(replay_id, str) and replay_id in learner._primitives:
             learner._replay_id = replay_id
             learner._replay_step = _require_int(
-                payload.get("replay_step", 0),
+                payload["replay_step"],
                 field="sensorimotor replay step",
                 minimum=0,
                 maximum=learner._primitives[replay_id].duration_ticks - 1,
@@ -1863,7 +1861,7 @@ class CompetenceDevelopmentEngine:
                 raise ValueError("invalid sensorimotor replay source")
             learner._replay_source = "cognition"
 
-        raw_frames = payload.get("frame_history", [])
+        raw_frames = payload["frame_history"]
         if not isinstance(raw_frames, list) or len(raw_frames) > learner._frames.maxlen:
             raise ValueError("invalid sensorimotor frame history")
         for item in raw_frames:
@@ -1899,7 +1897,7 @@ class CompetenceDevelopmentEngine:
                 )
             )
 
-        raw_episode_ticks = payload.get("episode_end_ticks", [])
+        raw_episode_ticks = payload["episode_end_ticks"]
         if not isinstance(raw_episode_ticks, list):
             raise ValueError("invalid sensorimotor episode end ticks")
         for item in raw_episode_ticks:

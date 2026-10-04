@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+
 import pytest
 
 from symbiont.actuation.sensorimotor import CompetenceDevelopmentEngine
@@ -9,8 +11,14 @@ from symbiont.actuation.sensorimotor import CompetenceDevelopmentEngine
 IDS = tuple(f"actuator.{index}" for index in range(6))
 
 
+def _test_embodiment_fingerprint(organism_id: str, actuator_ids: tuple[str, ...]) -> str:
+    digest = hashlib.sha256("|".join(actuator_ids).encode("utf-8")).hexdigest()
+    return f"test-embodiment:{organism_id}:{digest}"
+
+
 def _engine(**options) -> CompetenceDevelopmentEngine:
-    return CompetenceDevelopmentEngine(IDS, organism_id="probe", **options)
+    return CompetenceDevelopmentEngine(IDS, organism_id="probe",
+        embodiment_fingerprint=_test_embodiment_fingerprint("probe", IDS), **options)
 
 
 def _vectors(engine, ticks, *, preference=()):
@@ -65,7 +73,10 @@ def test_probing_is_deterministic_and_survives_checkpoint_mid_series():
     for tick in range(24 * 5 + 7):
         first.motor_intents(tick)
     restored = CompetenceDevelopmentEngine.restore(
-        first.checkpoint(), actuator_ids=IDS, organism_id="probe"
+        first.checkpoint(),
+        actuator_ids=IDS,
+        organism_id="probe",
+        embodiment_fingerprint=_test_embodiment_fingerprint("probe", IDS),
     )
     for tick in range(24 * 5 + 7, 24 * 12):
         assert restored.motor_intents(tick) == first.motor_intents(tick)
