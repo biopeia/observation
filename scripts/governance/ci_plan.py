@@ -51,6 +51,9 @@ KNOWN_LANES = frozenset(
     }
 )
 BEHAVIORAL_LANES = KNOWN_LANES - {"docs", "governance", "performance"}
+LAB_SPECIALIZATIONS = frozenset(
+    {"lab_physics3d", "modeling", "world", "observatory", "experiment_protocol"}
+)
 DEFAULT_BUDGET_SECONDS = {
     ChangeClass.ORDINARY: 120,
     ChangeClass.SCIENTIFIC: 240,
@@ -117,9 +120,11 @@ def _sections_for_path(matrix: dict, path: str) -> list[str]:
         and isinstance(section, dict)
         and any(_matches(path, pattern) for pattern in section.get("paths", []))
     ]
-    # [tests] is deliberately broad. Prefer explicit ownership when present.
+    # Broad catch-all sections do not accumulate with a more specific owner.
     if len(matched) > 1 and "tests" in matched:
         matched.remove("tests")
+    if "lab" in matched and any(name in LAB_SPECIALIZATIONS for name in matched):
+        matched.remove("lab")
     return matched
 
 
@@ -159,12 +164,7 @@ def _is_markdown(path: str) -> bool:
 
 
 def _audit_plan(base: str, plan: CIPlan) -> tuple[str, ...]:
-    """Adversarially look for unsafe omissions in the generated plan.
-
-    This reviewer is deterministic on purpose. It does not add a second test suite;
-    it challenges the planner's coverage and fails closed when a changed path is not
-    represented by governed policy.
-    """
+    """Adversarially look for unsafe omissions in the generated plan."""
 
     matrix = _load_matrix_at(base)
     findings: list[str] = []
@@ -209,8 +209,6 @@ def build_plan(base: str, head: str) -> CIPlan:
 
     markdown_only = bool(paths) and all(_is_markdown(path) for path in paths)
     if markdown_only:
-        # Authority still comes from classification, but Markdown cannot cause a
-        # behavioral lane merely because the document is scientific/constitutional.
         lanes.intersection_update({"docs", "governance"})
         lanes.add("docs")
 
