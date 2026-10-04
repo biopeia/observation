@@ -24,7 +24,9 @@ from symbiont.modeling.runtime import ModeledOrganismRuntime
 RUNTIMES = dict(zip(LAYERS, (OrganismRuntime, ModeledOrganismRuntime, PrivateModelOrganismRuntime)))
 # Audit findings whose contract the code does not meet yet. A new gap must be
 # named here and in the register entry that carries it.
-OPEN_GAPS: set[str] = set()
+# Semantic classification findings not yet resolved. A gap is attached to the
+# exact state entry whose contract still needs owner-level resolution.
+OPEN_GAPS: set[str] = {"SYM-06"}
 
 
 def _runtime(layer: str, **kwargs: object) -> OrganismRuntime:
