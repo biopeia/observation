@@ -250,6 +250,28 @@ def test_closed_episode_archives_body_specific_state_without_authority() -> None
     assert len(archive.summaries) == 1
 
 
+def test_episode_archiving_rejects_legacy_competence_field() -> None:
+    episode = EmbodimentEpisode.begin(
+        symbiont_id="symbiont.a",
+        body_id="body.a",
+        epoch=1,
+        start_symbiont_tick=0,
+        contract=_contract(),
+    )
+    episode.close(symbiont_tick=0, reason=EmbodimentEndReason.BODY_REPLACED)
+    payload = episode.checkpoint(current_tick=0)
+    payload["embodied_competences"] = payload.pop("execution_bindings")
+    with pytest.raises(ValueError, match="incomplete embodiment episode checkpoint"):
+        archive_episode_checkpoint(
+            EmbodimentArchive(),
+            payload,
+            body_schema_prior=None,
+            living_body=None,
+            symbiont_tick=0,
+            end_reason="body_replaced",
+        )
+
+
 def test_episode_restore_rejects_pre_v3_checkpoint() -> None:
     old_contract = _contract()
     episode = EmbodimentEpisode.begin(
@@ -386,15 +408,51 @@ def test_embodiment_archive_roundtrips_historical_sensory_prior() -> None:
     assert memory.sensory_prior == sensory_prior
 
 
-def test_embodiment_prior_rejects_any_restored_authority() -> None:
-    with pytest.raises(ValueError, match="cannot carry authority"):
-        EmbodimentPrior.restore(
-            {
-                "relation": "same-body",
-                "authority": "active",
-                "source_body_id": "body.a",
-            }
+@pytest.mark.parametrize("schema_version", [2, 3])
+def test_embodiment_archive_rejects_legacy_schema_versions(schema_version: int) -> None:
+    payload = EmbodimentArchive().checkpoint()
+    payload["schema_version"] = schema_version
+    with pytest.raises(ValueError, match="unsupported embodiment archive"):
+        EmbodimentArchive.restore(payload)
+
+
+def test_embodiment_archive_rejects_incomplete_current_body_memory() -> None:
+    archive = EmbodimentArchive()
+    archive.remember_body(
+        BodySpecificMemory(
+            body_id="body.a",
+            contract_fingerprint="contract.a",
+            last_embodiment_id="embodiment.a",
         )
+    )
+    payload = archive.checkpoint()
+    del payload["body_memories"][0]["execution_binding_priors"]
+    with pytest.raises(ValueError, match="incomplete body-specific memory"):
+        EmbodimentArchive.restore(payload)
+
+
+def test_embodiment_archive_rejects_old_competence_binding_field() -> None:
+    archive = EmbodimentArchive()
+    archive.remember_body(
+        BodySpecificMemory(
+            body_id="body.a",
+            contract_fingerprint="contract.a",
+            last_embodiment_id="embodiment.a",
+        )
+    )
+    payload = archive.checkpoint()
+    memory = payload["body_memories"][0]
+    memory["embodied_competence_priors"] = memory.pop("execution_binding_priors")
+    with pytest.raises(ValueError, match="incomplete body-specific memory"):
+        EmbodimentArchive.restore(payload)
+
+
+def test_embodiment_prior_rejects_any_restored_authority() -> None:
+    payload = EmbodimentPrior.novel().checkpoint()
+    payload["relation"] = "same-body"
+    payload["authority"] = "active"
+    with pytest.raises(ValueError, match="cannot carry authority"):
+        EmbodimentPrior.restore(payload)
 
 
 def test_contract_transition_history_is_bounded() -> None:
