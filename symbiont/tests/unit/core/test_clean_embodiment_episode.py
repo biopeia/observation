@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from symbiont.actuation.competence import CompetenceEvidence, MotorCompetence
+from symbiont.core.cognition.host_self_model import RecencyClass
 from symbiont.core.embodiment import EmbodimentState
 from symbiont.core.embodiment.body import create_standard_body
 from symbiont.core.orchestration.individual import create_individual
@@ -54,6 +55,19 @@ def test_transplant_closes_archives_and_replaces_embodiment_only() -> None:
         num_receptors=2,
         num_effectors=2,
     )
+    ind.symbiont.body_schema.observe_self_model(
+        {
+            "opaque.sensor.a": {
+                "cost_class": 3,
+                "health_class": 12,
+                "confidence_class": 10,
+                "maturity_class": 6,
+                "recency_class": RecencyClass.CURRENT.value,
+            }
+        },
+        tick=ind.symbiont.total_ticks,
+    )
+    prior_schema = ind.symbiont.body_schema.export(current_tick=ind.symbiont.total_ticks)
     for _ in range(12):
         ind.step()
 
@@ -84,6 +98,13 @@ def test_transplant_closes_archives_and_replaces_embodiment_only() -> None:
     archived = ind.embodiment_archive.for_body("body.a")
     assert archived is not None
     assert archived.last_embodiment_id == old_id
+    assert archived.body_schema_prior is not None
+    assert [part["part_id"] for part in archived.body_schema_prior["parts"]] == [
+        part["part_id"] for part in prior_schema["parts"]
+    ]
+    current_schema = ind.symbiont.body_schema.export(current_tick=ind.symbiont.total_ticks)
+    assert current_schema["state"] == "undeveloped"
+    assert current_schema["parts"] == []
     assert ind.symbiont.sensorimotor_model.relation_count == 0
     assert ind.symbiont.causal_evidence.evidence == ()
     assert ind.symbiont.agency_model.estimates == ()
