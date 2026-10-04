@@ -180,3 +180,101 @@ def test_affordance_contains_no_actuator_semantics():
             prediction_ref=None,
             evidence_refs=(SURFACE.actuator_ids[0],),
         )
+
+
+def test_competence_effect_evidence_changes_production_admission_without_changing_authority():
+    from symbiont.actuation.evidence import CausalEvidence
+    from symbiont.agency.prospective import ExecutiveAdmissionPolicy, admit_afforded_action
+
+    def decision_for_evidence(target_support: int, competing_support: int):
+        domain = ActionDomain(
+            organism_id="organism.evidence",
+            enabled=True,
+            surface=SURFACE,
+            embodiment_id="embodiment.current",
+        )
+        target_effect = domain.effect_space.observe({"signal.target": 0.5}).effect_id
+        competing_effect = domain.effect_space.observe({"signal.other": -0.5}).effect_id
+        competence = MotorCompetence(
+            competence_id="competence.learned",
+            controller_id="controller.learned",
+            effect_id=target_effect,
+            evidence=CompetenceEvidence(
+                controller_seed_ref="seed.learned",
+                support=8,
+                reproducibility=0.9,
+                controllability=0.6,
+                directional_consistency=0.9,
+            ),
+        )
+        domain.competence_library.add(competence)
+        domain.execution_bindings.bind_from_evidence(
+            competence_id=competence.competence_id,
+            surface_fingerprint=SURFACE.contract_fingerprint,
+            effect_id=target_effect,
+            evidence_refs=("binding.evidence.fixed",),
+            reliability=0.8,
+            controllability=0.7,
+            tick=1,
+        )
+        for index in range(target_support):
+            domain.effect_model.observe(
+                CausalEvidence(
+                    evidence_id=f"evidence.target.{index}",
+                    attempt_id=None,
+                    intervention_signature_id=None,
+                    commitment_id=None,
+                    competence_id=competence.competence_id,
+                    effect_id=target_effect,
+                    context_ref="context.fixed",
+                    observation_tick=index,
+                    action_ref="action.observed",
+                )
+            )
+        for index in range(competing_support):
+            domain.effect_model.observe(
+                CausalEvidence(
+                    evidence_id=f"evidence.other.{index}",
+                    attempt_id=None,
+                    intervention_signature_id=None,
+                    commitment_id=None,
+                    competence_id=competence.competence_id,
+                    effect_id=competing_effect,
+                    context_ref="context.fixed",
+                    observation_tick=target_support + index,
+                    action_ref="action.observed",
+                )
+            )
+        prediction = domain.predict_competence_effect(
+            competence_id=competence.competence_id,
+            context_id="context.fixed",
+        )
+        assert prediction is not None, domain.effect_model.context_count
+        affordances = AffordanceResolver(
+            competences=domain.competence_library,
+            predict=domain.predict_competence_effect,
+            controllability_model=domain.controllability_model,
+            execution_bindings=domain.execution_bindings,
+            # Hold execution authority fixed and admitted in this integration test;
+            # this isolates learned effect evidence from physical eligibility.
+            executable=lambda _candidate: True,
+            effect_space=domain.effect_space,
+            effect_matcher=EffectMatcher(),
+            surface_fingerprint=SURFACE.contract_fingerprint,
+            embodiment_id="embodiment.current",
+        ).current(context_ref="context.fixed", embodiment_id="embodiment.current")
+        return admit_afforded_action(
+            affordances=affordances,
+            primitive_readouts={competence.competence_id: 0.9},
+            epistemic_value=lambda _competence_id: 0.0,
+            homeostatic_relevance=lambda _competence_id: 0.0,
+            policy=ExecutiveAdmissionPolicy(minimum_relevance=0.2),
+        )
+
+    predictable = decision_for_evidence(target_support=6, competing_support=0)
+    uncertain = decision_for_evidence(target_support=4, competing_support=2)
+
+    assert predictable is None
+    assert uncertain is not None
+    assert uncertain.competence_id == "competence.learned"
+    assert uncertain.confidence == pytest.approx(2 / 3)
