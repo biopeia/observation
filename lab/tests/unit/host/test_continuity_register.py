@@ -88,6 +88,15 @@ def test_entries_are_internally_consistent() -> None:
             assert entry.reembodiment is Reembodiment.PRESERVED, entry.attribute
 
 
+def test_retired_heritable_genome_is_not_misclassified_as_reembodiment_state() -> None:
+    entry = next(entry for entry in REGISTER if entry.attribute == "_heritable_genome")
+
+    assert entry.continuity is ContinuityClass.MUST_RESET
+    assert entry.reembodiment is Reembodiment.NOT_APPLICABLE
+    assert "rejected" in entry.migration
+    assert "write null" in entry.migration
+
+
 def test_open_gaps_are_exactly_the_audit_findings() -> None:
     assert {entry.known_gap for entry in REGISTER} - {None} == OPEN_GAPS
 

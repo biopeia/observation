@@ -205,8 +205,10 @@ REGISTER: tuple[ContinuityEntry, ...] = (
         "genetics (legacy)",
         _R,
         "heritable_genome",
-        _KEEP,
-        migration="legacy HeritableGenome payloads are folded into the genome on restore",
+        _NA,
+        migration=(
+            "non-empty legacy HeritableGenome payloads are rejected; current checkpoints write null"
+        ),
     ),
     _core("_mutation_seed", "genetics", _P, "mutation_seed", _KEEP),
     _core("_epigenetic_priors", "genetics", _P, "epigenetic_priors", _KEEP),
