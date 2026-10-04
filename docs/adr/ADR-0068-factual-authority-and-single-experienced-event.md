@@ -93,6 +93,7 @@ counted as a distinct factual source for retention.
 
 ## Status
 
-Accepted by the project owner on 2026-10-04. The ADR is the decision record;
-it does not itself edit the Constitution. Adding decisions 1 and 2 to the
-Constitution's invariant list is a separate governed change.
+Accepted by the project owner on 2026-10-04. Decisions 1 and 2 are adopted
+into the Constitution as §25, items 181–183. Decisions 3–5 remain ADR-level:
+decision 3 is not yet true of the default organism and is not a permanent
+invariant until it is.

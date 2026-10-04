@@ -308,3 +308,12 @@ Adopted by [ADR-0044](../adr/ADR-0044-host-safety-and-lifecycle-invariants-in-th
 172. Normal restore rejects a `DEAD` identity.
 173. Reconstructing or cloning from historical artifacts, if allowed experimentally, creates a new identity and is not resurrection.
 174. Organism lifecycle, cognitive topology health and reproductive readiness remain separate state dimensions. An organism may simultaneously be `MATURE`, `ADAPTIVE` and `REPRODUCTIVELY_READY`.
+
+### 25. Factual authority and the single experienced event
+
+Adopted by [ADR-0068](../adr/ADR-0068-factual-authority-and-single-experienced-event.md).
+These extend §5, §6 and §11 across subsystems; they do not replace items 30–42 or 80–88.
+
+181. No cognitive subsystem manufactures factual authority. Factual authority enters the organism only through direct observation, the observed consequence of an action it executed, and source-attributed social evidence, which stays attributed until reconciled.
+182. A prediction, replay, hypothesis, counterfactual, model output or observational projection is never a fact and never becomes one by being stored, repeated, consolidated or displayed.
+183. A consequence that occurred once has one identity and one provenance. Each learner keeps its own record and its own epistemology, and refers to that identity instead of reconstructing the event.
