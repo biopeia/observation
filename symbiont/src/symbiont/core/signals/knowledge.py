@@ -262,14 +262,15 @@ class SignalKnowledgeEngine:
     def _evict_claim(
         self, tick: int, preferred_subject: str, *, same_profile: bool = False
     ) -> bool:
+        # A claim lives in its subject's profile, so an eviction restricted to
+        # one subject only has to look there.
+        profiles = (self._profiles[preferred_subject],) if same_profile else self._profiles.values()
         candidates = [
             c
-            for p in self._profiles.values()
+            for p in profiles
             for c in p.claims
             if c.status in {"insufficient", "stale", "hypothesis"}
         ]
-        if same_profile:
-            candidates = [c for c in candidates if c.subject_id == preferred_subject]
         if not candidates:
             return False
         rank = {"insufficient": 0, "stale": 1, "hypothesis": 2}
