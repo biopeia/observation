@@ -46,6 +46,12 @@ The individual maintained the same `organism_id` for six epochs.
 
 Recorded sequence:
 
+> Historical observation from the pre-epoch portable-checkpoint path. The
+> `anthropomorphic-v4` label reflects the bounded `LEGACY_COMPATIBILITY_ASSUMPTION`
+> used when such a file has no epoch descriptor; it is not body discovery and
+> does not authorize restoration of an outer checkpoint. The current live
+> loader accepts schema 14 only and rejects schemas 1–13 without migration.
+
 | Epoch | Body | Global start | Global end | State on close |
 | --- | --- | ---: | ---: | --- |
 | 1 | anthropomorphic-v4 | 0 | 4513 | dead |

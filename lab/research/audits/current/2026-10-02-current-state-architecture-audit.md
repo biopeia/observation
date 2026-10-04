@@ -558,8 +558,8 @@ acceptance. Decisions that are the owner's are listed, not taken.
 Sections 2–12 and the original F-04 row above remain the forensic snapshot of
 `main@2ac4296d`; they are not a description of the current loader. After that
 snapshot, commit `b417bdbc8` removed outer-checkpoint migrations for schemas
-1–10. The current schema 12 loader accepts schema 12 only and rejects schemas
-1–11 without migration. Consequently, the original F-04 statement and its
+1–10. Subsequent checkpoint changes advanced the exact-only loader: schema 14
+is current and schemas 1–13 are rejected without migration. Consequently, the original F-04 statement and its
 resolution row describe the historical 2026-10-02 compatibility behavior, not
 current restore support. Historical checkpoint files remain archival evidence;
 inner subsystem migrations do not make an old outer checkpoint restorable.
