@@ -91,6 +91,21 @@ therefore read **per section**: the first tick at which each of
 unchanged and applies to every one of those sections. No horizon, seed, arm
 or other measurement changes.
 
+## Amendment 2 (Part A only; before its execution)
+
+The `reembodied-established` suite slot needs a real re-embodied organism,
+which the Part A state is not. Its candidate source is the seed-42 Part A
+state continued for 256 ticks after being implanted in a fresh physical body
+of the same kind (the engine's explicit re-embodiment path), under the same
+launcher scope and training configuration as Part A. This adds one
+development run. It changes nothing in Part B.
+
+Part A execution record: the first seed-42 run ended at tick 256 with a
+`MemoryError` under a 3.5 GiB launcher ceiling (apparatus resource failure,
+no state used); the second, with an 8 GiB ceiling and otherwise identical
+configuration, completed 1536 ticks in about 31 minutes. That exceeds the
+25-minute rule: the campaign is limited to seed 42.
+
 ## Analysis plan
 
 Per seed, then listed side by side; no pooling statistic with three seeds.
