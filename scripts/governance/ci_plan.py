@@ -54,6 +54,21 @@ BEHAVIORAL_LANES = KNOWN_LANES - {"docs", "governance", "performance"}
 LAB_SPECIALIZATIONS = frozenset(
     {"lab_physics3d", "modeling", "world", "observatory", "experiment_protocol"}
 )
+CONTROL_PLANE_FALLBACK = frozenset(
+    {
+        "governance",
+        "architecture_integrity",
+        "runtime_contracts",
+        "experiment_mechanics",
+        "canonical_full",
+        "python_compat",
+        "host_portability",
+        "alpine",
+        "protocol_mechanics",
+        "physics3d",
+        "modeling",
+    }
+)
 DEFAULT_BUDGET_SECONDS = {
     ChangeClass.ORDINARY: 120,
     ChangeClass.SCIENTIFIC: 240,
@@ -120,7 +135,6 @@ def _sections_for_path(matrix: dict, path: str) -> list[str]:
         and isinstance(section, dict)
         and any(_matches(path, pattern) for pattern in section.get("paths", []))
     ]
-    # Broad catch-all sections do not accumulate with a more specific owner.
     if len(matched) > 1 and "tests" in matched:
         matched.remove("tests")
     if "lab" in matched and any(name in LAB_SPECIALIZATIONS for name in matched):
@@ -163,6 +177,18 @@ def _is_markdown(path: str) -> bool:
     return path.endswith((".md", ".markdown"))
 
 
+def _control_plane_changed(paths: tuple[str, ...]) -> bool:
+    return any(
+        path == "scripts/agentctl.py"
+        or path.startswith("scripts/governance/")
+        or path.startswith(".github/workflows/")
+        or path == "docs/governance/validation-matrix.toml"
+        or path == "docs/governance/change-surfaces.toml"
+        or path == "docs/governance/publication-policy.toml"
+        for path in paths
+    )
+
+
 def _audit_plan(base: str, plan: CIPlan) -> tuple[str, ...]:
     """Adversarially look for unsafe omissions in the generated plan."""
 
@@ -179,14 +205,7 @@ def _audit_plan(base: str, plan: CIPlan) -> tuple[str, ...]:
             "non-document change has no behavioral validation lane; impact policy must widen"
         )
 
-    control_plane = any(
-        path == "scripts/agentctl.py"
-        or path.startswith("scripts/governance/")
-        or path.startswith(".github/workflows/")
-        or path == "docs/governance/validation-matrix.toml"
-        for path in plan.changed_paths
-    )
-    if control_plane and non_markdown and not plan.canonical_full:
+    if _control_plane_changed(plan.changed_paths) and non_markdown and not plan.canonical_full:
         findings.append("control-plane implementation changed without canonical_full fallback")
 
     if plan.classification == str(ChangeClass.FROZEN):
@@ -211,6 +230,10 @@ def build_plan(base: str, head: str) -> CIPlan:
     if markdown_only:
         lanes.intersection_update({"docs", "governance"})
         lanes.add("docs")
+    elif _control_plane_changed(paths):
+        # Transitional and permanent fail-safe: the planner cannot rely on the
+        # candidate matrix to broaden validation of the matrix/planner itself.
+        lanes.update(CONTROL_PLANE_FALLBACK)
 
     selected = tuple(sorted(lanes))
     plan = CIPlan(
