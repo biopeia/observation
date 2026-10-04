@@ -20,9 +20,6 @@ from symbiont.core.orchestration.runtime import OrganismRuntime
 
 def test_live_hypothesis_changes_production_admission_only_for_existing_affordance():
     cognition = ResidentGenerativeCognition(organism_id="organism.generative-test")
-    runtime = OrganismRuntime(
-        organism_id="organism.generative-test", generative_cognition=cognition
-    )
     cognition.agenda.add_target(
         GenerativeTarget(
             target_id="gc.prospective.competence.test",
@@ -96,6 +93,9 @@ def test_live_hypothesis_changes_production_admission_only_for_existing_affordan
     # No live hypothesis means this route has no representation, despite the
     # affordance. The test changes no execution binding or physical authority.
     cognition.hypotheses.clear()
+    runtime = OrganismRuntime(
+        organism_id="organism.generative-test", generative_cognition=cognition
+    )
     baseline = runtime._choose_acquired_action(
         cognition=SimpleNamespace(readouts_for_family=lambda _family: {}),
         percepts=(),
@@ -108,6 +108,19 @@ def test_live_hypothesis_changes_production_admission_only_for_existing_affordan
     assert baseline is None
 
     cognition.hypotheses[hypothesis.hypothesis_id] = hypothesis
+    cognition.calibration.record_prediction(
+        model_id="model.test",
+        operation=GenerativeOperation.PREDICT,
+        depth=state.depth,
+        uncertainty=state.uncertainty,
+    )
+    cognition = ResidentGenerativeCognition.from_checkpoint(
+        cognition.checkpoint(), organism_id="organism.generative-test"
+    )
+    runtime = OrganismRuntime(
+        organism_id="organism.generative-test", generative_cognition=cognition
+    )
+    hypothesis = cognition.hypotheses[hypothesis.hypothesis_id]
     decision = runtime._choose_acquired_action(
         cognition=SimpleNamespace(readouts_for_family=lambda _family: {}),
         percepts=(),
@@ -125,12 +138,6 @@ def test_live_hypothesis_changes_production_admission_only_for_existing_affordan
     # The resident's factual-reconciliation API retires the unsupported
     # prediction. This supplies a bounded evidence reference directly; it does
     # not validate the upstream runtime's factual-outcome provenance.
-    cognition.calibration.record_prediction(
-        model_id="model.test",
-        operation=GenerativeOperation.PREDICT,
-        depth=state.depth,
-        uncertainty=state.uncertainty,
-    )
     assert (
         cognition.note_factual_outcome(
             action_id="competence.test",
