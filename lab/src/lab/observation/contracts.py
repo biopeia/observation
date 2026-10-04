@@ -11,17 +11,22 @@ from dataclasses import dataclass
 from typing import Any, Mapping
 
 PRESENTATION_PROJECTION = "observer-presentation-v1"
-COMPLETED_FRAME_CONTRACT = "completed-render-frame-v2"
+COMPLETED_FRAME_CONTRACT = "completed-render-frame-v1"
+OBSERVATION_IDENTITY_CONTRACT = "observation-identity-v1"
 
 
 @dataclass(frozen=True)
 class ObservedFrame:
     """Coherent observer projection assembled from one completed rendered tick.
 
-    ``run_id`` is transport-independent Lab identity.  It is deliberately part
+    ``run_id`` is transport-independent Lab identity. It is deliberately part
     of the frame contract rather than inferred by consumers from nested
     telemetry: a frame without run identity cannot be safely composed with
     presentation state from an earlier run.
+
+    Identity fields are an additive extension of the completed-render-frame-v1
+    payload and are versioned independently so existing frame consumers remain
+    compatible while new consumers can require a strong identity boundary.
     """
 
     tick: int
@@ -52,6 +57,7 @@ class ObservedFrame:
                 "owner": "observer",
                 "projection": PRESENTATION_PROJECTION,
                 "contract": COMPLETED_FRAME_CONTRACT,
+                "identity_contract": OBSERVATION_IDENTITY_CONTRACT,
                 "feeds_back": False,
             },
         }
@@ -68,6 +74,7 @@ class ObservedFrame:
 
 __all__ = [
     "COMPLETED_FRAME_CONTRACT",
+    "OBSERVATION_IDENTITY_CONTRACT",
     "ObservedFrame",
     "PRESENTATION_PROJECTION",
 ]
