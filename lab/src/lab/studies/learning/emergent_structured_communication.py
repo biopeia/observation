@@ -15,7 +15,6 @@ from dataclasses import asdict, dataclass
 from typing import Sequence
 
 from lab.integration.organism import create_canonical_organism
-from symbiont.core.organism_profile import HISTORICAL_V0
 from symbiont.modeling import (
     ModeledOrganismRuntime,
     SequenceChannel,
@@ -111,7 +110,9 @@ def _trial(
     space = default_symbol_space(f"study-{seed}")
     emitter = create_canonical_organism(
         ModeledOrganismRuntime,
-        profile=HISTORICAL_V0,
+        discover_senses=False,
+        sensory_plasticity=False,
+        auto_promote_predictors=False,
         organism_id=f"esc-emitter-{seed}",
         bootstrap_semantic_senses=False,
         symbol_policy_seed=seed,
@@ -119,7 +120,9 @@ def _trial(
     )
     receiver = create_canonical_organism(
         ModeledOrganismRuntime,
-        profile=HISTORICAL_V0,
+        discover_senses=False,
+        sensory_plasticity=False,
+        auto_promote_predictors=False,
         organism_id=f"esc-receiver-{seed}",
         bootstrap_semantic_senses=False,
         symbol_policy_seed=seed + 1,
@@ -240,7 +243,10 @@ def _result(seed: int) -> StructuredCommunicationSeedResult:
     learner = autonomous["receiver"]
     newborn = create_canonical_organism(
         ModeledOrganismRuntime,
-        profile=HISTORICAL_V0,
+        discover_senses=False,
+        sensory_plasticity=False,
+        auto_promote_predictors=False,
+        symbol_policy_seed=0,
         organism_id=f"esc-newborn-{seed}",
         bootstrap_semantic_senses=False,
         symbol_space=default_symbol_space(f"study-{seed}"),

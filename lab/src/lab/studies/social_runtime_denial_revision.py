@@ -5,8 +5,8 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 
 from lab.integration.organism import create_canonical_organism, restore_canonical_organism
+from lab.studies.common.conditions import CLOSED_STUDY_CONDITIONS
 from symbiont.core.orchestration.runtime import OrganismRuntime
-from symbiont.core.organism_profile import HISTORICAL_V0
 from symbiont.core.social import SocialHabitat
 from symbiont.core.social.interactions import EcologicalResourcePool
 
@@ -52,7 +52,7 @@ def run_social_runtime_denial_revision_study(
     for member in ("adaptive", "peer"):
         habitat.admit(member)
     runtime = create_canonical_organism(
-        profile=HISTORICAL_V0,
+        **CLOSED_STUDY_CONDITIONS,
         organism_id="adaptive",
         social_habitat=habitat,
         social_exchange_quantum=0.5,

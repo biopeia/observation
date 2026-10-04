@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from ...host.checkpoint import CheckpointError
-from ..organism_profile import CANONICAL, HISTORICAL_V0, PROFILES, OrganismProfile
+from ..organism_profile import CANONICAL, PROFILES, OrganismProfile
 
 # Constructor options that decide which sense sources are attached.
 SENSE_OPTIONS = (
@@ -70,8 +70,7 @@ def restored_sense_options(
 
     An option stated by the caller wins, even when stated as ``None``. Otherwise
     the value recorded in the checkpoint's effective configuration is used. A
-    restored organism keeps the profile it was born with; checkpoints written
-    before profiles existed are historical.
+    restored organism keeps the profile it was born with.
     """
     effective = payload.get("effective_config", {})
     options = {name: overrides[name] for name in SENSE_OPTIONS if name in overrides}
@@ -81,7 +80,7 @@ def restored_sense_options(
     if "profile" in overrides:
         options["profile"] = overrides["profile"]
     else:
-        born_with = effective.get("profile_version", HISTORICAL_V0.version)
+        born_with = effective.get("profile_version")
         if born_with not in PROFILES:
             raise CheckpointError(f"unknown organism profile version: {born_with!r}")
         options["profile"] = PROFILES[born_with]

@@ -12,7 +12,6 @@ from typing import Sequence
 
 from lab.integration.organism import create_canonical_organism
 from lab.studies.learning.cumulative_culture import run_cumulative_culture_study
-from symbiont.core.organism_profile import HISTORICAL_V0
 from symbiont.modeling import (
     CulturalAction,
     CulturalPolicyConfig,
@@ -83,7 +82,10 @@ def _trial(seed: int, *, ticks: int, contact_rounds: int) -> AutonomousAgencySee
     organisms = tuple(
         create_canonical_organism(
             ModeledOrganismRuntime,
-            profile=HISTORICAL_V0,
+            discover_senses=False,
+            sensory_plasticity=False,
+            auto_promote_predictors=False,
+            symbol_policy_seed=0,
             organism_id=organism_id,
             bootstrap_semantic_senses=False,
             cultural_policy_seed=seed + index,

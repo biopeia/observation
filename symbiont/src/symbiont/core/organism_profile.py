@@ -10,14 +10,10 @@ register, with the result backing each value, is
 from __future__ import annotations
 
 import hashlib
-from dataclasses import dataclass, fields, replace
+from dataclasses import dataclass, fields
 from typing import Any
 
 from symbiont.core.domains.intention import IntentionPolicy
-
-# How an organism's symbol policy seed is chosen.
-SYMBOL_SEED_SHARED = "shared"  # every organism uses the same seed (historical)
-SYMBOL_SEED_PER_ORGANISM = "per_organism"  # derived from the organism's own identity
 
 
 @dataclass(frozen=True)
@@ -34,7 +30,6 @@ class OrganismProfile:
     reconcile_observed_effects: bool
     executive_outcome_learning: bool
     footprint_satisfaction_rule: str
-    symbol_seed_policy: str
     ancestry_training: bool
     competence_min_support: int
     competence_min_consistency: float
@@ -70,24 +65,22 @@ class OrganismProfile:
 # Options of ``OrganismRuntime`` / ``ModeledOrganismRuntime`` / ``IntentionPolicy``
 # governed by the profile. A launcher that passes one of these explicitly deviates.
 GOVERNED_OPTIONS: frozenset[str] = frozenset(
-    {field.name for field in fields(OrganismProfile)} - {"version", "symbol_seed_policy"}
+    {field.name for field in fields(OrganismProfile)} - {"version"}
     | {"interoception_enabled", "symbol_policy_seed"}
 )
 
-# The configuration the bare constructors produced before any convergence. Closed
-# experiments that relied on constructor defaults ran under this version.
-HISTORICAL_V0 = OrganismProfile(
-    version="v0-historical",
-    discover_senses=False,
-    bootstrap_semantic_senses=True,
-    sensory_plasticity=False,
-    auto_promote_predictors=False,
-    interoception_mode="enabled",
+# Convergence of the results closed up to 2026-10-02 (register §3, ADR-0062).
+V1 = OrganismProfile(
+    version="v1",
+    discover_senses=True,
+    bootstrap_semantic_senses=False,
+    sensory_plasticity=True,
+    auto_promote_predictors=True,
+    interoception_mode="absent",
     factorized_effects=False,
     reconcile_observed_effects=True,
     executive_outcome_learning=True,
     footprint_satisfaction_rule="recall",
-    symbol_seed_policy=SYMBOL_SEED_SHARED,
     ancestry_training=False,
     competence_min_support=2,
     competence_min_consistency=0.60,
@@ -96,28 +89,14 @@ HISTORICAL_V0 = OrganismProfile(
     dormancy_retention_factor=1.0,
 )
 
-# Convergence of the results closed up to 2026-10-02 (register §3, ADR-0062).
-V1 = replace(
-    HISTORICAL_V0,
-    version="v1",
-    discover_senses=True,
-    bootstrap_semantic_senses=False,
-    sensory_plasticity=True,
-    auto_promote_predictors=True,
-    interoception_mode="absent",
-    symbol_seed_policy=SYMBOL_SEED_PER_ORGANISM,
-)
-
-PROFILES: dict[str, OrganismProfile] = {profile.version: profile for profile in (HISTORICAL_V0, V1)}
+PROFILES: dict[str, OrganismProfile] = {V1.version: V1}
 
 # The profile every new organism is born with.
 CANONICAL = V1
 
 
-def symbol_seed_for(profile: OrganismProfile, organism_id: str) -> int:
-    """Symbol policy seed of one organism under ``profile``."""
-    if profile.symbol_seed_policy == SYMBOL_SEED_SHARED:
-        return 0
+def symbol_seed_for(organism_id: str) -> int:
+    """Symbol policy seed of one organism, derived from its own identity."""
     digest = hashlib.sha256(f"symbol-policy-seed:{organism_id}".encode()).digest()
     return int.from_bytes(digest[:4], "big") & (2**31 - 1)
 
@@ -125,10 +104,7 @@ def symbol_seed_for(profile: OrganismProfile, organism_id: str) -> int:
 __all__ = [
     "CANONICAL",
     "GOVERNED_OPTIONS",
-    "HISTORICAL_V0",
     "PROFILES",
-    "SYMBOL_SEED_PER_ORGANISM",
-    "SYMBOL_SEED_SHARED",
     "V1",
     "OrganismProfile",
     "symbol_seed_for",

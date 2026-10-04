@@ -11,7 +11,7 @@ import lab.studies.embodiment.reembodiment_functional_transfer as transfer
 import lab.studies.learning.competence_establishment as study
 from lab.experiments.loader import load_experiment_file
 from symbiont.actuation.competence import CompetenceEvidence, CompetenceGate, CompetenceMaturity
-from symbiont.core.organism_profile import CANONICAL, HISTORICAL_V0
+from symbiont.core.organism_profile import PROFILES
 
 pytestmark = pytest.mark.experiment_contract
 
@@ -46,7 +46,7 @@ def test_the_record_matches_the_frozen_constants() -> None:
 
 
 def test_current_gate_is_the_profile_gate_of_every_existing_version() -> None:
-    for profile in (HISTORICAL_V0, CANONICAL):
+    for profile in PROFILES.values():
         assert (profile.competence_min_support, profile.competence_min_consistency) == (
             study.CURRENT_GATE
         )

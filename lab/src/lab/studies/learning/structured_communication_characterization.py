@@ -16,7 +16,6 @@ from dataclasses import asdict, dataclass
 from typing import Sequence
 
 from lab.integration.organism import create_canonical_organism
-from symbiont.core.organism_profile import HISTORICAL_V0
 from symbiont.modeling import (
     MAX_SEQUENCE_LENGTH,
     ModeledOrganismRuntime,
@@ -155,7 +154,9 @@ def _trial(seed: int, condition: str, *, ticks: int = 64) -> dict[str, object]:
     space = _space(seed, vocab)
     emitter = create_canonical_organism(
         ModeledOrganismRuntime,
-        profile=HISTORICAL_V0,
+        discover_senses=False,
+        sensory_plasticity=False,
+        auto_promote_predictors=False,
         organism_id=f"sc-emitter-{seed}-{condition}",
         bootstrap_semantic_senses=False,
         symbol_policy_seed=seed,
@@ -164,7 +165,9 @@ def _trial(seed: int, condition: str, *, ticks: int = 64) -> dict[str, object]:
     )
     receiver = create_canonical_organism(
         ModeledOrganismRuntime,
-        profile=HISTORICAL_V0,
+        discover_senses=False,
+        sensory_plasticity=False,
+        auto_promote_predictors=False,
         organism_id=f"sc-receiver-{seed}-{condition}",
         bootstrap_semantic_senses=False,
         symbol_policy_seed=seed + 1,
@@ -332,7 +335,9 @@ def _trial_unchecked_trace(
     space = _space(seed, VOCABULARY_SIZES[condition])
     runtime = create_canonical_organism(
         ModeledOrganismRuntime,
-        profile=HISTORICAL_V0,
+        discover_senses=False,
+        sensory_plasticity=False,
+        auto_promote_predictors=False,
         organism_id=f"sc-emitter-{seed}-{condition}",
         bootstrap_semantic_senses=False,
         symbol_policy_seed=seed,
@@ -341,7 +346,10 @@ def _trial_unchecked_trace(
     )
     receiver = create_canonical_organism(
         ModeledOrganismRuntime,
-        profile=HISTORICAL_V0,
+        discover_senses=False,
+        sensory_plasticity=False,
+        auto_promote_predictors=False,
+        symbol_policy_seed=0,
         organism_id=f"sc-receiver-{seed}-{condition}",
         bootstrap_semantic_senses=False,
         symbol_space=space,

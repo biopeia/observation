@@ -28,12 +28,11 @@ from symbiont.core.orchestration.sense_requirements import (
     resolve_restore_sense_requirements,
     resolve_sense_requirements,
 )
-from symbiont.core.organism_profile import HISTORICAL_V0, V1
+from symbiont.core.organism_profile import V1
 
 # stdlib/discovery combinations, interoception on/sham/off, both profiles
 CASES = [
     pytest.param({}, id="canonical"),
-    pytest.param({"profile": HISTORICAL_V0}, id="historical-v0"),
     pytest.param({"profile": V1}, id="v1"),
     pytest.param({"interoception_mode": "enabled", "discover_senses": True}, id="interoception"),
     pytest.param({"interoception_mode": "sham", "discover_senses": True}, id="sham"),
@@ -86,12 +85,13 @@ def _expected_sources(requirements: SenseRequirements) -> list[str]:
         names.append(
             "LinuxSurfaceProvider" if platform.system() == "Linux" else "PortableSurfaceProvider"
         )
-        if requirements.interoception_mode != "absent":
-            names.append(
-                "ShamInteroceptionProvider"
-                if requirements.interoception_mode == "sham"
-                else "InteroceptionProvider"
-            )
+    # interoception is the organism's own: attached whenever its mode asks for it
+    if requirements.interoception_mode != "absent":
+        names.append(
+            "ShamInteroceptionProvider"
+            if requirements.interoception_mode == "sham"
+            else "InteroceptionProvider"
+        )
     return names
 
 
@@ -117,8 +117,13 @@ def test_fresh_creation_attaches_what_the_organism_requires(options) -> None:
 @pytest.mark.parametrize("options", CASES)
 def test_the_organism_alone_attaches_no_host_source(options) -> None:
     alone = OrganismRuntime(organism_id="organism-under-test", **options)
-    assert _shape(alone)["discovery"] == _shape(alone)["readings"] == []
-    assert alone._interoception_provider is None
+    # nothing from the host; only its own interoception, where its mode asks for it
+    own = [
+        name
+        for name in _expected_sources(resolve_sense_requirements(**options))
+        if "Interoception" in name
+    ]
+    assert _shape(alone)["discovery"] == _shape(alone)["readings"] == own
     assert alone._host_sense_source in {"unavailable", "not_requested"}
 
 

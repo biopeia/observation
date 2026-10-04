@@ -12,8 +12,8 @@ from collections import Counter
 from dataclasses import asdict, dataclass
 
 from lab.integration.organism import create_canonical_organism
+from lab.studies.common.conditions import CLOSED_STUDY_CONDITIONS
 from symbiont.core.orchestration.runtime import OrganismRuntime
-from symbiont.core.organism_profile import HISTORICAL_V0
 from symbiont.core.social import SocialHabitat
 from symbiont.core.social.interactions import EcologicalResourcePool
 
@@ -44,7 +44,7 @@ def run_social_runtime_emergence_study(
         habitat.admit(organism_id)
     runtimes: tuple[OrganismRuntime, ...] = tuple(
         create_canonical_organism(
-            profile=HISTORICAL_V0, organism_id=organism_id, social_habitat=habitat
+            **CLOSED_STUDY_CONDITIONS, organism_id=organism_id, social_habitat=habitat
         )
         for organism_id in ids
     )

@@ -41,7 +41,6 @@ from pathlib import Path
 from typing import Sequence
 
 from lab.integration.organism import create_canonical_organism
-from symbiont.core.organism_profile import HISTORICAL_V0
 from symbiont.modeling import (
     ModeledOrganismRuntime,
     SymbolAction,
@@ -187,21 +186,27 @@ def _run_condition(
     assert seed_b != seed  # isg5: interaction can never rely on a shared policy seed
     emitter_a = create_canonical_organism(
         ModeledOrganismRuntime,
-        profile=HISTORICAL_V0,
+        discover_senses=False,
+        sensory_plasticity=False,
+        auto_promote_predictors=False,
         organism_id=f"isg-a-{seed}-{condition}",
         bootstrap_semantic_senses=False,
         symbol_policy_seed=seed,
     )
     emitter_b = create_canonical_organism(
         ModeledOrganismRuntime,
-        profile=HISTORICAL_V0,
+        discover_senses=False,
+        sensory_plasticity=False,
+        auto_promote_predictors=False,
         organism_id=f"isg-b-{seed}-{condition}",
         bootstrap_semantic_senses=False,
         symbol_policy_seed=seed_b,
     )
     learner = create_canonical_organism(
         ModeledOrganismRuntime,
-        profile=HISTORICAL_V0,
+        discover_senses=False,
+        sensory_plasticity=False,
+        auto_promote_predictors=False,
         organism_id=f"isg-learner-{seed}-{condition}",
         bootstrap_semantic_senses=False,
         symbol_policy_seed=seed,

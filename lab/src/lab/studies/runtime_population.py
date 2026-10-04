@@ -10,7 +10,6 @@ from symbiont import __version__ as symbiont_version
 from symbiont.cognition.birth import load_base_genome
 from symbiont.cognition.limits import KernelLimits
 from symbiont.core.embodiment.metabolism import MetabolicLedger
-from symbiont.core.organism_profile import HISTORICAL_V0
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,7 +33,8 @@ def run_runtime_population_study() -> RuntimePopulationStudy:
     authority = HabitatBirthAuthority(habitat_id="population-study", capacity=2)
     zero = {kind: 0.0 for kind in ("observation", "cognition", "persistence", "maintenance")}
     parent = create_canonical_organism(
-        profile=HISTORICAL_V0,
+        sensory_plasticity=False,
+        auto_promote_predictors=False,
         organism_id="parent",
         genome=genome,
         metabolism=MetabolicLedger(replenishment=zero),

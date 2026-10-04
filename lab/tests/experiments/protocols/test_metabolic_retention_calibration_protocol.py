@@ -9,7 +9,7 @@ import lab.studies.learning.competence_establishment as establishment
 import lab.studies.learning.metabolic_retention_calibration as study
 from lab.experiments.loader import load_experiment_file
 from symbiont.core.domains.memory import MemoryDomain
-from symbiont.core.organism_profile import CANONICAL, HISTORICAL_V0
+from symbiont.core.organism_profile import PROFILES
 
 pytestmark = pytest.mark.experiment_contract
 
@@ -19,7 +19,7 @@ def test_grid_is_the_preregistered_one() -> None:
 
 
 def test_current_prices_are_every_existing_profile() -> None:
-    for profile in (HISTORICAL_V0, CANONICAL):
+    for profile in PROFILES.values():
         assert (
             profile.retention_price_baseline,
             profile.retention_price_node,

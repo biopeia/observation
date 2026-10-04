@@ -12,7 +12,6 @@ from dataclasses import asdict, dataclass
 from typing import Sequence
 
 from lab.integration.organism import create_canonical_organism
-from symbiont.core.organism_profile import HISTORICAL_V0
 from symbiont.modeling import (
     ModeledOrganismRuntime,
     SymbolAction,
@@ -102,28 +101,36 @@ def _trial(
     space = default_symbol_space()
     emitter_a = create_canonical_organism(
         ModeledOrganismRuntime,
-        profile=HISTORICAL_V0,
+        discover_senses=False,
+        sensory_plasticity=False,
+        auto_promote_predictors=False,
         organism_id=f"esg-a-{seed}",
         bootstrap_semantic_senses=False,
         symbol_policy_seed=seed,
     )
     emitter_b = create_canonical_organism(
         ModeledOrganismRuntime,
-        profile=HISTORICAL_V0,
+        discover_senses=False,
+        sensory_plasticity=False,
+        auto_promote_predictors=False,
         organism_id=f"esg-b-{seed}",
         bootstrap_semantic_senses=False,
         symbol_policy_seed=seed,
     )
     learner = create_canonical_organism(
         ModeledOrganismRuntime,
-        profile=HISTORICAL_V0,
+        discover_senses=False,
+        sensory_plasticity=False,
+        auto_promote_predictors=False,
         organism_id=f"esg-learner-{seed}",
         bootstrap_semantic_senses=False,
         symbol_policy_seed=seed,
     )
     newborn = create_canonical_organism(
         ModeledOrganismRuntime,
-        profile=HISTORICAL_V0,
+        discover_senses=False,
+        sensory_plasticity=False,
+        auto_promote_predictors=False,
         organism_id=f"esg-newborn-{seed}",
         bootstrap_semantic_senses=False,
         symbol_policy_seed=seed,

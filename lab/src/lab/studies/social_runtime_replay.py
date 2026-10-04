@@ -5,9 +5,9 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 
 from lab.integration.organism import create_canonical_organism, restore_canonical_organism
+from lab.studies.common.conditions import CLOSED_STUDY_CONDITIONS
 from symbiont.core.embodiment.metabolism import MetabolicLedger
 from symbiont.core.embodiment.physiology import PhysiologyController
-from symbiont.core.organism_profile import HISTORICAL_V0
 from symbiont.core.social import SocialHabitat
 from symbiont.core.social.interactions import EcologicalResourcePool
 
@@ -29,7 +29,7 @@ def run_social_runtime_replay_study() -> SocialRuntimeReplayStudy:
     habitat.admit("a")
     habitat.admit("b")
     runtime = create_canonical_organism(
-        profile=HISTORICAL_V0, organism_id="a", social_habitat=habitat
+        **CLOSED_STUDY_CONDITIONS, organism_id="a", social_habitat=habitat
     )
     runtime.request_social_exchange("b", "food", 0.5)
     runtime.suspend_social_interaction("b")
@@ -52,7 +52,7 @@ def run_social_runtime_replay_study() -> SocialRuntimeReplayStudy:
     metabolism = MetabolicLedger(replenishment=zero)
     metabolism.charge("maintenance", 8.0)
     dying = create_canonical_organism(
-        profile=HISTORICAL_V0,
+        **CLOSED_STUDY_CONDITIONS,
         organism_id="b",
         social_habitat=habitat,
         metabolism=metabolism,

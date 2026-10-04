@@ -10,7 +10,6 @@ from symbiont.core.embodiment.homeostasis import HomeostaticController
 from symbiont.core.embodiment.metabolism import MetabolicLedger
 from symbiont.core.embodiment.physiology import LivingBodyState, PhysiologyController, VitalState
 from symbiont.core.orchestration.runtime import OrganismRuntime
-from symbiont.core.organism_profile import HISTORICAL_V0
 
 
 @dataclass(frozen=True, slots=True)
@@ -134,7 +133,8 @@ def run_runtime_replay_study(*, warmup_ticks: int = 2, replay_ticks: int = 2) ->
     if warmup_ticks < 1 or replay_ticks < 1:
         raise ValueError("tick counts must be positive")
     runtime = create_canonical_organism(
-        profile=HISTORICAL_V0,
+        sensory_plasticity=False,
+        auto_promote_predictors=False,
         bootstrap_semantic_senses=False,
         discover_senses=False,
         investigate_ticks=0,
@@ -157,7 +157,8 @@ def run_runtime_recovery_study() -> RuntimeRecoveryStudy:
         structural_integrity=0.5,
     )
     runtime = create_canonical_organism(
-        profile=HISTORICAL_V0,
+        sensory_plasticity=False,
+        auto_promote_predictors=False,
         explicit_metabolism=True,
         living_body_state=body_state,
         metabolism=MetabolicLedger(
@@ -327,7 +328,8 @@ def run_sustained_repair_study(
             structural_integrity=0.4,
         )
         return create_canonical_organism(
-            profile=HISTORICAL_V0,
+            sensory_plasticity=False,
+            auto_promote_predictors=False,
             explicit_metabolism=True,
             living_body_state=state,
             metabolism=MetabolicLedger(

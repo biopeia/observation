@@ -12,19 +12,18 @@ import ast
 import inspect
 from pathlib import Path
 
+import pytest
 from tests.layout import source_files
 
 from lab.integration.organism import create_canonical_organism, restore_canonical_organism
-from symbiont.core.domains.intention import IntentionPolicy
 from symbiont.core.orchestration.runtime import OrganismRuntime
 from symbiont.core.organism_profile import (
     CANONICAL,
     GOVERNED_OPTIONS,
-    HISTORICAL_V0,
     PROFILES,
-    SYMBOL_SEED_SHARED,
     symbol_seed_for,
 )
+from symbiont.host.checkpoint import CheckpointError
 from symbiont.modeling.runtime import ModeledOrganismRuntime
 
 
@@ -104,7 +103,7 @@ def test_bare_organisms_are_born_with_the_canonical_profile() -> None:
     assert runtime._auto_promote_predictors is CANONICAL.auto_promote_predictors
     assert runtime._interoception_mode == CANONICAL.interoception_mode
     modeled = create_canonical_organism(ModeledOrganismRuntime, organism_id="profile-probe")
-    assert modeled._symbol_policy.seed == symbol_seed_for(CANONICAL, "profile-probe")
+    assert modeled._symbol_policy.seed == symbol_seed_for("profile-probe")
     # Governed constructor options have no value of their own.
     parameters = inspect.signature(OrganismRuntime.__init__).parameters
     for option in GOVERNED_OPTIONS & set(parameters):
@@ -112,26 +111,19 @@ def test_bare_organisms_are_born_with_the_canonical_profile() -> None:
 
 
 def test_restored_organisms_keep_the_profile_they_were_born_with() -> None:
-    historical = create_canonical_organism(profile=HISTORICAL_V0)
-    restored = restore_canonical_organism(historical.checkpoint())
-    assert restored._profile_version == HISTORICAL_V0.version
+    born = create_canonical_organism(bootstrap_semantic_senses=True)
+    restored = restore_canonical_organism(born.checkpoint())
+    assert restored._profile_version == CANONICAL.version
     assert restored._bootstrap_semantic_senses is True
-    # A checkpoint written before profiles existed carries no profile_version.
-    legacy = historical.checkpoint()
-    del legacy["effective_config"]["profile_version"]
-    restored_legacy = restore_canonical_organism(_stamp(legacy))
-    assert restored_legacy._profile_version == HISTORICAL_V0.version
+    # No backward compatibility: a checkpoint that names no profile is rejected.
+    unversioned = born.checkpoint()
+    del unversioned["effective_config"]["profile_version"]
+    with pytest.raises(CheckpointError):
+        restore_canonical_organism(_stamp(unversioned))
 
 
-def test_historical_profile_matches_the_old_constructor_defaults() -> None:
-    assert HISTORICAL_V0.intention_policy() == IntentionPolicy()
-    assert HISTORICAL_V0.symbol_seed_policy == SYMBOL_SEED_SHARED
-    assert symbol_seed_for(HISTORICAL_V0, "any") == 0
-
-
-def test_canonical_profile_is_a_registered_version() -> None:
-    assert PROFILES[CANONICAL.version] is CANONICAL
-    assert PROFILES[HISTORICAL_V0.version] is HISTORICAL_V0
+def test_canonical_profile_is_the_only_registered_version() -> None:
+    assert PROFILES == {CANONICAL.version: CANONICAL}
 
 
 def test_no_launcher_deviates_without_declaring_it() -> None:

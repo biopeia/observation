@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 
 from lab.integration.organism import create_canonical_organism, restore_canonical_organism
-from symbiont.core.organism_profile import HISTORICAL_V0
+from lab.studies.common.conditions import CLOSED_STUDY_CONDITIONS
 from symbiont.core.social import SocialHabitat
 from symbiont.core.social.interactions import EcologicalResourcePool
 
@@ -31,7 +31,7 @@ def run_social_runtime_resource_adaptation_study() -> SocialRuntimeResourceAdapt
     habitat.admit("observer")
     habitat.admit("peer")
     runtime = create_canonical_organism(
-        profile=HISTORICAL_V0,
+        **CLOSED_STUDY_CONDITIONS,
         organism_id="observer",
         social_habitat=habitat,
         social_exchange_quantum=0.5,

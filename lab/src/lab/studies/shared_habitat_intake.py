@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 
 from lab.integration.organism import create_canonical_organism, restore_canonical_organism
-from symbiont.core.organism_profile import HISTORICAL_V0
+from lab.studies.common.conditions import CLOSED_STUDY_CONDITIONS
 from symbiont.core.social.ecology import SharedHabitat
 
 
@@ -27,7 +27,9 @@ def run_shared_habitat_intake_study() -> SharedHabitatIntakeStudy:
     assert habitat.admit("resident-a")
     assert habitat.admit("resident-b")
     runtimes = tuple(
-        create_canonical_organism(profile=HISTORICAL_V0, organism_id=organism_id, habitat=habitat)
+        create_canonical_organism(
+            **CLOSED_STUDY_CONDITIONS, organism_id=organism_id, habitat=habitat
+        )
         for organism_id in ("resident-a", "resident-b")
     )
     for runtime in runtimes:

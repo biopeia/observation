@@ -439,12 +439,11 @@ class OrganismRuntime:
             host_sense_sources = HostSenseSources()
         discovery_providers.extend(host_sense_sources.discovery_providers)
         reading_providers.extend(host_sense_sources.reading_providers)
-        host_available = host_sense_sources.availability == "available"
 
-        # Interoception is the organism's own. It is still only offered where
-        # host senses are (recorded in migration/open-issues.md).
+        # Interoception is the organism's own: it needs no host and is governed
+        # only by its mode.
         self._interoception_provider = None
-        if discover_senses and host_available and self._interoception_enabled:
+        if self._interoception_enabled:
             provider_type = (
                 ShamInteroceptionProvider if interoception_mode == "sham" else InteroceptionProvider
             )
@@ -3404,9 +3403,7 @@ class OrganismRuntime:
         return cls.from_checkpoint(payload, **kwargs)
 
     @classmethod
-    def load_or_create_for_first_boot(
-        cls, path: str | Path, **kwargs: Any
-    ) -> "OrganismRuntime":
+    def load_or_create_for_first_boot(cls, path: str | Path, **kwargs: Any) -> "OrganismRuntime":
         """Create only for an explicitly permitted first boot; otherwise restore."""
         payload = load_checkpoint_file(path)
         if payload is None:

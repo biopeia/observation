@@ -13,7 +13,6 @@ from lab.studies.learning.adaptive_replay_matched_control import (
     _transition_history,
 )
 from lab.studies.learning.replay_pressure_curve import PRESSURES, _budget_for_pressure
-from symbiont.core.organism_profile import HISTORICAL_V0
 from symbiont.modeling import (
     ModeledOrganismRuntime,
     ModelObjective,
@@ -136,7 +135,9 @@ def run_internal_learning_progress_study(
         organism_id = f"internal-progress-{seed}"
         runtime = create_canonical_organism(
             ModeledOrganismRuntime,
-            profile=HISTORICAL_V0,
+            sensory_plasticity=False,
+            auto_promote_predictors=False,
+            symbol_policy_seed=0,
             organism_id=organism_id,
             bootstrap_semantic_senses=False,
             discover_senses=False,

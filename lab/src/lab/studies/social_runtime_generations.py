@@ -11,7 +11,6 @@ from symbiont.cognition.birth import load_base_genome
 from symbiont.cognition.limits import KernelLimits
 from symbiont.core.embodiment.metabolism import MetabolicLedger
 from symbiont.core.embodiment.physiology import PhysiologyController
-from symbiont.core.organism_profile import HISTORICAL_V0
 from symbiont.core.social import SocialHabitat
 from symbiont.core.social.interactions import EcologicalResourcePool
 
@@ -42,7 +41,8 @@ def run_social_runtime_generations_study(*, generations: int = 3) -> SocialRunti
     social.admit("peer")
     zero = {kind: 0.0 for kind in ("observation", "cognition", "persistence", "maintenance")}
     active = create_canonical_organism(
-        profile=HISTORICAL_V0,
+        sensory_plasticity=False,
+        auto_promote_predictors=False,
         organism_id="generation-0",
         genome=genome,
         social_habitat=social,

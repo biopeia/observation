@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 
 from lab.integration.organism import create_canonical_organism
-from symbiont.core.organism_profile import HISTORICAL_V0
+from lab.studies.common.conditions import CLOSED_STUDY_CONDITIONS
 from symbiont.core.social import SocialHabitat
 from symbiont.core.social.interactions import EcologicalResourcePool
 
@@ -31,10 +31,10 @@ def run_social_runtime_context_study() -> SocialRuntimeContextStudy:
     for member in ("observer", "peer-a", "peer-b", "isolated"):
         habitat.admit(member)
     observer = create_canonical_organism(
-        profile=HISTORICAL_V0, organism_id="observer", social_habitat=habitat
+        **CLOSED_STUDY_CONDITIONS, organism_id="observer", social_habitat=habitat
     )
     isolated = create_canonical_organism(
-        profile=HISTORICAL_V0, organism_id="isolated", social_habitat=habitat
+        **CLOSED_STUDY_CONDITIONS, organism_id="isolated", social_habitat=habitat
     )
 
     # Establish two local evidence channels, then contradict one of them.

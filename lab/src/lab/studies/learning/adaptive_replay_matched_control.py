@@ -7,7 +7,6 @@ from lab.integration.organism import create_canonical_organism
 from lab.modeling import TrainingConfig, encode_corpus, train_private_model
 from lab.modeling.gateway import load_artifact_model
 from lab.modeling.outcome_metrics import evaluate_outcome_model
-from symbiont.core.organism_profile import HISTORICAL_V0
 from symbiont.modeling import (
     EpistemicStatus,
     ExperienceRecord,
@@ -176,7 +175,9 @@ def run_adaptive_replay_matched_control_study(
         organism_id = f"adaptive-replay-{seed}"
         runtime = create_canonical_organism(
             ModeledOrganismRuntime,
-            profile=HISTORICAL_V0,
+            sensory_plasticity=False,
+            auto_promote_predictors=False,
+            symbol_policy_seed=0,
             organism_id=organism_id,
             bootstrap_semantic_senses=False,
             discover_senses=False,

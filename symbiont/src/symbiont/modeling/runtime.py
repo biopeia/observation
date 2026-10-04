@@ -8,7 +8,7 @@ from typing import Any, Self
 
 from ..core.embodiment.physiology import VitalState
 from ..core.orchestration.runtime import OrganismDeadError, OrganismRuntime
-from ..core.organism_profile import PROFILES, symbol_seed_for
+from ..core.organism_profile import symbol_seed_for
 from ..host.checkpoint import CheckpointError
 from ..provenance import CausalEvent, CausalRef
 from .authority import ArchitectureId, ModelArtifactManifest, ModelObjective, TrainingRequest
@@ -231,7 +231,7 @@ class ModeledOrganismRuntime(OrganismRuntime):
             self.organism_id
         )
         if symbol_policy_seed is None:
-            symbol_policy_seed = symbol_seed_for(PROFILES[self._profile_version], self.organism_id)
+            symbol_policy_seed = symbol_seed_for(self.organism_id)
         self._symbol_policy = SymbolPolicy(
             self.organism_id,
             seed=symbol_policy_seed,
