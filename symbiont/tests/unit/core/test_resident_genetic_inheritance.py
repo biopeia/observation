@@ -5,6 +5,7 @@ from importlib import resources
 
 import pytest
 
+from symbiont.core.orchestration.resident import ResidentOrganism
 from symbiont.core.orchestration.runtime import OrganismRuntime
 from symbiont.genetics.genome import Genome, GenomeCodec
 from symbiont.genetics.germline import (
@@ -123,3 +124,54 @@ def test_inheritance_package_rejects_non_integer_generation(generation: object) 
             parent_ids=("parent",),
             generation=generation,  # type: ignore[arg-type]
         )
+
+
+def test_resident_budding_passes_explicit_genetic_inheritance_to_child(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    genome = _genome("resident-budding-integration")
+    parent = OrganismRuntime(
+        genome=genome,
+        organism_id="resident-parent",
+        generation=4,
+        epigenetic_protocol=EpigeneticProtocol(enabled=True),
+    )
+
+    class Habitat:
+        deposited: dict[str, object] | None = None
+
+        def publish_capsule(self, _capsule: object) -> None:
+            pass
+
+        def count_incubated(self) -> int:
+            return 0
+
+        def deposit_embryo(self, payload: dict[str, object], child_id: str) -> str:
+            self.deposited = {"payload": payload, "child_id": child_id}
+            return child_id
+
+    habitat = Habitat()
+    children: list[OrganismRuntime] = []
+
+    def create_child(**kwargs: object) -> OrganismRuntime:
+        child = OrganismRuntime(**kwargs)  # type: ignore[arg-type]
+        children.append(child)
+        return child
+
+    monkeypatch.setattr("symbiont.core.orchestration.resident.create_capsule", lambda *_: {})
+    resident = ResidentOrganism(
+        parent,
+        state_file=tmp_path / "parent.json",
+        habitat=habitat,  # type: ignore[arg-type]
+        keypair=object(),  # type: ignore[arg-type]
+        create_child=create_child,
+    )
+    resident._social_and_reproductive_step(20)
+
+    assert len(children) == 1
+    child = children[0]
+    assert child.generation == 5
+    assert child.parent_ids == ("resident-parent",)
+    assert child._genome == genome
+    assert habitat.deposited is not None
+    assert habitat.deposited["child_id"] == child.organism_id
