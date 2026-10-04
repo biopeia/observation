@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Collection, Mapping
 from dataclasses import dataclass, field
-from typing import Any, Mapping
+from typing import Any
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,52 +39,38 @@ class PhysicalResource:
     contact.
     """
 
-    client_id: int
+    scene: Any = field(repr=False, compare=False)
     position: tuple[float, float, float] = (3.0, 0.0, 0.18)
     radius: float = 0.18
     field_radius: float = 6.0
     remaining: float = 200.0
     transfer_per_tick: float = 2.0
-    body_id: int = field(init=False)
-    p: Any = field(init=False, repr=False, compare=False)
+
+    BODY_NAME = "resource"
 
     def __post_init__(self) -> None:
-        import pybullet
-
-        self.p = pybullet
         if self.radius <= 0.0 or self.field_radius <= self.radius:
             raise ValueError("invalid physical resource geometry")
         if self.remaining < 0.0 or self.transfer_per_tick <= 0.0:
             raise ValueError("invalid physical resource capacity")
-        collision = self.p.createCollisionShape(
-            self.p.GEOM_SPHERE,
-            radius=self.radius,
-            physicsClientId=self.client_id,
+        scene = self.scene
+        body = scene.spec.worldbody.add_body(name=self.BODY_NAME, pos=list(self.position))
+        body.add_geom(
+            type=scene.mj.mjtGeom.mjGEOM_SPHERE,
+            size=[self.radius, 0.0, 0.0],
+            rgba=[0.52, 0.78, 0.36, 1.0],
+            friction=[
+                RESOURCE_MATERIAL.lateral_friction,
+                RESOURCE_MATERIAL.spinning_friction,
+                RESOURCE_MATERIAL.rolling_friction,
+            ],
         )
-        visual = self.p.createVisualShape(
-            self.p.GEOM_SPHERE,
-            radius=self.radius,
-            rgbaColor=(0.52, 0.78, 0.36, 1.0),
-            physicsClientId=self.client_id,
-        )
-        self.body_id = self.p.createMultiBody(
-            baseMass=0.0,
-            baseCollisionShapeIndex=collision,
-            baseVisualShapeIndex=visual,
-            basePosition=self.position,
-            physicsClientId=self.client_id,
-        )
-        self.p.changeDynamics(
-            self.body_id,
-            -1,
-            lateralFriction=RESOURCE_MATERIAL.lateral_friction,
-            spinningFriction=RESOURCE_MATERIAL.spinning_friction,
-            rollingFriction=RESOURCE_MATERIAL.rolling_friction,
-            restitution=RESOURCE_MATERIAL.restitution,
-            linearDamping=RESOURCE_MATERIAL.linear_damping,
-            angularDamping=RESOURCE_MATERIAL.angular_damping,
-            physicsClientId=self.client_id,
-        )
+        scene.recompile()
+
+    @property
+    def body_id(self) -> int:
+        """Engine id of the resource; it may change when the scene is rebuilt."""
+        return self.scene.name_to_id("body", self.BODY_NAME)
 
     def distance_to(self, point: tuple[float, float, float]) -> float:
         return math.sqrt(sum((float(a) - float(b)) ** 2 for a, b in zip(point, self.position)))
@@ -98,15 +85,18 @@ class PhysicalResource:
         normalized = max(0.0, 1.0 - distance / self.field_radius)
         return normalized * normalized
 
-    def touching(self, body_id: int) -> bool:
+    def touching(self, body_ids: Collection[int]) -> bool:
+        """Whether any of the given engine bodies is in contact with the resource."""
         if self.remaining <= 0.0:
             return False
-        contacts = self.p.getContactPoints(
-            bodyA=body_id,
-            bodyB=self.body_id,
-            physicsClientId=self.client_id,
-        )
-        return bool(contacts)
+        model, data = self.scene.model, self.scene.data
+        own = self.body_id
+        for index in range(int(data.ncon)):
+            contact = data.contact[index]
+            pair = (int(model.geom_bodyid[contact.geom1]), int(model.geom_bodyid[contact.geom2]))
+            if (pair[0] == own and pair[1] in body_ids) or (pair[1] == own and pair[0] in body_ids):
+                return True
+        return False
 
     def offered_material(self) -> float:
         """Return the bounded amount physically available this cognitive tick."""
@@ -127,8 +117,8 @@ class PhysicalResource:
         self.remaining -= consumed
         return consumed
 
-    def take_contact_material(self, body_id: int) -> float:
-        if not self.touching(body_id):
+    def take_contact_material(self, body_ids: Collection[int]) -> float:
+        if not self.touching(body_ids):
             return 0.0
         amount = self.offered_material()
         self.consume_absorbed(amount)
@@ -145,16 +135,16 @@ class PhysicalResource:
         }
 
     @classmethod
-    def from_state(cls, client_id: int, payload: Mapping[str, Any] | None) -> "PhysicalResource":
+    def from_state(cls, scene: Any, payload: Mapping[str, Any] | None) -> "PhysicalResource":
         if payload is None:
-            return cls(client_id)
+            return cls(scene)
         if int(payload.get("schema_version", -1)) != 1:
             raise ValueError("unsupported Physics3D resource state")
         position = tuple(float(value) for value in payload["position"])
         if len(position) != 3:
             raise ValueError("resource position must have three coordinates")
         return cls(
-            client_id,
+            scene,
             position=position,
             radius=float(payload["radius"]),
             field_radius=float(payload["field_radius"]),

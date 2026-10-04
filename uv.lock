@@ -1106,11 +1106,11 @@ source = { editable = "modality" }
 
 [package.optional-dependencies]
 vision = [
-    { name = "pybullet" },
+    { name = "numpy" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "pybullet", marker = "extra == 'vision'", specifier = ">=3.2.7,<4" }]
+requires-dist = [{ name = "numpy", marker = "extra == 'vision'", specifier = ">=1.26" }]
 provides-extras = ["vision"]
 
 [[package]]

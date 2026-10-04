@@ -191,53 +191,44 @@ def fixture_position(fixture: dict, tick: int, seed: int) -> list[float]:
     return [base + axis * offset for base, axis in zip(fixture["position"], motion["axis"])]
 
 
-def update_environment(
-    client_id: int, recipe: dict, bodies: tuple[int, ...], tick: int, seed: int
-) -> None:
+def _fixture_name(index: int) -> str:
+    return f"fixture.{index}"
+
+
+def update_environment(scene, recipe: dict, tick: int, seed: int) -> None:
     """Move kinematic fixtures to their pose for ``tick``; static ones are untouched."""
-    import pybullet as p
-
-    for fixture, body in zip(recipe["fixtures"], bodies):
+    moved = False
+    for index, fixture in enumerate(recipe["fixtures"]):
         if fixture.get("motion"):
-            p.resetBasePositionAndOrientation(
-                body,
-                fixture_position(fixture, tick, seed),
-                (0, 0, 0, 1),
-                physicsClientId=client_id,
+            body = scene.name_to_id("body", _fixture_name(index))
+            scene.data.mocap_pos[scene.model.body_mocapid[body]] = fixture_position(
+                fixture, tick, seed
             )
+            moved = True
+    if moved:
+        scene.forward()
 
 
-def build_environment(client_id: int, recipe: dict) -> tuple[int, ...]:
-    """Instantiate static colliders, kinematic visual sources and their visuals."""
-    import pybullet as p
-
-    bodies = []
-    for fixture in recipe["fixtures"]:
-        half = [v / 2 for v in fixture["size"]]
-        shape = (
-            -1  # kinematic sources are visual only; they never collide
-            if fixture.get("motion")
-            else p.createCollisionShape(p.GEOM_BOX, halfExtents=half, physicsClientId=client_id)
-        )
+def build_environment(scene, recipe: dict) -> tuple[str, ...]:
+    """Add static colliders and kinematic visual sources; returns their body names."""
+    names = []
+    for index, fixture in enumerate(recipe["fixtures"]):
+        moving = bool(fixture.get("motion"))
         luminance = fixture.get("luminance")
-        rgba = (0.35, 0.45, 0.5, 1) if luminance is None else (luminance, luminance, luminance, 1)
-        visual = p.createVisualShape(
-            p.GEOM_BOX, halfExtents=half, rgbaColor=rgba, physicsClientId=client_id
+        name = _fixture_name(index)
+        body = scene.spec.worldbody.add_body(name=name, pos=list(fixture["position"]), mocap=moving)
+        geom = body.add_geom(
+            type=scene.mj.mjtGeom.mjGEOM_BOX,
+            size=[value / 2 for value in fixture["size"]],
+            rgba=[0.35, 0.45, 0.5, 1] if luminance is None else [luminance] * 3 + [1],
         )
-        body = p.createMultiBody(
-            baseMass=0,
-            baseCollisionShapeIndex=shape,
-            baseVisualShapeIndex=visual,
-            basePosition=fixture["position"],
-            physicsClientId=client_id,
-        )
-        if shape != -1:
-            p.changeDynamics(
-                body,
-                -1,
-                lateralFriction=fixture["friction"],
-                restitution=0,
-                physicsClientId=client_id,
-            )
-        bodies.append(body)
-    return tuple(bodies)
+        if moving:
+            # Kinematic sources are visual only; they never collide.
+            geom.contype = 0
+            geom.conaffinity = 0
+        else:
+            geom.friction[0] = float(fixture["friction"])
+        names.append(name)
+    if names:
+        scene.recompile()
+    return tuple(names)

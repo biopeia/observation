@@ -330,6 +330,8 @@ class ArticulatedPhysics:
             for name, index in self._link_index_by_name.items()
         }
         self.body_id = self._body_id_by_link[-1]
+        # Every engine body of this organism; ids move when the scene is rebuilt.
+        self.body_ids = frozenset(self._body_id_by_link.values())
         self._link_by_body_id = {body: index for index, body in self._body_id_by_link.items()}
         self._qpos_addresses = (
             *range(self._root_qpos, self._root_qpos + 7),
@@ -375,6 +377,12 @@ class ArticulatedPhysics:
         q = self._root_qpos
         w, x, y, z = (float(data.qpos[q + offset]) for offset in (3, 4, 5, 6))
         return [float(data.qpos[q + offset]) for offset in range(3)], [x, y, z, w]
+
+    def link_pose(self, link_name: str) -> tuple[list[float], list[float]]:
+        """World position and rotation (nine row-major values) of a link frame."""
+        _model, data = self._current()
+        body = self._body_id_by_link[self._link_index_by_name[link_name]]
+        return data.xpos[body].tolist(), data.xmat[body].tolist()
 
     def base_velocity(self) -> tuple[list[float], list[float]]:
         """Linear and angular base velocity, both in the world frame."""
@@ -491,11 +499,13 @@ class ArticulatedPhysics:
         values.append(self._external_field_signal)
         values.extend(self._bounded_contact_load(peak_force[link]) for link in self._contact_links)
 
-        if len(values) != len(self.receptor_ids):
+        # The spec's own receptors; a subclass may append further channels.
+        receptor_ids = self.SPEC.physical_receptor_ids()
+        if len(values) != len(receptor_ids):
             raise RuntimeError(
-                f"physics receptor contract mismatch: {len(values)} != {len(self.receptor_ids)}"
+                f"physics receptor contract mismatch: {len(values)} != {len(receptor_ids)}"
             )
-        self._sensor_values = dict(zip(self.receptor_ids, values))
+        self._sensor_values = dict(zip(receptor_ids, values))
         return dict(self._sensor_values)
 
     def receptor_value(self, receptor_id: str) -> float:

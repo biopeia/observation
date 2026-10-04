@@ -61,6 +61,28 @@ class PhysicsScene:
     def step(self) -> None:
         self.mj.mj_step(self.model, self.data)
 
+    def primitives(self) -> list[tuple[str, list[float], list[float], list[float], float]]:
+        """Every geom as plain data: kind, position, rotation, size, luminance.
+
+        This is what a sensing channel that must not import the engine reads.
+        """
+        model, data = self.model, self.data
+        primitives = []
+        for geom in range(int(model.ngeom)):
+            red, green, blue = (float(value) for value in model.geom_rgba[geom][:3])
+            primitives.append(
+                (
+                    self.mj.mjtGeom(int(model.geom_type[geom]))
+                    .name.removeprefix("mjGEOM_")
+                    .lower(),
+                    data.geom_xpos[geom].tolist(),
+                    data.geom_xmat[geom].tolist(),
+                    model.geom_size[geom].tolist(),
+                    0.2126 * red + 0.7152 * green + 0.0722 * blue,
+                )
+            )
+        return primitives
+
     def name_to_id(self, kind: str, name: str) -> int:
         """Id of a named ``body``, ``joint`` or ``geom``; raises if absent."""
         object_type = {

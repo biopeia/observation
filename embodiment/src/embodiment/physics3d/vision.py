@@ -57,23 +57,24 @@ def vision_receptor_contract_ids() -> tuple[str, ...]:
 class VisionHumanoidPhysics(HumanoidPhysics):
     """anthropomorphic-v6 plus one head-mounted receptor array.
 
-    ``receptor_array_factory(client_id, *, body_id, link_index,
-    receptor_ids, mount_offset, gaze_offset, side)`` must return an object with
-    ``receptor_ids`` and ``sample() -> Mapping[str, float]``.
+    ``receptor_array_factory(*, geometry, mount_pose, receptor_ids,
+    mount_offset, gaze_offset, side)`` must return an object with
+    ``receptor_ids`` and ``sample() -> Mapping[str, float]``.  ``geometry()``
+    and ``mount_pose()`` hand it the scene's primitives and the head link's
+    pose as plain data, so the array needs no engine.
     """
 
     def __init__(
         self,
-        client_id: int,
+        scene: Any,
         *,
         receptor_array_factory: Callable[..., Any],
         **kwargs,
     ) -> None:
-        super().__init__(client_id, **kwargs)
+        super().__init__(scene, **kwargs)
         self.visual_apparatus = receptor_array_factory(
-            client_id,
-            body_id=self.body_id,
-            link_index=self._link_index_by_name[HEAD_MOUNT_LINK],
+            geometry=scene.primitives,
+            mount_pose=lambda: self.link_pose(HEAD_MOUNT_LINK),
             receptor_ids=visual_receptor_contract_ids(),
             mount_offset=HEAD_MOUNT_OFFSET,
             gaze_offset=HEAD_MOUNT_GAZE_OFFSET,
