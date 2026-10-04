@@ -223,10 +223,6 @@ def _state_hash_of(checkpoint_payload: dict[str, Any]) -> str:
     return checkpoint_state_hash(checkpoint_payload)
 
 
-# Backward-compatible public name; canonical ownership lives in ActionDomain.
-ActionExecutionResult = ActionStepResult
-
-
 @dataclass(slots=True, frozen=True)
 class RuntimeTickResult:
     tick: int
@@ -252,7 +248,7 @@ class RuntimeTickResult:
     ontogeny: OntogenySnapshot | None = None
     degradation_excreted: int = 0
     retained_items: int = 0
-    action_result: ActionExecutionResult | None = None
+    action_result: ActionStepResult | None = None
     development: DevelopmentalSnapshot | None = None
     sensory_phenotype: dict[str, Any] | None = None
     # WARN(integrity): Bounded lifecycle facts emitted by the subject runtime.  The laboratory

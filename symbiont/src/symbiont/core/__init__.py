@@ -49,7 +49,6 @@ from .orchestration.governor import (
 )
 from .orchestration.resident import ResidentConfig, ResidentOrganism
 from .orchestration.runtime import (
-    ActionExecutionResult,
     OrganismDeadError,
     OrganismRuntime,
     RuntimeTickResult,
@@ -158,7 +157,6 @@ __all__ = [
     "SignedMessage",
     "AdversarialAssessment",
     "AdversarialEcology",
-    "ActionExecutionResult",
     "DevelopmentalPhase",
     "DevelopmentalSnapshot",
     "DevelopmentalTracker",
