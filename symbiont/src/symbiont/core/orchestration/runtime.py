@@ -17,13 +17,12 @@ from ...actuation.candidate import ActuatorCandidateState
 from ...actuation.checkpoint import restore_actuation_state
 from ...actuation.commitment import ActionCommitment, CommitmentStatus
 from ...actuation.competence import CompetenceGate, CompetenceLibrary, MotorCompetence
-from ...actuation.constitution import ActuatorConstitution
 from ...actuation.evidence import CausalEvidenceLedger, SensorimotorTransition
 from ...actuation.model import AgencyModel, CompetenceEffectModel, ControllabilityModel
 from ...actuation.proposer import ActuatorEvidenceModel
 from ...actuation.sensorimotor import CompetenceDevelopmentEngine, SensorimotorSnapshot
 from ...actuation.state import SensorimotorV2Snapshot
-from ...actuation.surface import ActuatorChannel, ActuatorSurface
+from ...actuation.surface import ActuatorChannel, ActuatorConstitution, ActuatorSurface
 from ...actuation.system import ActuatorSystem
 from ...actuation.types import Actuation, MotorIntent
 from ...agency.affordance import ActionAffordance

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from .candidate import ActuatorCandidateState
-from .constitution import ActuatorConstitution
+from .surface import ActuatorConstitution
 from .types import ActuatorId
 
 

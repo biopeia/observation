@@ -1,9 +1,5 @@
-"""Public Sensorimotor v2 action API.
+"""Public Sensorimotor v2 action API."""
 
-Legacy sequence/chunk representations stay inside ``sensorimotor`` for
-checkpoint migration and controller seeding; new code should depend on these
-contracts.
-"""
 
 from .action import (
     ActionEvaluation,

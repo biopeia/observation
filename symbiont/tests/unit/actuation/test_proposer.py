@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from symbiont.actuation.constitution import derive_actuator_constitution
 from symbiont.actuation.proposer import ActuatorEvidenceModel
+from symbiont.actuation.surface import derive_actuator_constitution
 
 
 def _constitution(slot_count: int = 2):

@@ -98,7 +98,7 @@ def test_apply_wear_kills_body_when_all_structures_destroyed():
 
 
 def test_organism_runtime_populates_structures_from_actuator_slots():
-    from symbiont.actuation.constitution import ActuatorConstitution, MotorSlot
+    from symbiont.actuation.surface import ActuatorConstitution, MotorSlot
     from symbiont.core.orchestration.runtime import OrganismRuntime
 
     constitution = ActuatorConstitution(

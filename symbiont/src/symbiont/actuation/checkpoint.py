@@ -3,8 +3,8 @@ from __future__ import annotations
 from typing import Any
 
 from .candidate import ActuatorCandidateState
-from .constitution import ActuatorConstitution
 from .proposer import ActuatorEvidenceModel
+from .surface import ActuatorConstitution
 
 
 def export_actuation_state(evidence_model: ActuatorEvidenceModel) -> dict[str, Any]:

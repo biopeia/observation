@@ -8,7 +8,7 @@ from lab.integration.world.adapter import (
     ActuationBindingConstitution,
     local_substrate_signals,
 )
-from symbiont.actuation.constitution import derive_actuator_constitution
+from symbiont.actuation.surface import derive_actuator_constitution
 from symbiont.actuation.types import Actuation
 
 

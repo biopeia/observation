@@ -23,8 +23,7 @@ from environment.rng import derive_world_rng, derive_world_seed
 from environment.state import WorldState
 from environment.topology import BodyPlacement, HexCoord, HexTopology
 from lab.integration.organism import create_canonical_organism
-from symbiont.actuation.constitution import ActuatorConstitution
-from symbiont.actuation.surface import derive_actuator_constitution
+from symbiont.actuation.surface import ActuatorConstitution, derive_actuator_constitution
 from symbiont.actuation.types import Actuation
 from symbiont.cognition.birth import load_base_genome
 from symbiont.cognition.limits import KernelLimits

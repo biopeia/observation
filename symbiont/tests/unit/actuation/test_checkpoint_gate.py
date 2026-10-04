@@ -3,8 +3,8 @@ from __future__ import annotations
 import pytest
 
 from symbiont.actuation.checkpoint import export_actuation_state, restore_actuation_state
-from symbiont.actuation.constitution import derive_actuator_constitution
 from symbiont.actuation.proposer import ActuatorEvidenceModel
+from symbiont.actuation.surface import derive_actuator_constitution
 
 
 def _dormant_candidate_payload(actuator_id: str) -> dict:
