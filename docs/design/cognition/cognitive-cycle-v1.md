@@ -19,8 +19,9 @@ language: en
 Status: **approved** by the project owner (2026-10-04) for its stated scope:
 the cycle (§2), the authority table (§3) and the contracts (§5–§11).
 Decision: [ADR-0068](../../adr/ADR-0068-factual-authority-and-single-experienced-event.md).
-Implementation: **partial** — W0 done, W1 mechanism present and off by
-default; enabling W1 and waves W2–W6 are not approved by this status (§14).
+Implementation: **partial** — W0 and W2 (F3) done, W1 mechanism present and
+off by default; enabling W1 and waves W3–W6 are not approved by this status
+(§14).
 
 ## 1. Purpose and limits
 
@@ -250,9 +251,22 @@ them (already recorded as debt in the ownership audit §8). With §5.1 in
 force the boundary has a checkable form: a motor-caused note must carry a
 `causal.` reference.
 
-Status: F1 and F2 are closed only when `shared_fact_identity` is enabled
-(§13, W1); the default organism still behaves as described above. F3–F5 are
-open.
+Status:
+
+- F1 and F2 are closed only when `shared_fact_identity` is enabled (§13,
+  W1); the default organism still behaves as described above.
+- F3 is closed (W2): an intent outcome decided by an observed effect, and
+  the executive evidence learned from it, cite
+  `CausalRef("transition", transition_id)`. Outcomes decided by the
+  controller, by invalidation or by stagnation cite no transition, because
+  no observed fact decided them.
+- F4 is open and deliberately not implemented as a provenance event. Credit
+  resolves per outcome token and horizon — up to 48 resolutions per tick —
+  which would evict the rest of the 8192-event ring within a few hundred
+  ticks, and a frontier entry per outcome token is not bounded by any live
+  reference set. It needs an aggregate design, not an event per credit.
+- F5 is open: the check can only be enforced once W1 is enabled, since the
+  default private note carries no `causal.` reference.
 
 None of F1–F5 is a correctness bug in a learner. Each is a place where the
 "same fact" cannot be recognised as the same.
@@ -414,7 +428,7 @@ change would carry; only W0 is in this change.
 |---|---|---|---|
 | **W0** | This document; ADR-0068 (Accepted); register entry; a structural test that locks the invariants of §2–§3 and §5.1 that already hold | CONSTITUTIONAL by surface (`docs/adr/**`), under ADR-0068 | Owner review of the candidate |
 | **W1** | Shared fact identity (F1, F2): a private episode whose action closed a `SensorimotorTransition` cites `causal.{transition_id}` first among its evidence references. **Mechanism implemented, off by default** (`shared_fact_identity`) | SCIENTIFIC when enabled | It changes `ExperienceRecord.content_hash` (ledger chain, corpus dedupe key) and `source_diversity`, hence retention protection. Enabling it requires an owner-approved comparison of retention and corpus composition with and without the shared reference |
-| **W2** | Provenance linkage and boundary check (F3, F4, F5): a motor-caused generative note must carry a `causal.` reference; `outcome_learning` events cite `CausalRef("transition", …)`; outcome-value credit retains the scheduling episode | ORDINARY if observer-equivalent, else SCIENTIFIC | Check that the checkpointed provenance frontier stays bounded (retire transition refs) and that no decision reads the new field |
+| **W2** | Provenance linkage (F3): intent termination and `outcome_learning` events cite `CausalRef("transition", …)` when an observed effect decided the outcome. **Implemented.** F4 and F5 stay open (§5.2) | SCIENTIFIC by surface (`symbiont/src/**`); provenance only | Provenance is outward-only and no decision reads it (Constitution item 86). The frontier stays bounded: the cause is added to existing entries and creates no new live reference. It does change provenance event ids and the checkpointed frontier content |
 | **W3** | Evaluation vector (§10): carry executive history, endogenous value and predicted-outcome confidence as named `ActionEvaluation` fields on both admission routes; remove the product in `ProspectivePolicy` only if a contradictory-decision case is shown | SCIENTIFIC | A concrete case where the current gates and the vector disagree (ownership audit §7 item 4) |
 | **W4** | Generative sources (§7): register episodic retrieval as an online generative source next to `competence-effect` and `private-slm` | SCIENTIFIC | Episodic decision consumption is below E2 today; needs a differential test before any claim |
 | **W5** | Retention pressure (§11): a shared, read-only pressure record feeding the existing owners | SCIENTIFIC | Capacity measurement must stay passive (Constitution items 91–93) |

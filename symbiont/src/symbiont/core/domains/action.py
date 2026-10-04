@@ -1478,6 +1478,7 @@ class ActionDomain:
                 if self.intention.policy.mismatch_known_features_only
                 else None
             ),
+            transition_id=transition.transition_id if transition is not None else None,
         )
         if outcome is None or own_commitment is None or not own_commitment.active:
             return

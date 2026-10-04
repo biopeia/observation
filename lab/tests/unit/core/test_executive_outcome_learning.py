@@ -341,3 +341,32 @@ def test_suppression_and_its_lifting_are_traced():
     )
     (lift,) = [e for e in domain.provenance.events() if e.operation == "lift_suppression"]
     assert lift.tick == 9 and lift.parameters["binding_fingerprint"] == "surface|2"
+
+
+def test_executive_evidence_cites_the_transition_that_decided_it():
+    """ADR-0068: an outcome decided by an observed fact names that fact; others do not."""
+    from symbiont.provenance import CausalRef, ProvenanceLog
+
+    domain, _probe = _domain()
+    domain.provenance = ProvenanceLog()
+    _run(domain, "competence.a", "effect.a", tick=1)
+    domain.observe_effect(
+        observed_effect_id="effect.a",
+        prediction_error=None,
+        effect_similarity=1.0,
+        tick=2,
+        commitment_id=domain.active_commitment_id,
+        commitment_status=None,
+        competence_executable=True,
+        embodiment_id="e1",
+        transition_id="transition.abc",
+    )
+    _run(domain, "competence.b", "effect.b", tick=10)
+    _observe(domain, tick=11, status=CommitmentStatus.FAILED)  # decided by the controller
+
+    fact = CausalRef("transition", "transition.abc")
+    observed, controller = [e for e in domain.provenance.events() if e.operation == "learn"]
+    assert fact in observed.caused_by
+    assert not any(ref.kind == "transition" for ref in controller.caused_by)
+    (satisfied,) = [e for e in domain.provenance.events() if e.operation == "satisfied"]
+    assert fact in satisfied.caused_by
