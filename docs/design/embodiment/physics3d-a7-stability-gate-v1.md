@@ -22,8 +22,12 @@ language: en
 > result is claimed. Nothing here carries over by argument: stability on the
 > new substrate needs its own protocol, specified against that substrate.
 
-**Lifecycle:** proposed protocol; not frozen. No campaign has been authorized or
-run under this document.
+**Lifecycle:** closed as not assessable on 2026-10-04. This is a historical
+PyBullet protocol, not an active proposal or frozen protocol. Its campaign was
+not run; its settings, thresholds, and proposed matrix do not transfer to
+MuJoCo. A separate apparatus plan is proposed in
+[MuJoCo Physics3D Apparatus Calibration v1](mujoco-physics3d-calibration-v1.md);
+that proposal authorizes no runs or experiments.
 
 ## 1. Purpose and boundary
 

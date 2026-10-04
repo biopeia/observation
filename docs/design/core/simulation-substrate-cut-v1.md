@@ -1,7 +1,8 @@
 # Simulation Substrate Cut v1
 
 Status: **approved** by the project owner (2026-10-04). Implementation:
-**pending**. Decisions: [ADR-0065](../../adr/ADR-0065-simulation-substrate-clean-cut.md)
+**partial** — the engine replacement is implemented; post-cut apparatus
+recalibration is pending. Decisions: [ADR-0065](../../adr/ADR-0065-simulation-substrate-clean-cut.md)
 (clean cut), [ADR-0066](../../adr/ADR-0066-mujoco-physics-engine-and-engine-independent-vision.md)
 (engine and vision), [ADR-0067](../../adr/ADR-0067-revisioned-state-sections-and-passive-observation.md)
 (state, observation, checkpoint encoding). Owner
@@ -25,7 +26,10 @@ cost table of §2 no longer holds at the current baseline: the organism step
 is about 70 % of a tick and physics 14–19 %; the engine spike is feasible;
 one revision per top-level state section saves only about 16 %. This meets
 the "reconsider if" condition of §14. The ordering and scope of the
-workstreams are with the owner before step 1 starts.
+workstreams were pending owner disposition before step 1. The owner has since
+authorized drafting a proposed, exploratory MuJoCo/vision apparatus-calibration
+design; this does not authorize implementation, runs, or experiments. See
+[MuJoCo Physics3D Apparatus Calibration v1](../embodiment/mujoco-physics3d-calibration-v1.md).
 
 **Engine replaced (2026-10-04):** Physics3D runs on MuJoCo and PyBullet is
 removed from every domain (ADR-0066). Bodies, world objects, the Lab runtime,
