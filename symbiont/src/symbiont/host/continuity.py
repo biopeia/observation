@@ -284,7 +284,6 @@ REGISTER: tuple[ContinuityEntry, ...] = (
         _I,
         "actuation",
         _VOID,
-        migration="pre-ActionDomain checkpoints restore from the legacy actuation layout",
         # Live commitment, pending motor observation and the executive intention
         # are properties of this domain.
         extra_checkpoint_fields=("executive_intention",),
