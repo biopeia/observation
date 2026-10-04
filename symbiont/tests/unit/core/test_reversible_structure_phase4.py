@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from dataclasses import replace
 
+import pytest
+
 from symbiont.cognition.birth import load_base_cognition
-from symbiont.cognition.graph import CognitiveGraph, PlasticEdge, PlasticNode
+from symbiont.cognition.graph import CognitiveGraph, GraphError, PlasticEdge, PlasticNode
 from symbiont.cognition.limits import KernelLimits
 from symbiont.cognition.types import EdgeKind, NodeKind
 from symbiont.core.cognition.bridge import CognitiveBridge, TopologyHealth
@@ -107,69 +109,29 @@ def test_maintenance_planning_sees_orphan_created_by_same_tick_prune() -> None:
     assert bridge.export_checkpoint()["orphan_since_tick"]["concept_a"] == 1
 
 
-def _worker3_graph(limits: KernelLimits) -> CognitiveGraph:
-    senses = tuple(PlasticNode(f"sense_{index:02d}", NodeKind.SENSE) for index in range(58))
-    concepts = tuple(PlasticNode(f"concept_{index:02d}", NodeKind.CONCEPT) for index in range(5))
-    readout = (PlasticNode("readout_core", NodeKind.READOUT),)
-    return CognitiveGraph(nodes=senses + concepts + readout, edges=(), kernel_limits=limits)
-
-
-def _legacy_worker3_payload(*, limits: KernelLimits, genome) -> dict[str, object]:
-    source = CognitiveBridge(
-        graph=_worker3_graph(limits),
-        genome=genome,
-        kernel_limits=limits,
-        develop_senses=True,
-    )
-    payload = source.export_checkpoint()
-    payload["topology_revision"] = 29
-    for field in (
+@pytest.mark.parametrize(
+    "field",
+    (
         "concept_lineage",
         "sense_last_seen_tick",
         "orphan_since_tick",
         "recovery_pending",
-    ):
-        payload.pop(field, None)
-    return payload
-
-
-def test_restore_detects_exact_worker3_deadlock_and_enters_recovery() -> None:
-    limits, genome = _base(reacclimation_ticks=1)
-    restored = CognitiveBridge.restore(
-        _legacy_worker3_payload(limits=limits, genome=genome),
+        "adaptive_resource_budgets",
+    ),
+)
+def test_restore_rejects_checkpoint_missing_required_current_field(field: str) -> None:
+    limits, genome = _base()
+    bridge = CognitiveBridge(
+        graph=_path_graph(support=1, limits=limits),
         genome=genome,
         kernel_limits=limits,
+        develop_senses=True,
     )
+    checkpoint = bridge.export_checkpoint()
+    del checkpoint[field]
 
-    assert restored is not None
-    assert len(restored.graph.nodes) == 64
-    assert restored.graph.edges == ()
-    assert restored.recovery_pending is True
-    assert restored.topology_health is TopologyHealth.RECOVERING
-    assert restored.topology_revision == 29
-
-
-def test_worker3_deadlock_releases_orphans_and_excess_senses_without_fabricating_edges() -> None:
-    limits, genome = _base(reacclimation_ticks=1)
-    restored = CognitiveBridge.restore(
-        _legacy_worker3_payload(limits=limits, genome=genome),
-        genome=genome,
-        kernel_limits=limits,
-    )
-    assert restored is not None
-
-    # Recovery releases the legacy deadlock graph without fabricating new
-    # senses or edges. New sensory structure must be earned from observations.
-    for tick in (1088, 1120, 1152, 1184):
-        restored.tick({}, tick=tick)
-
-    senses = [node for node in restored.graph.nodes if node.kind is NodeKind.SENSE]
-    assert senses == []
-    assert restored.graph.nodes == ()
-    assert restored.graph.edges == ()
-    assert restored.recovery_pending is False
-    assert restored.topology_health is TopologyHealth.GERMINAL
-    assert restored.topology_revision == 33
+    with pytest.raises(GraphError, match="current contract"):
+        CognitiveBridge.restore(checkpoint, genome=genome, kernel_limits=limits)
 
 
 def test_owner_authored_degenerate_shape_is_not_automatically_recovered() -> None:

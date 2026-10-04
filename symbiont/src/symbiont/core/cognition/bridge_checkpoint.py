@@ -26,6 +26,33 @@ from .sense_concept_lifecycle import ConceptLineage, SenseConceptLifecycle
 from .structural_candidates import StructuralCandidate, StructuralContention
 
 _MAX_SHADOW_PREDICTIONS = 16384
+_BRIDGE_CHECKPOINT_FIELDS = frozenset(
+    {
+        "graph",
+        "safety_state",
+        "sensory_normalizers",
+        "topology_revision",
+        "tick",
+        "develop_senses",
+        "concept_lineage",
+        "sense_last_seen_tick",
+        "orphan_since_tick",
+        "unrouted_since_tick",
+        "concept_last_active_tick",
+        "node_born_tick",
+        "node_observation_count",
+        "node_active_count",
+        "next_concept_index",
+        "recovery_pending",
+        "shadow_predictions",
+        "predictor_utility",
+        "predictor_retirement",
+        "structural_candidates",
+        "consolidation_generation",
+        "last_consolidated_producer_id",
+        "adaptive_resource_budgets",
+    }
+)
 
 
 @dataclass(slots=True)
@@ -439,6 +466,14 @@ def restore_bridge_state(
 ) -> RestoredBridgeState | None:
     if payload is None:
         return None
+    fields = frozenset(payload)
+    if fields != _BRIDGE_CHECKPOINT_FIELDS:
+        missing = sorted(_BRIDGE_CHECKPOINT_FIELDS - fields)
+        unexpected = sorted(fields - _BRIDGE_CHECKPOINT_FIELDS)
+        raise GraphError(
+            "bridge checkpoint fields do not match the current contract "
+            f"(missing={missing}, unexpected={unexpected})"
+        )
     raw_graph = payload.get("graph")
     graph_payload = raw_graph if isinstance(raw_graph, dict) else None
     graph = restore_graph_checkpoint(

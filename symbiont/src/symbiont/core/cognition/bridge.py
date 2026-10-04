@@ -69,7 +69,6 @@ class CognitiveBridgeResult:
     structural_producers: int = 0
     oldest_structural_wait_ticks: int = 0
     representation_maturity: Mapping[str, int] | None = None
-    max_contention_losses: int = 0
     node_budget: int = 0
     edge_budget: int = 0
     sense_budget: int = 0
@@ -741,10 +740,6 @@ class CognitiveBridge:
             graph,
         )
 
-    def _nodes_with_path_to_readout(self, graph: CognitiveGraph | None = None) -> set[str]:
-        """Legacy alias: historically "readout" meant readout_core."""
-        return self._nodes_with_path_to_core_readout(graph)
-
     def _update_unrouted_tracking(
         self,
         tick: int,
@@ -859,21 +854,12 @@ class CognitiveBridge:
                 return TopologyHealth.DEGENERATE
         return TopologyHealth.DEVELOPING
 
-    def _hard_deadlock_signature(self) -> bool:
-        if not self._develop_senses or self._graph.edges:
-            return False
-        latent = any(node.kind is not NodeKind.SENSE for node in self._graph.nodes)
-        return latent and len(self._graph.nodes) >= self._soft_node_limit
-
-    def _enter_recovery_if_needed(self, *, prime_legacy_deadlock: bool = False) -> None:
+    def _enter_recovery_if_needed(self) -> None:
         if not self._develop_senses or self._recovery_pending:
             return
         if self._classify_topology_health(include_recovery=False) is not TopologyHealth.DEGENERATE:
             return
         self._recovery_pending = True
-        if prime_legacy_deadlock and self._hard_deadlock_signature():
-            for node_id in self._orphan_latent_ids():
-                self._lifecycle.orphan_since_tick.setdefault(node_id, 0)
 
     def _refresh_recovery_state(self) -> None:
         if not self._recovery_pending:
@@ -1066,14 +1052,13 @@ class CognitiveBridge:
         bridge._representations.active_count = state.node_active_count
         bridge._recovery_pending = state.recovery_pending
 
-        # Preserve historical restore ordering: shadow pruning runs against the
-        # bridge's initial topology revision, then the persisted revision is
-        # installed.
+        # Shadow pruning runs against the bridge's initial topology revision,
+        # then the persisted revision is installed.
         bridge._prune_shadow_predictions()
         bridge._topology_revision = state.topology_revision
         bridge._reacclimation_remaining = kernel_limits.reacclimation_ticks
         bridge._reconcile_node_metadata()
-        bridge._enter_recovery_if_needed(prime_legacy_deadlock=True)
+        bridge._enter_recovery_if_needed()
         return bridge
 
     def _learning_nodes(self, attended_sense_ids: Collection[str] | None) -> set[str]:
@@ -1392,9 +1377,6 @@ class CognitiveBridge:
                 default=0,
             ),
             representation_maturity=representation_maturity_counts,
-            # NOTE(legacy): Legacy metric retained for snapshot compatibility. Producer-level
-            # arbitration no longer accumulates contention debt.
-            max_contention_losses=0,
             node_budget=self._budgets.node_budget,
             edge_budget=self._budgets.edge_budget,
             sense_budget=self._budgets.sense_budget,

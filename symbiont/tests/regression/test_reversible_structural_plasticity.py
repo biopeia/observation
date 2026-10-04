@@ -101,68 +101,6 @@ def test_sensory_turnover_reclaims_stale_disconnected_senses_and_admits_new_ones
     _assert_viable(bridge)
 
 
-def _legacy_worker3_payload(*, limits: KernelLimits, genome) -> dict[str, object]:
-    senses = tuple(PlasticNode(f"sense_{index:02d}", NodeKind.SENSE) for index in range(58))
-    concepts = tuple(PlasticNode(f"concept_{index:02d}", NodeKind.CONCEPT) for index in range(5))
-    graph = CognitiveGraph(
-        nodes=senses + concepts + (PlasticNode("readout_core", NodeKind.READOUT),),
-        edges=(),
-        kernel_limits=limits,
-    )
-    source = CognitiveBridge(
-        graph=graph,
-        genome=genome,
-        kernel_limits=limits,
-        develop_senses=True,
-    )
-    payload = source.export_checkpoint()
-    payload["topology_revision"] = 29
-    for field in (
-        "concept_lineage",
-        "sense_last_seen_tick",
-        "orphan_since_tick",
-        "recovery_pending",
-    ):
-        payload.pop(field, None)
-    return payload
-
-
-def test_exact_worker3_fixture_recovers_then_learns_a_new_connected_topology() -> None:
-    limits = KernelLimits(reacclimation_ticks=1)
-    genome, _ = load_base_cognition(kernel_limits=limits, running_version=(0, 80, 16))
-    genome = replace(
-        genome,
-        structure=replace(genome.structure, minimum_support=4),
-    )
-    bridge = CognitiveBridge.restore(
-        _legacy_worker3_payload(limits=limits, genome=genome),
-        genome=genome,
-        kernel_limits=limits,
-    )
-    assert bridge is not None
-    assert bridge.topology_health is TopologyHealth.RECOVERING
-
-    for tick in (1088, 1120, 1152, 1184):
-        bridge.tick({}, tick=tick)
-    assert bridge.topology_health is TopologyHealth.GERMINAL
-    assert bridge.graph.nodes == ()
-    assert bridge.graph.edges == ()
-
-    # The recovery never guesses the lost worker-3 wiring. New structure is
-    # earned from fresh post-recovery evidence using two retained opaque senses.
-    for tick in range(1185, 1249):
-        bridge.tick(
-            {"sense_56": float(tick), "sense_57": float(2 * tick)},
-            tick=tick,
-        )
-
-    assert bridge._has_sense_to_readout_path()
-    assert bridge.topology_health in (TopologyHealth.CONNECTED, TopologyHealth.ADAPTIVE)
-    assert any(node.kind is NodeKind.CONCEPT for node in bridge.graph.nodes)
-    assert any(node.kind is NodeKind.READOUT for node in bridge.graph.nodes)
-    _assert_viable(bridge)
-
-
 def test_repeated_turnover_without_concepts_never_exhausts_sense_budget() -> None:
     _, _, bridge = _fast_germinal(
         sense_budget=6,
