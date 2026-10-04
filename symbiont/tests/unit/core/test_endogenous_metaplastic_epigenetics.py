@@ -19,6 +19,7 @@ from symbiont.genetics.expression import (
     ExpressionRegulator,
     GeneExpressionState,
     RegulatorySignals,
+    restore_expression_state,
 )
 from symbiont.genetics.germline import EpigeneticProtocol
 
@@ -183,8 +184,14 @@ def test_m3b_live_seed_captures_only_when_protocol_is_explicitly_enabled():
 
 
 def test_m4_expression_relaxes_toward_birth_after_pressure_ends():
-    genome = _genome("m4")
-    germline = create_germline_state(genome)
+    genome = _genome("m4", learning_rate=0.10)
+    inherited = EpigeneticMark(
+        locus="plasticity.learning_rate.baseline",
+        delta=0.10,
+        strength=0.8,
+        generations_left=2,
+    )
+    germline = GermlineState.from_genome(genome, inherited_marks=(inherited,))
     state = GeneExpressionState.from_genome(genome, germline=germline)
     regulator = ExpressionRegulator()
 
@@ -196,11 +203,12 @@ def test_m4_expression_relaxes_toward_birth_after_pressure_ends():
         )
 
     elevated = state.as_dict()
+    state = restore_expression_state(elevated, genome)
     for _ in range(240):
         state = regulator.update(genome, state, RegulatorySignals())
     relaxed = state.as_dict()
 
-    birth = genome.plasticity.learning_rate.baseline
+    birth = germline.birth_expression["plasticity.learning_rate.baseline"]
     assert elevated["effective_learning_rate"] > birth
     assert birth < relaxed["effective_learning_rate"] < elevated["effective_learning_rate"]
 

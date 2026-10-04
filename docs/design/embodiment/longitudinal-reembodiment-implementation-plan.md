@@ -15,11 +15,11 @@ language: en
 Status: **historical plan; not an active checkpoint-migration contract**.
 
 > **Current restore boundary (2026-10-04):** the outer organism loader accepts
-> schema 12 only and rejects older outer checkpoint schemas without migration.
+> schema 13 only and rejects older outer checkpoint schemas without migration.
 > The migration steps below record the original plan; they cannot be used to
-> restore schemas 1–11. A separately authorized transform of a schema-12
-> checkpoint is a different operation and must follow the current lifecycle
-> and continuity contracts.
+> restore schemas 1–12. A separately authorized historical-data conversion is
+> a different operation and must follow the current lifecycle and continuity
+> contracts; it is not runtime checkpoint restore.
 
 This document translates the longitudinal specs into concrete code changes.
 

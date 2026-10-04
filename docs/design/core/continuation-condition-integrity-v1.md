@@ -46,6 +46,10 @@ does not contain it and is rejected; no migration is provided. This preserves
 the distinction between readable historical evidence and a checkpoint accepted
 as a live continuation.
 
+The current outer checkpoint schema is 13. It also persists the expression
+birth baselines required for correct post-restore metaplastic relaxation, and
+rejects schema 12 rather than inferring that state.
+
 ## 4. Evidence boundary
 
 The contract establishes mechanical detection of missing or changed saved

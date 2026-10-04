@@ -42,6 +42,7 @@ class GeneExpressionState:
     effective_growth_threshold: float
     effective_pruning_threshold: float
     exploration_drive: float
+    birth_expression: dict[str, float]
     regulatory_activation: dict[str, float] = field(default_factory=dict)
     update_count: int = 0
 
@@ -112,12 +113,20 @@ class GeneExpressionState:
                 ),
             ),
         )
+        birth_expression = {
+            "plasticity.learning_rate.baseline": learning_value,
+            "plasticity.structural_plasticity.baseline": structural_value,
+            "structure.growth_threshold.baseline": growth_value,
+            "structure.pruning_threshold.baseline": pruning_value,
+            "sensorimotor.spontaneous_activity_baseline": exploration_value,
+        }
         return cls(
             effective_learning_rate=learning_value,
             effective_structural_plasticity=structural_value,
             effective_growth_threshold=growth_value,
             effective_pruning_threshold=pruning_value,
             exploration_drive=exploration_value,
+            birth_expression=birth_expression,
             regulatory_activation={},
             update_count=0,
         )
@@ -129,6 +138,7 @@ class GeneExpressionState:
             "effective_growth_threshold": self.effective_growth_threshold,
             "effective_pruning_threshold": self.effective_pruning_threshold,
             "exploration_drive": self.exploration_drive,
+            "birth_expression": dict(self.birth_expression),
             "regulatory_activation": dict(self.regulatory_activation),
             "update_count": self.update_count,
         }
@@ -159,6 +169,7 @@ class ExpressionRegulator:
                 effective_growth_threshold=state.effective_growth_threshold,
                 effective_pruning_threshold=state.effective_pruning_threshold,
                 exploration_drive=state.exploration_drive,
+                birth_expression=dict(state.birth_expression),
                 regulatory_activation=dict(state.regulatory_activation),
                 update_count=state.update_count,
             )
@@ -176,8 +187,9 @@ class ExpressionRegulator:
         adaptive_pressure = max(mismatch_pressure, resource_pressure)
 
         learning = genome.plasticity.learning_rate
+        learning_birth = state.birth_expression["plasticity.learning_rate.baseline"]
         learning_target = (
-            learning.baseline + (learning.maximum - learning.baseline) * mismatch_pressure
+            learning_birth + (learning.maximum - learning_birth) * mismatch_pressure
         )
         learning_value = self._move(
             state.effective_learning_rate,
@@ -188,12 +200,17 @@ class ExpressionRegulator:
         # Adaptation responds to current internally available pressure, while
         # regulation_decay supplies the slow return toward the constitutive
         # baseline once pressure subsides.
-        learning_value += decay * (learning.baseline - learning_value)
+        learning_value += decay * (learning_birth - learning_value)
         learning_value = max(learning.minimum, min(learning.maximum, learning_value))
 
         structural = genome.plasticity.structural_plasticity
         structural_target = (
-            structural.baseline + (structural.maximum - structural.baseline) * mismatch_pressure
+            state.birth_expression["plasticity.structural_plasticity.baseline"]
+            + (
+                structural.maximum
+                - state.birth_expression["plasticity.structural_plasticity.baseline"]
+            )
+            * mismatch_pressure
         )
         structural_value = self._move(
             state.effective_structural_plasticity,
@@ -203,7 +220,8 @@ class ExpressionRegulator:
         )
 
         growth = genome.structure.growth_threshold
-        growth_target = growth.baseline - (growth.baseline - growth.minimum) * mismatch_pressure
+        growth_birth = state.birth_expression["structure.growth_threshold.baseline"]
+        growth_target = growth_birth - (growth_birth - growth.minimum) * mismatch_pressure
         growth_value = self._move(
             state.effective_growth_threshold,
             growth_target,
@@ -212,7 +230,8 @@ class ExpressionRegulator:
         )
 
         pruning = genome.structure.pruning_threshold
-        pruning_target = pruning.baseline - (pruning.baseline - pruning.minimum) * mismatch_pressure
+        pruning_birth = state.birth_expression["structure.pruning_threshold.baseline"]
+        pruning_target = pruning_birth - (pruning_birth - pruning.minimum) * mismatch_pressure
         pruning_value = self._move(
             state.effective_pruning_threshold,
             pruning_target,
@@ -222,7 +241,7 @@ class ExpressionRegulator:
 
         sm = genome.sensorimotor
         exploration_target = _unit(
-            sm.spontaneous_activity_baseline
+            state.birth_expression["sensorimotor.spontaneous_activity_baseline"]
             + sm.uncertainty_exploration_gain * signals.uncertainty
             + sm.prediction_error_exploration_gain * signals.prediction_error
             + sm.reacclimation_sensitivity * signals.embodiment_mismatch
@@ -241,7 +260,11 @@ class ExpressionRegulator:
         exploration_value = _unit(
             state.exploration_drive
             + alpha * (exploration_target - state.exploration_drive)
-            + decay * (sm.spontaneous_activity_baseline - state.exploration_drive)
+            + decay
+            * (
+                state.birth_expression["sensorimotor.spontaneous_activity_baseline"]
+                - state.exploration_drive
+            )
         )
 
         return GeneExpressionState(
@@ -250,6 +273,7 @@ class ExpressionRegulator:
             effective_growth_threshold=growth_value,
             effective_pruning_threshold=pruning_value,
             exploration_drive=exploration_value,
+            birth_expression=dict(state.birth_expression),
             regulatory_activation={
                 "mismatch_pressure": mismatch_pressure,
                 "resource_pressure": resource_pressure,
@@ -268,6 +292,7 @@ def restore_expression_state(
         "effective_growth_threshold",
         "effective_pruning_threshold",
         "exploration_drive",
+        "birth_expression",
         "regulatory_activation",
         "update_count",
     }
@@ -293,6 +318,26 @@ def restore_expression_state(
             raise ValueError("regulatory activation values must be numeric")
         activation[str(key)] = _unit(float(value))
 
+    raw_birth = payload["birth_expression"]
+    if not isinstance(raw_birth, Mapping):
+        raise ValueError("birth_expression must be an object")
+    birth_loci = {
+        "plasticity.learning_rate.baseline",
+        "plasticity.structural_plasticity.baseline",
+        "structure.growth_threshold.baseline",
+        "structure.pruning_threshold.baseline",
+        "sensorimotor.spontaneous_activity_baseline",
+    }
+    if set(raw_birth) != birth_loci:
+        raise ValueError("birth_expression loci mismatch")
+    birth: dict[str, float] = {}
+    for locus, value in raw_birth.items():
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError("birth_expression values must be numeric")
+        if not math.isfinite(float(value)):
+            raise ValueError("birth_expression values must be finite")
+        birth[locus] = float(value)
+
     count = payload["update_count"]
     if isinstance(count, bool) or not isinstance(count, int) or count < 0:
         raise ValueError("update_count must be a non-negative int")
@@ -303,6 +348,7 @@ def restore_expression_state(
         effective_growth_threshold=finite("effective_growth_threshold"),
         effective_pruning_threshold=finite("effective_pruning_threshold"),
         exploration_drive=_unit(finite("exploration_drive")),
+        birth_expression=birth,
         regulatory_activation=activation,
         update_count=count,
     )
@@ -331,6 +377,17 @@ def restore_expression_state(
     for value, spec, name in checks:
         if not spec.minimum <= value <= spec.maximum:
             raise ValueError(f"{name} outside inherited range")
+    birth_ranges = {
+        "plasticity.learning_rate.baseline": genome.plasticity.learning_rate,
+        "plasticity.structural_plasticity.baseline": genome.plasticity.structural_plasticity,
+        "structure.growth_threshold.baseline": genome.structure.growth_threshold,
+        "structure.pruning_threshold.baseline": genome.structure.pruning_threshold,
+    }
+    for locus, spec in birth_ranges.items():
+        if not spec.minimum <= birth[locus] <= spec.maximum:
+            raise ValueError(f"birth_expression {locus} outside inherited range")
+    if not 0.0 <= birth["sensorimotor.spontaneous_activity_baseline"] <= 1.0:
+        raise ValueError("birth_expression sensorimotor locus outside [0,1]")
     return state
 
 

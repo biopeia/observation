@@ -167,7 +167,7 @@ Two facts about an organism's past are not properties of one save:
   through;
 - `checkpoint_lineage.unverified_legacy_origin` — some ancestor checkpoint was
   accepted without a verifiable identity. Older schemas recorded identifiers
-  with weaker or unverified coverage; the current schema-12 runtime rejects
+  with weaker or unverified coverage; the current schema-13 runtime rejects
   those checkpoint formats rather than treating the lineage marker as
   permission to restore them.
 
@@ -195,7 +195,7 @@ Tests: `symbiont/tests/unit/core/test_canonical_birth.py`,
 
 The earlier schema-10 admission decision predates the current exact-schema
 loader and is not the live restore contract. The current runtime accepts only
-schema 12; schemas 1–11 are rejected, including schema 10 and 11. No automatic
+schema 13; schemas 1–12 are rejected, including schemas 10–12. No automatic
 migration path is retained. Historical files and fixtures may remain readable
 as archival data, but archival readability is not runtime-format compatibility
 and neither establishes state continuity nor authorizes conversion into a live

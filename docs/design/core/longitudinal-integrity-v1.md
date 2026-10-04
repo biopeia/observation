@@ -387,8 +387,8 @@ Those runs remain scientifically limited for claims depending on those effects.
 ## 14. Test matrix
 
 The matrix below records the original gate design. The implemented outer
-checkpoint policy is stricter: schema 12 is the only live-restorable outer
-schema, and schemas 1–11 are rejected without migration. The historical
+checkpoint policy is stricter: schema 13 is the only live-restorable outer
+schema, and schemas 1–12 are rejected without migration. The historical
 compatibility cases below are archival evidence for the earlier migration
 policy; they are not current restore acceptance criteria. Migrations owned by
 an inner subsystem do not make an older outer checkpoint restorable.
@@ -501,7 +501,7 @@ scientific acceptance.
 
 | Gate item | Implementation | Evidence |
 | --- | --- | --- |
-| 1. Lineage identity verified or fail closed | `host/checkpoint.py`: `checkpoint_state_hash`, `verify_checkpoint_identity`, `stamp_checkpoint_identity`; organism-state identity introduced at schema 11, current loader requires schema 12 | `symbiont/tests/unit/host/test_strict_restore.py`, `symbiont/tests/unit/host/test_checkpoint.py` |
+| 1. Lineage identity verified or fail closed | `host/checkpoint.py`: `checkpoint_state_hash`, `verify_checkpoint_identity`, `stamp_checkpoint_identity`; organism-state identity introduced at schema 11, current loader requires schema 13 | `symbiont/tests/unit/host/test_strict_restore.py`, `symbiont/tests/unit/host/test_checkpoint.py` |
 | 2. No silent fresh subsystem on current-schema loss | `host/checkpoint.py`: `require_current_schema_fields` | `symbiont/tests/unit/host/test_strict_restore.py` |
 | 3. Every field has a continuity class | `host/continuity.py` | `lab/tests/unit/host/test_continuity_register.py` |
 | 4. Active social epistemic knowledge round-trips or lives in its canonical owner | ARCH-1 Option A: the core ledger is removed from the organism runtime; the modeled ledger is the single owner, persisted and inside checkpoint identity | `symbiont/tests/integration/test_restart_equivalence.py`, `symbiont/tests/integration/test_communication_restart.py`, `lab/tests/unit/host/test_continuity_register.py` |
@@ -526,8 +526,9 @@ Experimental-integrity tier: `symbiont/tests/experimental_integrity/test_longitu
   canonical-cognition adoption re-identify the state they produce, chaining to
   the identifier they replace and naming the transform.
 - **Which checkpoints are "current" (§5).** The current loader accepts only
-  schema 12. Schema 11 introduced organism-state identity; schema 12 added a
-  separate continuation-condition hash. Schemas 1–11 are rejected rather than
+  schema 13. Schema 11 introduced organism-state identity; schema 12 added a
+  separate continuation-condition hash. Schema 13 adds persisted expression
+  birth baselines. Schemas 1–12 are rejected rather than
   migrated. Schema-10 fixtures remain archival/compatibility evidence only and
   do not establish current runtime restore support.
 - **Runtime configuration (§9).** Recorded as provenance rather than organism

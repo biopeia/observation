@@ -179,7 +179,7 @@ embodiment-scoped sensorimotor knowledge
 **Historical migration plan, superseded by the current restore policy:** the
 Genome v1 / `HeritableGenome` projection described in earlier revisions is not
 implemented by the current runtime. The outer organism checkpoint loader
-accepts schema 12 only; a non-empty `HeritableGenome` payload is rejected, and
+accepts schema 13 only; a non-empty `HeritableGenome` payload is rejected, and
 the Genome v2 codec does not migrate Genome v1 payloads. Those artifacts are
 archival evidence, not directly restorable organisms. Do not infer a migration
 path from this document's earlier design history.

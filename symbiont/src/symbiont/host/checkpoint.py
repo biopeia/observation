@@ -18,11 +18,12 @@ from .drift import DriftAwareBaseline
 from .durable import durable_atomic_write
 from .rhythms import CyclePhase, RhythmModel
 
-CHECKPOINT_SCHEMA_VERSION = 12
+CHECKPOINT_SCHEMA_VERSION = 13
 # v10 -> v11 (Longitudinal Integrity v1 §4-§5) introduced organism-state
 # identity. v12 adds an independent hash of continuation conditions because
 # runtime controls affect future learning but are apparatus configuration, not
-# organism state. No migration is retained: v11 checkpoints lack this contract.
+# organism state. v13 persists birth-expression baselines for metaplastic
+# regulation. No migration is retained: prior schemas lack current contracts.
 IDENTITY_VERIFIED_SINCE_SCHEMA = 11
 IDENTITY_SCOPE = "organism-state-v1"
 UNVERIFIED_LEGACY_ORIGIN = "unverified_legacy_origin"

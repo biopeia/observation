@@ -8,7 +8,7 @@ import pytest
 
 from symbiont.core.orchestration.clean_embodiment_seed import CleanEmbodimentSeed
 from symbiont.genetics.checkpoint import export_germline, restore_germline
-from symbiont.genetics.expression import GeneExpressionState
+from symbiont.genetics.expression import GeneExpressionState, restore_expression_state
 from symbiont.genetics.genome import Genome, GenomeCodec
 from symbiont.genetics.germline import (
     PERSISTENCE_TICKS,
@@ -51,6 +51,25 @@ def test_inherited_mark_changes_birth_expression_without_changing_genotype() -> 
         genome.plasticity.learning_rate.baseline + 0.01
     )
     assert genome.genotype_hash == genotype_hash
+
+
+def test_expression_checkpoint_preserves_inherited_birth_baseline() -> None:
+    genome = _base_genome("genome_test_expression_baseline")
+    mark = EpigeneticMark(
+        locus="plasticity.learning_rate.baseline",
+        delta=0.02,
+        strength=0.5,
+        generations_left=3,
+    )
+    germline = GermlineState.from_genome(genome, inherited_marks=(mark,))
+    expression = GeneExpressionState.from_genome(genome, germline=germline)
+
+    restored = restore_expression_state(expression.as_dict(), genome)
+
+    assert restored.birth_expression == expression.birth_expression
+    assert restored.birth_expression["plasticity.learning_rate.baseline"] == pytest.approx(
+        expression.effective_learning_rate
+    )
 
 
 def test_germline_capture_persistence_resets_and_survives_checkpoint() -> None:
