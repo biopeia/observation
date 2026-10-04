@@ -984,6 +984,7 @@ REDUCED_SEED_REGISTER: tuple[ReducedSeedEntry, ...] = (
     ReducedSeedEntry("expressed_loci", "genetics.expression", _T_KEEP),
     ReducedSeedEntry("last_epigenetic_capture", "genetics (passive telemetry)", _T_KEEP),
     ReducedSeedEntry("epigenetic_capture_count", "genetics (passive telemetry)", _T_KEEP),
+    ReducedSeedEntry("epigenetic_protocol", "genetics.inheritance", _T_KEEP),
     ReducedSeedEntry("self_model", "identity continuity model", _T_KEEP, "_self_model"),
     ReducedSeedEntry("_rng", "exploration randomness", _T_KEEP),
     ReducedSeedEntry("_last_prediction_error", "last observed error", _T_KEEP),

@@ -71,7 +71,13 @@ def test_restart_does_not_silently_toggle_a_governed_learning_condition(
 def test_restore_takes_no_evaluator_or_world_input() -> None:
     for runtime_type in (OrganismRuntime, PrivateModelOrganismRuntime):
         parameters = inspect.signature(runtime_type.from_checkpoint).parameters
-        assert set(parameters) == {"payload", "kwargs"}
+        expected = {"payload", "kwargs"}
+        if runtime_type is OrganismRuntime:
+            expected |= {
+                "cognitive_plasticity_enabled",
+                "predictor_promotion_enabled",
+            }
+        assert set(parameters) == expected
         assert not any(
             word in name.lower()
             for name in inspect.signature(runtime_type.__init__).parameters

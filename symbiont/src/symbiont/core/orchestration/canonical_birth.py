@@ -2,7 +2,7 @@
 
 A current-schema checkpoint may describe a cognition-free runtime. Owner-facing
 resident entry points may opt into this helper to add the canonical genome and
-empty germinal graph when those fields are absent. Older checkpoint schemas are
+initial germline state when those fields are absent. Older checkpoint schemas are
 rejected by the current loader before adoption. Checkpoints that already
 contain cognition are restored unchanged.
 """
@@ -15,6 +15,8 @@ from ... import __version__ as _symbiont_version
 from ...cognition.birth import load_base_cognition
 from ...cognition.checkpoint import export_genome_checkpoint
 from ...cognition.limits import KernelLimits
+from ...genetics.checkpoint import export_germline
+from ...genetics.germline import GermlineState
 from ...host.checkpoint import (
     normalize_checkpoint,
     stamp_checkpoint_identity,
@@ -64,6 +66,7 @@ def restore_resident_with_canonical_cognition(
 
     adopted = dict(normalized)
     adopted["genome"] = export_genome_checkpoint(genome)
+    adopted["germline_state"] = export_germline(GermlineState.from_genome(genome))
     adopted["cognitive_bridge"] = bridge.export_checkpoint()
     adopted = stamp_checkpoint_identity(adopted, transform="canonical-cognition-adoption")
 

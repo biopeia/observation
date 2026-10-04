@@ -56,6 +56,8 @@ def test_owner_facing_restore_adopts_cognition_from_current_schema_checkpoint():
 
     assert restored.genome is not None
     assert restored.cognitive_bridge is not None
+    assert restored.germline_state is not None
+    assert restored.germline_state.birth_expression
     lineage = restored.checkpoint()["checkpoint_lineage"]
     assert lineage["transforms"][-1] == "canonical-cognition-adoption"
 
