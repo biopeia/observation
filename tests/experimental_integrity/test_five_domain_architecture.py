@@ -96,7 +96,8 @@ def _importers(target_prefixes: tuple[str, ...], *, source: str, exclude: tuple[
 
 def test_organism_holds_no_concrete_host_provider() -> None:
     """Concrete host channels live in modality.host; the Lab composes them."""
-    assert not (ROOT / "symbiont/src/symbiont/host/providers").exists()
+    # source files, not the directory: a stale __pycache__ may outlive the package
+    assert not list((ROOT / "symbiont/src/symbiont/host/providers").glob("*.py"))
     assert _importers(("symbiont.host.providers",), source="symbiont") == []
 
 
