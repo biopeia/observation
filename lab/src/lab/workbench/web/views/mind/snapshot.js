@@ -1,5 +1,12 @@
 import { snap } from './state.js';
 
+const LEGACY_OBSERVER_FIELDS = [
+  'activationClasses',
+  'predictionErrors',
+  'activationValues',
+  'predictionErrorValues',
+];
+
 function firstPresent(source, keys) {
   for (const key of keys) {
     if (Object.hasOwn(source, key)) return { present: true, value: source[key] };
@@ -74,6 +81,13 @@ function adaptLegacyObserverAnalysis(source, availability) {
   };
 }
 
+function organismCognitionOnly(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
+  const cleaned = { ...value };
+  for (const key of LEGACY_OBSERVER_FIELDS) delete cleaned[key];
+  return cleaned;
+}
+
 /**
  * Apply one rich Mind snapshot to the shared passive view state.
  * Returns false only when the payload carries no usable snapshot.
@@ -90,7 +104,9 @@ export function applyMindSnapshot(raw) {
   snap.tick = scalar(source, availability, 'tick', 'tick');
   snap.senses = collection(source, availability, 'senses', 'senses', 'percepts');
   snap.beliefs = collection(source, availability, 'beliefs', 'beliefs');
-  snap.cognition = scalar(source, availability, 'cognition', 'cognition');
+  const rawCognition = scalar(source, availability, 'cognition', 'cognition');
+  snap.observerAnalysis = adaptLegacyObserverAnalysis(source, availability);
+  snap.cognition = organismCognitionOnly(rawCognition);
   snap.topology = scalar(source, availability, 'topology', 'topology');
   snap.atlas = scalar(source, availability, 'atlas', 'atlas');
   snap.selfModel = scalar(source, availability, 'selfModel', 'self_model', 'selfModel');
@@ -130,7 +146,6 @@ export function applyMindSnapshot(raw) {
     'organism_state',
     'organismState',
   );
-  snap.observerAnalysis = adaptLegacyObserverAnalysis(source, availability);
   snap.observerSemantics = scalar(
     source,
     availability,
