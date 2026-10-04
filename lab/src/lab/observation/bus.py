@@ -39,10 +39,17 @@ def _with_rebase_notice(message: ObservationMessage, reason: str) -> Observation
         return message
     if not isinstance(payload, dict):
         return message
-    if payload.get("type") != "observation_delta" or payload.get("kind") != "anchor":
+    if payload.get("type") == "observation_delta":
+        if payload.get("kind") != "anchor":
+            return message
+    elif payload.get("type") != "world_scene":
         return message
     enriched = dict(payload)
-    enriched["transport"] = {"rebase": str(reason)}
+    transport = payload.get("transport")
+    enriched["transport"] = {
+        **(dict(transport) if isinstance(transport, dict) else {}),
+        "rebase": str(reason),
+    }
     return ObservationMessage(
         stream_id=message.stream_id,
         data=json.dumps(enriched, separators=(",", ":"), ensure_ascii=False).encode("utf-8"),
