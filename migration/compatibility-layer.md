@@ -39,9 +39,10 @@ trigger it), which a pre-existing import cycle depends on. See OI-6.
 
 - Data written in removed formats no longer loads: organism checkpoints of
   schema 1–10, genomes of schema 1, checkpoints carrying a `HeritableGenome`
-  payload, and Physics3D telemetry v3/v4. This includes anything of that age
-  under `.symbiont/` in the source repository. Schema-11 checkpoints and v4.1
-  telemetry are unaffected.
+  payload, and Physics3D telemetry v3/v4. The current organism loader accepts
+  schema 12 only, so schema-11 checkpoints are also archival-only and cannot be
+  restored directly. This includes anything of those ages under `.symbiont/` in
+  the source repository. Physics3D telemetry v4.1 is unaffected.
 - External code or notebooks that import `symbiont_lab`, `symbiont_world`,
   `observatory` or the old `symbiont.core.<name>` aliases must be updated.
 - Experiment runner scripts inside completed experiments
