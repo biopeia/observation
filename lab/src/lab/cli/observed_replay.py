@@ -9,11 +9,13 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections.abc import Callable, Mapping
 from pathlib import Path
+from typing import Any, cast
 
 from lab.integration.organism import create_canonical_organism, load_required_canonical_organism
 from lab.observatory.adapter import MAX_TICKS, envelope, project_tick, write_replay
-from symbiont.core.orchestration.governor import GovernedOrganism
+from symbiont.api import GovernedOrganism
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -49,6 +51,12 @@ def main(argv: list[str] | None = None) -> int:
     snapshots = []
     for _ in range(args.ticks):
         result = organism.tick()
+        cultural_observations = getattr(runtime, "cultural_observations", None)
+        cultural_projection = (
+            cast(Callable[[], Mapping[str, Any]], cultural_observations)()
+            if callable(cultural_observations)
+            else None
+        )
         snapshot = project_tick(
             result,
             acclimation=runtime.acclimation,
@@ -61,11 +69,7 @@ def main(argv: list[str] | None = None) -> int:
             signal_references=result.signal_references,
             social_relations=runtime.social_ledger.relations,
             social_resource_evidence=runtime.social_resource_ledger.evidence,
-            cultural_observations=(
-                runtime.cultural_observations()
-                if hasattr(runtime, "cultural_observations")
-                else None
-            ),
+            cultural_observations=cultural_projection,
         )
         snapshots.append(snapshot)
         if args.stdout:
