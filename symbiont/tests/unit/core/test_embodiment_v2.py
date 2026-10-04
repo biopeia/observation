@@ -23,6 +23,7 @@ from symbiont.core.embodiment import (
     select_prior,
 )
 from symbiont.core.embodiment.body_schema import BodySchemaEngine
+from symbiont.core.embodiment.transition import lifecycle_summary
 
 
 def _contract(*, percepts: int = 3, actuators: int = 2) -> EmbodimentContract:
@@ -31,6 +32,22 @@ def _contract(*, percepts: int = 3, actuators: int = 2) -> EmbodimentContract:
         actuator_surface=ActuatorSurface.from_count(actuators),
         timing=TimingContract(tick_hz=24.0),
     )
+
+
+def test_legacy_body_fallback_is_limited_to_pre_epoch_payloads() -> None:
+    legacy = lifecycle_summary({"living_body": {"age": 10}})
+    assert legacy["state"] == "dormant"
+    assert legacy["current"]["body_kind"] == "anthropomorphic-v4"
+    assert legacy["current"]["receptor_count"] == 107
+    assert legacy["current"]["effector_count"] == 62
+
+    current_without_lifecycle = lifecycle_summary({"schema_version": 14})
+    assert current_without_lifecycle == {
+        "state": "unavailable",
+        "epoch": 0,
+        "current": {},
+        "history_count": 0,
+    }
 
 
 def test_episode_has_identity_independent_from_body_epoch_and_contract() -> None:
