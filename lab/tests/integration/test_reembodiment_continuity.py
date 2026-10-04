@@ -27,13 +27,14 @@ from symbiont.core.embodiment.transition import (
     prepare_fresh_embodiment_checkpoint,
     update_lifecycle_for_checkpoint,
 )
+from symbiont.core.orchestration.runtime import OrganismRuntime
 from symbiont.core.regulation.reactive_memory import ReactiveMemory
 from symbiont.core.regulation.reactivity import InnateReactivity
 from symbiont.core.social import SocialHabitat
 from symbiont.core.social.interactions import EcologicalResourcePool
 from symbiont.genetics.germline import EpigeneticMark, EpigeneticProtocol
 from symbiont.host.checkpoint import CheckpointError, stamp_checkpoint_identity
-from symbiont.host.continuity import REGISTER, Reembodiment
+from symbiont.host.continuity import CORE, MODELED, PRIVATE_MODEL, REGISTER, Reembodiment
 from symbiont.modeling import (
     ArchitectureId,
     ModelArtifactManifest,
@@ -46,6 +47,7 @@ from symbiont.modeling import (
     TrainingRequest,
 )
 from symbiont.modeling.private_runtime import PrivateModelOrganismRuntime
+from symbiont.modeling.runtime import ModeledOrganismRuntime
 
 ORGANISM_ID = "reembodied-subject"
 DEVELOPMENT_TICKS = 600
@@ -83,6 +85,92 @@ def _json(payload: dict) -> dict:
 
 def _competence_ids(runtime: PrivateModelOrganismRuntime) -> set[str]:
     return {item.competence_id for item in runtime._action_domain.competence_library.items}
+
+
+@pytest.mark.parametrize(
+    ("layer", "runtime_type", "attribute", "checkpoint_field"),
+    [
+        (CORE, OrganismRuntime, "_sensory_system", "sensory_system"),
+        (MODELED, ModeledOrganismRuntime, "_social_evidence_ledger", "social_evidence_ledger"),
+        (PRIVATE_MODEL, PrivateModelOrganismRuntime, "_capture_private_experience", "private_model_config"),
+    ],
+)
+def test_each_runtime_layer_restores_its_registered_owner_and_transforms_it(
+    layer: str,
+    runtime_type: type[OrganismRuntime],
+    attribute: str,
+    checkpoint_field: str,
+) -> None:
+    """Exercise real layer owners across restore and the fresh-body transform.
+
+    The large Body-A fixture below checks interactions among many subsystems.
+    This focused probe separately makes each runtime layer accountable for at
+    least one register field, without duplicating that acquired-state fixture.
+    """
+    entry = next(
+        item for item in REGISTER if item.layer == layer and item.attribute == attribute
+    )
+    assert entry.checkpoint_field == checkpoint_field
+
+    runtime_options: dict[str, Any] = {}
+    if runtime_type is PrivateModelOrganismRuntime:
+        runtime_options["capture_private_experience"] = False
+    body_a = CausalBody(actuator_count=2, seed=301)
+    source = build_subject(
+        body_a,
+        organism_id=f"continuity-layer-{layer}",
+        runtime_class=runtime_type,
+        **runtime_options,
+    )
+    run_ticks(source, body_a, 3)
+    if layer == MODELED:
+        source.originate_social_claim(
+            proposition_tokens=("layer.modeled", "is", "owned"),
+            evidence_id="continuity-layer-modeled",
+            confidence_class=4,
+        )
+
+    saved = _json(source.checkpoint())
+    restored = restore_canonical_organism(
+        saved,
+        runtime_type,
+        **runtime_options,
+    )
+    restored_state = restored.checkpoint(advance_lineage=False)
+    if layer == PRIVATE_MODEL:
+        assert restored.capture_private_experience is False
+        assert saved[checkpoint_field]["capture_private_experience"] is False
+    else:
+        assert restored_state[checkpoint_field] == saved[checkpoint_field]
+        assert getattr(restored, attribute) is not None
+
+    body_b = CausalBody(actuator_count=3, seed=302)
+    fresh_runtime = build_subject(
+        body_b,
+        organism_id=f"continuity-layer-{layer}",
+        runtime_class=runtime_type,
+        **runtime_options,
+    )
+    fresh = _json(fresh_runtime.checkpoint())
+    previous = update_lifecycle_for_checkpoint(
+        saved,
+        contract=EmbodimentDescriptor("continuity-layer-body-a", 2, 2),
+        state="active",
+    )
+    transformed = prepare_fresh_embodiment_checkpoint(
+        previous,
+        fresh,
+        contract=EmbodimentDescriptor("continuity-layer-body-b", 3, 3),
+    )
+
+    if attribute == "_sensory_system":
+        # The current-body sensory authority must come from Body B, not A.
+        assert transformed[checkpoint_field] == fresh[checkpoint_field]
+        assert transformed[checkpoint_field] != saved[checkpoint_field]
+    elif layer == MODELED:
+        assert transformed[checkpoint_field] == saved[checkpoint_field]
+    else:
+        assert transformed[checkpoint_field]["capture_private_experience"] is False
 
 
 class _Case:
