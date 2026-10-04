@@ -271,6 +271,14 @@ def test_load_checkpoint_file_rejects_invalid_json(tmp_path):
         load_checkpoint_file(path)
 
 
+def test_load_checkpoint_file_rejects_invalid_utf8(tmp_path):
+    path = tmp_path / "invalid-utf8.json"
+    path.write_bytes(b"\xff")
+
+    with pytest.raises(CheckpointError, match="not valid UTF-8 JSON"):
+        load_checkpoint_file(path)
+
+
 def test_load_checkpoint_file_rejects_non_object_json(tmp_path):
     path = tmp_path / "list.json"
     path.write_text(json.dumps([1, 2, 3]))

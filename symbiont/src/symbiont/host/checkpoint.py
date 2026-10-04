@@ -449,8 +449,8 @@ def load_checkpoint_file(path: str | Path) -> dict[str, Any] | None:
             payload = json.load(handle)
     except OSError as exc:
         raise CheckpointError(f"checkpoint file {target} cannot be read: {exc}") from exc
-    except json.JSONDecodeError as exc:
-        raise CheckpointError(f"checkpoint file {target} is not valid JSON: {exc}") from exc
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+        raise CheckpointError(f"checkpoint file {target} is not valid UTF-8 JSON: {exc}") from exc
     if not isinstance(payload, dict):
         raise CheckpointError(f"checkpoint file {target} does not contain a JSON object")
     return payload
