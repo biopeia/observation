@@ -37,7 +37,7 @@ def test_complete_telemetry_does_not_carry_absent_or_null_values_forward() -> No
     state = (WEB / "views/mind/state.js").as_uri()
     out = _node(
         f"""
-const {{applyTelemetryEvent}} = await import({json.dumps(telemetry)});
+const {{applyTelemetryEvent, telemetryAvailability}} = await import({json.dumps(telemetry)});
 const {{tel, resetMindDataState}} = await import({json.dumps(state)});
 resetMindDataState();
 applyTelemetryEvent({{type:'cognition', tick:10, predictor_count:7,
@@ -46,7 +46,8 @@ const before = {{...tel}};
 applyTelemetryEvent({{type:'cognition', tick:11, predictor_count:0,
   prospective_selected:false, prediction_error:null}});
 const after = {{...tel}};
-console.log(JSON.stringify({{before, after}}));
+const availability = {{...telemetryAvailability}};
+console.log(JSON.stringify({{before, after, availability}}));
 """
     )
 
@@ -57,6 +58,10 @@ console.log(JSON.stringify({{before, after}}));
     assert out["after"]["predictionError"] is None
     # slm_active was not observed on tick 11; it is unknown now, not still true.
     assert out["after"]["slmActive"] is None
+    assert out["availability"]["predictorCount"] == "observed"
+    assert out["availability"]["prospective"] == "observed"
+    assert out["availability"]["predictionError"] == "observed_null"
+    assert out["availability"]["slmActive"] == "not_observed"
 
 
 def test_snapshot_distinguishes_not_observed_null_empty_and_observed() -> None:
