@@ -190,6 +190,11 @@ active engine or execution authority. **SYM-04 is resolved for the canonical
 re-embodiment path.** No transfer-utility claim follows, and arbitrary external
 consumers of exported checkpoints or snapshots remain outside the audit scope.
 
+The functional-transfer mechanics check now follows this nested policy rather
+than requiring byte identity for the entire `body_schema` checkpoint field: it
+verifies that the old schema is archived and the active schema is reset. The
+frozen scientific protocol constants and campaign claims were not changed.
+
 ### Canonical-profile consequence of the telemetry correction
 
 The correction changes the defective instrumentation-coupled behavior, not the
