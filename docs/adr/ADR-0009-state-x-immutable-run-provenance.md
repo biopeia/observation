@@ -4,6 +4,13 @@
 
 Accepted
 
+> **Partial supersession note (2026-10-04):** [ADR-0067](ADR-0067-revisioned-state-sections-and-passive-observation.md)
+> supersedes decision 1 for the basis of `checkpoint_hash` only: after the
+> substrate cut ([ADR-0065](ADR-0065-simulation-substrate-clean-cut.md)) it is
+> computed over a deterministic binary section encoding instead of the
+> canonical runtime JSON. Everything else here remains authoritative, and
+> decision 1 describes the implementation until the cut lands.
+
 ## Context
 
 The specification requires `R = execute(X, Environment, Config, Seed)`. The run manifest referenced the organism slot `organisms/<ref>/organism.symbiont`, but that file is overwritten in place, so after a run the starting state X no longer existed and a result could not be reproduced from its recorded initial condition.

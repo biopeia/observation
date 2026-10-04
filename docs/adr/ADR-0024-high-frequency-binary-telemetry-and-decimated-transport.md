@@ -4,6 +4,15 @@
 
 Accepted
 
+> **Partial supersession note (2026-10-04):** [ADR-0067](ADR-0067-revisioned-state-sections-and-passive-observation.md)
+> supersedes decision 3 for how deltas are derived only (revision comparison
+> instead of a structural diff of copies), effective at the substrate cut
+> ([ADR-0065](ADR-0065-simulation-substrate-clean-cut.md)). Decisions 1, 2, 4
+> and 5 remain authoritative. Measurement recorded in
+> [Simulation Throughput v1](../design/core/simulation-throughput-v1.md) shows
+> the current observation path does not meet decision 1; ADR-0067 is the
+> response.
+
 ## Context
 
 High-fidelity 3D embodied simulation operates at 60–120 Hz causal physics rates. Emitting full JSON payloads or string-serialized objects on every tick creates severe garbage collection pauses, memory thrashing, and I/O bottlenecks. This breaches the fundamental performance invariant that observation apparatus must not distort physical simulation dynamics.

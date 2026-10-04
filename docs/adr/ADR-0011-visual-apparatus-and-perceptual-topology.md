@@ -4,6 +4,12 @@
 
 Accepted. Decision 2 is reversible.
 
+> **Partial supersession note (2026-10-04):** [ADR-0066](ADR-0066-mujoco-physics-engine-and-engine-independent-vision.md)
+> supersedes decision 3 for the identity of the renderer only: after the
+> substrate cut the array is sampled by a deterministic CPU ray caster owned by
+> `modality` rather than by the physics engine's renderer. The receptor
+> contract, topology, cadence and isolation rules here remain authoritative.
+
 ## Context
 
 The Experience & World specification (§7, §13–15 of the gap analysis) requires Vision to arrive as a causal apparatus: physical world → apparatus → physical sample → opaque receptor channels → cognition. Observer geometry (`world_scene`, `PhysicsWorldObserver.entities`) is not a valid substitute. Gap decision D3 was left open for this ADR.

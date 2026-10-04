@@ -4,6 +4,13 @@ Status: **proposed** (2026-09-29). Owner question: can Symbiont run hundreds
 of ticks per second with the same impact on the organism? Baseline:
 `main @ d3dac186`, Physics3D, `anthropomorphic-v6-vision` body.
 
+> **Superseded in part (2026-10-04).** The owner approved
+> [Simulation Substrate Cut v1](simulation-substrate-cut-v1.md)
+> ([ADR-0065](../../adr/ADR-0065-simulation-substrate-clean-cut.md)). For work
+> that implements the cut, the byte-equality rule of §2 and the Level 1–2 plan
+> of §3 no longer apply. The measurements of §1 remain the cost baseline and
+> the Level 3 exclusion stands.
+
 ## 1. Measurements
 
 Snapshot of `org-2df92a9d8fda` (tick 768), headless, training off, one
