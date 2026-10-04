@@ -86,11 +86,13 @@ def _declares_current_checkpoint_schema(payload: Mapping[str, Any]) -> bool:
 
 
 def _legacy_contract(_payload: Mapping[str, Any]) -> EmbodimentDescriptor:
-    """Apply the bounded legacy compatibility assumption for pre-epoch files.
+    """Apply ``LEGACY_COMPATIBILITY_ASSUMPTION`` for pre-epoch files.
 
     This is not a current-body discovery mechanism: historical portable
     Physics3D checkpoints without an epoch descriptor are interpreted as the
-    one known legacy profile. Do not reuse this fallback for new checkpoints.
+    one known legacy profile (anthropomorphic-v4, 107 receptors, 62 effectors).
+    Do not reuse this fallback for new checkpoints. Remove it only after an
+    artifact census proves no retained checkpoint needs this interpretation.
     """
     return EmbodimentDescriptor("anthropomorphic-v4", 107, 62)
 
