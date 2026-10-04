@@ -82,6 +82,7 @@ class ObservationBus:
         self._consumer_overflows = 0
         self._history_rebases = 0
         self._replay_truncations = 0
+        self._client_disconnects = 0
 
     def push(self, event: dict[str, Any]) -> int:
         with self._lock:
@@ -237,6 +238,11 @@ class ObservationBus:
         with self._lock:
             self._queues.pop(consumer, None)
 
+    def note_client_disconnect(self) -> None:
+        """Record a transport disconnect without logging noisy per-request errors."""
+        with self._lock:
+            self._client_disconnects += 1
+
     @property
     def has_data(self) -> bool:
         with self._lock:
@@ -255,6 +261,7 @@ class ObservationBus:
                 "consumer_overflows": self._consumer_overflows,
                 "history_rebases": self._history_rebases,
                 "replay_truncations": self._replay_truncations,
+                "client_disconnects": self._client_disconnects,
                 "history_size": len(self._history),
                 "history_capacity": self._history.maxlen or 0,
                 "queue_capacity": self._queue_size,
