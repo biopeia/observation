@@ -491,10 +491,17 @@ REGISTER: tuple[ContinuityEntry, ...] = (
         _KEEP,
         extra_checkpoint_fields=("last_runtime_vital_state", "last_runtime_development_phase"),
         nested_reembodiment=(
+            ("first_life_history_events.sense", _KEEP),
+            ("first_life_history_events.concept", _KEEP),
+            ("first_life_history_events.prediction", _KEEP),
             ("last_runtime_vital_state", _BODY),
             ("last_runtime_development_phase", _KEEP),
         ),
-        nested_checkpoint_fields=("last_runtime_vital_state", "last_runtime_development_phase"),
+        nested_checkpoint_fields=(
+            "first_life_history_events",
+            "last_runtime_vital_state",
+            "last_runtime_development_phase",
+        ),
     ),
     _core(
         "_regulation_domain",

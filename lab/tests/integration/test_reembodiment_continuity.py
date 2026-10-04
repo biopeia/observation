@@ -452,9 +452,18 @@ def test_knowledge_survives_as_knowledge_without_authority(case: _Case) -> None:
 
     lifecycle_entry = next(entry for entry in REGISTER if entry.attribute == "_lifecycle_domain")
     assert dict(lifecycle_entry.nested_reembodiment) == {
+        "first_life_history_events.sense": Reembodiment.PRESERVED,
+        "first_life_history_events.concept": Reembodiment.PRESERVED,
+        "first_life_history_events.prediction": Reembodiment.PRESERVED,
         "last_runtime_vital_state": Reembodiment.REPLACED,
         "last_runtime_development_phase": Reembodiment.PRESERVED,
     }
+    assert {
+        path for path, _policy in lifecycle_entry.nested_reembodiment
+    } == {
+        f"first_life_history_events.{event}"
+        for event in case.transformed["first_life_history_events"]
+    } | {"last_runtime_vital_state", "last_runtime_development_phase"}
     assert case.transformed["last_runtime_vital_state"] == "active"
     assert case.transformed["last_runtime_development_phase"] == case.previous[
         "last_runtime_development_phase"
