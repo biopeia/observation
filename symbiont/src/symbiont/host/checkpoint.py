@@ -287,6 +287,10 @@ def _saved_by_current_schema(payload: dict[str, Any]) -> bool:
     the fields that only a later schema writes.
     """
     declared = (
+        # The payload schema is itself a declaration by the writer. In
+        # particular, removing both provenance blocks from a current-schema
+        # checkpoint must not make it look like an unverified legacy payload.
+        _declared_schema(payload, "schema_version"),
         _declared_schema(payload.get("checkpoint_lineage"), "schema_version"),
         _declared_schema(payload.get("runtime_provenance"), "checkpoint_schema_version"),
     )

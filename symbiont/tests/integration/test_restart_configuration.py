@@ -177,6 +177,15 @@ def test_checkpoint_without_recorded_controls_fails_closed() -> None:
         OrganismRuntime.from_checkpoint(saved, **RUNTIME_KWARGS)
 
 
+def test_current_schema_checkpoint_without_identity_or_provenance_fails_closed() -> None:
+    saved = _saved(OrganismRuntime(**RUNTIME_KWARGS))
+    del saved["checkpoint_lineage"]
+    del saved["runtime_provenance"]
+
+    with pytest.raises(CheckpointError, match="no verifiable checkpoint_lineage"):
+        OrganismRuntime.from_checkpoint(saved, **RUNTIME_KWARGS)
+
+
 @pytest.mark.parametrize(
     "control",
     [
