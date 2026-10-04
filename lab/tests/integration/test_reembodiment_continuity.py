@@ -577,14 +577,6 @@ def test_experience_continues_in_body_b_without_erasing_body_a_knowledge(
 
 
 def test_registered_nested_reembodiment_paths_resolve_in_checkpoint(case: _Case) -> None:
-    def has_path(payload: Mapping[str, Any], path: str) -> bool:
-        current: Any = payload
-        for part in path.split("."):
-            if not isinstance(current, Mapping) or part not in current:
-                return False
-            current = current[part]
-        return True
-
     for entry in REGISTER:
         for path, _policy in entry.nested_reembodiment:
             candidates = {
@@ -593,11 +585,53 @@ def test_registered_nested_reembodiment_paths_resolve_in_checkpoint(case: _Case)
                 else f"{root}.{path}"
                 for root in entry.nested_checkpoint_fields
             }
-            assert sum(has_path(case.transformed, candidate) for candidate in candidates) == 1, (
+            assert sum(_has_path(case.transformed, candidate) for candidate in candidates) == 1, (
                 entry.attribute,
                 path,
                 candidates,
             )
+
+
+def test_nested_reembodiment_policies_match_transformed_values(case: _Case) -> None:
+    for entry in REGISTER:
+        for path, policy in entry.nested_reembodiment:
+            candidates = [
+                path
+                if path == root or path.startswith(f"{root}.")
+                else f"{root}.{path}"
+                for root in entry.nested_checkpoint_fields
+            ]
+            resolved = [candidate for candidate in candidates if _has_path(case.transformed, candidate)]
+            assert len(resolved) == 1, (entry.attribute, path, candidates)
+            resolved_path = resolved[0]
+            actual = _value_at(case.transformed, resolved_path)
+
+            if policy is Reembodiment.PRESERVED:
+                assert actual == _value_at(case.previous, resolved_path), (entry.attribute, path)
+            elif policy is Reembodiment.REPLACED:
+                if resolved_path == "last_runtime_vital_state":
+                    assert actual == case.fresh["living_body"]["vital_state"]
+                elif resolved_path == "actuation.action_domain.sensorimotor_v2.binding_invalidation":
+                    assert actual == "reembodiment"
+                else:
+                    assert actual == _value_at(case.fresh, resolved_path), (entry.attribute, path)
+
+
+def _has_path(payload: Mapping[str, Any], path: str) -> bool:
+    current: Any = payload
+    for part in path.split("."):
+        if not isinstance(current, Mapping) or part not in current:
+            return False
+        current = current[part]
+    return True
+
+
+def _value_at(payload: Mapping[str, Any], path: str) -> Any:
+    current: Any = payload
+    for part in path.split("."):
+        assert isinstance(current, Mapping) and part in current, path
+        current = current[part]
+    return current
 
 
 def test_reembodiment_withdraws_an_inflight_intention_before_checkpoint(case: _Case) -> None:
