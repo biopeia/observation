@@ -31,7 +31,6 @@ def main() -> None:
         ground_truth=ground_truth,
         topology=topology,
         start_cells=cells,
-        experimental_clean=True,
     )
     population.run(TICKS)
     print(
