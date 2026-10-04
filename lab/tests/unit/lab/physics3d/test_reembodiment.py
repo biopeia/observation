@@ -7,6 +7,7 @@ import pytest
 from symbiont.actuation.surface import ActuatorSurface
 from symbiont.core.cognition.host_self_model import RecencyClass
 from symbiont.core.embodiment.body_schema import BodySchemaEngine
+from symbiont.core.embodiment.development import DevelopmentalTracker
 from symbiont.core.embodiment.longitudinal import contract_fingerprint
 from symbiont.core.embodiment.transition import (
     EmbodimentDescriptor,
@@ -306,6 +307,53 @@ def test_current_checkpoint_with_malformed_lifecycle_cannot_reembody_as_legacy(
             _fresh(),
             contract=EmbodimentDescriptor("new-body", 2, 2),
         )
+
+
+def test_reembodiment_does_not_count_new_body_activation_as_old_body_recovery() -> None:
+    previous = _checkpoint(vital_state="active")
+    previous["schema_version"] = CHECKPOINT_SCHEMA_VERSION
+    previous["development"] = {
+        "schema_version": DevelopmentalTracker.SCHEMA_VERSION,
+        "tick": 41,
+        "stress_ticks": 8,
+        "recovery_events": 2,
+        "repair_events": 3,
+        "excretion_events": 4,
+        "maintenance_burden": 0.6,
+        "retention_burden": 0.3,
+        "previous_stressed": True,
+    }
+    fresh = _fresh()
+    fresh["development"] = {
+        "schema_version": DevelopmentalTracker.SCHEMA_VERSION,
+        "tick": 0,
+        "stress_ticks": 0,
+        "recovery_events": 0,
+        "repair_events": 0,
+        "excretion_events": 0,
+        "maintenance_burden": 0.0,
+        "retention_burden": 0.0,
+        "previous_stressed": False,
+    }
+
+    transformed = prepare_fresh_embodiment_checkpoint(
+        previous,
+        fresh,
+        contract=EmbodimentDescriptor("anthropomorphic-v6", 107, 62),
+    )
+
+    expected = dict(previous["development"])
+    expected["previous_stressed"] = False
+    assert transformed["development"] == expected
+    tracker = DevelopmentalTracker.from_checkpoint(transformed["development"])
+    snapshot = tracker.observe(
+        state="active",
+        integrity=0.9,
+        topology_health="adaptive",
+        sensory_count=2,
+        action_attempts=0,
+    )
+    assert snapshot.recovery_events == 2
 
 
 def test_current_schema_provenance_also_blocks_legacy_lifecycle_fallback() -> None:

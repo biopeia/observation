@@ -537,6 +537,12 @@ def prepare_fresh_embodiment_checkpoint(
             result[sensory_field] = deepcopy(dict(fresh_sensory))
         else:
             result.pop(sensory_field, None)
+    # The new Body starts a new physiological episode. Carrying the previous
+    # tick's stress bit would turn its first active observation into a false
+    # recovery event for the closed Body.
+    development = result.get("development")
+    if isinstance(development, dict) and "previous_stressed" in development:
+        development["previous_stressed"] = False
     # A new physical Body always starts a new canonical episode. Never carry
     # the previous body/episode identity through the compatibility transform.
     result.pop("embodiment_episode", None)

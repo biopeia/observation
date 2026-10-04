@@ -515,7 +515,12 @@ def test_the_whole_lifecycle_holds_per_register_entry(case: _Case) -> None:
 
     # BodySchema's active evidence resets for the new Body; the old full schema
     # remains in the closed episode archive as historical evidence.
-    preserved = (_fields(Reembodiment.PRESERVED) & set(resaved)) - {"body_schema"}
+    nested_fields = {
+        entry.checkpoint_field
+        for entry in REGISTER
+        if entry.nested_reembodiment and entry.checkpoint_field is not None
+    }
+    preserved = (_fields(Reembodiment.PRESERVED) & set(resaved)) - {"body_schema"} - nested_fields
     invalidated = _fields(Reembodiment.INVALIDATED) & set(resaved)
     # ``actuation`` carries both the domain (authority invalidated) and the new
     # Body's enablement; the domain rule governs the field as a whole.

@@ -278,7 +278,14 @@ REGISTER: tuple[ContinuityEntry, ...] = (
     _core("_memory_consolidator", "cognition.consolidation", _P, "memory", _KEEP),
     _core("_generative_cognition", "cognition.generative", _P, "generative_cognition", _KEEP),
     _core("_narrative_journal", "foundation.narrative", _P, "narrative_journal", _KEEP),
-    _core("_developmental_tracker", "embodiment.development", _P, "development", _KEEP),
+    _core(
+        "_developmental_tracker",
+        "embodiment.development",
+        _P,
+        "development",
+        _KEEP,
+        nested_reembodiment=(("previous_stressed", _BODY),),
+    ),
     # --- body, metabolism and physiology (same-Body restart) ---------------------
     _core("_living_body_state", "embodiment.physiology", _P, "living_body", _BODY),
     _core("_metabolism", "embodiment.metabolism", _P, "metabolism", _BODY),

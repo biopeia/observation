@@ -99,6 +99,13 @@ def test_retired_heritable_genome_is_not_misclassified_as_reembodiment_state() -
     assert "write null" in entry.migration
 
 
+def test_developmental_tracker_resets_only_body_bound_stress_edge() -> None:
+    entry = next(entry for entry in REGISTER if entry.attribute == "_developmental_tracker")
+
+    assert entry.reembodiment is Reembodiment.PRESERVED
+    assert dict(entry.nested_reembodiment) == {"previous_stressed": Reembodiment.REPLACED}
+
+
 def test_open_gaps_are_exactly_the_audit_findings() -> None:
     assert {entry.known_gap for entry in REGISTER} - {None} == OPEN_GAPS
 
