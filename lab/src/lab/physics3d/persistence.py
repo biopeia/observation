@@ -185,7 +185,8 @@ def build_symbiont_bundle_manifest(
     )
 
     manifest: dict[str, Any] = {
-        "bundle_schema_version": "1.0",
+        "bundle_schema_version": "1.1",
+        "model_artifacts": {},
         "checkpoint_id": checkpoint_id,
         "checkpoint_hash": f"sha256:{runtime_sha256}",
         "manifest_generated_from_checkpoint_hash": f"sha256:{runtime_sha256}",
@@ -296,7 +297,6 @@ def save_symbiont_bundle(
         runtime_payload,
         runtime_sha256=runtime_sha256,
     )
-    manifest_payload["bundle_schema_version"] = "1.1"
     manifest_payload["model_artifacts"] = {
         name: f"sha256:{hashlib.sha256(data).hexdigest()}"
         for name, data in sorted(artifacts.items())
@@ -337,8 +337,7 @@ def read_symbiont_bundle_manifest(
 ) -> dict[str, Any]:
     """Read manifest.json from a portable organism bundle.
 
-    If reading a legacy bundle lacking manifest.json, falls back to deriving
-    the manifest from runtime.json.
+    Bundles must contain the current manifest; it is never inferred from runtime state.
     """
     source = Path(path).expanduser()
     with zipfile.ZipFile(source, "r") as archive:
@@ -347,48 +346,42 @@ def read_symbiont_bundle_manifest(
 
 def _read_bundle_manifest(archive: zipfile.ZipFile, *, verify: bool) -> dict[str, Any]:
     names = set(archive.namelist())
-    if "manifest.json" in names:
-        try:
-            raw = json.loads(archive.read("manifest.json").decode("utf-8"))
-        except Exception as exc:
-            raise ValueError("portable Symbiont bundle has corrupt manifest.json") from exc
-        if not isinstance(raw, dict):
-            raise ValueError("portable Symbiont manifest root must be an object")
-        if verify:
-            if "runtime.json" not in names:
-                raise ValueError("portable Symbiont bundle has manifest.json but no runtime.json")
-            runtime_bytes = archive.read("runtime.json")
-            runtime_sha256 = hashlib.sha256(runtime_bytes).hexdigest()
-            expected = f"sha256:{runtime_sha256}"
-            if raw.get("checkpoint_hash") != expected:
-                raise ValueError(
-                    f"manifest checkpoint_hash mismatch: {raw.get('checkpoint_hash')} != {expected}"
-                )
-            # Revision Coherence v1 §3.7: the manifest describes exactly
-            # this runtime (Workbench metadata.json is never authority).
-            runtime_payload = json.loads(runtime_bytes.decode("utf-8"))
-            if not isinstance(runtime_payload, dict):
-                raise ValueError("portable Symbiont runtime root must be an object")
-            validate_bundle_export_invariants(raw, runtime_payload, runtime_sha256)
-            derived = build_symbiont_bundle_manifest(
-                json.loads(runtime_bytes.decode("utf-8")), runtime_sha256=runtime_sha256
-            )
-            for field in ("saved_at_tick", "organism_id", "embodiment_epoch"):
-                if raw.get(field) != derived.get(field):
-                    raise ValueError(f"manifest {field} does not match runtime.json")
-        return raw
-
+    if "manifest.json" not in names:
+        raise ValueError("portable Symbiont bundle has no manifest.json")
     if "runtime.json" not in names:
-        raise ValueError("portable Symbiont bundle has neither manifest.json nor runtime.json")
-    runtime_bytes = archive.read("runtime.json")
+        raise ValueError("portable Symbiont bundle has manifest.json but no runtime.json")
     try:
-        runtime_payload = json.loads(runtime_bytes.decode("utf-8"))
+        raw = json.loads(archive.read("manifest.json").decode("utf-8"))
     except Exception as exc:
-        raise ValueError("portable Symbiont bundle has corrupt runtime.json") from exc
-    if not isinstance(runtime_payload, dict):
-        raise ValueError("portable Symbiont runtime root must be an object")
-    runtime_sha256 = hashlib.sha256(runtime_bytes).hexdigest()
-    return build_symbiont_bundle_manifest(runtime_payload, runtime_sha256=runtime_sha256)
+        raise ValueError("portable Symbiont bundle has corrupt manifest.json") from exc
+    if not isinstance(raw, dict):
+        raise ValueError("portable Symbiont manifest root must be an object")
+    if raw.get("bundle_schema_version") != "1.1":
+        raise ValueError("unsupported portable Symbiont bundle schema")
+    if not isinstance(raw.get("model_artifacts"), dict):
+        raise ValueError("portable Symbiont bundle manifest has no artifact inventory")
+    if verify:
+        runtime_bytes = archive.read("runtime.json")
+        runtime_sha256 = hashlib.sha256(runtime_bytes).hexdigest()
+        expected = f"sha256:{runtime_sha256}"
+        if raw.get("checkpoint_hash") != expected:
+            raise ValueError(
+                f"manifest checkpoint_hash mismatch: {raw.get('checkpoint_hash')} != {expected}"
+            )
+        # Revision Coherence v1 §3.7: the manifest describes exactly
+        # this runtime (Workbench metadata.json is never authority).
+        try:
+            runtime_payload = json.loads(runtime_bytes.decode("utf-8"))
+        except Exception as exc:
+            raise ValueError("portable Symbiont bundle has corrupt runtime.json") from exc
+        if not isinstance(runtime_payload, dict):
+            raise ValueError("portable Symbiont runtime root must be an object")
+        validate_bundle_export_invariants(raw, runtime_payload, runtime_sha256)
+        derived = build_symbiont_bundle_manifest(runtime_payload, runtime_sha256=runtime_sha256)
+        for field in ("saved_at_tick", "organism_id", "embodiment_epoch"):
+            if raw.get(field) != derived.get(field):
+                raise ValueError(f"manifest {field} does not match runtime.json")
+    return raw
 
 
 def read_symbiont_bundle_runtime(path: str | Path) -> dict:
@@ -399,6 +392,7 @@ def read_symbiont_bundle_runtime(path: str | Path) -> dict:
     """
     source = Path(path).expanduser()
     with zipfile.ZipFile(source, "r") as archive:
+        _read_bundle_manifest(archive, verify=True)
         try:
             raw = json.loads(archive.read("runtime.json").decode("utf-8"))
         except KeyError as exc:
@@ -435,8 +429,7 @@ def load_symbiont_bundle(
 ) -> dict:
     """Verify a complete bundle before publishing artifacts without overwriting.
 
-    Legacy manifest-free and 1.0 bundles lack artifact hashes but still undergo
-    path, duplicate-member and required-artifact checks. Conflicting local
+    Current-schema bundles undergo path, duplicate-member and required-artifact checks. Conflicting local
     artifacts are rejected; identical files are reused. Publication failures
     roll back newly installed files (not a crash-atomic multi-file transaction).
     """
@@ -468,16 +461,12 @@ def load_symbiont_bundle(
                 for suffix in (".json", ".pt", ".tokenizer.json"):
                     if f"models/{model_id}{suffix}" not in artifacts:
                         raise ValueError(f"missing required model artifact: {model_id}{suffix}")
-        version = manifest.get("bundle_schema_version")
-        if version not in {"1.0", "1.1"}:
-            raise ValueError("unsupported portable Symbiont bundle schema")
-        if version == "1.1" or "model_artifacts" in manifest:
-            inventory = {
-                name: f"sha256:{hashlib.sha256(data).hexdigest()}"
-                for name, data in artifacts.items()
-            }
-            if manifest.get("model_artifacts") != inventory:
-                raise ValueError("portable Symbiont bundle artifact inventory mismatch")
+        inventory = {
+            name: f"sha256:{hashlib.sha256(data).hexdigest()}"
+            for name, data in artifacts.items()
+        }
+        if manifest.get("model_artifacts") != inventory:
+            raise ValueError("portable Symbiont bundle artifact inventory mismatch")
 
     pending = {}
     for name, data in artifacts.items():

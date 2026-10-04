@@ -131,7 +131,7 @@ def test_duplicate_members_rejected(tmp_path):
 
 
 @pytest.mark.parametrize("manifest_free", [False, True])
-def test_complete_legacy_bundle_remains_loadable(tmp_path, manifest_free):
+def test_legacy_bundle_schema_is_rejected(tmp_path, manifest_free):
     path, payload = _bundle(tmp_path)
 
     def edit(entries):
@@ -142,7 +142,9 @@ def test_complete_legacy_bundle_remains_loadable(tmp_path, manifest_free):
             entries["manifest.json"] = json.dumps(manifest)
 
     _rewrite(path, edit)
-    assert persistence.load_symbiont_bundle(path, tmp_path / "restored") == payload
+    with pytest.raises(ValueError, match="(unsupported portable Symbiont bundle schema|no manifest.json)"):
+        persistence.load_symbiont_bundle(path, tmp_path / "restored")
+    assert not (tmp_path / "restored").exists()
 
 
 @pytest.mark.parametrize("model_id", ["../escape", "nested/model", "x\\y", ""])
@@ -155,7 +157,7 @@ def test_export_rejects_unsafe_model_id(tmp_path, model_id):
         )
 
 
-def test_legacy_missing_required_artifact_rejected_even_if_locally_available(tmp_path):
+def test_manifest_free_bundle_rejected_even_if_artifact_is_locally_available(tmp_path):
     path, _ = _bundle(tmp_path)
 
     def edit(entries):
@@ -166,9 +168,16 @@ def test_legacy_missing_required_artifact_rejected_even_if_locally_available(tmp
     destination = tmp_path / "restored"
     destination.mkdir()
     (destination / "model.pt").write_bytes(b"artifact")
-    with pytest.raises(ValueError, match="missing required model artifact"):
+    with pytest.raises(ValueError, match="no manifest.json"):
         persistence.load_symbiont_bundle(path, destination)
     assert list(p.name for p in destination.iterdir()) == ["model.pt"]
+
+
+def test_runtime_reader_rejects_manifest_free_bundle(tmp_path):
+    path, _ = _bundle(tmp_path)
+    _rewrite(path, lambda entries: entries.pop("manifest.json"))
+    with pytest.raises(ValueError, match="no manifest.json"):
+        persistence.read_symbiont_bundle_runtime(path)
 
 
 def test_restore_rejects_symlink_without_touching_referent(tmp_path):
