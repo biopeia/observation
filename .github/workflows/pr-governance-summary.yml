@@ -1,0 +1,46 @@
+name: Governed PR Summary
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: pr-governance-summary-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  summarize:
+    # Never execute candidate-provided code with a write-capable token from a fork.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - name: Checkout trusted main governance code
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Fetch candidate commit as data
+        shell: bash
+        run: git fetch origin "$HEAD_SHA"
+      - name: Read current PR body
+        shell: bash
+        run: gh pr view "$PR_NUMBER" --json body --jq .body > /tmp/pr-body.md
+      - name: Render governed summary from trusted planner
+        run: >-
+          python scripts/governance/pr_summary.py
+          --base "$BASE_SHA"
+          --head "$HEAD_SHA"
+          --body-file /tmp/pr-body.md
+          --output /tmp/pr-body-updated.md
+      - name: Update PR body
+        shell: bash
+        run: gh pr edit "$PR_NUMBER" --body-file /tmp/pr-body-updated.md
