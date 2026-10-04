@@ -462,8 +462,7 @@ def load_symbiont_bundle(
                     if f"models/{model_id}{suffix}" not in artifacts:
                         raise ValueError(f"missing required model artifact: {model_id}{suffix}")
         inventory = {
-            name: f"sha256:{hashlib.sha256(data).hexdigest()}"
-            for name, data in artifacts.items()
+            name: f"sha256:{hashlib.sha256(data).hexdigest()}" for name, data in artifacts.items()
         }
         if manifest.get("model_artifacts") != inventory:
             raise ValueError("portable Symbiont bundle artifact inventory mismatch")

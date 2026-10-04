@@ -617,7 +617,12 @@ class SymbolPolicy:
         if version != cls.SCHEMA_VERSION or payload.get("organism_id") != organism_id:
             raise ValueError("invalid symbol policy checkpoint")
         if not {
-            "seed", "symbol_space", "max_bias_entries", "decisions", "cost", "emission_bias"
+            "seed",
+            "symbol_space",
+            "max_bias_entries",
+            "decisions",
+            "cost",
+            "emission_bias",
         }.issubset(payload):
             raise ValueError("incomplete symbol policy checkpoint")
         if not isinstance(payload["symbol_space"], list) or not isinstance(

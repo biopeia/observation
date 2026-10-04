@@ -115,7 +115,9 @@ class ActuatorCandidateState:
             "effect_relations",
         }
         if set(payload) != required:
-            raise ValueError("ActuatorCandidateState payload fields do not match the current schema")
+            raise ValueError(
+                "ActuatorCandidateState payload fields do not match the current schema"
+            )
 
         actuator_id = payload["actuator_id"]
         if not isinstance(actuator_id, str) or not actuator_id:

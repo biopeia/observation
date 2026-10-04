@@ -721,6 +721,7 @@ class TelemetryV41Reader:
             self.root / "schemas" / "structural-paths.bin",
             self.strings,
         )
+
     def _stream_path(self, name: str) -> Path:
         return self.root.joinpath(*self._BINARY_STREAM_PATHS[name])
 

@@ -182,9 +182,7 @@ def _recorded_session_controls(normalized: dict[str, Any]) -> dict[str, Any] | N
             details.append(f"missing: {', '.join(missing)}")
         if unexpected:
             details.append(f"unexpected: {', '.join(unexpected)}")
-        raise CheckpointError(
-            "invalid session_controls provenance (" + "; ".join(details) + ")"
-        )
+        raise CheckpointError("invalid session_controls provenance (" + "; ".join(details) + ")")
     controls: dict[str, Any] = {}
     for name in (
         "cognitive_plasticity_enabled",
@@ -2511,9 +2509,7 @@ class OrganismRuntime:
             else None
         )
         payload["germline_state"] = (
-            export_germline(self._germline_state)
-            if self._germline_state is not None
-            else None
+            export_germline(self._germline_state) if self._germline_state is not None else None
         )
         payload["parent_ids"] = list(self._parent_ids)
         payload["epigenetic_protocol"] = asdict(self._epigenetic_protocol)

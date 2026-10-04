@@ -363,8 +363,13 @@ class ActionDimensionRegistry:
             if not isinstance(entry, Mapping):
                 raise ValueError("invalid action dimension entry")
             required_entry_fields = {
-                "dimension_id", "intervention_signature_refs", "channel_refs", "verified_surfaces",
-                "controllability", "confidence", "usage_count",
+                "dimension_id",
+                "intervention_signature_refs",
+                "channel_refs",
+                "verified_surfaces",
+                "controllability",
+                "confidence",
+                "usage_count",
             }
             if not required_entry_fields.issubset(entry):
                 raise ValueError("incomplete action dimension entry")

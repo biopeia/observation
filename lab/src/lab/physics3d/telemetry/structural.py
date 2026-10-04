@@ -111,5 +111,4 @@ def logical_view(value: Any) -> Any:
     raise ValueError(f"unknown structural AST tag: {tag!r}")
 
 
-
 __all__ = ["logical_view", "structural_view"]

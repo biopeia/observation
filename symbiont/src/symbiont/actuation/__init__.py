@@ -1,6 +1,5 @@
 """Public Sensorimotor v2 action API."""
 
-
 from .action import (
     ActionEvaluation,
     ActionJustification,

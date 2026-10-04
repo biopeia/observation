@@ -334,9 +334,7 @@ def prepare_fresh_embodiment_checkpoint(
             }
     # Archive the canonical episode before removing its current authority.
     raw_archive = previous.get("embodiment_archive")
-    archive = EmbodimentArchive.restore(
-        raw_archive if isinstance(raw_archive, Mapping) else None
-    )
+    archive = EmbodimentArchive.restore(raw_archive if isinstance(raw_archive, Mapping) else None)
     archive_episode_checkpoint(
         archive,
         raw_episode,
@@ -470,25 +468,23 @@ def prepare_fresh_embodiment_checkpoint(
     existing = archive.for_body(body_id) if body_id else None
     if existing is not None:
         archive.remember_body(
-                BodySpecificMemory(
-                    body_id=existing.body_id,
-                    contract_fingerprint=existing.contract_fingerprint,
-                    last_embodiment_id=existing.last_embodiment_id,
-                    body_schema_prior=existing.body_schema_prior,
-                    sensory_prior=_historical_sensory_prior(previous) or existing.sensory_prior,
-                    dynamics_prior=existing.dynamics_prior,
-                    execution_binding_priors=existing.execution_binding_priors,
-                    historical_causal_state=existing.historical_causal_state,
-                    historical_motor_candidates=current_candidates,
-                    motor_cognitive_surface=(
-                        deepcopy(dict(historical_motor_surface))
-                        if isinstance(historical_motor_surface, Mapping)
-                        else None
-                    ),
-                    private_model_ids=(
-                        (active_model_id,) if isinstance(active_model_id, str) else ()
-                    ),
-                )
+            BodySpecificMemory(
+                body_id=existing.body_id,
+                contract_fingerprint=existing.contract_fingerprint,
+                last_embodiment_id=existing.last_embodiment_id,
+                body_schema_prior=existing.body_schema_prior,
+                sensory_prior=_historical_sensory_prior(previous) or existing.sensory_prior,
+                dynamics_prior=existing.dynamics_prior,
+                execution_binding_priors=existing.execution_binding_priors,
+                historical_causal_state=existing.historical_causal_state,
+                historical_motor_candidates=current_candidates,
+                motor_cognitive_surface=(
+                    deepcopy(dict(historical_motor_surface))
+                    if isinstance(historical_motor_surface, Mapping)
+                    else None
+                ),
+                private_model_ids=((active_model_id,) if isinstance(active_model_id, str) else ()),
+            )
         )
 
     result["embodiment_archive"] = archive.checkpoint()

@@ -2,6 +2,7 @@
 
 __version__ = "0.90.0"
 
+
 def __getattr__(name: str):
     """Load the public core package only when requested.
 
@@ -15,5 +16,6 @@ def __getattr__(name: str):
         globals()[name] = core
         return core
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 __all__ = ["__version__", "core"]

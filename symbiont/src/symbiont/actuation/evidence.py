@@ -545,10 +545,21 @@ class CausalEvidenceLedger:
                     raise ValueError("invalid causal evidence item")
                 normalized = dict(item)
                 required = {
-                    "evidence_id", "attempt_id", "intervention_signature_id", "commitment_id",
-                    "competence_id", "effect_id", "context_ref", "observation_tick",
-                    "transition_id", "action_ref", "prior_state_ref", "resulting_state_ref",
-                    "prediction_ref", "window_start_tick", "effect_atoms",
+                    "evidence_id",
+                    "attempt_id",
+                    "intervention_signature_id",
+                    "commitment_id",
+                    "competence_id",
+                    "effect_id",
+                    "context_ref",
+                    "observation_tick",
+                    "transition_id",
+                    "action_ref",
+                    "prior_state_ref",
+                    "resulting_state_ref",
+                    "prediction_ref",
+                    "window_start_tick",
+                    "effect_atoms",
                 }
                 if not required.issubset(normalized):
                     raise ValueError("incomplete causal evidence item")

@@ -129,7 +129,13 @@ class ActionCommitment:
             value = payload[field]
             if not isinstance(value, str) or not value:
                 raise ValueError(f"action commitment {field} must be a non-empty string")
-        for field in ("effect_target_id", "competence_id", "embodiment_id", "intent_id", "end_reason"):
+        for field in (
+            "effect_target_id",
+            "competence_id",
+            "embodiment_id",
+            "intent_id",
+            "end_reason",
+        ):
             if payload[field] is not None and not isinstance(payload[field], str):
                 raise ValueError(f"action commitment {field} must be a string or null")
         for field in ("started_tick", "minimum_duration"):

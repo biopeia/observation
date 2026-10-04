@@ -338,17 +338,35 @@ class CompetenceExecutionBindingRegistry:
         version = payload.get("schema_version")
         if version != cls.SCHEMA_VERSION:
             raise ValueError("unsupported competence execution binding checkpoint")
-        required = {"capacity", "items", "capacity_pressure", "revision_history", "unconfirmed_executions"}
+        required = {
+            "capacity",
+            "items",
+            "capacity_pressure",
+            "revision_history",
+            "unconfirmed_executions",
+        }
         if not required.issubset(payload):
             raise ValueError("incomplete competence execution binding checkpoint")
         pressure = payload["capacity_pressure"]
         pressure_fields = {
-            "schema_version", "capacity", "admissions", "evictions", "promotions",
-            "demotions", "relearned_after_eviction", "recently_evicted",
+            "schema_version",
+            "capacity",
+            "admissions",
+            "evictions",
+            "promotions",
+            "demotions",
+            "relearned_after_eviction",
+            "recently_evicted",
         }
-        if not isinstance(pressure, Mapping) or pressure.get("schema_version") != CapacityPressure.SCHEMA_VERSION or not pressure_fields.issubset(pressure):
+        if (
+            not isinstance(pressure, Mapping)
+            or pressure.get("schema_version") != CapacityPressure.SCHEMA_VERSION
+            or not pressure_fields.issubset(pressure)
+        ):
             raise ValueError("incomplete capacity pressure checkpoint")
-        if not isinstance(payload["revision_history"], Mapping) or not isinstance(payload["unconfirmed_executions"], Mapping):
+        if not isinstance(payload["revision_history"], Mapping) or not isinstance(
+            payload["unconfirmed_executions"], Mapping
+        ):
             raise ValueError("invalid competence execution binding metadata")
         obj = cls(capacity=int(payload["capacity"]))
         raw = payload["items"]
@@ -358,9 +376,18 @@ class CompetenceExecutionBindingRegistry:
             if not isinstance(entry, Mapping):
                 raise ValueError("invalid competence execution binding")
             item_fields = {
-                "competence_id", "surface_fingerprint", "effect_id", "evidence_refs",
-                "reliability", "controllability", "last_evidence_tick", "status",
-                "status_reason", "valid_from_tick", "status_changed_tick", "revision",
+                "competence_id",
+                "surface_fingerprint",
+                "effect_id",
+                "evidence_refs",
+                "reliability",
+                "controllability",
+                "last_evidence_tick",
+                "status",
+                "status_reason",
+                "valid_from_tick",
+                "status_changed_tick",
+                "revision",
             }
             if not item_fields.issubset(entry):
                 raise ValueError("incomplete competence execution binding")
@@ -382,7 +409,14 @@ class CompetenceExecutionBindingRegistry:
         obj.pressure = CapacityPressure.restore(pressure, capacity=obj.capacity)
         for competence_id, entry in payload["revision_history"].items():
             if competence_id in obj._items:
-                if not isinstance(entry, Mapping) or not {"revision", "ref_n", "ref_k", "new_n", "new_k", "commitments"}.issubset(entry):
+                if not isinstance(entry, Mapping) or not {
+                    "revision",
+                    "ref_n",
+                    "ref_k",
+                    "new_n",
+                    "new_k",
+                    "commitments",
+                }.issubset(entry):
                     raise ValueError("invalid competence execution binding revision history")
                 obj._history[str(competence_id)] = {
                     "revision": int(entry["revision"]),
@@ -394,7 +428,11 @@ class CompetenceExecutionBindingRegistry:
                 }
         for competence_id, entry in payload["unconfirmed_executions"].items():
             if competence_id in obj._items:
-                if not isinstance(entry, Mapping) or not {"executions", "windows", "commitments"}.issubset(entry):
+                if not isinstance(entry, Mapping) or not {
+                    "executions",
+                    "windows",
+                    "commitments",
+                }.issubset(entry):
                     raise ValueError("invalid unconfirmed competence execution metadata")
                 obj._unconfirmed[str(competence_id)] = {
                     "executions": int(entry["executions"]),

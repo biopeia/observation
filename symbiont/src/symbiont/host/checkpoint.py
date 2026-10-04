@@ -203,9 +203,7 @@ def verify_checkpoint_identity(payload: dict[str, Any]) -> None:
     """
     lineage = payload.get("checkpoint_lineage")
     if not isinstance(lineage, dict):
-        raise CheckpointError(
-            "current checkpoint is missing required checkpoint_lineage"
-        )
+        raise CheckpointError("current checkpoint is missing required checkpoint_lineage")
     if lineage.get("identity_scope") != IDENTITY_SCOPE:
         raise CheckpointError("checkpoint_lineage has an unsupported identity_scope")
     try:

@@ -216,8 +216,13 @@ class ResourceEvidenceLedger:
         seen: set[str] = set()
         for row in rows:
             row_fields = {
-                "token", "requested", "granted", "observations", "denied",
-                "last_tick", "consecutive_denied",
+                "token",
+                "requested",
+                "granted",
+                "observations",
+                "denied",
+                "last_tick",
+                "consecutive_denied",
             }
             if not isinstance(row, dict) or set(row) != row_fields:
                 raise ValueError("invalid resource evidence row")
@@ -382,8 +387,16 @@ class RelationLedger:
             raise ValueError("invalid relation rows")
         for row in rows:
             required = {
-                "source_id", "target_id", "support", "harm", "observations",
-                "reciprocal_observations", "conflicts", "last_tick", "rejections", "channel",
+                "source_id",
+                "target_id",
+                "support",
+                "harm",
+                "observations",
+                "reciprocal_observations",
+                "conflicts",
+                "last_tick",
+                "rejections",
+                "channel",
             }
             if not isinstance(row, dict) or set(row) != required:
                 raise ValueError("invalid relation row")

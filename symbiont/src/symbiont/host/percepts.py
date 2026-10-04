@@ -29,9 +29,17 @@ class Percept:
     def __post_init__(self) -> None:
         if not isinstance(self.name, str) or not self.name or _HAS_WHITESPACE(self.name):
             raise ValueError("name must be a non-empty token")
-        if not isinstance(self.sensor_id, str) or not self.sensor_id or _HAS_WHITESPACE(self.sensor_id):
+        if (
+            not isinstance(self.sensor_id, str)
+            or not self.sensor_id
+            or _HAS_WHITESPACE(self.sensor_id)
+        ):
             raise ValueError("sensor_id must be a non-empty token")
-        if not isinstance(self.modality_id, str) or not self.modality_id or _HAS_WHITESPACE(self.modality_id):
+        if (
+            not isinstance(self.modality_id, str)
+            or not self.modality_id
+            or _HAS_WHITESPACE(self.modality_id)
+        ):
             raise ValueError("modality_id must be a non-empty token")
         if (
             isinstance(self.confidence, bool)

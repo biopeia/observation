@@ -1545,12 +1545,31 @@ class CompetenceDevelopmentEngine:
         if embodiment_fingerprint is None:
             raise ValueError("sensorimotor restore requires the current embodiment fingerprint")
         required_fields = {
-            "actuator_ids", "embodiment_fingerprint", "exclusive_actuator_groups", "smoothing",
-            "levels", "use_counts", "exploration_epoch", "exploration_ids", "probing_share",
-            "probe_unit", "probe_remaining", "frame_history", "episode_end_ticks", "horizon_stats",
-            "horizon_counts", "passive_effect_stat", "passive_direction_stats", "primitive_stats",
-            "primitives", "historical_candidates", "replay_id", "replay_step", "replay_source",
-            "primitive_stats_pressure", "primitives_pressure",
+            "actuator_ids",
+            "embodiment_fingerprint",
+            "exclusive_actuator_groups",
+            "smoothing",
+            "levels",
+            "use_counts",
+            "exploration_epoch",
+            "exploration_ids",
+            "probing_share",
+            "probe_unit",
+            "probe_remaining",
+            "frame_history",
+            "episode_end_ticks",
+            "horizon_stats",
+            "horizon_counts",
+            "passive_effect_stat",
+            "passive_direction_stats",
+            "primitive_stats",
+            "primitives",
+            "historical_candidates",
+            "replay_id",
+            "replay_step",
+            "replay_source",
+            "primitive_stats_pressure",
+            "primitives_pressure",
         }
         if not required_fields.issubset(payload):
             raise ValueError("incomplete sensorimotor checkpoint")

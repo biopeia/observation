@@ -55,7 +55,9 @@ class EpigeneticProtocol:
     min_capture_delta: float = 0.02
 
     def __post_init__(self) -> None:
-        if not isinstance(self.enabled, bool) or not isinstance(self.acquired_capture_enabled, bool):
+        if not isinstance(self.enabled, bool) or not isinstance(
+            self.acquired_capture_enabled, bool
+        ):
             raise ValueError("epigenetic protocol flags must be booleans")
         if not 0.0 <= self.decay <= 1.0:
             raise ValueError("epigenetic decay must be in [0,1]")
@@ -95,9 +97,7 @@ class GermlineState:
             spec = schema.spec(mark.locus)
             if not spec.regulable:
                 raise ValueError(f"inherited mark targets non-regulable locus {mark.locus!r}")
-            birth_expression[mark.locus] = spec.clamp(
-                float(base) + mark.delta * mark.strength
-            )
+            birth_expression[mark.locus] = spec.clamp(float(base) + mark.delta * mark.strength)
         return cls(
             birth_expression=birth_expression,
             inherited_marks={mark.locus: mark for mark in inherited_marks},
@@ -185,8 +185,10 @@ class InheritancePackage:
     def __post_init__(self) -> None:
         if not isinstance(self.genome, Genome):
             raise ValueError("inheritance package requires a Genome v2 genome")
-        if not isinstance(self.parent_ids, tuple) or not self.parent_ids or any(
-            not isinstance(parent_id, str) or not parent_id for parent_id in self.parent_ids
+        if (
+            not isinstance(self.parent_ids, tuple)
+            or not self.parent_ids
+            or any(not isinstance(parent_id, str) or not parent_id for parent_id in self.parent_ids)
         ):
             raise ValueError("inheritance package requires non-empty parent identifiers")
         if len(set(self.parent_ids)) != len(self.parent_ids):

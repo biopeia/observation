@@ -687,8 +687,14 @@ class IntentionDomain:
         if version != cls.SCHEMA_VERSION:
             raise ValueError("unsupported executive intention checkpoint")
         required = {
-            "active", "active_commitment_id", "progress_evidence", "consecutive_mismatches",
-            "reconciliation_trace", "formed", "counts", "outcome_evidence",
+            "active",
+            "active_commitment_id",
+            "progress_evidence",
+            "consecutive_mismatches",
+            "reconciliation_trace",
+            "formed",
+            "counts",
+            "outcome_evidence",
         }
         if not required.issubset(payload):
             raise ValueError("incomplete executive intention checkpoint")

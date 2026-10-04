@@ -188,9 +188,7 @@ class ExpressionRegulator:
 
         learning = genome.plasticity.learning_rate
         learning_birth = state.birth_expression["plasticity.learning_rate.baseline"]
-        learning_target = (
-            learning_birth + (learning.maximum - learning_birth) * mismatch_pressure
-        )
+        learning_target = learning_birth + (learning.maximum - learning_birth) * mismatch_pressure
         learning_value = self._move(
             state.effective_learning_rate,
             learning_target,

@@ -147,7 +147,9 @@ def inject_memory_candidates(
     if not isinstance(raw, list):
         return fresh_actuation
     action_domain = fresh_actuation.get("action_domain")
-    sensorimotor = action_domain.get("competence_development") if isinstance(action_domain, dict) else None
+    sensorimotor = (
+        action_domain.get("competence_development") if isinstance(action_domain, dict) else None
+    )
     if not isinstance(sensorimotor, dict):
         return fresh_actuation
     if sensorimotor.get("schema_version") != 11:

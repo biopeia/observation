@@ -1378,7 +1378,10 @@ class EpisodicExperienceMemory:
         }
         if set(payload) != required:
             raise EpisodicMemoryError("episodic checkpoint fields do not match the current schema")
-        if payload.get("schema_version") != cls.SCHEMA_VERSION or payload.get("organism_id") != organism_id:
+        if (
+            payload.get("schema_version") != cls.SCHEMA_VERSION
+            or payload.get("organism_id") != organism_id
+        ):
             raise EpisodicMemoryError("invalid episodic checkpoint identity")
 
         memory = cls(organism_id, kernel_limits=limits)
@@ -1401,8 +1404,10 @@ class EpisodicExperienceMemory:
         if not isinstance(raw_interpretations, Mapping):
             raise EpisodicMemoryError("invalid episodic interpretations")
         for episode_id, raw_values in raw_interpretations.items():
-            if episode_id not in set(ids) or not isinstance(raw_values, list) or any(
-                not isinstance(value, str) for value in raw_values
+            if (
+                episode_id not in set(ids)
+                or not isinstance(raw_values, list)
+                or any(not isinstance(value, str) for value in raw_values)
             ):
                 raise EpisodicMemoryError("invalid episodic interpretation entry")
             values = _bounded_unique(
