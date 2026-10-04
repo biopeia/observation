@@ -24,8 +24,13 @@ from symbiont.host.continuity import (
 
 CANONICAL = {entry.attribute: entry for entry in REGISTER}
 REDUCED = {entry.attribute: entry for entry in REDUCED_SEED_REGISTER}
-# Canonical re-embodiment keeps this state as knowledge (with or without authority).
-KEPT_AS_KNOWLEDGE = {Reembodiment.PRESERVED, Reembodiment.INVALIDATED}
+# Canonical re-embodiment keeps this state as knowledge (with or without
+# authority), including fields whose nested policy is explicitly mixed.
+KEPT_AS_KNOWLEDGE = {
+    Reembodiment.PRESERVED,
+    Reembodiment.INVALIDATED,
+    Reembodiment.MIXED,
+}
 DISCARDS = {Transplant.RESET, Transplant.DETACHED}
 
 
