@@ -26,6 +26,12 @@ In evolutionary simulations and artificial life studies, reproduction is frequen
 
 v0.26.0 (Lineage & Reproduction Architecture).
 
+## Current implementation note (2026-10-04)
+
+The point-mutation clause in decision 4 is superseded for the current Genome v2
+resident-budding contract by D-5 in
+[`symbiont/docs/decisions/organism-boundary-contracts.md`](../../symbiont/docs/decisions/organism-boundary-contracts.md): budding carries the unchanged parent Genome v2, with no recombination or allele mutation. Protocol-admitted germline marks may be transmitted separately and affect child birth expression. Somatic `EpigeneticPrior` is not implicitly inherited. The integration test establishes this chain mechanically, not adaptive benefit. This note records current implementation scope; it does not rewrite the historical decision context of this ADR.
+
 ## Evidence
 
 `src/symbiont/core/orchestration/canonical_birth.py`, `docs/architecture.md` (L592), `symbiont/docs/explanation/06-reproduction-and-lineage.md`.
