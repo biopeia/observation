@@ -167,7 +167,7 @@ def main(argv: list[str] | None = None) -> int:
     from symbiont.core import OrganismRuntime, ResidentConfig, ResidentOrganism
     from symbiont.core.host.local_habitat import LocalHabitat
     from symbiont.core.social.capsule import CapsuleKeyPair
-    from symbiont.host.checkpoint import load_checkpoint_file
+    from symbiont.api import load_checkpoint_file
 
     runtime_kwargs: dict[str, object] = {}
     existing_payload = load_checkpoint_file(args.state_file)

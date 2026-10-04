@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from symbiont.core.host.advisory import load_advisory_log
-from symbiont.host.checkpoint import load_checkpoint_file, save_checkpoint_atomic
+from symbiont.api import load_checkpoint_file, save_checkpoint_atomic
 
 __all__ = [
     "OperatorJudgment",
