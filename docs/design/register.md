@@ -2,7 +2,7 @@
 
 **Authority:** canonical register for the lifecycle and implementation status of
 design documents under `docs/design/`.
-**Last triaged:** 2026-10-02.
+**Last triaged:** 2026-10-04.
 **Owner:** Project owner.
 
 This register exists so design proposals remain discoverable without changing
@@ -88,6 +88,7 @@ partial implementation is not retroactively treated as approved.
 | [Adaptive Experience Replay v1](cognition/adaptive-experience-replay-v1.md) | Reviewed | Partial | Document reports an implemented foundation; reconcile stale `unclassified` metadata in a later doc cleanup. |
 | [Autonomous Experience Replay v1](cognition/autonomous-experience-replay-v1.md) | Reviewed | Partial | Document reports an implemented foundation; no broader scientific acceptance inferred. |
 | [Autonomous Replay Stopping v1](cognition/autonomous-replay-stopping-v1.md) | Reviewed | Implemented | Implementation stated complete; scientific gates remain pending execution. |
+| [Cognitive Cycle v1](cognition/cognitive-cycle-v1.md) | Proposed | Partial | Names the canonical cycle, per-subsystem authority and the transversal contracts (fact identity, epistemic origin, prediction kinds, uncertainty vocabulary, evaluation vector, retention pressure); records findings F1–F5 against `main`. Only wave W0 (document, ADR-0068 Proposed, structural test) is implemented. W1–W6 are not approved; W1 and W3–W5 change organism behaviour and require external scientific review. |
 | [Cognitive Atlas v2 Phase A Audit](cognition/cognitive-atlas-v2-phase-a-audit.md) | Reference | Not applicable | Audit artifact, not an implementation proposal; its `unclassified` frontmatter is non-authoritative. |
 | [Emergent Symbol Grounding v1](cognition/emergent-symbol-grounding-v1.md) | Reviewed | Implemented | Preregistered study results are recorded in the document; this does not imply general language capability. |
 | [Episodic Experience Memory v2](cognition/episodic-experience-memory-v2.md) | Reviewed | Implemented | Document calls this the implemented replacement for v1; retain that bounded scope. |
