@@ -24,6 +24,8 @@ from symbiont.core.embodiment.transition import (
     EmbodimentDescriptor,
     prepare_fresh_embodiment_checkpoint,
 )
+from symbiont.core.social import SocialHabitat
+from symbiont.core.social.interactions import EcologicalResourcePool
 from symbiont.host.checkpoint import CheckpointError
 from symbiont.host.continuity import REGISTER, Reembodiment
 from symbiont.modeling import (
@@ -74,6 +76,11 @@ class _Case:
         body_a = CausalBody(actuator_count=4, seed=127)
         developed = _subject(body_a)
         run_ticks(developed, body_a, DEVELOPMENT_TICKS)
+        habitat = SocialHabitat(EcologicalResourcePool({"food": 1.0}))
+        habitat.admit(ORGANISM_ID)
+        habitat.admit("reembodiment-peer")
+        developed.join_social_habitat(habitat)
+        assert developed.request_social_exchange("reembodiment-peer", "food", 0.1).granted > 0
         developed.ancestry_training = True
         parent_tokenizer = NativeTokenizer.from_records(developed.experience_ledger.records)
         parent_request = TrainingRequest(
@@ -152,6 +159,7 @@ class _Case:
         self.ancestor_model_id = shadow.model_id
         self.child_vocabulary = child_vocabulary
         self.own_social_claims = developed.social_evidence_ledger.claims
+        self.social_relations = _json(developed.social_ledger.checkpoint())
         self.previous = _json(developed.checkpoint())
         del developed
 
@@ -213,6 +221,7 @@ def test_body_a_development_is_not_trivial(case: _Case) -> None:
     )
     assert case.own_social_claims
     assert case.previous["social_evidence_ledger"]["held"]
+    assert case.previous["social_ledger"]["relations"]
 
 
 def test_symbiont_owned_state_is_preserved_exactly(case: _Case) -> None:
@@ -309,6 +318,7 @@ def test_knowledge_survives_as_knowledge_without_authority(case: _Case) -> None:
         case.active_model_id
     ] == list(case.child_vocabulary)
     assert restored.social_evidence_ledger.claims == case.own_social_claims
+    assert _json(restored.social_ledger.checkpoint()) == case.social_relations
     assert _competence_ids(restored) >= case.competences_in_a
     assert not any(
         binding.status is BindingStatus.VALID
