@@ -291,6 +291,10 @@ def test_body_a_development_is_not_trivial(case: _Case) -> None:
     assert action_state["sensorimotor_v2"]["execution_bindings"]
     assert case.active_model_id
     assert case.previous["private_model_registry"]["records"]
+    private_model_states = {
+        record["state"] for record in case.previous["private_model_registry"]["records"]
+    }
+    assert {"shadow", "active"} <= private_model_states
     assert case.previous["training_ancestry"]["vocabularies"][case.ancestor_model_id]
     assert len(case.child_vocabulary) > len(
         case.previous["training_ancestry"]["vocabularies"][case.ancestor_model_id]
