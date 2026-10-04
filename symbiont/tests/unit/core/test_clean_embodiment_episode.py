@@ -85,6 +85,14 @@ def test_transplant_closes_archives_and_replaces_embodiment_only() -> None:
         somatic_correlated_channels=set(),
         prediction_error=0.1,
     )
+    ind.symbiont.body_schema.observe_agentic_sensorimotor_evidence(
+        causal_source_ref="dimension.opaque",
+        effect_id="effect.body.a",
+        feature_refs=("feature.opaque",),
+        controllability_confidence=0.8,
+        agency_confidence=0.7,
+        tick=ind.symbiont.total_ticks,
+    )
     for _ in range(12):
         ind.step()
     closed_schema = ind.symbiont.body_schema.export(current_tick=ind.symbiont.total_ticks)
@@ -120,6 +128,8 @@ def test_transplant_closes_archives_and_replaces_embodiment_only() -> None:
     assert archived.body_schema_prior["parts"] == closed_schema["parts"]
     assert archived.body_schema_prior["cognitive_learning"] == closed_schema["cognitive_learning"]
     assert archived.body_schema_prior["boundary_evidence"] == closed_schema["boundary_evidence"]
+    assert archived.body_schema_prior["sensorimotor_view"] == closed_schema["sensorimotor_view"]
+    assert closed_schema["sensorimotor_view"]["agentic_features"]
     current_schema = ind.symbiont.body_schema.export(current_tick=ind.symbiont.total_ticks)
     assert current_schema["state"] == "undeveloped"
     assert current_schema["parts"] == []
@@ -127,6 +137,8 @@ def test_transplant_closes_archives_and_replaces_embodiment_only() -> None:
     assert current_schema["cognitive_learning"]["regions"] == []
     assert current_schema["boundary_evidence"]["self_caused_channels"] == []
     assert current_schema["boundary_evidence"]["external_channels"] == []
+    assert current_schema["sensorimotor_view"]["support"] == []
+    assert current_schema["sensorimotor_view"]["agentic_features"] == []
     assert ind.symbiont.sensorimotor_model.relation_count == 0
     assert ind.symbiont.causal_evidence.evidence == ()
     assert ind.symbiont.agency_model.estimates == ()
