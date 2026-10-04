@@ -45,23 +45,25 @@ ci_lanes = ["software_core", "architecture_integrity", "runtime_contracts", "hos
 paths = ["symbiont/src/symbiont/host/**", "symbiont/tests/unit/host/**"]
 
 [embodiment]
-ci_lanes = ["software_core", "architecture_integrity", "physics3d"]
+ci_lanes = ["architecture_integrity", "physics3d"]
 paths = ["embodiment/src/embodiment/**", "embodiment/tests/**"]
 
 [modality]
-ci_lanes = ["software_core", "architecture_integrity", "physics3d"]
+ci_lanes = ["architecture_integrity", "physics3d"]
 paths = ["modality/src/modality/**", "modality/tests/**"]
 
+# Generic Lab ownership. More specific Lab sections replace this section for a
+# path instead of accumulating it.
 [lab]
 ci_lanes = ["software_core", "architecture_integrity"]
 paths = ["lab/src/lab/**", "lab/tests/**"]
 
 [lab_physics3d]
-ci_lanes = ["software_core", "architecture_integrity", "physics3d"]
+ci_lanes = ["architecture_integrity", "physics3d"]
 paths = ["lab/src/lab/physics3d/**", "lab/tests/unit/lab/physics3d/**", "lab/tests/integration/test_physics3d*.py"]
 
 [modeling]
-ci_lanes = ["software_core", "modeling"]
+ci_lanes = ["modeling"]
 paths = ["lab/src/lab/modeling/**", "symbiont/tests/unit/modeling/**", "lab/tests/unit/modeling/**", "lab/tests/unit/lab/modeling/**", "lab/tests/integration/test_private_model*.py", "lab/tests/integration/test_training_ancestry*.py"]
 
 [world]
