@@ -19,7 +19,7 @@ def test_body_registry_rejects_unknown_body_kind() -> None:
         DEFAULT_BODY_REGISTRY.get("unknown-body")
 
 
-def test_default_registry_exposes_three_distinct_morphologies() -> None:
+def test_default_registry_exposes_all_physics3d_morphologies() -> None:
     bodies = {item.body_kind: item for item in DEFAULT_BODY_REGISTRY.list()}
     assert set(bodies) == {
         "anthropomorphic-v6",
@@ -27,6 +27,8 @@ def test_default_registry_exposes_three_distinct_morphologies() -> None:
         "anthropomorphic-v6-vision",
         "crawler-v1",
         "asymmetric-v1",
+        "hexapod-v1",
+        "robotic-arm-v1",
     }
 
     assert bodies["crawler-v1"].motor_dof == 12
@@ -37,6 +39,11 @@ def test_default_registry_exposes_three_distinct_morphologies() -> None:
     assert bodies["asymmetric-v1"].motor_dof == 15
     assert bodies["asymmetric-v1"].effector_count == 30
     assert bodies["asymmetric-v1"].receptor_count == 69
+    assert bodies["hexapod-v1"].motor_dof == 18
+    assert bodies["hexapod-v1"].effector_count == 36
+    assert bodies["robotic-arm-v1"].motor_dof == 6
+    assert bodies["robotic-arm-v1"].effector_count == 12
+    assert bodies["robotic-arm-v1"].display_name == "Fixed-base robotic arm"
 
     contracts = {
         (
@@ -48,8 +55,8 @@ def test_default_registry_exposes_three_distinct_morphologies() -> None:
     assert len(contracts) == len(bodies)  # every body is a distinct contract
 
 
-def test_alternative_body_contracts_remain_opaque_ordinals() -> None:
-    for body_kind in ("crawler-v1", "asymmetric-v1"):
+def test_non_humanoid_body_contracts_remain_opaque_ordinals() -> None:
+    for body_kind in ("crawler-v1", "asymmetric-v1", "hexapod-v1", "robotic-arm-v1"):
         descriptor = DEFAULT_BODY_REGISTRY.get(body_kind)
         assert descriptor.receptor_ids == tuple(
             f"rec.{i}" for i in range(descriptor.receptor_count)
