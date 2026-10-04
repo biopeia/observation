@@ -99,6 +99,36 @@ requirements, revision rules, lifecycle ownership, and consumer authority.
 - No scientific run is authorized by this document. Any E3/E4 claim must satisfy
   the repository's experiment, review, and publication gates independently.
 
+### Provisional evidence-level inventory (source audit, 2026-10-04)
+
+These are conservative ceilings for the traced mechanisms, not endorsements of
+their scientific validity. E3 and E4 are intentionally absent: no controlled
+benefit or causal-intervention evidence was reviewed for this inventory.
+
+| Mechanism | Current level | Evidence boundary |
+|---|---|---|
+| CognitiveGraph / cognitive bridge | E1 — durable | Checkpoint round-trip and production readout paths exist; no test in this audit isolates a graph-state change and its resulting action. |
+| SignalKnowledge | E1 — durable | Persists and is surfaced to runtime/observer events; no organism decision consumer was found. |
+| EvidenceRevisionLedger | E1 — durable | Persists and participates in investigation-time baseline revision; an isolated downstream decision consequence was not demonstrated. |
+| Predictive learning / predictor credit | E1 — durable | Predictor updates and sensory utility wiring exist; a differential production decision test isolating predictor state was not established. |
+| Causal / sensorimotor evidence | E1 — durable | Transition evidence and derived models persist; causal truth and a differential action-ranking effect are not established. |
+| Agency acquisition / competence effects | E1 — durable | Acquired competence and execution bindings are distinct and persisted; this audit did not establish a differential test of acquired evidence affecting action while authority remains independently controlled. |
+| Generative hypotheses | E1 — durable | Hypotheses persist and an admission path exists; a differential test from persistent hypothesis through production decision is not established. |
+| Private models | E1 — durable | The active private model is read during prospective action deliberation, but this audit did not find a differential test proving choice changes when only its state changes; no E2 claim is made. |
+| Model ancestry | E1 — durable | Parent vocabulary can contribute to a child training request; persistence does not show improved learning or adaptation. |
+| Episodic/consolidated memory | E1 — durable | Consolidated state persists, but no runtime retrieval or decision consumer was found. |
+| Social evidence | E1 — durable | Source-attributed claims and evidence persist and affect cultural retention/transmission; no peer-claim-to-organism-decision path was found. |
+| Symbol / sequence grounding | E2 — consumed | Locally observed associations are read by grounded emission methods and tests exercise the association-dependent output; this establishes substrate-local use, not validated shared meaning. |
+| Provenance | E1 — durable | A bounded live-reference frontier persists; the event ring is not persisted and provenance coverage is producer-specific. |
+| BodySchema | E1 — durable | Re-embodiment tests prove archival preservation and active evidence reset; no transfer-utility claim follows. |
+| Somatic EpigeneticPrior | E0 — present | Runtime support keys are empty and non-empty priors are rejected; this does not establish acquired or consumed somatic marks. |
+| Genome v2 germline marks / expression | E1 — durable | Genome/germline and expression mechanisms exist with persistence; no integrated experience-to-child inheritance or adaptive consequence is demonstrated. |
+
+These levels are scoped to the mechanisms and paths named above. A subsystem
+may contain lower-level components; do not promote the whole subsystem beyond
+the evidence shown. Raise a level only with the required differential test or
+controlled study, and record the exact scope and artifact.
+
 ## 6. Source trace started on 2026-10-04
 
 This is a bounded source map, not completion of the owner audit in §2 or the

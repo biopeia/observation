@@ -168,7 +168,7 @@ unverified semantics and evidence.
 | SYM-15 legacy anthropomorphic fallback | **Bounded and labelled; legacy remains** | No evidence yet that all relevant archival checkpoints can be retired |
 | SYM-16 stale migration descriptions | **Partially cleaned** | Continue targeted scan; do not imply migrations are active |
 | SYM-17 composite re-embodiment test | **Resolved for implemented/acquired state** | `lab/tests/integration/test_reembodiment_continuity.py` develops one subject with acquired cognition, sensorimotor, causal, private-model, ancestry, social, relation and grounding state, then checkpoints, restores, re-embodies and advances it. Unsupported acquired epigenetic priors are deliberately absent (SYM-10), so no epigenetic continuity is claimed |
-| SYM-18 capability/evidence conflation | **Design proposed; audit open** | Evidence-level vocabulary exists, but capabilities have not all been rated against it |
+| SYM-18 capability/evidence conflation | **Initial inventory completed** | The proposed ownership design now rates each traced epistemic mechanism at a conservative E0–E2 ceiling and states why no E3/E4 benefit or causal claim is established. Re-rate on implementation changes; this inventory does not replace controlled evaluations |
 
 ### BodySchema consumer audit findings
 
