@@ -78,6 +78,19 @@ fed back to the organism.
 Retention protection is not checkpointed; M3 and the `cognitive_bridge`
 section of M4 are its observable proxies.
 
+## Amendment 1 (before any Part B execution)
+
+Mechanics validation of the runner on a 48-tick scratch organism (not a
+protocol state, not evidence) showed that the whole-checkpoint digest
+differs between `off` and `on` from the input tick, because the flag is
+itself part of the checkpoint. M4 as written would be trivially true. M4 is
+therefore read **per section**: the first tick at which each of
+`actuation`, `cognitive_bridge`, `executive_intention`, `experience_ledger`,
+`generative_cognition`, `living_body`, `metabolism` and
+`private_model_registry` differs between two arms. The validity rule is
+unchanged and applies to every one of those sections. No horizon, seed, arm
+or other measurement changes.
+
 ## Analysis plan
 
 Per seed, then listed side by side; no pooling statistic with three seeds.
