@@ -190,7 +190,9 @@ def test_single_episode_remains_candidate_until_independent_recurrence():
     learner = CompetenceDevelopmentEngine(
         _ids(4),
         organism_id="org-single-episode-candidate",
-        embodiment_fingerprint=_test_embodiment_fingerprint("org-single-episode-candidate", _ids(4)),
+        embodiment_fingerprint=_test_embodiment_fingerprint(
+            "org-single-episode-candidate", _ids(4)
+        ),
         max_concurrent=4,
     )
     sequence = (
@@ -224,7 +226,9 @@ def test_checkpoint_controller_presence_does_not_create_established_competence()
     learner = CompetenceDevelopmentEngine(
         _ids(4),
         organism_id="org-controller-only-checkpoint",
-        embodiment_fingerprint=_test_embodiment_fingerprint("org-controller-only-checkpoint", _ids(4)),
+        embodiment_fingerprint=_test_embodiment_fingerprint(
+            "org-controller-only-checkpoint", _ids(4)
+        ),
         max_concurrent=4,
     )
     sequence = (
@@ -297,7 +301,9 @@ def test_same_sequence_in_disjoint_exploration_block_counts_as_recurrence():
     learner = CompetenceDevelopmentEngine(
         _ids(4),
         organism_id="org-independent-evidence-block",
-        embodiment_fingerprint=_test_embodiment_fingerprint("org-independent-evidence-block", _ids(4)),
+        embodiment_fingerprint=_test_embodiment_fingerprint(
+            "org-independent-evidence-block", _ids(4)
+        ),
         max_concurrent=4,
     )
     sequence = (
@@ -642,8 +648,11 @@ def test_restore_rejects_every_pre_v9_schema_outright(legacy_schema):
     constitution.  Reinterpreting that learned history would be scientifically
     dishonest, so restoration fails closed.
     """
-    learner = CompetenceDevelopmentEngine(_ids(4), organism_id="org-legacy-schema",
-        embodiment_fingerprint=_test_embodiment_fingerprint("org-legacy-schema", _ids(4)),)
+    learner = CompetenceDevelopmentEngine(
+        _ids(4),
+        organism_id="org-legacy-schema",
+        embodiment_fingerprint=_test_embodiment_fingerprint("org-legacy-schema", _ids(4)),
+    )
     payload = learner.checkpoint()
     payload["schema_version"] = legacy_schema
 
@@ -659,8 +668,11 @@ def test_restore_rejects_in_flight_verification_replay_instead_of_relabeling_it(
     """An action the removed scheduler forced must never resurface as
     cognition-originated after restore — that would rewrite the organism's
     own causal history (not merely legacy debt)."""
-    learner = CompetenceDevelopmentEngine(_ids(4), organism_id="org-verification-reject",
-        embodiment_fingerprint=_test_embodiment_fingerprint("org-verification-reject", _ids(4)),)
+    learner = CompetenceDevelopmentEngine(
+        _ids(4),
+        organism_id="org-verification-reject",
+        embodiment_fingerprint=_test_embodiment_fingerprint("org-verification-reject", _ids(4)),
+    )
     _teach_repeated_sequence(learner, episodes=2)
     primitive = learner.cognitive_primitives[0]
     assert learner.activate_primitive(primitive.primitive_id)
@@ -678,8 +690,11 @@ def test_restore_rejects_in_flight_verification_replay_instead_of_relabeling_it(
 
 
 def test_restore_rejects_in_flight_replay_with_missing_or_unknown_source():
-    learner = CompetenceDevelopmentEngine(_ids(4), organism_id="org-missing-source",
-        embodiment_fingerprint=_test_embodiment_fingerprint("org-missing-source", _ids(4)),)
+    learner = CompetenceDevelopmentEngine(
+        _ids(4),
+        organism_id="org-missing-source",
+        embodiment_fingerprint=_test_embodiment_fingerprint("org-missing-source", _ids(4)),
+    )
     _teach_repeated_sequence(learner, episodes=2)
     primitive = learner.cognitive_primitives[0]
     assert learner.activate_primitive(primitive.primitive_id)
@@ -829,8 +844,11 @@ def test_primitive_ordered_views_are_cached_and_invalidated_on_update():
 
 
 def test_observe_precomputes_the_exact_canonical_motor_pattern():
-    learner = CompetenceDevelopmentEngine(("b", "a"), organism_id="frame-pattern",
-        embodiment_fingerprint=_test_embodiment_fingerprint("frame-pattern", ("b", "a")),)
+    learner = CompetenceDevelopmentEngine(
+        ("b", "a"),
+        organism_id="frame-pattern",
+        embodiment_fingerprint=_test_embodiment_fingerprint("frame-pattern", ("b", "a")),
+    )
     vector = {"b": 0.51, "a": 0.09}
     learner.observe(tick=1, body_state={"x": 0.0}, motor_vector=vector)
 
@@ -842,8 +860,11 @@ def test_observe_precomputes_the_exact_canonical_motor_pattern():
 
 
 def test_primitive_id_cache_preserves_sha256_identity_and_reuses_result():
-    learner = CompetenceDevelopmentEngine(("a",), organism_id="primitive-id-cache",
-        embodiment_fingerprint=_test_embodiment_fingerprint("primitive-id-cache", ("a",)),)
+    learner = CompetenceDevelopmentEngine(
+        ("a",),
+        organism_id="primitive-id-cache",
+        embodiment_fingerprint=_test_embodiment_fingerprint("primitive-id-cache", ("a",)),
+    )
     sequence = (
         (("a", 1),),
         (("a", 2),),
@@ -1064,8 +1085,11 @@ def test_historical_primitive_requires_fresh_evidence_before_cognitive_reuse():
 
 
 def test_sensorimotor_pre_v9_checkpoint_is_not_reinterpreted_as_current_evidence():
-    learner = CompetenceDevelopmentEngine(_ids(4), organism_id="org-pre-v9",
-        embodiment_fingerprint=_test_embodiment_fingerprint("org-pre-v9", _ids(4)),)
+    learner = CompetenceDevelopmentEngine(
+        _ids(4),
+        organism_id="org-pre-v9",
+        embodiment_fingerprint=_test_embodiment_fingerprint("org-pre-v9", _ids(4)),
+    )
     payload = learner.checkpoint()
     payload["schema_version"] = 7
     payload.pop("historical_candidates")
@@ -1188,14 +1212,14 @@ def test_exclusive_group_validation_rejects_overlap_and_unknown_ids():
         CompetenceDevelopmentEngine(
             ids,
             organism_id="overlap",
-        embodiment_fingerprint=_test_embodiment_fingerprint("overlap", ids),
+            embodiment_fingerprint=_test_embodiment_fingerprint("overlap", ids),
             exclusive_actuator_groups=((ids[0], ids[1]), (ids[1], ids[2])),
         )
     with pytest.raises(ValueError, match="unknown actuator"):
         CompetenceDevelopmentEngine(
             ids,
             organism_id="unknown",
-        embodiment_fingerprint=_test_embodiment_fingerprint("unknown", ids),
+            embodiment_fingerprint=_test_embodiment_fingerprint("unknown", ids),
             exclusive_actuator_groups=((ids[0], "missing"),),
         )
 
@@ -1288,16 +1312,17 @@ def test_restore_rejects_v9_horizon_evidence_that_violates_exclusive_motor_unit(
             payload,
             actuator_ids=ids,
             organism_id="org-invalid-horizon-restore",
-            embodiment_fingerprint=_test_embodiment_fingerprint(
-                "org-invalid-horizon-restore", ids
-            ),
+            embodiment_fingerprint=_test_embodiment_fingerprint("org-invalid-horizon-restore", ids),
         )
 
 
 def test_restore_rejects_current_checkpoint_missing_motor_unit_contract():
     ids = _ids(4)
-    learner = CompetenceDevelopmentEngine(ids, organism_id="org-v9-missing-groups",
-        embodiment_fingerprint=_test_embodiment_fingerprint("org-v9-missing-groups", ids),)
+    learner = CompetenceDevelopmentEngine(
+        ids,
+        organism_id="org-v9-missing-groups",
+        embodiment_fingerprint=_test_embodiment_fingerprint("org-v9-missing-groups", ids),
+    )
     payload = learner.checkpoint()
     payload.pop("exclusive_actuator_groups")
 
@@ -1306,9 +1331,7 @@ def test_restore_rejects_current_checkpoint_missing_motor_unit_contract():
             payload,
             actuator_ids=ids,
             organism_id="org-v9-missing-groups",
-            embodiment_fingerprint=_test_embodiment_fingerprint(
-                "org-v9-missing-groups", ids
-            ),
+            embodiment_fingerprint=_test_embodiment_fingerprint("org-v9-missing-groups", ids),
         )
 
 
@@ -1353,8 +1376,11 @@ def test_pattern_distance_matches_reference_allocation_heavy_formula(left, right
 
 
 def test_primitive_match_preserves_lexicographic_tie_break_independent_of_insertion_order():
-    learner = CompetenceDevelopmentEngine(_ids(3), organism_id="org-match-tie",
-        embodiment_fingerprint=_test_embodiment_fingerprint("org-match-tie", _ids(3)),)
+    learner = CompetenceDevelopmentEngine(
+        _ids(3),
+        organism_id="org-match-tie",
+        embodiment_fingerprint=_test_embodiment_fingerprint("org-match-tie", _ids(3)),
+    )
     query = ((("actuator.1", 4),),) * 4
     lower = ((("actuator.0", 4),),) * 4
     higher = ((("actuator.2", 4),),) * 4
@@ -1375,8 +1401,11 @@ def test_primitive_match_preserves_lexicographic_tie_break_independent_of_insert
 
 
 def test_primitive_match_returns_original_sequence_above_threshold():
-    learner = CompetenceDevelopmentEngine(_ids(2), organism_id="org-match-threshold",
-        embodiment_fingerprint=_test_embodiment_fingerprint("org-match-threshold", _ids(2)),)
+    learner = CompetenceDevelopmentEngine(
+        _ids(2),
+        organism_id="org-match-threshold",
+        embodiment_fingerprint=_test_embodiment_fingerprint("org-match-threshold", _ids(2)),
+    )
     query = ((("actuator.0", 7),),) * 4
     candidate = ((("actuator.1", 7),),) * 4
     learner._primitive_stats[candidate] = sensorimotor_module._RunningStat()

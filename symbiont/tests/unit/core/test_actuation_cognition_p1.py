@@ -229,9 +229,7 @@ def test_cognitive_graph_readout_changes_executive_admission():
         nodes=(
             PlasticNode(node_id="sense_a", kind=NodeKind.SENSE),
             PlasticNode(node_id="concept_a", kind=NodeKind.CONCEPT),
-            PlasticNode(
-                node_id="readout_primitive:primitive.test", kind=NodeKind.READOUT
-            ),
+            PlasticNode(node_id="readout_primitive:primitive.test", kind=NodeKind.READOUT),
         ),
         edges=(
             PlasticEdge(
@@ -260,12 +258,8 @@ def test_cognitive_graph_readout_changes_executive_admission():
         kernel_limits=KernelLimits(),
         develop_senses=True,
     )
-    inactive = bridge.tick(
-        {"sense_a": 2.0}, tick=1, active_primitive_ids=("primitive.test",)
-    )
-    active = bridge.tick(
-        {"sense_a": 3.0}, tick=2, active_primitive_ids=("primitive.test",)
-    )
+    inactive = bridge.tick({"sense_a": 2.0}, tick=1, active_primitive_ids=("primitive.test",))
+    active = bridge.tick({"sense_a": 3.0}, tick=2, active_primitive_ids=("primitive.test",))
     affordance = ActionAffordance(
         affordance_id=affordance_id_for(
             competence_id="primitive.test",
@@ -290,6 +284,7 @@ def test_cognitive_graph_readout_changes_executive_admission():
             return ()
 
     runtime = OrganismRuntime()
+
     def choose(cognition):
         return runtime._choose_acquired_action(
             cognition=cognition,

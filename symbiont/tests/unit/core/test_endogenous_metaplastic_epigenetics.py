@@ -129,14 +129,16 @@ def test_m3_sustained_prediction_pressure_becomes_capture_eligible():
             state,
             RegulatorySignals(prediction_error=1.0, embodiment_mismatch=1.0),
         )
-        captured.update(germline.capture_acquired_variation(
-            {
-                "plasticity.learning_rate.baseline": state.effective_learning_rate,
-                "sensorimotor.spontaneous_activity_baseline": state.exploration_drive,
-            },
-            protocol=protocol,
-            genome=genome,
-        ))
+        captured.update(
+            germline.capture_acquired_variation(
+                {
+                    "plasticity.learning_rate.baseline": state.effective_learning_rate,
+                    "sensorimotor.spontaneous_activity_baseline": state.exploration_drive,
+                },
+                protocol=protocol,
+                genome=genome,
+            )
+        )
     assert captured
     assert set(captured) <= {
         "plasticity.learning_rate.baseline",

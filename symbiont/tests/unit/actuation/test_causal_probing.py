@@ -17,8 +17,12 @@ def _test_embodiment_fingerprint(organism_id: str, actuator_ids: tuple[str, ...]
 
 
 def _engine(**options) -> CompetenceDevelopmentEngine:
-    return CompetenceDevelopmentEngine(IDS, organism_id="probe",
-        embodiment_fingerprint=_test_embodiment_fingerprint("probe", IDS), **options)
+    return CompetenceDevelopmentEngine(
+        IDS,
+        organism_id="probe",
+        embodiment_fingerprint=_test_embodiment_fingerprint("probe", IDS),
+        **options,
+    )
 
 
 def _vectors(engine, ticks, *, preference=()):

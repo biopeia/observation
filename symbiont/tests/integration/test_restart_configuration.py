@@ -150,9 +150,7 @@ def test_explicit_learning_control_override_is_applied_and_recorded(
     getattr(runtime, f"set_{control}")(recorded)
     saved = _saved(runtime)
 
-    restored = runtime_type.from_checkpoint(
-        saved, **RUNTIME_KWARGS, **{control: override}
-    )
+    restored = runtime_type.from_checkpoint(saved, **RUNTIME_KWARGS, **{control: override})
 
     assert getattr(restored, f"_{control}") is override
     assert _saved(restored)["runtime_provenance"]["changed_since_restore"] == [control]
@@ -202,8 +200,8 @@ def test_checkpoint_with_incomplete_rehashed_controls_fails_closed(control: str)
     saved = _saved(runtime)
     controls = saved["runtime_provenance"]["session_controls"]
     del controls[control]
-    saved["checkpoint_lineage"]["continuation_condition_hash"] = (
-        continuation_condition_hash(controls)
+    saved["checkpoint_lineage"]["continuation_condition_hash"] = continuation_condition_hash(
+        controls
     )
 
     with pytest.raises(CheckpointError, match="invalid session_controls provenance"):
@@ -215,8 +213,8 @@ def test_checkpoint_with_unknown_rehashed_control_fails_closed() -> None:
     saved = _saved(runtime)
     controls = saved["runtime_provenance"]["session_controls"]
     controls["unrecognized_control"] = True
-    saved["checkpoint_lineage"]["continuation_condition_hash"] = (
-        continuation_condition_hash(controls)
+    saved["checkpoint_lineage"]["continuation_condition_hash"] = continuation_condition_hash(
+        controls
     )
 
     with pytest.raises(CheckpointError, match="unexpected: unrecognized_control"):
