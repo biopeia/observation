@@ -651,7 +651,7 @@ class HumanoidPhysics:
             *(index_by_link_name[name] for name in CONTACT_LINK_NAMES),
         )
         if len(self._contact_links) != SOMATIC_REGION_COUNT:
-            raise RuntimeError("anthropomorphic-v5 somatic surface is incomplete")
+            raise RuntimeError("anthropomorphic-v6 somatic surface is incomplete")
 
         self._direct_pairs: set[tuple[int, int]] = {
             (min(parent_by_index[index], index), max(parent_by_index[index], index))

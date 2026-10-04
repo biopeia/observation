@@ -41,7 +41,7 @@ def _running_version() -> tuple[int, int, int]:
 def physics3d_sensory_system(*, max_active_sensors: int = 256) -> SensorySystem:
     """Body-sized sensory substrate with an explicit bounded checkpoint budget.
 
-    Anthropomorphic-v2 exposes a 107-channel opaque body surface. The apparatus
+    Anthropomorphic-v6 exposes a 107-channel opaque body surface. The apparatus
     therefore grants enough active-sensor and checkpoint capacity for every
     physical/interoceptive channel to remain discoverable without semantic
     prioritization by the lab.
