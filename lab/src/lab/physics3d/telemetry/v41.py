@@ -201,6 +201,7 @@ class TelemetryV41Writer:
             self._structural_paths,
             self._strings,
             transform=structural_view,
+            transform_returns_owned=True,
         )
         self._events = BinaryEventWriter(
             self._handles["events"],

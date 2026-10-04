@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import hashlib
 import struct
+from collections.abc import Iterable, Mapping
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, BinaryIO, Iterable, Mapping
+from typing import Any, BinaryIO
 
 from lab.physics3d.telemetry.compaction import (
     StatePatcher,
@@ -808,36 +809,50 @@ def _escape(segment: str) -> str:
     return str(segment).replace("~", "~0").replace("/", "~1")
 
 
-def _diff(left: Any, right: Any, path: str = "") -> list[dict[str, Any]]:
+_PathNode = tuple[Any, Any] | None
+
+
+def _pointer(node: _PathNode) -> str:
+    """Render a chain of (parent, segment) links as an escaped pointer."""
+    segments: list[str] = []
+    while node is not None:
+        node, segment = node
+        segments.append(_escape(segment))
+    return "".join(f"/{segment}" for segment in reversed(segments))
+
+
+def _diff(left: Any, right: Any) -> list[dict[str, Any]]:
+    """Operations turning ``left`` into ``right``.
+
+    ``set`` values reference ``right``: the only caller encodes them at once
+    and keeps none, so copying each would be work thrown away.  Most of a
+    state does not change between two observations, so a path is rendered
+    only where an operation is emitted.
+    """
+    operations: list[dict[str, Any]] = []
+    _diff_into(left, right, None, operations)
+    return operations
+
+
+def _diff_into(left: Any, right: Any, node: _PathNode, operations: list[dict[str, Any]]) -> None:
     if type(left) is not type(right):
-        return [{"op": "set", "path": path, "value": deepcopy(right)}]
-    if isinstance(right, Mapping):
-        operations: list[dict[str, Any]] = []
+        operations.append({"op": "set", "path": _pointer(node), "value": right})
+    elif isinstance(right, Mapping):
         for key in sorted(set(left) - set(right), key=str):
-            operations.append({"op": "remove", "path": f"{path}/{_escape(key)}"})
+            operations.append({"op": "remove", "path": _pointer((node, key))})
         for key in sorted(right, key=str):
-            child = f"{path}/{_escape(key)}"
             if key not in left:
-                operations.append(
-                    {
-                        "op": "set",
-                        "path": child,
-                        "value": deepcopy(right[key]),
-                    }
-                )
+                operations.append({"op": "set", "path": _pointer((node, key)), "value": right[key]})
             else:
-                operations.extend(_diff(left[key], right[key], child))
-        return operations
-    if isinstance(right, list):
+                _diff_into(left[key], right[key], (node, key), operations)
+    elif isinstance(right, list):
         if len(left) != len(right):
-            return [{"op": "set", "path": path, "value": deepcopy(right)}]
-        operations = []
-        for index, (before, after) in enumerate(zip(left, right, strict=True)):
-            operations.extend(_diff(before, after, f"{path}/{index}"))
-        return operations
-    if not _exact_equal(left, right):
-        return [{"op": "set", "path": path, "value": deepcopy(right)}]
-    return []
+            operations.append({"op": "set", "path": _pointer(node), "value": right})
+        else:
+            for index, (before, after) in enumerate(zip(left, right, strict=True)):
+                _diff_into(before, after, (node, index), operations)
+    elif not _exact_equal(left, right):
+        operations.append({"op": "set", "path": _pointer(node), "value": right})
 
 
 class BinaryDeltaWriter:
@@ -850,12 +865,17 @@ class BinaryDeltaWriter:
         strings: BinaryStringTableWriter,
         *,
         transform=lambda value: value,
+        transform_returns_owned: bool = False,
     ) -> None:
+        """``transform_returns_owned``: the transform builds a structure that
+        shares nothing mutable with its input, so it can be kept as the
+        previous state without another copy."""
         self.paths = paths
         self.strings = strings
         self.codec = BinaryValueCodec(strings)
         self._records = BinaryRecordWriter(handle)
         self.transform = transform
+        self._transform_returns_owned = bool(transform_returns_owned)
         self._previous: dict[str, Any] = {}
         self.operations = 0
 
@@ -869,7 +889,7 @@ class BinaryDeltaWriter:
         current = self.transform(value)
         previous = self._previous.get(channel, {})
         operations = _diff(previous, current)
-        self._previous[channel] = deepcopy(current)
+        self._previous[channel] = current if self._transform_returns_owned else deepcopy(current)
         if not operations:
             return None
 

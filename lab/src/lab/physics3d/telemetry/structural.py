@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from copy import deepcopy
-from typing import Any, Mapping
+from typing import Any
 
 from lab.physics3d.telemetry.compaction import canonical_json_bytes
 
@@ -56,6 +57,9 @@ def _key_tokens_for_list(
     return None
 
 
+_IMMUTABLE_LEAVES = (str, int, float, bool, type(None))
+
+
 def structural_view(value: Any) -> Any:
     """Collision-free AST optimized for keyed temporal deltas."""
     if isinstance(value, Mapping):
@@ -77,7 +81,9 @@ def structural_view(value: Any) -> Any:
                 },
             }
         }
-    return {"@v": deepcopy(value)}
+    # Immutable scalars cannot alias the caller's state; only other leaves
+    # need a private copy.
+    return {"@v": value if type(value) in _IMMUTABLE_LEAVES else deepcopy(value)}
 
 
 def logical_view(value: Any) -> Any:

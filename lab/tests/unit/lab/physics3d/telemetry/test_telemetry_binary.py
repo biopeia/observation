@@ -222,3 +222,81 @@ def test_binary_dense_reader_rejects_wrong_full_leaf_count(tmp_path):
 
     with pytest.raises(ValueError, match="leaf count mismatch"):
         reader.apply(record)
+
+
+def _reference_diff(left, right, path=""):
+    """The delta algorithm as first written: eager paths, a copy per value."""
+    from collections.abc import Mapping
+    from copy import deepcopy
+
+    from lab.physics3d.telemetry.binary import _escape, _exact_equal
+
+    if type(left) is not type(right):
+        return [{"op": "set", "path": path, "value": deepcopy(right)}]
+    if isinstance(right, Mapping):
+        operations = []
+        for key in sorted(set(left) - set(right), key=str):
+            operations.append({"op": "remove", "path": f"{path}/{_escape(key)}"})
+        for key in sorted(right, key=str):
+            child = f"{path}/{_escape(key)}"
+            if key not in left:
+                operations.append({"op": "set", "path": child, "value": deepcopy(right[key])})
+            else:
+                operations.extend(_reference_diff(left[key], right[key], child))
+        return operations
+    if isinstance(right, list):
+        if len(left) != len(right):
+            return [{"op": "set", "path": path, "value": deepcopy(right)}]
+        operations = []
+        for index, (before, after) in enumerate(zip(left, right, strict=True)):
+            operations.extend(_reference_diff(before, after, f"{path}/{index}"))
+        return operations
+    if not _exact_equal(left, right):
+        return [{"op": "set", "path": path, "value": deepcopy(right)}]
+    return []
+
+
+def test_delta_operations_match_the_reference_algorithm():
+    import random
+
+    from lab.physics3d.telemetry.binary import _diff
+    from lab.physics3d.telemetry.structural import structural_view
+
+    rng = random.Random(7)
+    keys = ["a", "b/c", "d~e", "id", "10", "z"]
+
+    def value(depth):
+        roll = rng.random()
+        if depth == 0 or roll < 0.35:
+            return rng.choice([0, 1, 1.0, -0.0, 0.0, True, None, "x", "y/z", 2.5])
+        if roll < 0.7:
+            return {key: value(depth - 1) for key in rng.sample(keys, rng.randint(0, 4))}
+        return [value(depth - 1) for _ in range(rng.randint(0, 3))]
+
+    for _ in range(300):
+        left, right = value(4), value(4)
+        for before, after in ((left, right), (structural_view(left), structural_view(right))):
+            assert _diff(before, after) == _reference_diff(before, after)
+        assert _diff(left, left) == []
+
+
+def test_delta_writer_keeps_no_alias_of_the_callers_state():
+    from io import BytesIO
+
+    from lab.physics3d.telemetry.binary import (
+        BinaryDeltaWriter,
+        BinaryPathRegistryWriter,
+        BinaryStringTableWriter,
+    )
+    from lab.physics3d.telemetry.structural import structural_view
+
+    strings = BinaryStringTableWriter(BytesIO())
+    paths = BinaryPathRegistryWriter(BytesIO(), strings)
+    for options in ({}, {"transform": structural_view, "transform_returns_owned": True}):
+        writer = BinaryDeltaWriter(BytesIO(), paths, strings, **options)
+        state = {"nested": {"values": [1, 2]}, "name": "n"}
+        assert writer.append(1, "channel", state) is not None
+        state["nested"]["values"][0] = 99
+        info = writer.append(2, "channel", state)
+        assert info is not None and info["operations"] == 1
+        assert writer.append(3, "channel", state) is None
