@@ -3,9 +3,9 @@ id: design.cognition.cognitive-cycle-v1
 title: "Cognitive Cycle v1"
 document_type: design
 domain: cognition
-status: proposed
-canonical: false
-implementation_status: design
+status: approved
+canonical: true
+implementation_status: partial
 date: 2026-10-04
 depends_on:
   - docs/governance/constitution.md
@@ -15,6 +15,12 @@ language: en
 ---
 
 # Cognitive Cycle v1
+
+Status: **approved** by the project owner (2026-10-04) for its stated scope:
+the cycle (§2), the authority table (§3) and the contracts (§5–§11).
+Decision: [ADR-0068](../../adr/ADR-0068-factual-authority-and-single-experienced-event.md).
+Implementation: **partial** — W0 done, W1 mechanism present and off by
+default; enabling W1 and waves W2–W6 are not approved by this status (§14).
 
 ## 1. Purpose and limits
 
@@ -432,11 +438,10 @@ tick()
 *t+1* for the command issued at *t*, which is exactly the episode
 `previous → current`.
 
-## 14. Acceptance condition
+## 14. Scope of the approval
 
-This design remains proposed until the owner approves the cycle (§2), the
-authority table (§3) and the contracts (§5–§11). Approval of this document
-does not approve W1–W6; each needs its own decision and, where marked
-SCIENTIFIC, external review and the stated measurement. A finding in §5.2 or
-§8 is a recorded gap, not a licence to change the organism so that a test
-passes.
+The owner approved the cycle (§2), the authority table (§3) and the
+contracts (§5–§11) on 2026-10-04. That approval does not enable W1 and does
+not approve W2–W6: each needs its own decision and, where marked SCIENTIFIC,
+external review and the stated measurement. A finding in §5.2 or §8 is a
+recorded gap, not a licence to change the organism so that a test passes.
