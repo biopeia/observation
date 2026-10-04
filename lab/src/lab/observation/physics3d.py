@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import threading
+import uuid
 from dataclasses import asdict, is_dataclass
 from typing import Any, Mapping, Protocol
 
@@ -21,6 +22,22 @@ def _body_descriptor_for_state(physical_state: Mapping[str, object]):
         return DEFAULT_BODY_REGISTRY.get("anthropomorphic-v6")
 
 
+def _optional_text(source: Mapping[str, Any], key: str) -> str | None:
+    value = source.get(key)
+    return str(value) if value is not None else None
+
+
+def _topology_revision(rich_state: Mapping[str, Any]) -> int | None:
+    cognition = rich_state.get("cognition")
+    value = cognition.get("topology_revision") if isinstance(cognition, Mapping) else None
+    if value is None:
+        value = rich_state.get("topology_revision")
+    try:
+        return int(value) if value is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
 class EventSink(Protocol):
     def push(self, event: dict[str, Any]) -> None: ...
 
@@ -29,14 +46,20 @@ class Physics3DObservationBridge:
     """Viewer-compatible passive bridge.
 
     The only reverse path is lifecycle stop; it cannot provide motor, learning,
-    reward, environment, or cognitive commands.
+    reward, environment, or cognitive commands.  Every event also carries a
+    Lab-owned run identity so presentation state cannot cross run boundaries.
     """
 
-    def __init__(self, sink: EventSink) -> None:
+    def __init__(self, sink: EventSink, *, run_id: str | None = None) -> None:
         self._sink = sink
+        self._run_id = str(run_id or f"observer:{uuid.uuid4()}")
         self._stop = threading.Event()
         self._pending_frames: dict[int, dict[str, Any]] = {}
         self._world_publisher = WorldScenePublisher()
+
+    @property
+    def run_id(self) -> str:
+        return self._run_id
 
     def start(self) -> None:
         return None
@@ -121,6 +144,7 @@ class Physics3DObservationBridge:
         event: dict[str, Any] = {
             "type": "body_pose",
             "source": "physics3d",
+            "run_id": self._run_id,
             "body_kind": descriptor.body_kind,
             "tick": int(tick),
             "substep_index": int(substep_index),
@@ -135,6 +159,9 @@ class Physics3DObservationBridge:
                 "sampling_hz": float(sampling_hz),
             },
         }
+        for key in ("organism_id", "body_id", "embodiment_id"):
+            if physical_state.get(key) is not None:
+                event[key] = str(physical_state[key])
         base_position = physical_state.get("base_position")
         if isinstance(base_position, (list, tuple)) and len(base_position) == 3:
             event["base_position"] = [float(value) for value in base_position]
@@ -245,10 +272,14 @@ class Physics3DObservationBridge:
         projected = {
             **record,
             "source": "physics3d",
+            "run_id": self._run_id,
             "body_kind": descriptor.body_kind,
             "joints": joints,
             "links": links,
         }
+        for key in ("organism_id", "body_id", "embodiment_id"):
+            if physical_state.get(key) is not None:
+                projected[key] = physical_state[key]
         if physical_state.get("base_position") is not None:
             projected["base_position"] = physical_state["base_position"]
         elif record.get("base_position") is not None:
@@ -291,7 +322,13 @@ class Physics3DObservationBridge:
             return
         world = project_world_scene(rich_state)
         if world is not None:
-            self._sink.push(self._world_publisher.event(world))
+            world_event = self._world_publisher.event(world)
+            world_event["run_id"] = self._run_id
+            for key in ("organism_id", "body_id", "embodiment_id"):
+                value = rich_state.get(key)
+                if value is not None:
+                    world_event[key] = str(value)
+            self._sink.push(world_event)
         snapshot = mind_snapshot_from_rich_state(rich_state)
         tick = snapshot.get("tick")
         try:
@@ -299,14 +336,22 @@ class Physics3DObservationBridge:
         except (TypeError, ValueError):
             frame_tick = None
 
-        mind_event = {
+        mind_event: dict[str, Any] = {
             "type": "mind_snapshot",
             "source": "physics3d",
+            "run_id": self._run_id,
             "tick": tick,
             "organism_id": rich_state.get("organism_id"),
             "snapshot": snapshot,
             "coherent_frame_follows": frame_tick is not None,
         }
+        for key in ("instance_id", "body_id", "embodiment_id"):
+            value = _optional_text(rich_state, key)
+            if value is not None:
+                mind_event[key] = value
+        topology_revision = _topology_revision(rich_state)
+        if topology_revision is not None:
+            mind_event["topology_revision"] = topology_revision
         self._sink.push(mind_event)
 
         if frame_tick is None:
@@ -315,11 +360,12 @@ class Physics3DObservationBridge:
         frame = ObservedFrame(
             tick=frame_tick,
             source="physics3d",
-            organism_id=(
-                str(rich_state["organism_id"])
-                if rich_state.get("organism_id") is not None
-                else None
-            ),
+            run_id=self._run_id,
+            organism_id=_optional_text(rich_state, "organism_id"),
+            instance_id=_optional_text(rich_state, "instance_id"),
+            body_id=_optional_text(rich_state, "body_id"),
+            embodiment_id=_optional_text(rich_state, "embodiment_id"),
+            topology_revision=topology_revision,
             body=components.get("body"),
             cognition=components.get("cognition"),
             vitals=components.get("vitals"),
