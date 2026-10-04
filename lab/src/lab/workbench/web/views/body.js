@@ -12,6 +12,7 @@ let globalInstance = null;
 let mountedRoot = null;
 let mountedDomain = 'world';
 let presentationIdentity = null;
+let remountScheduled = false;
 
 function physicalIdentity(state) {
   const physics = state?.sources?.physics3d ?? null;
@@ -22,8 +23,61 @@ function physicalIdentity(state) {
   return `${physics.run_id}|${physics.body_ref ?? ''}|${physics.body_kind ?? ''}`;
 }
 
+function eventPhysicalIdentity(event) {
+  const runId = event?.run_id ?? null;
+  if (!runId) return null;
+  return `${runId}|${event.body_id ?? ''}|${event.embodiment_id ?? ''}`;
+}
+
+function remountPhysicalPresentation() {
+  if (remountScheduled || !mountedRoot || !globalInstance) return;
+  remountScheduled = true;
+  queueMicrotask(() => {
+    remountScheduled = false;
+    if (!mountedRoot || !globalInstance) return;
+    const root = mountedRoot;
+    const domain = mountedDomain;
+    globalInstance.unmount();
+    root.replaceChildren();
+    // The new viewer establishes its stream identity from the first event it
+    // actually accepts. No old pose/trajectory/interpolation state survives.
+    createViewer(root, domain);
+  });
+}
+
+function installStreamIdentityGuard(viewer) {
+  const decoder = viewer?.liveDecoder;
+  if (!decoder?.decode) return;
+  const decode = decoder.decode.bind(decoder);
+  let acceptedIdentity = null;
+  decoder.decode = (payload) => {
+    const data = decode(payload);
+    if (!data) return data;
+    const nextIdentity = eventPhysicalIdentity(data);
+    if (!nextIdentity) return data;
+    if (acceptedIdentity === null) {
+      acceptedIdentity = nextIdentity;
+      return data;
+    }
+    if (nextIdentity === acceptedIdentity) return data;
+
+    // Never let a frame from another run/body reach the existing viewer. The
+    // remount is scheduled outside the EventSource callback to avoid mutating
+    // the listener while it is dispatching this event.
+    const status = viewer.statusEl;
+    if (status) {
+      status.textContent = '○ Physical identity changed — resetting presentation';
+      status.style.color = 'var(--amber, #f1fa8c)';
+      status.dataset.observationFreshness = 'stale';
+    }
+    remountPhysicalPresentation();
+    return null;
+  };
+}
+
 function createViewer(root, domain) {
   globalInstance = new BodyViewer(root, undefined, { domain });
+  installStreamIdentityGuard(globalInstance);
   return globalInstance;
 }
 
@@ -73,6 +127,7 @@ export function update(root, state = null) {
 }
 
 export function unmount() {
+  remountScheduled = false;
   if (globalInstance) {
     globalInstance.unmount();
     globalInstance = null;
