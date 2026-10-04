@@ -187,12 +187,24 @@ def case() -> _Case:
 
 
 def test_body_a_development_is_not_trivial(case: _Case) -> None:
+    """Guard against the composed continuity fixture silently going empty.
+
+    Presence alone is insufficient for this test: the acquired subsystems below
+    must contain state produced by the development run before re-embodiment.
+    """
     assert case.previous["saved_at_tick"] == DEVELOPMENT_TICKS
     assert case.valid_bindings_in_a >= 1
     assert case.competences_in_a
     assert case.graph_nodes_in_a
     assert case.experience_in_a
     assert case.previous["gene_expression"]
+    assert case.previous["development"]["tick"] == DEVELOPMENT_TICKS
+    assert case.previous["signal_knowledge"]["profiles"]
+    assert case.previous["generative_cognition"]["hypotheses"]
+    assert case.previous["episodic_memory"]["episodes"]
+    assert case.previous["experience_ledger"]["records"]
+    assert case.previous["body_schema"]["parts"]
+    assert case.previous["sensory_system"]["sensors"]
     assert case.active_model_id
     assert case.previous["private_model_registry"]["records"]
     assert case.previous["training_ancestry"]["vocabularies"][case.ancestor_model_id]
