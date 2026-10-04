@@ -3,9 +3,9 @@ id: design.core.epistemic-ownership-and-claim-levels-v1
 title: "Epistemic Ownership and Claim Levels v1"
 document_type: design
 domain: core
-status: proposed
+status: approved
 canonical: false
-implementation_status: design
+implementation_status: partial
 date: 2026-10-04
 depends_on:
   - docs/governance/constitution.md
@@ -32,6 +32,13 @@ that other documents call E1–E8 are unrelated.
 | E4 | causal: an intervention on it caused a specified outcome |
 
 ## 1. Purpose and limits
+
+**Owner disposition (2026-10-05): Approved** for the bounded ownership
+inventory, evidence-level vocabulary, and follow-up sequence in this document.
+This approval does not complete the remaining source/revision/retraction
+contracts, authorize experiments, enable `shared_fact_identity`, or support
+claims beyond the evidence recorded here. E3/E4 claims retain their separate
+scientific review and authorization requirements.
 
 The runtime has several representations that can encode evidence, relations,
 predictions, or hypotheses. Similar-looking representations are not assumed to
@@ -166,10 +173,11 @@ may contain lower-level components; do not promote the whole subsystem beyond
 the evidence shown. Raise a level only with the required differential test or
 controlled study, and record the exact scope and artifact.
 
-## 6. Bounded source trace (completed 2026-10-04; not owner-approved)
+## 6. Bounded source trace (source audit completed 2026-10-04; approved 2026-10-05)
 
-This is a bounded source map, not completion of the owner audit in §2 or the
-acceptance condition in §8.
+This bounded source map was approved on 2026-10-05 within the scope recorded in
+the decision above. It is not completion of every owner contract in §2 or the
+remaining OI-18 follow-ups and acceptance conditions in §8.
 It records direct observations from the current runtime implementation. A
 checkpoint field or read path is not, by itself, evidence that a representation
 is epistemically sound or that it changes a decision.
@@ -190,7 +198,7 @@ is epistemically sound or that it changes a decision.
 | Provenance | `AgencyAcquisition.provenance` owns the shared `ProvenanceLog` for action/acquisition paths; the runtime exposes it and checkpointing retains the live-reference frontier | `ProvenanceLog.emit()` records structural `CausalEvent`s and updates immediate causes for produced refs; subscribers are outward-only. Events carry bounded opaque refs and scalar parameters, not evidence values or claim semantics. The recent event ring is in-memory only; checkpoint persists the live frontier, not event history. | Coverage is producer-specific, not a universal proof that all state changes have complete lineage. Missing refs/events, retired refs, and causes beyond the immediate frontier limit what can be reconstructed. Provenance explains recorded derivation; it must not be treated as evidence that its subject claim is true |
 | Acclimation, rhythm, and drift baselines | `OrganismRuntime` owns `_acclimation`, `_rhythm_model`, and `_drift_baselines`; checkpoint fields are `acclimation`, `rhythms`, and `drift`, with replay accumulators where configured. Acclimation is preserved as a capability-keyed prior; rhythms and drift are reset from the fresh Body checkpoint at re-embodiment. | `PerceptionDomain.step()` updates acclimation from current cognitive readings, rhythm statistics from current percepts and macro-phase, and drift baselines by percept name. Drift observations feed memory/development/lifecycle summaries and second-look selection. Plasticity-driven sensor eviction also removes a drift baseline when its last manifest source disappears. A composite re-embodiment regression develops non-empty rhythm/drift replay state and verifies those fields are replaced with fresh-body state while acclimation is preserved. | These are descriptive adaptation statistics, not ground truth. Rhythm/drift state has percept-name rather than stable Body-source identity, so the implementation treats those estimators as body-bound and withdraws them on Body replacement. Acclimation remains a longitudinal prior keyed by opaque capability identity; that key does not independently establish utility or truth. The transition regression establishes mechanical policy, not beneficial transfer or scientific validity |
 | SignalKnowledge | `OrganismRuntime._signal_knowledge`; checkpoint field `signal_knowledge`; implementation in `symbiont/core/signals/knowledge.py` | `SignalObservationBatch` supplies selected valid values under opaque signal IDs; unselected valid manifest entries are excluded from learning history. Claims are bounded descriptive stability/change, synchronous-association, one-tick lead-prediction, or endogenous self-relevance records. Stability/change/association use fixed opportunity thresholds to reach `hypothesis`; lead-prediction compares prospective loss against zero, mean, persistence, and conditional references using fixed margins, and self-relevance receives a boolean derived in `PerceptionDomain` from sensor `sampling_outcomes` (nominal success is favorable; missing, unavailable, or provider failure is unfavorable), keyed by opaque signal identity; ambiguous capabilities from one provider are excluded. Lead-prediction/self-relevance status is revised by fixed 64-tick epochs: two failed epochs yield `contested`; three successful epochs and at least 144 validation opportunities yield `supported`. Supported/hypothesis claims become `stale` after 192 ticks without observation; stale is not negative evidence. Revision events record status changes/reasons. `LifecycleDomain.events()` checks `lead_prediction` only to emit outward `first_prediction`; runtime/Observatory expose the view. No action-choice or organism-cognition consumer was found in the traced production path. | These claim classes are operational summaries, not causal/factual propositions; the self-relevance target is sensor-sampling success/availability, not an independently established organism outcome; whether this apparatus-derived target validly supports an organism-level relevance claim requires owner confirmation. The event/report path is not a decision consumer (no E2 claim); audit any intended consumer and test its decision dependence before promoting that level |
-| Generative hypotheses | `OrganismRuntime._generative_cognition`; checkpoint field `generative_cognition`; implementation under `symbiont/cognition/generative/` | `_ensure_hypothesis()` stores a predicted effect in the resident owner. After a resident checkpoint round-trip, `_generative_affordances()` maps only active anticipated effects to currently resolved affordances, and `_choose_acquired_action()` supplies those to executive admission. The named test holds an existing affordance fixed, shows the restored live hypothesis changes admission, then calls the resident factual-reconciliation API with a contradictory outcome and shows the hypothesis is no longer admitted. In the private runtime, a completed transition is recorded as an `OBSERVED` episode before the callsite forwards its outcomes and evidence-reference strings, filtered to `private-slm`. The resident API checks that references are nonempty but does not resolve them against the experience store; current provenance therefore depends on the production caller honoring its contract. | The differential test uses a resolver stub and directly supplies an evidence reference; it does not validate end-to-end reference resolution or upstream factual-outcome provenance. The API boundary permits a caller to assert factual inputs without proving their canonical origin. Add a narrow contract/test at the owner boundary before treating reconciliation provenance as enforced. Also audit arbitration in the wider runtime; no E3/E4 utility claim follows from integration alone |
+| Generative hypotheses | `OrganismRuntime._generative_cognition`; checkpoint field `generative_cognition`; implementation under `symbiont/cognition/generative/` | `_ensure_hypothesis()` stores a predicted effect in the resident owner. After a resident checkpoint round-trip, `_generative_affordances()` maps only active anticipated effects to currently resolved affordances, and `_choose_acquired_action()` supplies those to executive admission. The named test holds an existing affordance fixed, shows the restored live hypothesis changes admission, then calls `note_factual_outcome()` through the runtime-bound resolver: a spoofed reference is rejected without mutation, while an exact retained `ActionDomain` causal-evidence reference permits reconciliation. In the private runtime, a completed transition is recorded as an `OBSERVED` episode before the callsite forwards its outcomes and evidence-reference strings, filtered to `private-slm`; the resolver accepts only a reference present on a retained `OBSERVED` experience. | Focused tests cover exact references from both canonical owners and reject unknown/spoofed references, but do not establish complete upstream source lineage, revision/retraction policy, or replay/social evidence contracts. Also audit arbitration in the wider runtime; no E3/E4 utility claim follows from integration alone |
 | Social evidence | `ModeledOrganismRuntime._social_evidence_ledger`; checkpoint field `social_evidence_ledger`; implementation in `symbiont/modeling/culture.py` | `autonomous_cultural_step()` uses local ledger state for composition and transmission; `autonomous_retention_step()` may drop claims/retire composites; validation is exposed as a separate proposal. Claim delivery is channel-mediated and source-attributed. Cultural status/lineage is projected outward for observation. No connection from social assessments to cognitive/action admission was found in the runtime path. | A canonical peer-claim assessment → reconciliation → accepted-knowledge → organism-decision path is not established; validation proposal is not acceptance. No general trust authority or socially acquired organism knowledge is implied |
 
 The source paths above can be checked in `symbiont/core/orchestration/runtime.py`,
@@ -277,12 +285,14 @@ they do not establish the complete arbitration behavior across all paths.
    high-risk paths first: graph updates, predictor/outcome reconciliation,
    generative factual reconciliation, competence-effect evidence, and
    caller-supplied social/symbol/sequence assessments. For generative factual
-   reconciliation, the private-runtime production caller is statically traced
-   to an `OBSERVED` episode, but `note_factual_outcome()` trusts the supplied
-   evidence-reference strings instead of resolving them against that owner.
-   Keep this as an explicit API-contract debt; do not claim the test proves
-   end-to-end provenance or redesign ownership without first specifying the
-   canonical reference contract.
+   reconciliation, the production boundary now resolves references through
+   the canonical owner: exact retained causal evidence IDs require a
+   sensorimotor transition with an observed effect; private-model evidence
+   references must occur on a retained `OBSERVED` `ExperienceRecord`. Missing,
+   unknown, unobserved, or partially unresolved reference sets do not reconcile
+   hypotheses. See OI-18 step 1 and its focused owner-resolution regressions.
+   This closes only the resolver boundary, not broader source lineage,
+   revision/retraction, or conflict contracts.
 3. The private-model-first / base-admission-fallback ordering now has focused
    control-flow regressions in
    `symbiont/tests/unit/modeling/test_private_modeling_contract.py` (private
@@ -310,9 +320,10 @@ E1.
 ## 8. Audit closure and deferred debt
 
 The bounded engineering audit requested for this inventory is complete as a
-source-and-test review of the current branch. This closes the audit pass, not
-the design's owner-approval condition, the listed implementation debt, or any
-scientific claim. The current evidence supports these dispositions:
+source-and-test review. The owner approved this inventory and its bounded
+dispositions on 2026-10-05. This does not close the listed implementation
+debt or support any scientific claim. The current evidence supports these
+dispositions:
 
 | Area | Audit disposition | Remaining debt |
 |---|---|---|
@@ -320,7 +331,7 @@ scientific claim. The current evidence supports these dispositions:
 | EvidenceRevisionLedger / HostAcclimation; SignalKnowledge | Ownership split and production roles are traced. They report dissent, maintain baselines, or expose operational signal summaries; no organism action consumer was found for the ledger or SignalKnowledge. | Provider-to-reading lineage and interpretation of fixed thresholds remain unvalidated; persisted dissent counts do not revise accepted state. |
 | Causal/sensorimotor evidence and acquisition | Observed transitions, derived estimates, competence materialization, and current-body execution bindings are distinct owners. | Full evidence lineage, revocation/restore coverage, and any independent ranking consequence require narrower owner-level follow-up. No causal truth is established. |
 | Episodic/consolidated memory | Storage, retrieval/replay, consolidation summaries, and graph retrospective support are distinct. The resting replay path is consumed as non-factual generative state. | No tested episode-to-later-action effect; retrieval provenance, eviction, and contradiction policy are not complete contracts. |
-| Generative factual reconciliation | Production private-runtime caller is traced through an `OBSERVED` episode. | `note_factual_outcome()` trusts nonempty caller-provided evidence references and does not resolve them. Canonical reference ownership and a boundary regression remain open. |
+| Generative factual reconciliation | Runtime-bound resolver accepts exact retained causal evidence IDs with transition/effect identity, or private evidence refs present on retained `OBSERVED` experience records; focused tests cover both owner paths and reject missing, spoofed and non-observed refs. Resolver is transient runtime wiring, not serialized resident state. | Broader source/revision/retraction and lifecycle contracts remain open. `shared_fact_identity` remains off by default; its confirmatory comparison is inconclusive. No E3/E4 claim follows. |
 | Social evidence; symbol/sequence grounding | Source-attributed social state and local communication associations have bounded uses; no canonical social-claim-to-action path was found. | Caller-supplied outcome authority, transport attribution, reconciliation, and any future decision path need explicit contracts. No trust or shared-meaning claim is supported. |
 | Private models / ancestry | Persistence and prospective-choice consumption are mechanically covered at the stated scope; ancestry remains vocabulary continuity. | Prediction quality and ancestry utility are unproven and require separate controlled evaluation before E3/E4 claims. |
 | Provenance | Structural derivation metadata and its live-reference persistence are distinguished from evidence and truth. | Producer coverage is not universal; the event ring is not a complete reconstructable history. |
@@ -337,10 +348,11 @@ run.
 
 ## 9. Acceptance condition
 
-This design remains proposed until an owner approves the boundaries and
-dispositions above. The source-audit pass is complete; that approval is not
-implied by this report. Any future subsystem merge, capability promotion, or
-claim beyond the evidence levels in §5 still requires its specific missing
-§2 contract fields, implementation/test links, and (for E3/E4) the separate
-controlled scientific process. Missing or conflicting ownership is a finding
-to resolve; it is not permission to merge systems or infer capability.
+The owner approved the bounded inventory and dispositions above on 2026-10-05.
+Approval does not mean every owner contract is complete. Any future subsystem
+merge, capability promotion, or claim beyond the evidence levels in §5 still
+requires its specific missing §2 contract fields, implementation/test links,
+and (for E3/E4) the separate controlled scientific process. Missing or
+conflicting ownership is a finding to resolve; it is not permission to merge
+systems or infer capability. No experiment is authorized, and
+`shared_fact_identity` remains disabled by default.

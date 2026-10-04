@@ -944,6 +944,9 @@ class OrganismRuntime:
             if generative_cognition is not None
             else ResidentGenerativeCognition(organism_id=self._organism_id)
         )
+        self._generative_cognition.set_factual_evidence_resolver(
+            self._resolve_factual_evidence_reference
+        )
         self._generative_cognition.register_model(
             CompetenceEffectGenerativeAdapter(
                 model_id="competence-effect",
@@ -960,6 +963,35 @@ class OrganismRuntime:
         self._embodiment_domain = EmbodimentDomain()
         self._pending_embodied_work = 0.0
         self._narrative_journal: list[dict[str, Any]] = []
+
+    def _resolve_factual_evidence_reference(self, evidence_ref: str) -> bool:
+        """Resolve a note only to a retained canonical observed fact.
+
+        Sensorimotor references resolve through the ActionDomain's canonical
+        causal ledger. Record references resolve through the organism's
+        ExperienceLedger when that owner is present (e.g. private-model runs).
+        Derived/model records and synthesized reference strings are rejected.
+        """
+        if not isinstance(evidence_ref, str) or not evidence_ref:
+            return False
+        causal = self._action_domain.causal_evidence
+        if any(
+            item.evidence_id == evidence_ref
+            and item.transition_id is not None
+            and item.effect_id is not None
+            for item in causal.intervention_evidence
+        ):
+            return True
+        experience_ledger = getattr(self, "_experience_ledger", None)
+        if experience_ledger is not None:
+            from ...modeling.experience import EpistemicStatus
+
+            return any(
+                record.epistemic_status is EpistemicStatus.OBSERVED
+                and evidence_ref in record.evidence_refs
+                for record in experience_ledger.records
+            )
+        return False
 
     # Compatibility views expose the single ActionDomain state; they do not
     # create a second authority.

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+from symbiont.actuation.evidence import SensorimotorTransition
 from symbiont.agency.affordance import ActionAffordance, affordance_id_for
 from symbiont.agency.intention import AdmissionRoute
 from symbiont.cognition.generative.agenda import AgendaSource, GenerativeTarget
@@ -135,14 +136,45 @@ def test_live_hypothesis_changes_production_admission_only_for_existing_affordan
     assert decision.competence_id == "competence.test"
     assert hypothesis.hypothesis_id in decision.origin_refs
 
-    # The resident's factual-reconciliation API retires the unsupported
-    # prediction. This supplies a bounded evidence reference directly; it does
-    # not validate the upstream runtime's factual-outcome provenance.
+    # The runtime-bound resolver rejects a plausible but unretained reference
+    # without changing the prediction.
     assert (
         cognition.note_factual_outcome(
             action_id="competence.test",
             outcome_tokens=("effect.other",),
-            evidence_refs=("experience.factual",),
+            evidence_refs=("causal.transition.spoofed",),
+            model_ids=("model.test",),
+        )
+        == 0
+    )
+    assert hypothesis.status.value == "predicted"
+
+    # Bind a genuine retained observation through the ActionDomain owner; this
+    # exercises the production resolver binding after checkpoint restoration.
+    runtime.causal_evidence_ledger.observe(
+        SensorimotorTransition(
+            transition_id="transition.actual",
+            tick_start=1,
+            tick_end=2,
+            context_ref="context.test",
+            commitment_id="commitment.actual",
+            controller_id="controller.test",
+            competence_id="competence.test",
+            attempt_id="attempt.actual",
+            intervention_signature_id="signature.actual",
+            state_before_ref="state.before",
+            motor_command_ref="command.actual",
+            actuation_ref="actuation.actual",
+            prediction_ref=None,
+            state_after_ref="state.after",
+            observed_effect_id="effect.other",
+        )
+    )
+    assert (
+        cognition.note_factual_outcome(
+            action_id="competence.test",
+            outcome_tokens=("effect.other",),
+            evidence_refs=("causal.transition.actual",),
             model_ids=("model.test",),
         )
         == 1
