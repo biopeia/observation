@@ -1,0 +1,341 @@
+{
+  "arms": {
+    "off": {
+      "exit_code": 0,
+      "input_metrics": {
+        "corpus": {
+          "corpus_hash": "a543df0c762f1fa07b960de9940ddf0a4291e6962950e5fd4bb96f887d3a05aa",
+          "test": 20,
+          "train": 88,
+          "validation": 19
+        },
+        "generative": {
+          "contradicted_hypothesis_count": 0,
+          "factual_source_kinds": {},
+          "factual_sources": [],
+          "factual_sources_max": 0,
+          "factual_sources_sum": 0,
+          "hypotheses": 0,
+          "private_model_hypotheses_reconciled": 0,
+          "reconciliation_count": 0,
+          "tracked_representations": 0
+        },
+        "ledger": {
+          "motor_caused": 0,
+          "motor_caused_citing_causal": 0,
+          "observed_since_input": 0
+        },
+        "models": {
+          "records": 1,
+          "states": [
+            "shadow"
+          ]
+        }
+      },
+      "metrics": {
+        "corpus": {
+          "corpus_hash": "6313c937f0ebbff88964d841e896e250381afec4f8bb0e62d75df93be5186cb8",
+          "test": 97,
+          "train": 448,
+          "validation": 96
+        },
+        "generative": {
+          "contradicted_hypothesis_count": 3,
+          "factual_source_kinds": {
+            "causal": 3
+          },
+          "factual_sources": [
+            3,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "factual_sources_max": 3,
+          "factual_sources_sum": 3,
+          "hypotheses": 7,
+          "private_model_hypotheses_reconciled": 0,
+          "reconciliation_count": 3,
+          "tracked_representations": 11
+        },
+        "ledger": {
+          "motor_caused": 458,
+          "motor_caused_citing_causal": 0,
+          "observed_since_input": 511
+        },
+        "models": {
+          "records": 15,
+          "states": [
+            "active",
+            "degraded",
+            "degraded",
+            "degraded",
+            "retired",
+            "retired",
+            "retired",
+            "retired",
+            "retired",
+            "retired",
+            "retired",
+            "retired",
+            "retired",
+            "retired",
+            "retired"
+          ]
+        }
+      },
+      "ticks_observed": 513
+    },
+    "off_replicate": {
+      "exit_code": 0,
+      "input_metrics": {
+        "corpus": {
+          "corpus_hash": "a543df0c762f1fa07b960de9940ddf0a4291e6962950e5fd4bb96f887d3a05aa",
+          "test": 20,
+          "train": 88,
+          "validation": 19
+        },
+        "generative": {
+          "contradicted_hypothesis_count": 0,
+          "factual_source_kinds": {},
+          "factual_sources": [],
+          "factual_sources_max": 0,
+          "factual_sources_sum": 0,
+          "hypotheses": 0,
+          "private_model_hypotheses_reconciled": 0,
+          "reconciliation_count": 0,
+          "tracked_representations": 0
+        },
+        "ledger": {
+          "motor_caused": 0,
+          "motor_caused_citing_causal": 0,
+          "observed_since_input": 0
+        },
+        "models": {
+          "records": 1,
+          "states": [
+            "shadow"
+          ]
+        }
+      },
+      "metrics": {
+        "corpus": {
+          "corpus_hash": "6313c937f0ebbff88964d841e896e250381afec4f8bb0e62d75df93be5186cb8",
+          "test": 97,
+          "train": 448,
+          "validation": 96
+        },
+        "generative": {
+          "contradicted_hypothesis_count": 3,
+          "factual_source_kinds": {
+            "causal": 3
+          },
+          "factual_sources": [
+            3,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "factual_sources_max": 3,
+          "factual_sources_sum": 3,
+          "hypotheses": 7,
+          "private_model_hypotheses_reconciled": 0,
+          "reconciliation_count": 3,
+          "tracked_representations": 11
+        },
+        "ledger": {
+          "motor_caused": 458,
+          "motor_caused_citing_causal": 0,
+          "observed_since_input": 511
+        },
+        "models": {
+          "records": 15,
+          "states": [
+            "active",
+            "degraded",
+            "degraded",
+            "degraded",
+            "retired",
+            "retired",
+            "retired",
+            "retired",
+            "retired",
+            "retired",
+            "retired",
+            "retired",
+            "retired",
+            "retired",
+            "retired"
+          ]
+        }
+      },
+      "ticks_observed": 513
+    },
+    "on": {
+      "exit_code": 0,
+      "input_metrics": {
+        "corpus": {
+          "corpus_hash": "a543df0c762f1fa07b960de9940ddf0a4291e6962950e5fd4bb96f887d3a05aa",
+          "test": 20,
+          "train": 88,
+          "validation": 19
+        },
+        "generative": {
+          "contradicted_hypothesis_count": 0,
+          "factual_source_kinds": {},
+          "factual_sources": [],
+          "factual_sources_max": 0,
+          "factual_sources_sum": 0,
+          "hypotheses": 0,
+          "private_model_hypotheses_reconciled": 0,
+          "reconciliation_count": 0,
+          "tracked_representations": 0
+        },
+        "ledger": {
+          "motor_caused": 0,
+          "motor_caused_citing_causal": 0,
+          "observed_since_input": 0
+        },
+        "models": {
+          "records": 1,
+          "states": [
+            "shadow"
+          ]
+        }
+      },
+      "metrics": {
+        "corpus": {
+          "corpus_hash": "196e3e66875ec66be4b2468e756b7f1ad30502ec1ecb169c96c56a8f62a3855b",
+          "test": 97,
+          "train": 450,
+          "validation": 96
+        },
+        "generative": {
+          "contradicted_hypothesis_count": 3,
+          "factual_source_kinds": {
+            "causal": 3
+          },
+          "factual_sources": [
+            3,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "factual_sources_max": 3,
+          "factual_sources_sum": 3,
+          "hypotheses": 7,
+          "private_model_hypotheses_reconciled": 0,
+          "reconciliation_count": 3,
+          "tracked_representations": 9
+        },
+        "ledger": {
+          "motor_caused": 458,
+          "motor_caused_citing_causal": 458,
+          "observed_since_input": 511
+        },
+        "models": {
+          "records": 15,
+          "states": [
+            "active",
+            "degraded",
+            "degraded",
+            "degraded",
+            "retired",
+            "retired",
+            "retired",
+            "retired",
+            "retired",
+            "retired",
+            "retired",
+            "retired",
+            "retired",
+            "retired",
+            "retired"
+          ]
+        }
+      },
+      "ticks_observed": 513
+    }
+  },
+  "body_kind": "anthropomorphic-v6-vision",
+  "determinism": {
+    "cpu_threads": 1,
+    "deterministic_algorithms": true,
+    "interop_threads": 1,
+    "seed": 102,
+    "warn_only": false
+  },
+  "develop_ticks": 128,
+  "input_tick": 128,
+  "intervention": {
+    "differing_sections": [
+      "acclimation_replay",
+      "actuation",
+      "checkpoint_lineage",
+      "drift_replay",
+      "embodiment_episode",
+      "episodic_memory",
+      "experience_ledger",
+      "generative_cognition",
+      "innate_reactivity",
+      "living_body",
+      "metabolism",
+      "narrative_journal",
+      "private_learning_state",
+      "private_model_config",
+      "private_model_registry",
+      "prospective_agency",
+      "rhythms_replay",
+      "sensory_development",
+      "sensory_system",
+      "signal_knowledge",
+      "training_ancestry"
+    ],
+    "first_divergence_tick_by_section": {
+      "actuation": 131,
+      "cognitive_bridge": null,
+      "executive_intention": null,
+      "experience_ledger": 130,
+      "generative_cognition": 259,
+      "living_body": 323,
+      "metabolism": 323,
+      "private_model_registry": 131
+    }
+  },
+  "noise_floor": {
+    "differing_sections": [],
+    "first_divergence_tick_by_section": {
+      "actuation": null,
+      "cognitive_bridge": null,
+      "executive_intention": null,
+      "experience_ledger": null,
+      "generative_cognition": null,
+      "living_body": null,
+      "metabolism": null,
+      "private_model_registry": null
+    }
+  },
+  "protocol": "learning.cognitive-cycle-shared-fact-identity",
+  "regime": "exploratory",
+  "seed": 102,
+  "ticks": 512,
+  "train_interval": 1
+}

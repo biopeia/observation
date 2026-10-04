@@ -75,6 +75,26 @@ def _source_counts(generative: Mapping[str, Any]) -> list[int]:
     return sorted((len(item.get("source_refs", ())) for item in representations), reverse=True)
 
 
+def _source_prefixes(generative: Mapping[str, Any]) -> dict[str, int]:
+    """Distinct factual source references by kind (``causal``, ``evidence``, ...)."""
+    representations = _find(generative.get("generative_use", {}), "representations") or []
+    refs = {str(ref) for item in representations for ref in item.get("source_refs", ())}
+    counts: dict[str, int] = {}
+    for ref in sorted(refs):
+        kind = ref.split(".", 1)[0]
+        counts[kind] = counts.get(kind, 0) + 1
+    return counts
+
+
+def _private_model_reconciled(generative: Mapping[str, Any]) -> int:
+    return sum(
+        1
+        for item in generative.get("hypotheses", [])
+        if "private-slm" in item.get("source_model_ids", ())
+        and item.get("status") in {"supported", "contradicted"}
+    )
+
+
 def _metrics(payload: object, *, input_tick: int) -> dict[str, Any]:
     ledger = _find(payload, "experience_ledger") or {}
     records = [
@@ -122,12 +142,21 @@ def _metrics(payload: object, *, input_tick: int) -> dict[str, Any]:
             "reconciliation_count": generative.get("reconciliation_count"),
             "contradicted_hypothesis_count": generative.get("contradicted_hypothesis_count"),
             "hypotheses": len(generative.get("hypotheses", [])),
+            "factual_source_kinds": _source_prefixes(generative),
+            "private_model_hypotheses_reconciled": _private_model_reconciled(generative),
         },
     }
 
 
 def _arm(
-    snapshot: Path, work: Path, *, arm: str, ticks: int, seed: int, body_kind: str
+    snapshot: Path,
+    work: Path,
+    *,
+    arm: str,
+    ticks: int,
+    seed: int,
+    body_kind: str,
+    train_interval: int = 32,
 ) -> dict[str, Any]:
     target = work / arm
     target.mkdir(parents=True)
@@ -141,7 +170,9 @@ def _arm(
 
     def observe(tick: int, payload: object) -> None:
         last["payload"] = payload
-        last["first_tick"] = last.get("first_tick", tick)
+        if "first_tick" not in last:
+            last["first_tick"] = tick
+            last["input_metrics"] = _metrics(payload, input_tick=int(tick))
         digests.append(
             (
                 int(tick),
@@ -163,7 +194,7 @@ def _arm(
             body_kind=body_kind,
             show_monitor=False,
             enable_slm=True,
-            slm_train_interval=32,
+            slm_train_interval=train_interval,
             slm_device="cpu",
             slm_synchronous=True,
             checkpoint_interval=10**9,
@@ -179,8 +210,35 @@ def _arm(
         "ticks_observed": len(digests),
         "digests": digests,
         "sections": sections,
+        "input_metrics": last.get("input_metrics"),
         "metrics": _metrics(payload, input_tick=int(last.get("first_tick", 0))),  # type: ignore[call-overload]
     }
+
+
+def _develop(state: Path, *, ticks: int, seed: int, body_kind: str) -> None:
+    """Generate the protocol's subject: a fresh organism developed ``ticks`` ticks."""
+    state.mkdir(parents=True)
+    exit_code = run(
+        headless=True,
+        ticks=ticks,
+        seed=seed,
+        symbiont_file=state / "organism.symbiont",
+        body_file=state / "body.json",
+        telemetry_file=state / "telemetry",
+        body_kind=body_kind,
+        show_monitor=False,
+        enable_slm=True,
+        slm_train_interval=1,
+        slm_device="cpu",
+        slm_synchronous=True,
+        checkpoint_interval=ticks,
+        factorized_effects=True,
+        observation_hz=1,
+        new_symbiont=True,
+        fresh_body=True,
+    )
+    if exit_code:
+        raise RuntimeError(f"subject development ended with exit code {exit_code}")
 
 
 def _first_divergence(a: dict[str, Any], b: dict[str, Any]) -> dict[str, int | None]:
@@ -199,13 +257,30 @@ def _differing_sections(a: dict[str, Any], b: dict[str, Any]) -> list[str]:
 
 
 def run_shared_fact_identity_study(
-    snapshot: Path, work: Path, *, ticks: int, seed: int, body_kind: str
+    snapshot: Path,
+    work: Path,
+    *,
+    ticks: int,
+    seed: int,
+    body_kind: str,
+    train_interval: int = 32,
+    develop_ticks: int = 0,
 ) -> dict[str, Any]:
     determinism = _configure_equivalence_determinism(
         EquivalenceRunConfig(ticks=ticks, body_kind=body_kind, seed=seed, training=True)
     )
+    if develop_ticks:
+        _develop(snapshot, ticks=develop_ticks, seed=seed, body_kind=body_kind)
     arms = {
-        arm: _arm(snapshot, work, arm=arm, ticks=ticks, seed=seed, body_kind=body_kind)
+        arm: _arm(
+            snapshot,
+            work,
+            arm=arm,
+            ticks=ticks,
+            seed=seed,
+            body_kind=body_kind,
+            train_interval=train_interval,
+        )
         for arm in ARMS
     }
     result = {
@@ -213,6 +288,8 @@ def run_shared_fact_identity_study(
         "regime": "exploratory",
         "seed": seed,
         "ticks": ticks,
+        "train_interval": train_interval,
+        "develop_ticks": develop_ticks,
         "input_tick": arms["off"]["digests"][0][0] if arms["off"]["digests"] else None,
         "body_kind": body_kind,
         "determinism": determinism,
@@ -241,9 +318,22 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--ticks", type=int, default=512)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--body-kind", default="anthropomorphic-v6-vision")
+    parser.add_argument("--train-interval", type=int, default=32)
+    parser.add_argument(
+        "--develop-ticks",
+        type=int,
+        default=0,
+        help="generate the subject first: develop a fresh organism into SNAPSHOT",
+    )
     args = parser.parse_args(argv)
     result = run_shared_fact_identity_study(
-        args.snapshot, args.work, ticks=args.ticks, seed=args.seed, body_kind=args.body_kind
+        args.snapshot,
+        args.work,
+        ticks=args.ticks,
+        seed=args.seed,
+        body_kind=args.body_kind,
+        train_interval=args.train_interval,
+        develop_ticks=args.develop_ticks,
     )
     (args.work / "result.json").write_text(
         json.dumps(result, indent=2, sort_keys=True), encoding="utf-8"
