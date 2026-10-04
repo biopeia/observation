@@ -75,17 +75,28 @@ transition. Historical archive records and epoch summaries describe the closed
 episode; they are not restored as current BodySchema or injected into current
 body facts.
 
-The active BodySchema is updated by the embodiment domain, action domain, and
-sensorimotor-acquisition path. Runtime summaries and the observer-safe projection
-read that active state; the individual history records its confidence alongside
-the Body and episode identifiers. After re-embodiment, these paths start from
-the empty new-body schema until it is rebuilt from new observations. Episode
-archives and epoch summaries capture the closing Body's evidence with that
-episode's identity; archive lookup does not restore a historical BodySchema into
-the active schema. Each action-domain boundary observation considers only
-agency estimates updated after the current episode began. Current physical facts
-come from the new Body's sensors and physiology. Execution authority is
-separately withdrawn by the action-domain transition.
+The current representation is episode-scoped as a whole; the engine does not
+store per-item Body or episode provenance. That is safe only while all active
+entries are reset at a Body transition and archives remain non-authoritative.
+The audited consumers are:
+
+| Consumer | Use | Boundary |
+|---|---|---|
+| `core.domains.embodiment` | Updates sensory and cognitive structure from the current sensory phenotype, self-model, and bounded cognition observations | Writes the active engine only |
+| `core.domains.action` and `actuation.acquisition` | Add agency-boundary and sensorimotor evidence from current action/effect observations | Write the active engine; execution bindings remain a separate authority |
+| `core.orchestration.individual` and `core.embodiment.episode` | Feed active-schema confidence into the embodiment adaptation summary and close the episode with schema/confidence and Body/episode identity | Affects the adaptation record, not action authorization or physical Body facts; snapshot does not feed schema into a new episode |
+| `core.embodiment.transition` | Copies the closing schema into the episode archive, then resets learned entries in the active schema | Archive is historical; new active state starts empty |
+| `core.embodiment.memory` | Stores a prior schema in a historical hypothesis package | `EmbodimentPrior` declares `hypothesis_only`; no production runtime consumer was found in this checkout |
+| Runtime summaries, Lab adaptation summaries, telemetry, and Observatory projections | Report or analyze the active schema | Observer/adaptation bookkeeping; not an execution-authority source |
+
+After re-embodiment, active consumers start from the empty new-Body schema until
+it is rebuilt from new observations. Each action-domain boundary observation
+considers only agency estimates updated after the current episode began. Current
+physical facts come from the new Body's sensors and physiology. Execution
+authority is separately withdrawn by the action-domain transition. Since items
+within one active schema still have no individual provenance, future designs
+that retain or merge entries across episodes must add provenance or preserve
+this whole-schema reset rule.
 
 Evidence scope: `lab/tests/integration/test_reembodiment_continuity.py` verifies
 that the archived prior BodySchema is exact, the active schema is undeveloped
