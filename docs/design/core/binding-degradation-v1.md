@@ -5,6 +5,25 @@ An independent experiment; not part of Revision Coherence Wave 1 defaults.
 Kept separate from footprint membership (Footprint Precision v1): no arm
 combines the two mechanisms.
 
+## Local codes
+
+Codes used inside this document only
+([naming rule](../../../lab/research/STUDY-INDEX.md#naming-rule)). Elsewhere,
+refer to the name or to the key `learning.binding-degradation`.
+
+| Code | Name |
+|---|---|
+| BD-1 | the preregistered binding-degradation study (§3): `learning.binding-degradation` |
+| OFF | arm: default behaviour, no invalidation (`learning.binding-degradation-off`) |
+| HIST | arm: invalidation against the binding's own history (§2; `learning.binding-degradation-hist`) |
+
+Codes from other documents that appear in the body:
+
+| Code | Refers to |
+|---|---|
+| E6 (the "E6 gate") | acquisition to deliberate reuse closure, the release gate: `learning.agency-acquisition-reuse-closure` |
+| E8 (the "E8 body") | the synthetic body of high-dimensional acquisition: `learning.agency-high-dimensional-acquisition` |
+
 ## 1. Background
 
 The rule of Revision Coherence §3.9 decision 1 compared a binding's recent

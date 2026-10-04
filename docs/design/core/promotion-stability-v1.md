@@ -3,6 +3,25 @@
 Status: **proposed — design phase** (owner, 2026-09-29; prerequisite of
 P5.2, Cross-Domain Revision Coherence v1 §8.9). Baseline: `main`.
 
+## Local codes
+
+Codes used inside this document only
+([naming rule](../../../lab/research/STUDY-INDEX.md#naming-rule)). Elsewhere,
+refer to the name. D1 here is unrelated to the D1 of Visual Acquisition v1.
+
+| Code | Name |
+|---|---|
+| D0 | what the archived data of the earlier ancestry run can describe (§3) |
+| D1 | paired design data (§4) |
+
+Codes from other documents that appear in the body, both defined in
+[Cross-Domain Revision Coherence v1](cross-domain-revision-coherence-v1.md):
+
+| Code | Refers to |
+|---|---|
+| P5.1 | re-run of the private-model ancestry study with ancestry exercisable (its §8.7) |
+| P5.2 | later step with DEGRADED models as eligible training parents (its §8.9) |
+
 ## 1. Problem
 
 With the 192-step budget (Private Model Learnability v1 §10), P5.1 trained

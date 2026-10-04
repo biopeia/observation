@@ -81,7 +81,8 @@ the portable bundle rather than checkpoint identity.
 ### COG-1 — Cognitive epistemic ownership and evidence lineage
 
 **Status:** PLANNED — bounded source-and-test audit complete; owner approval and
-contract follow-up remain open under OI-18.
+contract follow-up remain open under the open issue on cognitive epistemic
+ownership and evidence lineage (OI-18).
 
 **Priority:** P1 engineering integrity. This is not a scientific capability
 milestone and authorizes no experiments.
@@ -131,7 +132,8 @@ not claim that a direct unchecked update was attempted or rejected.
 
 ### DOC-1 — Persistence terminology and legacy cleanup
 
-**Status:** IMPLEMENTED with LI-P6 — terminology recorded in the glossary and
+**Status:** IMPLEMENTED with the terminology and legacy-cleanup phase of
+Longitudinal Integrity v1 (LI-P6) — terminology recorded in the glossary and
 the persistence chapter; superseded code removed after consumer searches.
 
 After continuity ownership is proven, documentation and APIs should use
@@ -204,7 +206,8 @@ habitat classes, the status of Physics3D surroundings, retirement of the two
 legacy environments and the reserved meaning of "World" are owner decisions. The
 World programme stays maintenance-only.
 
-W03 was closed by the owner on 2026-10-02
+The World study of within-region differentiation without mutation (formerly
+W03) was closed by the owner on 2026-10-02
 ([w03-closure.md](../lab/research/studies/ecology/w03-closure.md)) and no longer
 constrains the legacy population path; that path is now held only by test code
 and one viewer script.

@@ -10,6 +10,32 @@
 **Supersedes:** no existing canonical subsystem  
 **Language:** English
 
+## Local codes
+
+Codes used inside this document only
+([naming rule](../../../lab/research/STUDY-INDEX.md#naming-rule)). Elsewhere,
+refer to the name. This table lists the experiment series of §113–§126; the
+`GC-` prefix distinguishes it from the unrelated E1–E8 of other documents.
+The registered studies are resolved through the
+[study index](../../../lab/research/STUDY-INDEX.md#code-meanings).
+
+| Code | Name |
+|---|---|
+| GC-E1 | multi-step predictive utility (§113) |
+| GC-E2 | planning utility (§114) |
+| GC-E3 | counterfactual utility (§115) |
+| GC-E4 | recombination (§116) |
+| GC-E5 | factual contamination (§117) |
+| GC-E6 | depth calibration (§118) |
+| GC-E7 | model correction (§119) |
+| GC-E8 | replay utility (§120) |
+| GC-E9 | re-embodiment transfer (§121) |
+| GC-E10 | endogenous agenda (§122) |
+| GC-E11 | generative consolidation (§123) |
+| GC-E12 | consolidation contamination (§124) |
+| GC-E13 | agenda × consolidation interaction (§125) |
+| GC-E14 | cross-domain generality (§126) |
+
 ---
 
 # 1. Purpose

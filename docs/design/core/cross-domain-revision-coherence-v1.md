@@ -23,6 +23,50 @@ to the option (§4.2); hard-pin saturation (§5); passive event fields (§6);
 generative activation state as its own axis (§7.1); `validation_gain`
 reference (§8); a common `revision_id` (§2.2); and extended gates.
 
+## Local codes
+
+Codes used inside this document only
+([naming rule](../../../lab/research/STUDY-INDEX.md#naming-rule)). Elsewhere,
+refer to the name.
+
+| Code | Name |
+|---|---|
+| Wave 0 | measurement coherence, behaviour-neutral (§2.1) |
+| Wave 1 | cross-domain competence revision (§3) |
+| Wave 2 | endogenous epistemic retest (§4) |
+| Wave 3A | open-world effect memory (§5) |
+| Wave 3B | passive counterfactual canonicalization (§6) |
+| Wave 4 | generative epistemic hygiene (§7) |
+| Wave 5 | private-model genealogy (§8) |
+| Gate W0, W1, W2 | the acceptance gate of Wave 0, Wave 1, Wave 2 |
+| F1 | bindings have no lifecycle |
+| F2 | three definitions of "executable" |
+| F3 | prediction and action policy entangled in one fallback |
+| F4 | `reacclimation_completed` means "window elapsed", not "adapted" |
+| F5 | exported directories can pair stale metadata with a newer bundle |
+| F6 | primitive to competence needs independent natural recurrence; no endogenous retest |
+| F7 | `EffectSpace` evicts by support at 512: incumbency lock-in |
+| F8 | two passive-evidence mechanisms can diverge |
+| F9 | generative use tracker rewards recurrence without new evidence |
+| F10 | no ACTIVE private model, so every training is a root |
+| F11 | `established_competence_count` counts executable competences |
+| F12 | hard bounds truncate without recording pressure or evictions |
+| F13 | footprints admit atoms on drifting receptors |
+| F14 | Physics3D copies starve with zero absorbed material |
+| P0, P1, P2 | severity label of a finding (§1.2, column "Sev"); the same labels appear in the wave headings |
+| P5 | preregistered study of private-model ancestry (§8.2, §8.4); arms P5-A independent roots, P5-B shadow lineage |
+| P5.1 | re-run of P5 with ancestry exercisable (§8.7) |
+| P5.2 | later step with DEGRADED models as eligible training parents (§8.9) |
+| E9 | preregistered study of the endogenous retest, off against on (§4.4) |
+
+Codes from other documents that appear in the body:
+
+| Code | Refers to |
+|---|---|
+| E6 | acquisition to deliberate reuse closure, the release gate: `learning.agency-acquisition-reuse-closure` |
+| E8 (and E8 v3, arm R) | high-dimensional acquisition: `learning.agency-high-dimensional-acquisition` |
+| P6 | private-model learnability: `learning.private-model-learnability` |
+
 ## 1. Problem
 
 ### 1.1 Diagnosis

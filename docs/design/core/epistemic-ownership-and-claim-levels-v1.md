@@ -15,6 +15,22 @@ language: en
 
 # Epistemic Ownership and Claim Levels v1
 
+## Local codes
+
+Codes used inside this document only
+([naming rule](../../../lab/research/STUDY-INDEX.md#naming-rule)). Elsewhere,
+refer to the level by its name ("the durable claim level"). They are evidence
+levels for capability claims (§3), not experiments; the experiment series
+that other documents call E1–E8 are unrelated.
+
+| Code | Name |
+|---|---|
+| E0 | present: a representation or mechanism exists |
+| E1 | durable: state survives the declared lifecycle boundary |
+| E2 | consumed: a production path reads it and a decision can depend on it |
+| E3 | useful: it improves a prespecified outcome |
+| E4 | causal: an intervention on it caused a specified outcome |
+
 ## 1. Purpose and limits
 
 The runtime has several representations that can encode evidence, relations,
