@@ -200,9 +200,9 @@ def test_m4_expression_relaxes_toward_birth_after_pressure_ends():
         state = regulator.update(genome, state, RegulatorySignals())
     relaxed = state.as_dict()
 
-    # The v2 regulator is evidence-gated: without new signals it holds the
-    # current expression instead of inventing a relaxation trajectory.
-    assert relaxed["effective_learning_rate"] == elevated["effective_learning_rate"]
+    birth = genome.plasticity.learning_rate.baseline
+    assert elevated["effective_learning_rate"] > birth
+    assert birth < relaxed["effective_learning_rate"] < elevated["effective_learning_rate"]
 
 
 def test_m5_inherited_mark_is_birth_expression_not_new_acquisition():

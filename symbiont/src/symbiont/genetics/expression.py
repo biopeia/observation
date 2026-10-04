@@ -164,6 +164,7 @@ class ExpressionRegulator:
             )
 
         r = genome.regulation
+        decay = _unit(r.regulation_decay)
         mismatch_pressure = _unit(
             r.uncertainty_gain * signals.uncertainty
             + r.novelty_gain * signals.novelty
@@ -184,6 +185,11 @@ class ExpressionRegulator:
             learning,
             adaptive_pressure,
         )
+        # Adaptation responds to current internally available pressure, while
+        # regulation_decay supplies the slow return toward the constitutive
+        # baseline once pressure subsides.
+        learning_value += decay * (learning.baseline - learning_value)
+        learning_value = max(learning.minimum, min(learning.maximum, learning_value))
 
         structural = genome.plasticity.structural_plasticity
         structural_target = (
@@ -232,7 +238,6 @@ class ExpressionRegulator:
         exploration_target = _unit(exploration_target - habituation)
 
         alpha = _unit(r.regulation_smoothing)
-        decay = _unit(r.regulation_decay)
         exploration_value = _unit(
             state.exploration_drive
             + alpha * (exploration_target - state.exploration_drive)
