@@ -46,13 +46,27 @@ class Physics3DObservationBridge:
     """Viewer-compatible passive bridge.
 
     The only reverse path is lifecycle stop; it cannot provide motor, learning,
-    reward, environment, or cognitive commands.  Every event also carries a
+    reward, environment, or cognitive commands. Every event also carries a
     Lab-owned run identity so presentation state cannot cross run boundaries.
+
+    Managed sessions may additionally provide the organism/body identities that
+    the Lab already resolved when launching the run. Runtime payload identity,
+    when present, always wins; the launch identity is only a non-invented
+    fallback when a projection omits a field the Lab already knows.
     """
 
-    def __init__(self, sink: EventSink, *, run_id: str | None = None) -> None:
+    def __init__(
+        self,
+        sink: EventSink,
+        *,
+        run_id: str | None = None,
+        organism_id: str | None = None,
+        body_id: str | None = None,
+    ) -> None:
         self._sink = sink
         self._run_id = str(run_id or f"observer:{uuid.uuid4()}")
+        self._organism_id = str(organism_id) if organism_id is not None else None
+        self._body_id = str(body_id) if body_id is not None else None
         self._stop = threading.Event()
         self._pending_frames: dict[int, dict[str, Any]] = {}
         self._world_publisher = WorldScenePublisher()
@@ -60,6 +74,31 @@ class Physics3DObservationBridge:
     @property
     def run_id(self) -> str:
         return self._run_id
+
+    @property
+    def organism_id(self) -> str | None:
+        return self._organism_id
+
+    @property
+    def body_id(self) -> str | None:
+        return self._body_id
+
+    def _identity(self, source: Mapping[str, Any], key: str) -> str | None:
+        value = _optional_text(source, key)
+        if value is not None:
+            return value
+        if key == "organism_id":
+            return self._organism_id
+        if key == "body_id":
+            return self._body_id
+        return None
+
+    def _apply_known_identity(self, event: dict[str, Any], source: Mapping[str, Any]) -> None:
+        event["run_id"] = self._run_id
+        for key in ("organism_id", "body_id", "embodiment_id"):
+            value = self._identity(source, key)
+            if value is not None:
+                event[key] = value
 
     def start(self) -> None:
         return None
@@ -144,7 +183,6 @@ class Physics3DObservationBridge:
         event: dict[str, Any] = {
             "type": "body_pose",
             "source": "physics3d",
-            "run_id": self._run_id,
             "body_kind": descriptor.body_kind,
             "tick": int(tick),
             "substep_index": int(substep_index),
@@ -159,9 +197,7 @@ class Physics3DObservationBridge:
                 "sampling_hz": float(sampling_hz),
             },
         }
-        for key in ("organism_id", "body_id", "embodiment_id"):
-            if physical_state.get(key) is not None:
-                event[key] = str(physical_state[key])
+        self._apply_known_identity(event, physical_state)
         base_position = physical_state.get("base_position")
         if isinstance(base_position, (list, tuple)) and len(base_position) == 3:
             event["base_position"] = [float(value) for value in base_position]
@@ -277,9 +313,7 @@ class Physics3DObservationBridge:
             "joints": joints,
             "links": links,
         }
-        for key in ("organism_id", "body_id", "embodiment_id"):
-            if physical_state.get(key) is not None:
-                projected[key] = physical_state[key]
+        self._apply_known_identity(projected, physical_state)
         if physical_state.get("base_position") is not None:
             projected["base_position"] = physical_state["base_position"]
         elif record.get("base_position") is not None:
@@ -323,11 +357,7 @@ class Physics3DObservationBridge:
         world = project_world_scene(rich_state)
         if world is not None:
             world_event = self._world_publisher.event(world)
-            world_event["run_id"] = self._run_id
-            for key in ("organism_id", "body_id", "embodiment_id"):
-                value = rich_state.get(key)
-                if value is not None:
-                    world_event[key] = str(value)
+            self._apply_known_identity(world_event, rich_state)
             self._sink.push(world_event)
         snapshot = mind_snapshot_from_rich_state(rich_state)
         tick = snapshot.get("tick")
@@ -339,16 +369,14 @@ class Physics3DObservationBridge:
         mind_event: dict[str, Any] = {
             "type": "mind_snapshot",
             "source": "physics3d",
-            "run_id": self._run_id,
             "tick": tick,
-            "organism_id": rich_state.get("organism_id"),
             "snapshot": snapshot,
             "coherent_frame_follows": frame_tick is not None,
         }
-        for key in ("instance_id", "body_id", "embodiment_id"):
-            value = _optional_text(rich_state, key)
-            if value is not None:
-                mind_event[key] = value
+        self._apply_known_identity(mind_event, rich_state)
+        instance_id = _optional_text(rich_state, "instance_id")
+        if instance_id is not None:
+            mind_event["instance_id"] = instance_id
         topology_revision = _topology_revision(rich_state)
         if topology_revision is not None:
             mind_event["topology_revision"] = topology_revision
@@ -361,10 +389,10 @@ class Physics3DObservationBridge:
             tick=frame_tick,
             source="physics3d",
             run_id=self._run_id,
-            organism_id=_optional_text(rich_state, "organism_id"),
+            organism_id=self._identity(rich_state, "organism_id"),
             instance_id=_optional_text(rich_state, "instance_id"),
-            body_id=_optional_text(rich_state, "body_id"),
-            embodiment_id=_optional_text(rich_state, "embodiment_id"),
+            body_id=self._identity(rich_state, "body_id"),
+            embodiment_id=self._identity(rich_state, "embodiment_id"),
             topology_revision=topology_revision,
             body=components.get("body"),
             cognition=components.get("cognition"),
