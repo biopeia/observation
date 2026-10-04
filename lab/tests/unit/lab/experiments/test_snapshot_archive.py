@@ -127,3 +127,25 @@ def test_internal_atomic_capture_verifies_destination_identity(tmp_path: Path) -
     )
     assert manifest["snapshot_id"] == "S01"
     assert verify_snapshot(destination)["snapshot_id"] == "S01"
+
+
+def test_origin_is_verified_only_for_a_current_schema_state(tmp_path: Path) -> None:
+    """ADR-0065: no legacy reader exists; anything not current-schema is unknown."""
+    import json
+    import zipfile
+
+    from symbiont.host.checkpoint import CHECKPOINT_SCHEMA_VERSION
+
+    def origin(runtime: str | None) -> object:
+        source = tmp_path / f"source-{len(list(tmp_path.iterdir()))}"
+        source.mkdir()
+        with zipfile.ZipFile(source / "organism.symbiont", "w") as archive:
+            if runtime is not None:
+                archive.writestr("runtime.json", runtime)
+        return inspect_snapshot_source(source)["unverified_legacy_origin"]
+
+    assert origin(json.dumps({"schema_version": CHECKPOINT_SCHEMA_VERSION})) is False
+    assert origin(json.dumps({"schema_version": CHECKPOINT_SCHEMA_VERSION - 1})) is None
+    assert origin(json.dumps({"organism_id": "sym-1"})) is None
+    assert origin("not json") is None
+    assert origin(None) is None
