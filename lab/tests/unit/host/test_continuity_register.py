@@ -139,6 +139,7 @@ def test_entries_are_internally_consistent() -> None:
             assert entry.reembodiment in {
                 Reembodiment.PRESERVED,
                 Reembodiment.INVALIDATED,
+                Reembodiment.MIXED,
             }, entry.attribute
             assert entry.nested_checkpoint_fields, entry.attribute
             assert set(entry.nested_checkpoint_fields) <= set(entry.checkpoint_fields), (
@@ -185,7 +186,7 @@ def test_reembodiment_register_distinguishes_active_state_from_archived_priors()
     assert entries["_adaptive_senses"].archived_as_prior == (
         "embodiment_archive.body_memories[*].sensory_prior.sensory_development"
     )
-    assert entries["_body_schema"].reembodiment is Reembodiment.PRESERVED
+    assert entries["_body_schema"].reembodiment is Reembodiment.MIXED
     assert entries["_body_schema"].archived_as_prior == (
         "embodiment_archive.body_memories[*].body_schema_prior"
     )

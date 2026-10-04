@@ -914,10 +914,12 @@ def test_the_whole_lifecycle_holds_per_register_entry(case: _Case) -> None:
     }
     preserved = (_fields(Reembodiment.PRESERVED) & set(resaved)) - {"body_schema"} - nested_fields
     invalidated = _fields(Reembodiment.INVALIDATED) & set(resaved)
+    mixed = _fields(Reembodiment.MIXED) & set(resaved)
     # ``actuation`` carries both the domain (authority invalidated) and the new
     # Body's enablement; the domain rule governs the field as a whole.
     replaced = (_fields(Reembodiment.REPLACED) & set(resaved)) - invalidated
     assert len(preserved) > 40 and replaced and invalidated
+    assert mixed == {"body_schema"}
 
     assert {field for field in preserved if final[field] != resaved[field]} <= {
         "last_runtime_vital_state"

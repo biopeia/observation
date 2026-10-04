@@ -53,6 +53,7 @@ treatment in `src/symbiont/host/continuity.py::REGISTER`.
 | --- | --- | --- | --- |
 | Belongs to the Symbiont and may never be erased | `MUST_PRESERVE` with `Reembodiment.PRESERVED` | restored exactly | carried exactly |
 | Belongs to the Body and is replaced | `MUST_PRESERVE` with `Reembodiment.REPLACED` | restored exactly (same Body) | taken from the fresh Body |
+| Aggregate has individually classified retained and body-bound subfields | its nested policy plus `Reembodiment.MIXED` | restored exactly (same Body) | each subfield follows its registered nested policy |
 | Belongs to the Embodiment and is closed | `APPARATUS_FIELDS` (`embodiment_episode`) | restored | closed and archived; a new episode starts |
 | Kept as historical knowledge without authority over the current Body | `MUST_INVALIDATE_AUTHORITY` with `Reembodiment.INVALIDATED` | restored | knowledge carried, execution bindings and in-flight commitment withdrawn |
 | May be recomputed | `MAY_RECOMPUTE` | rebuilt from preserved state | rebuilt |
@@ -69,7 +70,9 @@ dependency, sensorimotor, and body-boundary evidence). The checkpoint does not
 tag each item with a body/episode provenance class. At canonical re-embodiment,
 the complete prior BodySchema is copied into the closed episode archive and its
 learned entries are removed from the active schema. The stable opaque identity
-salt remains; it does not carry learned claims. The new Body's active schema
+salt remains; it does not carry learned claims. Its register entry is therefore
+`Reembodiment.MIXED`: the aggregate field is neither wholly preserved nor wholly
+replaced, and consumers must consult its nested policies. The new Body's active schema
 starts undeveloped and is rebuilt only through ordinary observations after the
 transition. Historical archive records and epoch summaries describe the closed
 episode; they are not restored as current BodySchema or injected into current

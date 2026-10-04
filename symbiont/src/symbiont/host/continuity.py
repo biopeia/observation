@@ -38,6 +38,7 @@ class Reembodiment(StrEnum):
     REPLACED = "replaced_by_fresh_body"
     INVALIDATED = "authority_invalidated"
     NOT_APPLICABLE = "not_applicable"
+    MIXED = "mixed_nested_policy"
 
 
 CORE = "core"
@@ -308,7 +309,7 @@ REGISTER: tuple[ContinuityEntry, ...] = (
         "embodiment.body_schema",
         _P,
         "body_schema",
-        _KEEP,
+        Reembodiment.MIXED,
         archived_as_prior="embodiment_archive.body_memories[*].body_schema_prior",
         nested_reembodiment=(
             ("schema_version", _NA),
