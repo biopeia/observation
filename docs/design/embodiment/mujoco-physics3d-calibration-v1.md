@@ -47,6 +47,27 @@ no numeric acceptance thresholds. Missing observables or non-convergence are
 reported as not evaluable; do not silently alter conditions after observing a
 failure.
 
+### Fixed-base robotic arm requirement
+
+The planned robotic arm is a **fixed-base** embodiment: its root is anchored to
+the world and is not a floating/free joint. Its six rotational axes actuate
+only the articulated links; they must not translate or rotate the root. The
+arm model and any later characterization must declare this base constraint
+explicitly. This requirement does not select a mounting transform, link
+geometry, actuator limits, tool/gripper, calibration scenario, or acceptance
+threshold.
+
+The current articulated-body implementation creates a free root joint
+unconditionally. Supporting the arm therefore requires an explicit base
+mobility contract while preserving the existing floating-base behavior of
+current bodies. Before an arm model is added, implementation-level tests must
+show that a fixed-root model has no free root joint, that root pose remains
+unchanged under joint actuation, and that state export/restore and kinematic
+observations work for both fixed- and floating-base models. These are
+mechanical software-contract tests, not apparatus calibration or scientific
+evidence. This design remains proposed; the requirement does not authorize
+that implementation, parameter changes, calibration runs, or experiments.
+
 ## 3. Proposed staged work
 
 Run stages independently and preserve their inputs and outputs:
