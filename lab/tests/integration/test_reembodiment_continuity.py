@@ -206,6 +206,7 @@ def test_body_a_development_is_not_trivial(case: _Case) -> None:
     assert case.graph_nodes_in_a
     assert case.experience_in_a
     assert case.previous["gene_expression"]
+    assert case.previous["gene_expression"]["effective_structural_plasticity"] > 0.0
     assert case.previous["development"]["tick"] == DEVELOPMENT_TICKS
     assert case.previous["signal_knowledge"]["profiles"]
     assert case.previous["generative_cognition"]["hypotheses"]
@@ -213,6 +214,10 @@ def test_body_a_development_is_not_trivial(case: _Case) -> None:
     assert case.previous["experience_ledger"]["records"]
     assert case.previous["body_schema"]["parts"]
     assert case.previous["sensory_system"]["sensors"]
+    action_state = case.previous["actuation"]["action_domain"]
+    assert action_state["sensorimotor_v2"]["causal_evidence"]
+    assert action_state["sensorimotor_v2"]["competences"]
+    assert action_state["sensorimotor_v2"]["execution_bindings"]
     assert case.active_model_id
     assert case.previous["private_model_registry"]["records"]
     assert case.previous["training_ancestry"]["vocabularies"][case.ancestor_model_id]
