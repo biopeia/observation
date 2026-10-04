@@ -18,26 +18,33 @@ REPO_ROOT = ROOT.parent
 
 
 def _run_resident(
-    state_file: Path, observatory_dir: Path, display_id: str
+    state_file: Path,
+    observatory_dir: Path,
+    display_id: str,
+    *,
+    first_boot: bool = False,
 ) -> subprocess.CompletedProcess:
+    command = [
+        sys.executable,
+        "-m",
+        "lab.cli.observed_resident",
+        "--state-file",
+        str(state_file),
+        "--observatory-dir",
+        str(observatory_dir),
+        "--display-id",
+        display_id,
+        "--max-ticks",
+        "1",
+        "--interval",
+        "0.01",
+        "--checkpoint-every",
+        "1",
+    ]
+    if first_boot:
+        command.append("--first-boot")
     return subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "lab.cli.observed_resident",
-            "--state-file",
-            str(state_file),
-            "--observatory-dir",
-            str(observatory_dir),
-            "--display-id",
-            display_id,
-            "--max-ticks",
-            "1",
-            "--interval",
-            "0.01",
-            "--checkpoint-every",
-            "1",
-        ],
+        command,
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,
@@ -52,8 +59,8 @@ class ObservatoryIntegrationTests(unittest.TestCase):
             state_file_a = Path(tmp) / "organism-a.json"
             state_file_b = Path(tmp) / "organism-b.json"
 
-            result_a = _run_resident(state_file_a, observatory_dir, "symbiont-a")
-            result_b = _run_resident(state_file_b, observatory_dir, "symbiont-b")
+            result_a = _run_resident(state_file_a, observatory_dir, "symbiont-a", first_boot=True)
+            result_b = _run_resident(state_file_b, observatory_dir, "symbiont-b", first_boot=True)
             self.assertEqual(result_a.returncode, 0, msg=result_a.stderr)
             self.assertEqual(result_b.returncode, 0, msg=result_b.stderr)
 
@@ -69,7 +76,7 @@ class ObservatoryIntegrationTests(unittest.TestCase):
             observatory_dir = Path(tmp) / "observatory-state"
             state_file = Path(tmp) / "organism.json"
 
-            first = _run_resident(state_file, observatory_dir, "symbiont-a")
+            first = _run_resident(state_file, observatory_dir, "symbiont-a", first_boot=True)
             self.assertEqual(first.returncode, 0, msg=first.stderr)
             first_records = read_registry(observatory_dir)
             self.assertEqual(len(first_records), 1)
