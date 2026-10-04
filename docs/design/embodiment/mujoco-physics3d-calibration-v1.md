@@ -73,6 +73,28 @@ scientific evidence. Any calibration characterization must still declare the
 body descriptor/revision and record the compiled root/joint structure in its
 model audit.
 
+### Candidate external reference for the arm
+
+The UR5e is the recommended **reference candidate** for evolving the arm's
+observer presentation and, later, its documented physical profile: its
+manufacturer lists six rotating joints, 850 mm reach, 5 kg payload, 20.7 kg
+weight, and a 149 mm footprint. This is a candidate for design comparison,
+not a claim that `robotic-arm-v1` is UR5e-equivalent and not a selection of
+calibrated inputs. The present arm dimensions, mass distribution, joint ranges
+and actuators remain provisional; do not replace them with values inferred
+from these summary specifications.
+
+Before a future profile becomes a physics target, pin authoritative revisioned
+source data for link transforms, masses/inertias, joint limits and actuator
+dynamics, then complete the owner/reviewer protocol decisions below. A past
+UR5e ROS-description mass issue was addressed by merged upstream PR #187; this
+history is a reason to pin and audit the exact data revision, not evidence that
+every current model source is wrong. No external meshes or dynamics are imported
+by this design.
+
+Sources: [UR5e manufacturer specifications](https://www.universal-robots.com/manuals/EN/HTML/SW5_19/Content/prod-usr-man/complianceUR5e/H_g5_sections/appendix_g5/tech_spec_sheet.htm),
+[upstream UR5e mass correction PR #187](https://github.com/UniversalRobots/Universal_Robots_ROS2_Description/pull/187).
+
 ## 3. Stages for a separately authorized calibration
 
 If a separate calibration protocol is reviewed, frozen and explicitly

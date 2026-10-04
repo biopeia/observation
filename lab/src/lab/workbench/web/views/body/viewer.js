@@ -47,6 +47,9 @@ export class BodyViewer {
     this.bodyModels = new Map();
     this.bodyModel = fallbackBodyModel();
     this.activeBodyKind = this.bodyModel.bodyKind;
+    // SSE may identify a body before the asynchronous catalog request finishes.
+    // Retain that request and apply it once its observer model is available.
+    this.requestedBodyKind = this.activeBodyKind;
     this.bodyModels.set(this.activeBodyKind, this.bodyModel);
 
     // Three.js instances
@@ -194,6 +197,7 @@ export class BodyViewer {
         const model = bodyModelFromCatalog(item);
         if (model?.bodyKind) this.bodyModels.set(model.bodyKind, model);
       }
+      this.ensureBodyModel(this.requestedBodyKind);
     } catch {
       // Presentation catalog failure must never affect the running organism.
     }
@@ -201,6 +205,7 @@ export class BodyViewer {
 
   ensureBodyModel(bodyKind) {
     const requested = String(bodyKind || this.activeBodyKind || 'anthropomorphic-v6');
+    this.requestedBodyKind = requested;
     if (requested === this.activeBodyKind) return;
     const model = this.bodyModels.get(requested);
     if (!model) return;
