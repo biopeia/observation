@@ -56,10 +56,10 @@ Order actually followed: A, B, restore resolution, C, interoception split, D,
 F and G, E. F had to precede E: an organism that still built its own providers
 could not import them from `modality`.
 
-Equivalence with the organism that built its own sources is checked against
-the pre-migration tree, not against this one: `identity_check.py` builds nine
-option sets and 54 restores with overrides in both trees and compares state
-hash and checkpoint.
+Equivalence with the organism that built its own sources was checked against
+the pre-migration tree through commit `2632ff40e` (nine option sets and 54
+restores with overrides, same state hash and checkpoint). The check cannot be
+run any more: checkpoint schema 12 is deliberately incompatible with schema 11.
 
 ### Decisions and remaining owner work (scientific, not structural)
 
