@@ -18,7 +18,6 @@ from ...cognition.types import NodeKind
 from ...genetics.expression import GeneExpressionState
 from ...genetics.genome import Genome
 from .bridge_checkpoint import export_bridge_state, restore_bridge_state
-from .bridge_compat import CognitiveBridgeCompatibility
 from .plasticity_state import PlasticityEngine
 from .predictors import PredictorLifecycle
 from .sense_concept_lifecycle import (
@@ -85,7 +84,7 @@ class CognitiveBridgeResult:
         return {}
 
 
-class CognitiveBridge(CognitiveBridgeCompatibility):
+class CognitiveBridge:
     """Wire a CognitiveGraph into the organism's resident tick loop.
 
     Germinal cognition follows a reversible homeostatic cycle: observe and
@@ -939,7 +938,7 @@ class CognitiveBridge(CognitiveBridgeCompatibility):
                 for k in dead_prediction_keys:
                     del self._predictors.shadows[k]
                 if dead_prediction_keys:
-                    self._invalidate_shadow_predictions_cache()
+                    self._predictors.invalidate_shadow_cache()
 
     def _reconcile_node_metadata(self) -> None:
         node_ids = {node.node_id for node in self._graph.nodes}
@@ -1012,13 +1011,13 @@ class CognitiveBridge(CognitiveBridgeCompatibility):
             topology_revision=self._topology_revision,
             tick=self._tick,
             develop_senses=self._develop_senses,
-            node_born_tick=self._node_born_tick,
-            node_observation_count=self._node_observation_count,
-            node_active_count=self._node_active_count,
+            node_born_tick=self._representations.born_tick,
+            node_observation_count=self._representations.observation_count,
+            node_active_count=self._representations.active_count,
             recovery_pending=self._recovery_pending,
-            adaptive_node_budget=self._adaptive_node_budget,
-            adaptive_edge_budget=self._adaptive_edge_budget,
-            adaptive_sense_budget=self._adaptive_sense_budget,
+            adaptive_node_budget=self._budgets.node_budget,
+            adaptive_edge_budget=self._budgets.edge_budget,
+            adaptive_sense_budget=self._budgets.sense_budget,
         )
 
     @classmethod
@@ -1052,9 +1051,9 @@ class CognitiveBridge(CognitiveBridgeCompatibility):
         )
         if state.adaptive_resource_budgets is not None:
             (
-                bridge._adaptive_node_budget,
-                bridge._adaptive_edge_budget,
-                bridge._adaptive_sense_budget,
+                bridge._budgets.node_budget,
+                bridge._budgets.edge_budget,
+                bridge._budgets.sense_budget,
             ) = state.adaptive_resource_budgets
 
         bridge._tick = state.tick
@@ -1062,9 +1061,9 @@ class CognitiveBridge(CognitiveBridgeCompatibility):
         bridge._lifecycle = state.lifecycle
         bridge._predictors = state.predictors
         bridge._contention = state.contention
-        bridge._node_born_tick = state.node_born_tick
-        bridge._node_observation_count = state.node_observation_count
-        bridge._node_active_count = state.node_active_count
+        bridge._representations.born_tick = state.node_born_tick
+        bridge._representations.observation_count = state.node_observation_count
+        bridge._representations.active_count = state.node_active_count
         bridge._recovery_pending = state.recovery_pending
 
         # Preserve historical restore ordering: shadow pruning runs against the
@@ -1396,7 +1395,7 @@ class CognitiveBridge(CognitiveBridgeCompatibility):
             # NOTE(legacy): Legacy metric retained for snapshot compatibility. Producer-level
             # arbitration no longer accumulates contention debt.
             max_contention_losses=0,
-            node_budget=self._adaptive_node_budget,
-            edge_budget=self._adaptive_edge_budget,
-            sense_budget=self._adaptive_sense_budget,
+            node_budget=self._budgets.node_budget,
+            edge_budget=self._budgets.edge_budget,
+            sense_budget=self._budgets.sense_budget,
         )

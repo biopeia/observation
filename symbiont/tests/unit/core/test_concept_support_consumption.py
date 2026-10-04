@@ -45,7 +45,7 @@ def test_committed_concept_consumes_candidate_support_and_stops_reaccumulation()
     bridge.tick(_coactivity(2), tick=2)
 
     assert any(node.kind is NodeKind.CONCEPT for node in bridge.graph.nodes)
-    assert _PAIR not in bridge._concept_support
+    assert _PAIR not in bridge._lifecycle.concept_support
 
     # Evidence used to create an extant concept is no longer candidate
     # evidence. Repeated observations maintain the phenotype through its real
@@ -53,7 +53,7 @@ def test_committed_concept_consumes_candidate_support_and_stops_reaccumulation()
     for tick in range(3, 7):
         bridge.tick(_coactivity(tick), tick=tick)
 
-    assert _PAIR not in bridge._concept_support
+    assert _PAIR not in bridge._lifecycle.concept_support
 
 
 @pytest.mark.xfail(
@@ -68,7 +68,7 @@ def test_failed_concept_requires_fresh_post_gc_support_before_rebirth() -> None:
         bridge.tick(_coactivity(tick), tick=tick)
 
     assert any(node.kind is NodeKind.CONCEPT for node in bridge.graph.nodes)
-    assert _PAIR not in bridge._concept_support
+    assert _PAIR not in bridge._lifecycle.concept_support
 
     # Force the learned hypothesis into the existing weak/unused lifecycle.
     # The regression suite already validates pruning and orphan GC; here the
@@ -85,14 +85,14 @@ def test_failed_concept_requires_fresh_post_gc_support_before_rebirth() -> None:
 
     assert not any(node.kind is NodeKind.CONCEPT for node in bridge.graph.nodes)
     assert not any(node.kind is NodeKind.READOUT for node in bridge.graph.nodes)
-    assert _PAIR not in bridge._concept_support
+    assert _PAIR not in bridge._lifecycle.concept_support
 
     first = bridge.tick(_coactivity(19), tick=19)
     assert not any(node.kind is NodeKind.CONCEPT for node in bridge.graph.nodes)
-    assert bridge._concept_support[_PAIR] == 1
+    assert bridge._lifecycle.concept_support[_PAIR] == 1
     assert first.structural_mutations_applied == 0
 
     second = bridge.tick(_coactivity(20), tick=20)
     assert any(node.kind is NodeKind.CONCEPT for node in bridge.graph.nodes)
     assert second.structural_mutations_applied >= 2
-    assert _PAIR not in bridge._concept_support
+    assert _PAIR not in bridge._lifecycle.concept_support

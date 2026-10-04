@@ -27,8 +27,8 @@ def test_generic_internal_orphans_are_reclaimed_after_grace():
 
     grace = bridge._genome.structure.tentative_lifetime_ticks
     bridge._tick = grace + 1
-    bridge._orphan_since_tick["state_x"] = 0
-    bridge._orphan_since_tick["gate_x"] = 0
+    bridge._lifecycle.orphan_since_tick["state_x"] = 0
+    bridge._lifecycle.orphan_since_tick["gate_x"] = 0
 
     mutations = bridge._orphan_node_mutations(
         tick=grace + 1,
@@ -54,11 +54,11 @@ def test_reconcile_keeps_generic_internal_orphan_age():
         kernel_limits=limits,
         develop_senses=True,
     )
-    bridge._orphan_since_tick["state_x"] = 7
+    bridge._lifecycle.orphan_since_tick["state_x"] = 7
 
     bridge._reconcile_node_metadata()
 
-    assert bridge._orphan_since_tick["state_x"] == 7
+    assert bridge._lifecycle.orphan_since_tick["state_x"] == 7
 
 
 def test_active_action_readout_is_not_reclaimed_as_orphan():
@@ -85,8 +85,8 @@ def test_active_action_readout_is_not_reclaimed_as_orphan():
     )
 
     grace = bridge._genome.structure.tentative_lifetime_ticks
-    bridge._orphan_since_tick["readout_primitive:primitive.keep"] = 0
-    bridge._orphan_since_tick["readout_primitive:primitive.drop"] = 0
+    bridge._lifecycle.orphan_since_tick["readout_primitive:primitive.keep"] = 0
+    bridge._lifecycle.orphan_since_tick["readout_primitive:primitive.drop"] = 0
 
     mutations = bridge._orphan_node_mutations(
         tick=grace + 1,
@@ -118,11 +118,11 @@ def test_source_diverse_generative_retention_protects_existing_orphan_without_fa
         develop_senses=True,
     )
     grace = bridge._genome.structure.tentative_lifetime_ticks
-    bridge._orphan_since_tick["state.keep"] = 0
-    bridge._orphan_since_tick["state.drop"] = 0
+    bridge._lifecycle.orphan_since_tick["state.keep"] = 0
+    bridge._lifecycle.orphan_since_tick["state.drop"] = 0
 
-    observations_before = dict(bridge._node_observation_count)
-    active_before = dict(bridge._node_active_count)
+    observations_before = dict(bridge._representations.observation_count)
+    active_before = dict(bridge._representations.active_count)
 
     bridge.set_generative_retention_protection(("state.keep",))
     mutations = bridge._orphan_node_mutations(
@@ -135,5 +135,5 @@ def test_source_diverse_generative_retention_protects_existing_orphan_without_fa
     }
     assert "state.keep" not in removed
     assert "state.drop" in removed
-    assert bridge._node_observation_count == observations_before
-    assert bridge._node_active_count == active_before
+    assert bridge._representations.observation_count == observations_before
+    assert bridge._representations.active_count == active_before

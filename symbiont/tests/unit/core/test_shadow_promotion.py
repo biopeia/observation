@@ -4,6 +4,7 @@ from symbiont.cognition.learning import ShadowPrediction
 from symbiont.cognition.limits import KernelLimits
 from symbiont.cognition.types import EdgeKind, NodeKind
 from symbiont.core.cognition.bridge import CognitiveBridge, GraphError
+from symbiont.core.cognition.bridge_checkpoint import restore_shadow_predictions
 
 from .test_cognition_bridge import _genome, _simple_graph
 
@@ -16,13 +17,13 @@ def test_shadow_promotion_requires_gain_and_materializes_learned_sense_input():
         develop_senses=True,
     )
     shadow = ShadowPrediction("s", "c")
-    bridge._shadow_predictions[("s", "c")] = shadow
+    bridge._predictors.shadows[("s", "c")] = shadow
     for _ in range(8):
         shadow.observe(1.0, 1.0, 0.0)
 
     assert bridge.promote_shadow_prediction("s", "c", tick=8)
     assert not any(node.kind is NodeKind.PREDICTOR for node in bridge.graph.nodes)
-    assert "predictor:s:c" in bridge._structural_candidates
+    assert "predictor:s:c" in bridge._contention.candidates
 
     bridge.tick({"s": 1.0}, tick=12)
 
@@ -47,7 +48,7 @@ def test_shadow_promotion_does_not_wire_latent_source_with_wrong_lag():
         develop_senses=True,
     )
     shadow = ShadowPrediction("c", "s")
-    bridge._shadow_predictions[("c", "s")] = shadow
+    bridge._predictors.shadows[("c", "s")] = shadow
     for _ in range(8):
         shadow.observe(1.0, 1.0, 0.0)
 
@@ -67,7 +68,7 @@ def test_restore_shadow_predictions_supports_large_cohort():
         }
         for i in range(1000)
     ]
-    restored = CognitiveBridge._restore_shadow_predictions(entries)
+    restored = restore_shadow_predictions(entries)
     assert len(restored) == 1000
 
 
@@ -84,7 +85,7 @@ def test_restore_shadow_predictions_rejects_payload_above_bound():
         for i in range(16_385)
     ]
     with pytest.raises(GraphError):
-        CognitiveBridge._restore_shadow_predictions(entries)
+        restore_shadow_predictions(entries)
 
 
 def test_shadow_pruning_drops_retired_and_non_sensory_sources():
@@ -94,7 +95,7 @@ def test_shadow_pruning_drops_retired_and_non_sensory_sources():
         kernel_limits=KernelLimits(),
         develop_senses=True,
     )
-    bridge._shadow_predictions = {
+    bridge._predictors.shadows = {
         ("s", "c"): ShadowPrediction(
             "s", "c", samples=8, model_loss=0.0, persistence_loss=1.0, status="supported"
         ),
@@ -108,7 +109,7 @@ def test_shadow_pruning_drops_retired_and_non_sensory_sources():
 
     bridge._prune_shadow_predictions()
 
-    assert set(bridge._shadow_predictions) == {("s", "c")}
+    assert set(bridge._predictors.shadows) == {("s", "c")}
 
 
 def test_shadow_prediction_ordered_view_is_cached_and_invalidated():
@@ -120,9 +121,9 @@ def test_shadow_prediction_ordered_view_is_cached_and_invalidated():
     )
     a = ShadowPrediction("sense.b", "concept")
     b = ShadowPrediction("sense.a", "concept")
-    bridge._shadow_predictions[(a.source_id, a.target_id)] = a
-    bridge._shadow_predictions[(b.source_id, b.target_id)] = b
-    bridge._invalidate_shadow_predictions_cache()
+    bridge._predictors.shadows[(a.source_id, a.target_id)] = a
+    bridge._predictors.shadows[(b.source_id, b.target_id)] = b
+    bridge._predictors.invalidate_shadow_cache()
 
     first = bridge.shadow_predictions
     second = bridge.shadow_predictions
@@ -133,8 +134,8 @@ def test_shadow_prediction_ordered_view_is_cached_and_invalidated():
     ]
 
     c = ShadowPrediction("sense.c", "concept")
-    bridge._shadow_predictions[(c.source_id, c.target_id)] = c
-    bridge._invalidate_shadow_predictions_cache()
+    bridge._predictors.shadows[(c.source_id, c.target_id)] = c
+    bridge._predictors.invalidate_shadow_cache()
     refreshed = bridge.shadow_predictions
     assert refreshed is not first
     assert refreshed[-1] is c
@@ -147,7 +148,7 @@ def test_shadow_prune_fast_path_skips_unchanged_full_scan(monkeypatch):
         kernel_limits=KernelLimits(),
         develop_senses=True,
     )
-    bridge._shadow_predictions[("s", "c")] = ShadowPrediction(
+    bridge._predictors.shadows[("s", "c")] = ShadowPrediction(
         "s",
         "c",
         samples=8,
@@ -158,8 +159,8 @@ def test_shadow_prune_fast_path_skips_unchanged_full_scan(monkeypatch):
 
     # First pass establishes the clean revision marker.
     bridge._prune_shadow_predictions()
-    assert bridge._shadow_prune_dirty is False
-    assert bridge._shadow_prune_topology_revision == bridge.topology_revision
+    assert bridge._predictors._shadow_prune_dirty is False
+    assert bridge._predictors._shadow_prune_topology_revision == bridge.topology_revision
 
     def fail_if_called():
         raise AssertionError("unchanged shadow pool should not rescan topology")
@@ -175,7 +176,7 @@ def test_shadow_prune_rescans_after_topology_revision_change():
         kernel_limits=KernelLimits(),
         develop_senses=True,
     )
-    bridge._shadow_predictions[("s", "c")] = ShadowPrediction(
+    bridge._predictors.shadows[("s", "c")] = ShadowPrediction(
         "s",
         "c",
         samples=8,
@@ -188,4 +189,4 @@ def test_shadow_prune_rescans_after_topology_revision_change():
     bridge._topology_revision += 1
     bridge._prune_shadow_predictions()
 
-    assert bridge._shadow_prune_topology_revision == bridge.topology_revision
+    assert bridge._predictors._shadow_prune_topology_revision == bridge.topology_revision

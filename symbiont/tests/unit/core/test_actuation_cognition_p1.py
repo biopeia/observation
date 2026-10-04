@@ -290,15 +290,16 @@ def test_cognitive_graph_readout_changes_executive_admission():
             return ()
 
     runtime = OrganismRuntime()
-    choose = lambda cognition: runtime._choose_acquired_action(
-        cognition=cognition,
-        percepts=(),
-        affordances=(affordance,),
-        resolver=NoGenerativeAffordances(),
-        context_ref="context.test",
-        signal_references={},
-        tick=2,
-    )
+    def choose(cognition):
+        return runtime._choose_acquired_action(
+            cognition=cognition,
+            percepts=(),
+            affordances=(affordance,),
+            resolver=NoGenerativeAffordances(),
+            context_ref="context.test",
+            signal_references={},
+            tick=2,
+        )
 
     assert inactive.readouts_for_family("primitive")["primitive.test"] == 0.0
     assert "primitive.test" in active.readouts_for_family("primitive")
@@ -565,7 +566,7 @@ def test_verified_skill_reclaims_capacity_progressively_without_reserved_slots()
 
     bridge.tick({"sense_a": 0.5}, tick=1)
     bridge.tick({"sense_a": -0.5}, tick=2)
-    utility = bridge._predictor_utility["predictor_bad"]
+    utility = bridge._predictors.utility["predictor_bad"]
     utility.samples = 8
     utility.model_loss = 8.0
     utility.persistence_loss = 0.0
@@ -588,7 +589,7 @@ def test_verified_skill_reclaims_capacity_progressively_without_reserved_slots()
     )
     node_ids = {node.node_id for node in bridge.graph.nodes}
     assert "predictor_bad" in node_ids
-    assert "predictor_bad" in bridge._predictor_retirement
+    assert "predictor_bad" in bridge._predictors.retirement
     assert not any(
         edge.source_id == "predictor_bad" or edge.target_id == "predictor_bad"
         for edge in bridge.graph.edges
@@ -621,7 +622,7 @@ def test_capacity_competition_protects_predictively_useful_representation():
     # because a skill is waiting for admission.
     bridge.tick({"sense_a": 0.25}, tick=1)
     bridge.tick({"sense_a": 0.25}, tick=2)
-    utility = bridge._predictor_utility["predictor_bad"]
+    utility = bridge._predictors.utility["predictor_bad"]
     utility.samples = 8
     utility.model_loss = 0.0
     utility.persistence_loss = 8.0
@@ -650,7 +651,7 @@ def test_predictor_retention_evidence_survives_checkpoint_before_competition():
     )
     bridge.tick({"sense_a": 0.5}, tick=1)
     bridge.tick({"sense_a": -0.5}, tick=2)
-    before = bridge._predictor_utility["predictor_bad"]
+    before = bridge._predictors.utility["predictor_bad"]
     before.samples = 8
     before.model_loss = 8.0
     before.persistence_loss = 0.0
@@ -658,7 +659,7 @@ def test_predictor_retention_evidence_survives_checkpoint_before_competition():
     before.negative_streak = 8
     before.positive_streak = 0
     bridge._update_predictor_retirement_state(tick=3)
-    assert "predictor_bad" in bridge._predictor_retirement
+    assert "predictor_bad" in bridge._predictors.retirement
 
     payload = bridge.export_checkpoint()
     restored = CognitiveBridge.restore(
@@ -667,16 +668,16 @@ def test_predictor_retention_evidence_survives_checkpoint_before_competition():
         kernel_limits=KernelLimits(),
     )
     assert restored is not None
-    after = restored._predictor_utility["predictor_bad"]
+    after = restored._predictors.utility["predictor_bad"]
     assert after.samples == before.samples
     assert after.model_loss == before.model_loss
     assert after.persistence_loss == before.persistence_loss
     assert after.recent_gain == before.recent_gain
     assert after.negative_streak == before.negative_streak
-    assert "predictor_bad" in restored._predictor_retirement
+    assert "predictor_bad" in restored._predictors.retirement
     assert (
-        restored._predictor_retirement["predictor_bad"].entered_tick
-        == bridge._predictor_retirement["predictor_bad"].entered_tick
+        restored._predictors.retirement["predictor_bad"].entered_tick
+        == bridge._predictors.retirement["predictor_bad"].entered_tick
     )
 
 
@@ -690,7 +691,7 @@ def test_predictor_retirement_is_reversible_before_detachment():
     bridge.tick({"sense_a": 0.5}, tick=1)
     bridge.tick({"sense_a": -0.5}, tick=2)
 
-    utility = bridge._predictor_utility["predictor_bad"]
+    utility = bridge._predictors.utility["predictor_bad"]
     utility.samples = 8
     utility.model_loss = 8.0
     utility.persistence_loss = 0.0
@@ -703,7 +704,7 @@ def test_predictor_retirement_is_reversible_before_detachment():
         tick=3,
         active_primitive_ids=("primitive.waiting",),
     )
-    assert "predictor_bad" in bridge._predictor_retirement
+    assert "predictor_bad" in bridge._predictors.retirement
 
     edge = next(edge for edge in bridge.graph.edges if edge.target_id == "predictor_bad")
     weight_after_quarantine = edge.weight
@@ -720,7 +721,7 @@ def test_predictor_retirement_is_reversible_before_detachment():
         active_primitive_ids=("primitive.waiting",),
     )
 
-    assert "predictor_bad" not in bridge._predictor_retirement
+    assert "predictor_bad" not in bridge._predictors.retirement
     edge = next(edge for edge in bridge.graph.edges if edge.target_id == "predictor_bad")
     # Plasticity is zero in this fixture, so cancellation of quarantine means
     # no further soft-pruning occurs.
@@ -747,7 +748,7 @@ def test_retirement_requires_capacity_pressure():
     )
     bridge.tick({"sense_a": 0.5}, tick=1)
     bridge.tick({"sense_a": -0.5}, tick=2)
-    utility = bridge._predictor_utility["predictor_bad"]
+    utility = bridge._predictors.utility["predictor_bad"]
     utility.samples = 8
     utility.model_loss = 8.0
     utility.persistence_loss = 0.0
@@ -756,7 +757,7 @@ def test_retirement_requires_capacity_pressure():
 
     bridge.tick({"sense_a": 0.25}, tick=3)
 
-    assert bridge._predictor_retirement == {}
+    assert bridge._predictors.retirement == {}
 
 
 def test_capacity_pressure_retires_only_one_predictor_at_a_time():
@@ -813,7 +814,7 @@ def test_capacity_pressure_retires_only_one_predictor_at_a_time():
     bridge.tick({"sense_a": 0.5}, tick=1)
     bridge.tick({"sense_a": -0.5}, tick=2)
     for predictor_id in ("predictor_a", "predictor_b"):
-        utility = bridge._predictor_utility[predictor_id]
+        utility = bridge._predictors.utility[predictor_id]
         utility.samples = 8
         utility.model_loss = 8.0
         utility.persistence_loss = 0.0
@@ -823,8 +824,8 @@ def test_capacity_pressure_retires_only_one_predictor_at_a_time():
 
     bridge.tick({"sense_a": 0.25}, tick=3)
 
-    assert len(bridge._predictor_retirement) == 1
-    assert next(iter(bridge._predictor_retirement)) in {
+    assert len(bridge._predictors.retirement) == 1
+    assert next(iter(bridge._predictors.retirement)) in {
         "predictor_a",
         "predictor_b",
     }
@@ -840,7 +841,7 @@ def test_aged_structural_demand_can_quarantine_recently_negative_predictor():
     bridge.tick({"sense_a": 0.5}, tick=1)
     bridge.tick({"sense_a": -0.5}, tick=2)
 
-    utility = bridge._predictor_utility["predictor_bad"]
+    utility = bridge._predictors.utility["predictor_bad"]
     utility.samples = 8
     # Historically useful overall, but currently degrading.  Ordinary pressure
     # must protect it until a real structural proposal has waited a full
@@ -856,14 +857,14 @@ def test_aged_structural_demand_can_quarantine_recently_negative_predictor():
         tick=3,
         active_primitive_ids=("primitive.waiting",),
     )
-    assert bridge._predictor_retirement == {}
+    assert bridge._predictors.retirement == {}
 
     bridge.tick(
         {"sense_a": 0.25},
         tick=4,
         active_primitive_ids=("primitive.waiting",),
     )
-    assert "predictor_bad" in bridge._predictor_retirement
+    assert "predictor_bad" in bridge._predictors.retirement
 
 
 def test_aged_structural_demand_accelerates_only_already_retiring_edges():
@@ -876,7 +877,7 @@ def test_aged_structural_demand_accelerates_only_already_retiring_edges():
     bridge.tick({"sense_a": 0.5}, tick=1)
     bridge.tick({"sense_a": -0.5}, tick=2)
 
-    utility = bridge._predictor_utility["predictor_bad"]
+    utility = bridge._predictors.utility["predictor_bad"]
     utility.samples = 8
     utility.model_loss = 8.0
     utility.persistence_loss = 0.0
@@ -912,7 +913,7 @@ def test_sustained_starvation_retires_one_quarantined_edge_per_consolidation():
     bridge.tick({"sense_a": 0.5}, tick=1)
     bridge.tick({"sense_a": -0.5}, tick=2)
 
-    utility = bridge._predictor_utility["predictor_bad"]
+    utility = bridge._predictors.utility["predictor_bad"]
     utility.samples = 8
     utility.model_loss = 8.0
     utility.persistence_loss = 0.0
@@ -925,14 +926,19 @@ def test_sustained_starvation_retires_one_quarantined_edge_per_consolidation():
         tick=3,
         active_primitive_ids=("primitive.waiting",),
     )
-    retirement = bridge._predictor_retirement["predictor_bad"]
+    retirement = bridge._predictors.retirement["predictor_bad"]
     retirement.entered_tick = 1
-    candidate = bridge._structural_candidates["primitive:primitive.waiting"]
+    candidate = bridge._contention.candidates["primitive:primitive.waiting"]
     candidate.eligible_tick = 1
 
-    mutations = bridge._retirement_edge_gc_mutations(
+    mutations = bridge._planner.retirement_edge_gc(
+        graph=bridge.graph,
+        predictors=bridge._predictors,
+        contention=bridge._contention,
+        pressure_graph=bridge.graph,
         tick=3,
         max_mutations=8,
+        lifetime_ticks=bridge._genome.structure.tentative_lifetime_ticks,
     )
 
     assert len(mutations) == 1

@@ -111,8 +111,8 @@ def test_developmental_capacity_starts_below_ceiling_and_never_crosses_it():
         develop_senses=True,
     )
 
-    assert bridge._adaptive_node_budget < genome.development.soft_node_budget
-    assert bridge._adaptive_edge_budget < genome.development.soft_edge_budget
+    assert bridge._budgets.node_budget < genome.development.soft_node_budget
+    assert bridge._budgets.edge_budget < genome.development.soft_edge_budget
 
     for _ in range(128):
         bridge._expand_resource_budgets(
@@ -121,9 +121,9 @@ def test_developmental_capacity_starts_below_ceiling_and_never_crosses_it():
             need_senses=True,
         )
 
-    assert bridge._adaptive_node_budget == genome.development.soft_node_budget
-    assert bridge._adaptive_edge_budget == genome.development.soft_edge_budget
-    assert bridge._adaptive_sense_budget == genome.development.sense_node_budget
+    assert bridge._budgets.node_budget == genome.development.soft_node_budget
+    assert bridge._budgets.edge_budget == genome.development.soft_edge_budget
+    assert bridge._budgets.sense_budget == genome.development.sense_node_budget
 
 
 def test_zero_capacity_growth_sensitivity_freezes_developed_capacity():
@@ -143,9 +143,9 @@ def test_zero_capacity_growth_sensitivity_freezes_developed_capacity():
         develop_senses=True,
     )
     before = (
-        bridge._adaptive_node_budget,
-        bridge._adaptive_edge_budget,
-        bridge._adaptive_sense_budget,
+        bridge._budgets.node_budget,
+        bridge._budgets.edge_budget,
+        bridge._budgets.sense_budget,
     )
 
     assert not bridge._expand_resource_budgets(
@@ -154,9 +154,9 @@ def test_zero_capacity_growth_sensitivity_freezes_developed_capacity():
         need_senses=True,
     )
     assert (
-        bridge._adaptive_node_budget,
-        bridge._adaptive_edge_budget,
-        bridge._adaptive_sense_budget,
+        bridge._budgets.node_budget,
+        bridge._budgets.edge_budget,
+        bridge._budgets.sense_budget,
     ) == before
 
 

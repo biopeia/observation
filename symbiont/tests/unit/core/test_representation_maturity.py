@@ -41,10 +41,10 @@ def _bridge() -> CognitiveBridge:
 
 def test_internal_representation_must_age_activate_and_integrate_before_growth():
     bridge = _bridge()
-    bridge._node_born_tick["concept"] = 10
+    bridge._representations.born_tick["concept"] = 10
     bridge._tick = 10
-    bridge._node_observation_count["concept"] = 100
-    bridge._node_active_count["concept"] = 100
+    bridge._representations.observation_count["concept"] = 100
+    bridge._representations.active_count["concept"] = 100
 
     assert bridge._representation_maturity("concept") is RepresentationMaturity.NASCENT
     assert not bridge._representation_mature_enough_as_target("concept")
@@ -68,9 +68,9 @@ def test_sense_is_stable_without_internal_maturation_policy():
 
 def test_maturation_evidence_survives_checkpoint_roundtrip():
     bridge = _bridge()
-    bridge._node_born_tick["concept"] = 3
-    bridge._node_observation_count["concept"] = 19
-    bridge._node_active_count["concept"] = 11
+    bridge._representations.born_tick["concept"] = 3
+    bridge._representations.observation_count["concept"] = 19
+    bridge._representations.active_count["concept"] = 11
 
     restored = CognitiveBridge.restore(
         bridge.export_checkpoint(),
@@ -79,16 +79,16 @@ def test_maturation_evidence_survives_checkpoint_roundtrip():
     )
 
     assert restored is not None
-    assert restored._node_born_tick["concept"] == 3
-    assert restored._node_observation_count["concept"] == 19
-    assert restored._node_active_count["concept"] == 11
+    assert restored._representations.born_tick["concept"] == 3
+    assert restored._representations.observation_count["concept"] == 19
+    assert restored._representations.active_count["concept"] == 11
 
 
 def test_tick_representation_maturity_histogram_matches_direct_classification():
     bridge = _bridge()
-    bridge._node_born_tick["concept"] = 0
-    bridge._node_observation_count["concept"] = 100
-    bridge._node_active_count["concept"] = 100
+    bridge._representations.born_tick["concept"] = 0
+    bridge._representations.observation_count["concept"] = 100
+    bridge._representations.active_count["concept"] = 100
     bridge._tick = bridge._genome.structure.tentative_lifetime_ticks
 
     result = bridge.tick(

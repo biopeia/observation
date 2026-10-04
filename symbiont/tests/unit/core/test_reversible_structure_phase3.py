@@ -281,7 +281,7 @@ def test_retrospective_support_does_not_add_to_live_support() -> None:
         develop_senses=True,
     )
 
-    bridge._concept_support[("sense_alpha", "sense_beta")] = 2
+    bridge._lifecycle.concept_support[("sense_alpha", "sense_beta")] = 2
     bridge.observe_retrospective_support(
         ("sense_alpha", "sense_beta"),
         support_epochs=2,
