@@ -242,7 +242,11 @@ no-touch rule was applied strictly (it can refresh the index stat cache). No
 file there was created, changed or deleted; its `HEAD` and working tree are as
 they were.
 
-**OI-16 — Small web leftovers.** `workbench/web/app.js` still aliases the
-routes `#lab` and `#experiments` to Home, and `views/body/viewer.js` keeps a
-joint-angle interpolation path commented as "Legacy/demo telemetry". Neither
-could be exercised in a browser from here, so neither was touched.
+**OI-16 — CLOSED: stale web residue removed or accurately described.** The
+retired `#lab` and `#experiments` aliases are removed; unrecognized routes
+already resolve to Home. The joint-angle interpolation remains as a
+presentation-only fallback for sparse pose frames without authoritative link
+poses, and its comment now describes that active behavior rather than calling
+it legacy/demo telemetry. A smoke assertion covers the route table and wording,
+and Node syntax checks plus the unified-app asset smoke test pass; no claim of
+interactive browser QA is made.
