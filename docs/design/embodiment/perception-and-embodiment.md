@@ -137,7 +137,20 @@ Apply kernel limits set in §12: `max_signal_profiles=64`, `max_claims_total=192
 
 ## 7. Persistence and restoration
 
-Include `signal_knowledge` in `OrganismRuntime.checkpoint()` and restore it with explicit migration of current host checkpoint schema (v6). Previous checkpoints migrate to empty knowledge; advanced knowledge is not reconstructed from narrative strings or incomplete correlations. Validate types, bounds, IDs, indices, counts, classes, revisions and size before committing restoration. Restart all pending trials and mark the restoration interval as non-comparable, preserving mature claims and discrete statistics. Measure how much validation changes due to that decision.
+**Superseded outer-checkpoint policy:** the host-v6-to-v7 migration described in
+this historical design was not retained. The current loader accepts only outer
+checkpoint schema 12 and rejects older outer schemas; no old outer checkpoint
+is restored with empty `signal_knowledge`. Subsystem-local migrations, if any,
+are distinct and cannot make a rejected outer schema loadable. Do not use this
+section as the current outer-checkpoint compatibility contract.
+
+The original subsystem proposal was to include `signal_knowledge` in
+`OrganismRuntime.checkpoint()` and validate its types, bounds, IDs, indices,
+counts, classes, revisions and size before committing restoration. It proposed
+restarting pending trials and marking the restoration interval as
+non-comparable while preserving mature claims and discrete statistics. These
+are historical design statements; current implementation and tests determine
+which subsystem-level behavior remains active.
 
 The new `signal_knowledge` block in the checkpoint saves only sufficient counters, quantized classes and support by epochs; this statement does not describe the aggregates inherited from the full host checkpoint. Prohibit individual samples, exact delay buffers, last value, sums allowing reconstruction of a sample with low count, provider labels and short reversible series. Quantization must be specific to losses, strength and reliability: do not reuse weight bins for convenience. Review `AdaptiveSenseModel.export()` because its relationship accumulators and gating by `min_samples` must remain coherent with the privacy of this new persistence. The decision to publish knowledge classes and the durable checkpoint decision are audited separately.
 
