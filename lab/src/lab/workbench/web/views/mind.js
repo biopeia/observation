@@ -12,9 +12,9 @@
  * Experience (ADR-0008); Mind keeps cognitive structure only.
  *
  * SSE endpoints consumed:
- *   /api/organism   — type:'cognition' | type:'vitals' events (lightweight telemetry)
- *   /fleet          — instance list (picks first alive instance automatically)
- *   /instances/:id — full snapshot for the chosen instance
+ *   /api/organism   — coherent local observation stream
+ *   /fleet          — Observatory source discovery (only unambiguous live source is selected)
+ *   /instances/:id — full snapshot for an explicitly resolved instance
  *
  * No external dependencies (no Three.js). Uses CSS variables from app.css.
  */
@@ -42,7 +42,6 @@ import { createCognitionController } from './mind/cognition-controller.js';
 import { currentPhysiologyState } from './mind/derived.js';
 import { applyMindTab } from './mind/tab-controller.js';
 import {
-  developmentScope as _developmentScope,
   graph as _graph,
   resetMindDataState,
   snap as _snap,
@@ -161,7 +160,7 @@ function updateTelemetryStrip(force = false) {
       ? PAL.mint
       : _tel.motorOrigin === 'babbling' ? PAL.amber : null,
   );
-  setTelem('mind-t-instance', _snap.displayId ?? _snap.instanceId ?? '—');
+  setTelem('mind-t-instance', _snap.displayId ?? _snap.instanceId ?? _streamState.organismId ?? '—');
   _lastUITime = now;
 }
 
@@ -189,7 +188,7 @@ function setWaiting(visible, message) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function openHistoryTick(tick) {
-  const historical = nearestHistorySnapshot(tick);
+  const historical = nearestHistorySnapshot(tick, _streamState.runId);
   if (historical?.snapshot?.topology) {
     _graph.replaySnapshot = historical.snapshot;
     _graph.replayTick = historical.tick;
@@ -267,7 +266,6 @@ function ingestTelemetryEvent(data, meta = {}) {
 function updateMindSourceState(next) {
   if (next.identityChanged) {
     persistMindDevelopmentHistory({ force: true });
-    _developmentScope.organismId = null;
     resetCurrentObservation();
     _streamState.telemetryTick = null;
     _streamState.snapshotTick = null;
@@ -278,9 +276,16 @@ function updateMindSourceState(next) {
     source: next.source ?? null,
     instanceId: next.instanceId ?? null,
     runId: next.runId ?? null,
+    organismId: next.organismId ?? null,
+    bodyId: next.bodyId ?? null,
+    embodimentId: next.embodimentId ?? null,
+    topologyRevision: next.topologyRevision ?? null,
     stale: next.status !== 'live',
     reason: next.reason ?? null,
   });
+  if (_streamState.organismId) {
+    activateMindDevelopmentHistory(_streamState.organismId, _streamState.runId);
+  }
   updateCoherence();
   updateTelemetryStrip(true);
 }
@@ -370,10 +375,10 @@ export function mount(root, appState = null) {
     onTelemetry: ingestTelemetryEvent,
     onSnapshot: (snapshot, meta = {}) => {
       if (applyMindSnapshot(snapshot)) {
-        activateMindDevelopmentHistory(
-          _snap.displayId ?? _snap.instanceId ?? meta.instanceId ?? meta.runId ?? null,
-        );
-        _streamState.lastSnapshotAt = Date.now();
+        const organismId = meta.organismId ?? _streamState.organismId ?? null;
+        const runId = meta.runId ?? _streamState.runId ?? null;
+        if (organismId) activateMindDevelopmentHistory(organismId, runId);
+        if (!meta.historical) _streamState.lastSnapshotAt = Date.now();
         _streamState.snapshotTick = meta.tick ?? snapshot?.tick ?? snapshot?.snapshot?.tick ?? null;
         updateCoherence();
         if (meta.historical) {
