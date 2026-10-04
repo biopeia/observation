@@ -18,6 +18,7 @@ def _run(tmp_path: Path) -> int:
         [
             "--state-file",
             str(tmp_path / "organism.json"),
+            "--first-boot",
             "--observatory-dir",
             str(tmp_path / "observatory"),
             "--max-ticks",
@@ -62,6 +63,7 @@ def test_launcher_output_validates_against_the_closed_snapshot_schema(
         [
             "--state-file",
             str(tmp_path / "organism.json"),
+            "--first-boot",
             "--observatory-dir",
             str(tmp_path / "observatory"),
             "--max-ticks",
@@ -89,6 +91,7 @@ def test_slm_service_status_is_part_of_the_closed_contract(
         [
             "--state-file",
             str(tmp_path / "organism.json"),
+            "--first-boot",
             "--observatory-dir",
             str(tmp_path / "observatory"),
             "--max-ticks",
