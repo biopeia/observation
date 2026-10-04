@@ -146,6 +146,14 @@ def run_generative_model_correction_study(
         model = _AdaptiveOpaqueModel()
         resident = ResidentGenerativeCognition(organism_id=f"gc-e7-{seed}")
         resident.register_model(model)
+        # The assay evaluator is the canonical owner of its opaque outcomes.
+        # Keep exact emitted references here and resolve only after the
+        # evaluator records each corresponding observation below; the
+        # resident must not accept synthetic/unresolved refs on its own.
+        evaluator_evidence_refs: set[str] = set()
+        resident.set_factual_evidence_resolver(
+            lambda evidence_ref: evidence_ref in evaluator_evidence_refs
+        )
 
         resident.step(
             tick=seed,
@@ -156,10 +164,12 @@ def run_generative_model_correction_study(
         initial_prediction = _prediction(resident)
         initial_hypothesis = _active_hypothesis(resident)
 
+        before_ref = f"evaluator.fact.{seed}.1"
+        evaluator_evidence_refs.add(before_ref)
         reconciled_before_learning = resident.note_factual_outcome(
             action_id=_ACTION,
             outcome_tokens=(_NEW_OUTCOME,),
-            evidence_refs=(f"evaluator.fact.{seed}.1",),
+            evidence_refs=(before_ref,),
         )
         model.learn_from_factual_outcome(_NEW_OUTCOME)
         resident.step(
@@ -170,10 +180,12 @@ def run_generative_model_correction_study(
         )
         corrected_prediction = _prediction(resident)
         corrected_hypothesis = _active_hypothesis(resident)
+        after_ref = f"evaluator.fact.{seed}.2"
+        evaluator_evidence_refs.add(after_ref)
         reconciled_after_learning = resident.note_factual_outcome(
             action_id=_ACTION,
             outcome_tokens=(_NEW_OUTCOME,),
-            evidence_refs=(f"evaluator.fact.{seed}.2",),
+            evidence_refs=(after_ref,),
         )
         origins_safe = all(
             state.origin.value != "observed"

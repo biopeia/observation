@@ -9,6 +9,7 @@ scheduler state.
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Mapping
 
@@ -145,11 +146,25 @@ class ResidentGenerativeCognition:
         self.reconciliation_count = 0
         self.contradicted_hypothesis_count = 0
         self.factual_contamination_count = 0
+        # Evidence ownership remains with the runtime's factual ledger. This
+        # callback is deliberately transient (never checkpointed) and defaults
+        # to fail-closed for standalone residents.
+        self._factual_evidence_resolver: Callable[[str], bool] | None = None
         # Demand dropped because the bounded agenda held only live targets.
         self.agenda_overflow_count = 0
 
     def register_model(self, model: GenerativeModel) -> None:
         self.registry.register(model)
+
+    def set_factual_evidence_resolver(self, resolver: Callable[[str], bool]) -> None:
+        """Bind the canonical factual owner used by reconciliation.
+
+        The resident does not own or cache factual records; the runtime must
+        resolve references against its canonical observed-evidence store.
+        """
+        if not callable(resolver):
+            raise ValueError("factual evidence resolver must be callable")
+        self._factual_evidence_resolver = resolver
 
     def checkpoint(self) -> dict[str, object]:
         """Persist durable resident GC state without persisting model owners."""
@@ -609,6 +624,11 @@ class ResidentGenerativeCognition:
             raise ValueError("factual outcome inputs must be tuples")
         if not evidence_refs:
             raise ValueError("factual reconciliation requires evidence refs")
+        resolver = self._factual_evidence_resolver
+        # Reject the entire note before mutating any hypothesis or source
+        # diversity state. A partially resolvable reference set is ambiguous.
+        if resolver is None or any(not resolver(ref) for ref in evidence_refs):
+            return 0
         target_id = f"gc.prospective.{action_id}"
         reconciled = 0
         for hypothesis_id, hypothesis in tuple(self.hypotheses.items()):

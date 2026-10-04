@@ -3,22 +3,23 @@ id: design.embodiment.mujoco-physics3d-calibration-v1
 title: "MuJoCo Physics3D Apparatus Calibration v1"
 document_type: design
 domain: embodiment
-status: proposed
+status: approved
 canonical: false
 implementation_status: partial
 language: en
 ---
 # MuJoCo Physics3D Apparatus Calibration v1
 
-**State:** exploratory apparatus-calibration proposal; not approved or frozen.
+**State:** bounded apparatus-calibration design approved by the project owner on
+2026-10-05; not a frozen protocol.
 Some source-level models and deterministic mechanical-contract tests are
 implemented under ADR-0070. This proposal authorizes no parameter changes,
 calibration runs, or scientific campaign.
 
 ## 1. Purpose and limits
 
-Specify a reviewable calibration plan for the MuJoCo Physics3D substrate and
-independent analytic vision ray caster introduced by
+Specify an owner-approved, reviewable calibration plan for the MuJoCo
+Physics3D substrate and independent analytic vision ray caster introduced by
 [ADR-0066](../../adr/ADR-0066-mujoco-physics-engine-and-engine-independent-vision.md).
 The work assesses apparatus behavior and observability, not organism
 competence, biological robustness, or equivalence with the retired PyBullet
@@ -26,10 +27,11 @@ apparatus. The closed A7 PyBullet protocol and its numerical settings are
 historical and non-transferable.
 
 ADR-0070 separately authorizes source-level hexapod and fixed-base robotic-arm
-models plus deterministic mechanical-contract tests. This proposal does not
-authorize calibration, parameter changes, or experiments. Any later scientific study
-requires its own reviewed and frozen protocol plus explicit owner
-authorization. Calibration results must not be presented as scientific
+models plus deterministic mechanical-contract tests. The owner's approval of
+this design covers the bounded apparatus-calibration plan only; it does not
+authorize parameter changes, calibration runs, or experiments. Any later
+scientific study requires its own reviewed and frozen protocol plus explicit
+owner authorization. Calibration results must not be presented as scientific
 outcomes. Do not tune the organism or its behavior to satisfy apparatus
 checks.
 
@@ -49,7 +51,9 @@ The owner/reviewer must select body ordering, scenarios, tolerances, and
 required observables before execution. This document intentionally specifies
 no numeric acceptance thresholds. Missing observables or non-convergence are
 reported as not evaluable; do not silently alter conditions after observing a
-failure.
+failure. Numerical settings and thresholds are protocol inputs, not defaults
+to be inferred from the retired PyBullet gate or from the current software
+defaults.
 
 ### Fixed-base robotic arm requirement
 
@@ -61,20 +65,19 @@ explicitly. This requirement does not select a mounting transform, link
 geometry, actuator limits, tool/gripper, calibration scenario, or acceptance
 threshold.
 
-The current articulated-body implementation creates a free root joint
-unconditionally. Supporting the arm therefore requires an explicit base
-mobility contract while preserving the existing floating-base behavior of
-current bodies. Before an arm model is added, implementation-level tests must
-show that a fixed-root model has no free root joint, that root pose remains
-unchanged under joint actuation, and that state export/restore and kinematic
-observations work for both fixed- and floating-base models. These are
-mechanical software-contract tests, not apparatus calibration or scientific
-evidence. This design remains proposed; the requirement does not authorize
-that implementation, parameter changes, calibration runs, or experiments.
+The current articulated-body implementation supports both fixed and floating
+roots; the robotic-arm model selects `fixed_base=True` (ADR-0070). The fixed
+root constraint and its mechanical-contract tests are implementation evidence
+only. They do not establish calibrated arm behavior, apparatus validity, or
+scientific evidence. Any calibration characterization must still declare the
+body descriptor/revision and record the compiled root/joint structure in its
+model audit.
 
-## 3. Proposed staged work
+## 3. Stages for a separately authorized calibration
 
-Run stages independently and preserve their inputs and outputs:
+If a separate calibration protocol is reviewed, frozen and explicitly
+authorized, its stages should be run independently with inputs and outputs
+preserved:
 
 1. **Model/effective-parameter audit.** Compare descriptor and material
    declarations with the compiled model and runtime readback. Resolve semantic
@@ -108,10 +111,114 @@ runtime mappings or telemetry. Decide whether each is an intended contract,
 instrumentation gap, or separately scoped implementation change before
 calibration.
 
-## 5. Governance and exit
+## 5. Owner/reviewer checklist for execution-protocol readiness
 
-Classify and publish this design under the repository's scientific governance
-process. A proposal approval, if granted, covers only this bounded apparatus
-plan; it does not freeze a scientific protocol or authorize its execution.
-Record calibrated apparatus scope separately from any later experiment and
-retain the historic A7 evidence unchanged.
+Before an execution protocol can be proposed for review, the owner/reviewer
+should record a disposition for every item below. A blank or deferred item is
+an open decision, not implied approval. Approval of this design makes the
+bounded design authoritative; it does not freeze an execution protocol or
+authorize a run.
+
+1. **Scope and bodies:** select the first body, the canonical-body inventory
+   and order, and whether all bodies use the same scenarios or require
+   explicitly justified body-specific cases. Confirm that the fixed-base arm
+   is tested as fixed-base and floating-root bodies retain their own contract.
+2. **Model/effective-value audit:** enumerate each declaration to inspect and
+   the compiled/runtime field that represents it; state which fields are
+   expected to agree exactly, which are transformations, and which are not
+   represented. Resolve or explicitly classify restitution, damping, friction
+   combination, limits, actuator constraints, and solver/contact parameters.
+3. **Passive support/settling:** select the scene, initial state, observation
+   interval, convergence definition, residual-motion observables and
+   owner-supplied tolerances. Separate an unevaluated/non-converged result from
+   a pass or failure under the selected rule.
+4. **Contact characterization:** define each ground/resource/fixture case,
+   initial conditions and actuation (if any), and the observables used to
+   characterize normal/tangential response, slip, rebound and penetration.
+   Specify which checks are passive and which are driven; do not mix their
+   interpretations.
+5. **Vision characterization:** pin scene geometry, poses, receptor layout,
+   albedos and lighting/background assumptions; define expected per-ray
+   records and luminance summaries, clipping/finite checks, deterministic
+   comparison method, and how the observations remain passive and outside
+   organism inputs.
+6. **Coverage and repetition:** state runs/repeats/seeds and whether repeats
+   are exact replays or independent initializations; prescribe the comparison
+   and report treatment for missing, invalid, divergent and non-deterministic
+   artifacts.
+7. **Disposition and change control:** specify who classifies a discrepancy
+   as intended contract, instrumentation gap, implementation change, or
+   not-evaluable result; require any parameter change to be separately
+   reviewed, versioned and rerun under a new pinned configuration rather than
+   silently changing conditions mid-run.
+8. **Governance boundary:** identify the review/approval record for this
+   bounded apparatus plan and explicitly state that the recorded design
+   approval does not freeze a scientific protocol or authorize calibration
+   execution or a scientific experiment. A later campaign requires its own
+   reviewed/frozen protocol and explicit authorization.
+
+### Owner-supplied numeric choices (intentionally unset here)
+
+The owner/reviewer must provide and pin every numeric choice used in the
+eventual plan, as applicable: timestep and substeps; gravity; integrator,
+solver, solver iteration/tolerance and contact settings; body-specific spawn
+pose and joint state; settling duration/window and convergence/residual
+tolerances; contact-case geometry, approach speed/impact energy, actuation,
+measurement interval and acceptable ranges; vision scene dimensions, receptor
+sampling setup, albedo/light/background values and comparison tolerance;
+repeat counts, seeds, replay horizon and any acceptance limits. The list is a
+completeness prompt, not a recommendation or proposed value. Where a quantity
+is descriptive only, say so and do not turn it into a threshold after seeing
+results. Do not reuse A7/PyBullet values without a separately justified owner
+decision; the old values are not transferable.
+
+## 6. Evidence and artifact contract
+
+Each scenario must have a machine-readable manifest that pins repository
+revision, dirty/clean state, body descriptor and schema revision, MuJoCo and
+Python/package versions, platform, seed, initial state, declared inputs,
+effective compiled model settings, scenario configuration, and the exact
+owner-approved criterion version. Keep declared and compiled values distinct:
+MuJoCo compiles model descriptions into `mjModel`, while evolving state and
+measurements live in `mjData`; the compiled representation is the source for
+reporting what the simulator actually received. See the official
+[MuJoCo XML reference](https://mujoco.readthedocs.io/en/stable/XMLreference.html)
+and [API types reference](https://mujoco.readthedocs.io/en/stable/APIreference/APItypes.html).
+
+Preserve, at minimum, the source/configuration inputs; the compiled-model
+inventory (including body/joint/geom identifiers, root mobility, timestep,
+gravity/integrator/solver, masses/inertias, joint limits/damping, actuator
+parameters and geom/contact settings); the selected `mjData` observables and
+contact records at the declared sampling points; vision ray hit/miss/range and
+luminance records; criterion-by-criterion outcome with observed values and
+units; and an index mapping every planned case to artifacts. Record hashes
+for immutable inputs and outputs, plus explicit missing-artifact reasons.
+Distinguish source declarations, compiled/effective settings, runtime
+measurements and reviewer interpretation in both schema and report.
+
+MuJoCo's contact semantics make direct value comparison important: friction
+coefficients and solver parameters are combined across contacting geoms using
+engine-defined rules; the official [contact parameter documentation](https://mujoco.readthedocs.io/en/stable/modeling.html#contact-parameters)
+describes these rules. Therefore do not infer pair behavior solely from either
+geom's declaration; retain the actual contact parameters and relevant pair
+identity used for each measurement.
+
+### Non-numeric completeness criteria for review
+
+This checklist assesses whether a later execution protocol is complete enough
+to review, not whether the apparatus passes calibration. A review-ready protocol
+must have: every owner choice above either filled in or explicitly deferred;
+each scenario mapped to observables and artifact fields; each criterion
+classified as owner-selected pass/fail, descriptive-only, or not-evaluable;
+all bodies and required controls accounted for; evidence lineage and hashes
+specified; and a named disposition path for deviations. No apparatus or
+scientific success conclusion follows from satisfying these documentation
+completeness conditions.
+
+## 7. Governance and exit
+
+Record the project owner's design approval (2026-10-05) under repository
+governance. It covers only this bounded apparatus plan; it does not freeze an
+execution protocol or authorize its execution, parameter changes, or a
+scientific campaign. Record calibrated apparatus scope separately from any
+later experiment and retain the historic A7 evidence unchanged.

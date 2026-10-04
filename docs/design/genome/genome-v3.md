@@ -3,17 +3,17 @@ id: design.genome.genome-v3
 title: "Genome V3"
 document_type: design
 domain: genome
-status: proposed
+status: approved
 canonical: false
 implementation_status: not_started
 migrated_on: 2026-10-03
-last_reviewed: 2026-10-03
+last_reviewed: 2026-10-05
 language: en
 ---
 
 # Genome v3 — Specification and Candidate Genetic Architecture
 
-- **Status:** Proposed
+- **Status:** Approved (2026-10-05)
 - **Implementation status:** Not started
 - **Governing ADR:** [ADR-0064](../../adr/ADR-0064-phenotype-expression-and-genome-decoupling.md)
 - **Companion Design:** [Phenotype Expression v1](phenotype-expression-v1.md)
@@ -92,7 +92,7 @@ Genome v3 completes the separation established in [ADR-0064](../../adr/ADR-0064-
 
 ## 4. Candidate Genetic Architecture for Genome v3
 
-The loci below represent the proposed candidate architecture. In accordance with the governance sequence, loci retain explicit validation tags until Genome v3 is formally approved:
+The loci below represent an **approved design proposal** for candidate architecture, not an approved operative Genome v3 schema. The design's approval records owner acceptance of the proposal for planning; it does not validate or authorize any candidate locus, implementation, migration, or schema activation. Loci therefore retain explicit validation tags until their individual empirical and governance gates are satisfied and the Genome v3 schema is separately authorized:
 
 - `ACCEPTED_CANDIDATE`: Demarcated trait with an identified consumer and proven phenotypic mapping.
 - `UNRESOLVED`: Borderline biological trait requiring preregistered Lab empirical study.
@@ -238,7 +238,7 @@ When migrating legacy 5-way salience vectors $(w_1, \dots, w_5)$:
 
 ## 7. Acceptance Criteria for Genome v3 Promotion
 
-Genome v3 will remain `Proposed` until the following formal sequence completes:
+This design remains **Approved**. The Genome v3 representation remains a non-operative proposal: no schema implementation, migration, or activation is authorized until the following formal sequence completes and the relevant owner/governance gates explicitly authorize that work:
 
 1. **Phase 1 Validation:** `Phenotype Expression v1` operates stably as an adapter over `Genome v2` on `main`.
 2. **Empirical Preregistration:** All loci marked `UNRESOLVED` (thermoregulation preference, encoding selectivity, social drive, deliberation budget) complete preregistered characterization studies in Lab.

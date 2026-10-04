@@ -12,6 +12,8 @@ from embodiment.physics3d.bodies import (
     ANTHROPOMORPHIC_V6,
     ASYMMETRIC_V1,
     CRAWLER_V1,
+    HEXAPOD_V1,
+    ROBOTIC_ARM_V1,
     BodyDescriptor,
     BodyRegistry,
     vision_body_descriptor,
@@ -29,6 +31,8 @@ DEFAULT_BODY_REGISTRY = BodyRegistry(
         ANTHROPOMORPHIC_V6_VISION,
         CRAWLER_V1,
         ASYMMETRIC_V1,
+        HEXAPOD_V1,
+        ROBOTIC_ARM_V1,
     )
 )
 
@@ -37,6 +41,8 @@ __all__ = [
     "ANTHROPOMORPHIC_V6_VISION",
     "ASYMMETRIC_V1",
     "CRAWLER_V1",
+    "HEXAPOD_V1",
+    "ROBOTIC_ARM_V1",
     "BodyDescriptor",
     "BodyRegistry",
     "DEFAULT_BODY_REGISTRY",

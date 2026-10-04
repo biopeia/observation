@@ -3,17 +3,17 @@ id: design.genome.phenotype-expression-v1
 title: "Phenotype Expression v1"
 document_type: design
 domain: genome
-status: proposed
+status: approved
 canonical: false
 implementation_status: not_started
 migrated_on: 2026-10-03
-last_reviewed: 2026-10-03
+last_reviewed: 2026-10-05
 language: en
 ---
 
 # Phenotype Expression v1 — Specification and Demarcation
 
-- **Status:** Proposed
+- **Status:** Approved (2026-10-05)
 - **Implementation status:** Not started
 - **Governing ADR:** [ADR-0064](../../adr/ADR-0064-phenotype-expression-and-genome-decoupling.md)
 - **Relates to:** [Genome v2](genome-v2.md), [Genome v3](genome-v3.md), [Canonical Organism Profile v1](../core/canonical-organism-profile-v1.md), [Longitudinal Integrity v1](../core/longitudinal-integrity-v1.md)
@@ -315,7 +315,20 @@ class ExpressionSnapshot:
 
 ## 9. Implementation Bridge Matrix for Phase 1 over Current Code
 
-The following matrix defines the exact, non-breaking Phase 1 implementation mapping existing `Genome v2` to runtime classes:
+**Implementation gate: blocked pending owner decisions below.** This matrix is a proposed target, not evidence that these mappings are already supported by Genome v2/runtime contracts. A pure phenotype adapter cannot safely be implemented from the current schema alone: Genome v2 has no simplex-valued locus, and its existing `GeneExpressionState` is lifetime gene regulation, not a structural `DevelopmentalContext` or `BiologicalPhenotype`. Copying those values into newly named biological traits would invent semantics; emitting ALR coordinates would invent a v2 simplex that does not exist. No Phase-1 adapter, defaults, migrations, or runtime binding may be inferred from this table until the blocking decisions are resolved.
+
+### Owner decisions required before Phase 1 implementation
+
+1. **Bounded locus/consumer scope:** confirm which rows below are genuinely Phase 1 and identify the authoritative current consumer and test for every selected Genome v2 locus. The current schema uses fully qualified names (for example, `development.soft_node_budget`) and bindings in `symbiont/genetics/bindings.py`; table shorthand is not a schema key.
+2. **Trait semantics and units:** define whether/how each selected locus maps to a biological phenotype field, including units and developmental function. In particular, no approved formula currently determines `memory_consolidation_drive`, `sensorimotor_plasticity_rate`, `somatic_growth_rate`, `structural_retention_bias`, or a candidate salience simplex from v2 values.
+3. **Context authority:** identify existing authoritative sources and permitted extraction rules for biological age/progress, accumulated somatic load, inherited epigenetic state, receptor/effectors/DOF, somatic mass, energy capacity, and thermal conductivity. Do not infer these from world properties, semantic body labels, or guessed defaults.
+4. **Legacy scheduler values:** decide whether v2 tick-valued `development.consolidation_interval_ticks` and `structure.tentative_lifetime_ticks` are excluded from Phase 1 or specify the reference timestep, inverse/forward transforms, rounding, and compatibility behavior. They must not be relabeled as timestep-independent phenotypes without this contract.
+5. **Persistence/identity boundary:** specify where an `ExpressionSnapshot` is persisted and how a re-embodiment/context change is represented while preserving existing `genotype_hash`, organism identity, and checkpoint compatibility.
+6. **Simplex scope:** explicitly exclude simplex/ALR from the v2 adapter (no current v2 schema simplex locus exists), or identify an already-authorized existing source representation. Do not add a locus or modify v2 schema/checkpoints under this Phase 1 work.
+
+Until then, only design-level pure-math examples are illustrative. They do not authorize implementing a partial adapter that silently chooses trait semantics or context values.
+
+The following matrix records proposed mappings for review; each row remains blocked until the applicable decisions above are closed:
 
 | Genome v2 Locus | Expression Trait | BiologicalPhenotype Field | MechanismBinding Target | Existing Runtime Parameter | Current Consumer Class | Migration / Default Impact | Invariant & Test |
 | --- | --- | --- | --- | --- | --- | --- | --- |
