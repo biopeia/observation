@@ -34,16 +34,30 @@ def test_existing_cognitive_checkpoint_is_never_replaced_by_adoption_helper():
     assert {node.node_id for node in restored.cognitive_bridge.graph.nodes} == {"owner_sense"}
 
 
-def test_generic_runtime_restore_remains_exact_for_historical_reproduction():
-    legacy = OrganismRuntime(bootstrap_semantic_senses=False).checkpoint()
+def test_generic_runtime_restore_remains_exact_for_cognition_free_checkpoint():
+    cognition_free = OrganismRuntime(bootstrap_semantic_senses=False).checkpoint()
 
     restored = OrganismRuntime.from_checkpoint(
-        legacy,
+        cognition_free,
         bootstrap_semantic_senses=False,
     )
 
     assert restored.genome is None
     assert restored.cognitive_bridge is None
+
+
+def test_owner_facing_restore_adopts_cognition_from_current_schema_checkpoint():
+    cognition_free = OrganismRuntime(bootstrap_semantic_senses=False).checkpoint()
+
+    restored = restore_resident_with_canonical_cognition(
+        cognition_free,
+        bootstrap_semantic_senses=False,
+    )
+
+    assert restored.genome is not None
+    assert restored.cognitive_bridge is not None
+    lineage = restored.checkpoint()["checkpoint_lineage"]
+    assert lineage["transforms"][-1] == "canonical-cognition-adoption"
 
 
 def test_an_organism_born_under_the_current_schema_records_no_legacy_origin():

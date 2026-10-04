@@ -21,9 +21,23 @@ there.
 
 `OrganismRuntime.checkpoint()` builds the organism payload, computes a state hash and records it as `checkpoint_lineage.checkpoint_id` together with the parent identifier and the identity scope. The hash covers the complete organism payload of the runtime that saved it — including modeled and private-model state — and excludes only `checkpoint_lineage`, `runtime_provenance` and the embodiment history the apparatus writes around the organism. Two saves of the same organism state therefore identify the same state whenever and under whatever version they were taken.
 
-Restore verifies that identity on the payload exactly as it was loaded, before any migration, and fails closed on a mismatch. An authorized transform that legitimately produces a different state — re-embodiment, temporal decontamination, adopting canonical cognition — re-identifies the result: the new identifier chains from the one it replaced and names the transform, so an intended change is recorded rather than being indistinguishable from corruption.
+Restore accepts only the exact current outer checkpoint schema (schema 12) and
+verifies its identity before restoring. Schemas 1–11 are rejected; the current
+loader has no outer-schema migration path. An authorized transform that
+legitimately produces a different state — re-embodiment, temporal
+decontamination, adopting canonical cognition — re-identifies the result: the
+new identifier chains from the one it replaced and names the transform, so an
+intended change is recorded rather than being indistinguishable from
+corruption.
 
-Checkpoints saved by schema 10 and earlier carried an identifier that covered only base-runtime fields and was never checked. They are accepted without verification and migrate as before. That acceptance is recorded: every later save of such an organism carries `checkpoint_lineage.unverified_legacy_origin`, so a verifiable chain always says whether it begins at an unverified checkpoint. Uses that need a verified origin — confirmatory and held-out runs — refuse such organisms; the policy and its review point are in [Lifecycle Continuity Contract v1](../../docs/design/core/lifecycle-continuity-contract-v1.md) §6.1. The list of authorized transforms an organism has been through (`checkpoint_lineage.transforms`) is carried forward the same way instead of existing only on the transformed payload.
+A current-schema checkpoint can carry a lineage whose earlier origin was
+accepted without a verifiable identity by a historical loader. That fact is
+recorded as `checkpoint_lineage.unverified_legacy_origin` and carried forward;
+it does not make an old-schema checkpoint restorable today. Historical files
+remain archival evidence unless a separately governed conversion process is
+authorized. The list of authorized transforms an organism has been through
+(`checkpoint_lineage.transforms`) is carried forward the same way instead of
+existing only on the transformed payload.
 
 Bundle integrity is a separate contract: the bundle manifest proves the packaged bytes match, the checkpoint identity proves the accepted organism state matches its recorded save.
 
@@ -39,11 +53,16 @@ Every runtime field has exactly one continuity class, recorded with its owner, c
 
 ## Restore
 
-Restore must recreate mechanism-specific state while validating schema and compatibility. A field may be absent only when the schema that saved the checkpoint predates it or a documented migration defines the absence. A checkpoint saved by a current runtime that lacks a required field is rejected: loss must not silently become a healthy empty subsystem.
+Restore must recreate mechanism-specific state while validating schema and
+compatibility. Older outer checkpoint schemas are rejected rather than
+migrated. A checkpoint in the current schema that lacks a required field is
+rejected: loss must not silently become a healthy empty subsystem. Mechanism-
+specific sub-schema migrations are separate and apply only within the accepted
+current outer schema.
 
 Runtime-only switches that shape future learning — cognitive plasticity, predictor promotion, kernel limits, the executive admission policy — are not organism state. Their effective values are recorded in `runtime_provenance.session_controls` and reapplied on restore; a continuation that runs with different values is recorded as a changed condition, not as restart equivalence.
 
-Restore has two entry points with different meanings. `OrganismRuntime.from_checkpoint` is the historical restore: it reproduces the individual exactly as saved, including the absence of cognition in a checkpoint that predates it. `restore_resident_with_canonical_cognition` is the owner-facing restore used by the CLI and the resident launcher for every runtime layer: when genome and graph are absent it adopts the canonical ones and records the `canonical-cognition-adoption` transform. The same checkpoint can therefore yield two different organisms; a longitudinal experiment must choose the entry point deliberately.
+Restore has two entry points with different meanings. `OrganismRuntime.from_checkpoint` reproduces a current-schema individual exactly as saved, including a cognition-free individual. `restore_resident_with_canonical_cognition` is the owner-facing restore used by the CLI and resident launcher for every runtime layer: when genome and graph are absent it adopts the canonical ones and records the `canonical-cognition-adoption` transform. The same current-schema checkpoint can therefore yield two different organisms; a longitudinal experiment must choose the entry point deliberately.
 
 ### What a restart does and does not guarantee
 

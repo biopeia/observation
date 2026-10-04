@@ -1,10 +1,10 @@
 """Canonical cognition adoption for owner-facing resident restore paths.
 
-A checkpoint written before the cognitive genome/graph existed is still the
-same individual: its acclimation, sensory development, self-model and evidence
-must survive. Owner-facing resident entry points may opt into this helper to
-add only the canonical genome and empty germinal graph when those fields are
-absent. Checkpoints that already contain cognition are restored unchanged.
+A current-schema checkpoint may describe a cognition-free runtime. Owner-facing
+resident entry points may opt into this helper to add the canonical genome and
+empty germinal graph when those fields are absent. Older checkpoint schemas are
+rejected by the current loader before adoption. Checkpoints that already
+contain cognition are restored unchanged.
 """
 
 from __future__ import annotations
@@ -39,9 +39,10 @@ def restore_resident_with_canonical_cognition(
     """Restore one resident, adopting canonical cognition only when absent.
 
     This is deliberately not the generic ``OrganismRuntime.from_checkpoint``
-    policy: laboratory code may need to reproduce a historical genome-less
-    individual exactly. The main live CLI and Observatory resident opt in
-    because their product contract is now "every resident has cognition".
+    policy: laboratory code may need to reproduce a cognition-free individual
+    exactly under the current checkpoint schema. The main live CLI and
+    Observatory resident opt in because their product contract is now
+    "every resident has cognition".
     ``runtime_class`` selects the runtime layer; the adoption itself is the
     same transform for every layer and is recorded in the checkpoint lineage.
     """

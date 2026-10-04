@@ -25,12 +25,6 @@ CHECKPOINT_SCHEMA_VERSION = 12
 IDENTITY_VERIFIED_SINCE_SCHEMA = 11
 IDENTITY_SCOPE = "organism-state-v1"
 UNVERIFIED_LEGACY_ORIGIN = "unverified_legacy_origin"
-# Owner policy of 2026-10-02 (issue #276): checkpoints saved before schema 11
-# stay admissible, marked, with no retirement date. The admission is not open
-# ended by default: when the checkpoint schema reaches this version the policy
-# must be decided again, and a test fails until this constant is moved or the
-# legacy path is removed.
-LEGACY_ADMISSION_REVIEW_AT_SCHEMA = 13
 # Save-event metadata and embodiment history written around the organism
 # checkpoint by the embodiment apparatus are not organism state identity.
 _IDENTITY_EXCLUDED_FIELDS = frozenset(
@@ -158,9 +152,9 @@ def lineage_history(payload: dict[str, Any]) -> dict[str, Any]:
 
     ``transforms`` lists the authorized transforms the organism has been
     through. ``unverified_legacy_origin`` records that some ancestor checkpoint
-    was accepted without a verifiable identity (schema 10 and earlier). Both are
-    facts about the organism's history, not about one save, so they outlive the
-    checkpoint that first recorded them instead of vanishing at the next save.
+    was accepted without a verifiable identity by a historical loader (schema
+    10 and earlier). Both are facts about organism history, not one save, so
+    they outlive the checkpoint that first recorded them.
     """
     lineage = payload.get("checkpoint_lineage")
     lineage = lineage if isinstance(lineage, dict) else {}
