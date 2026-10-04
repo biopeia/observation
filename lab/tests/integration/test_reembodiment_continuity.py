@@ -402,6 +402,9 @@ def test_knowledge_survives_as_knowledge_without_authority(case: _Case) -> None:
         "executive_intention.progress_evidence": Reembodiment.INVALIDATED,
         "executive_intention.consecutive_mismatches": Reembodiment.INVALIDATED,
         "executive_intention.reconciliation_trace": Reembodiment.INVALIDATED,
+        "executive_intention.formed": Reembodiment.PRESERVED,
+        "executive_intention.counts": Reembodiment.PRESERVED,
+        "executive_intention.outcome_evidence": Reembodiment.PRESERVED,
     }
     prior_v2 = case.previous["actuation"]["action_domain"]["sensorimotor_v2"]
     fresh_v2 = case.fresh["actuation"]["action_domain"]["sensorimotor_v2"]
