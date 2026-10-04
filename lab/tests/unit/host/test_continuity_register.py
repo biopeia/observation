@@ -174,6 +174,23 @@ def test_developmental_tracker_resets_only_body_bound_stress_edge() -> None:
     }
 
 
+def test_reembodiment_register_distinguishes_active_state_from_archived_priors() -> None:
+    entries = {entry.attribute: entry for entry in REGISTER}
+
+    assert entries["_sensory_system"].reembodiment is Reembodiment.REPLACED
+    assert entries["_sensory_system"].archived_as_prior == (
+        "embodiment_archive.body_memories.sensory_prior.sensory_system"
+    )
+    assert entries["_adaptive_senses"].reembodiment is Reembodiment.REPLACED
+    assert entries["_adaptive_senses"].archived_as_prior == (
+        "embodiment_archive.body_memories.sensory_prior.sensory_development"
+    )
+    assert entries["_body_schema"].reembodiment is Reembodiment.PRESERVED
+    assert entries["_body_schema"].archived_as_prior == (
+        "embodiment_archive.body_memories.body_schema_prior"
+    )
+
+
 def test_open_gaps_are_exactly_the_audit_findings() -> None:
     assert {entry.known_gap for entry in REGISTER} - {None} == OPEN_GAPS
 

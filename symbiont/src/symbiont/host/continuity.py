@@ -14,7 +14,9 @@ Nested state is owned by the subsystem named in ``owner`` through its own
 checkpoint contract. ``nested_reembodiment`` records explicitly audited
 subfield behavior when the aggregate checkpoint field has mixed re-embodiment
 semantics, including retained knowledge inside a field whose authority is
-invalidated.
+invalidated. ``archived_as_prior`` distinguishes a current-state field that is
+replaced or invalidated from historical knowledge copied into the embodiment
+archive; it does not grant that archive active authority.
 """
 
 from __future__ import annotations
@@ -59,6 +61,7 @@ class ContinuityEntry:
     extra_checkpoint_fields: tuple[str, ...] = ()
     nested_reembodiment: tuple[tuple[str, Reembodiment], ...] = ()
     nested_checkpoint_fields: tuple[str, ...] = ()
+    archived_as_prior: str | None = None
 
     @property
     def checkpoint_fields(self) -> tuple[str, ...]:
@@ -98,6 +101,7 @@ def _core(
     extra_checkpoint_fields: tuple[str, ...] = (),
     nested_reembodiment: tuple[tuple[str, Reembodiment], ...] = (),
     nested_checkpoint_fields: tuple[str, ...] = (),
+    archived_as_prior: str | None = None,
 ) -> ContinuityEntry:
     return ContinuityEntry(
         attribute=attribute,
@@ -115,6 +119,7 @@ def _core(
         extra_checkpoint_fields=extra_checkpoint_fields,
         nested_reembodiment=nested_reembodiment,
         nested_checkpoint_fields=nested_checkpoint_fields,
+        archived_as_prior=archived_as_prior,
     )
 
 
@@ -249,13 +254,21 @@ REGISTER: tuple[ContinuityEntry, ...] = (
         _BODY,
         extra_checkpoint_fields=("drift_replay",),
     ),
-    _core("_adaptive_senses", "host.adaptive", _P, "sensory_development", _BODY),
+    _core(
+        "_adaptive_senses",
+        "host.adaptive",
+        _P,
+        "sensory_development",
+        _BODY,
+        archived_as_prior="embodiment_archive.body_memories.sensory_prior.sensory_development",
+    ),
     _core(
         "_sensory_system",
         "sensory",
         _P,
         "sensory_system",
         _BODY,
+        archived_as_prior="embodiment_archive.body_memories.sensory_prior.sensory_system",
     ),
     _core("_evidence_ledger", "cognition.evidence", _P, "evidence_ledger", _KEEP),
     _core("_signal_knowledge", "signals.knowledge", _P, "signal_knowledge", _KEEP),
@@ -293,6 +306,7 @@ REGISTER: tuple[ContinuityEntry, ...] = (
         _P,
         "body_schema",
         _KEEP,
+        archived_as_prior="embodiment_archive.body_memories.body_schema_prior",
         nested_reembodiment=(
             ("schema_version", _NA),
             ("id_salt", _KEEP),
