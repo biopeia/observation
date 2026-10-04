@@ -23,6 +23,32 @@ Implementation: **partial** — W0 and W2 (F3) done, W1 mechanism present and
 off by default; enabling W1 and waves W3–W6 are not approved by this status
 (§14).
 
+## Local codes
+
+Codes used inside this document only
+([naming rule](../../../lab/research/STUDY-INDEX.md#naming-rule)). Elsewhere,
+refer to the name or to the key
+`cognition.cognitive-cycle-v1/<name-with-hyphens>`.
+
+| Code | Name |
+|---|---|
+| W0 | contract baseline: this document, ADR-0068, structural test |
+| W1 | shared fact identity (`shared_fact_identity` flag) |
+| W2 | outcome provenance linkage |
+| W3 | evaluation vector |
+| W4 | episodic generative source |
+| W5 | shared retention pressure |
+| W6 | redundant path removal |
+| F1 | two identities for one consequence |
+| F2 | one event counted as many factual sources |
+| F3 | executive evidence does not cite the deciding fact |
+| F4 | outcome-value credit not traceable to its episode |
+| F5 | reconciliation boundary trusts its caller |
+| F6 | private episodes lacked a competence identity |
+
+The same letters mean other things in other documents; in particular the
+workstreams W1–W5 of Simulation Substrate Cut v1 are unrelated.
+
 ## 1. Purpose and limits
 
 `main` contains several cognitive mechanisms that were designed separately:

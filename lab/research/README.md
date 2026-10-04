@@ -1,5 +1,8 @@
 # Scientific evidence registry
 
+[`STUDY-INDEX.md`](STUDY-INDEX.md) resolves what a study key or a short code
+refers to and states the naming rule for new records.
+
 `research/` is the repository's record of what was asked, run, observed and may
 legitimately be concluded. It is not a second implementation package and it is
 not a source of organism behaviour.
