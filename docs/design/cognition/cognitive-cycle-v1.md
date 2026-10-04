@@ -260,7 +260,13 @@ Status:
   `CausalRef("transition", transition_id)`. Outcomes decided by the
   controller, by invalidation or by stagnation cite no transition, because
   no observed fact decided them.
-- F4 is open and deliberately not implemented as a provenance event. Credit
+- F2 was latent until F6 was corrected: private episodes carried a
+  per-command action token, so no private-model hypothesis was reconciled
+  ([audit](../../../lab/research/audits/current/2026-10-04-private-episode-action-identity.md)).
+  With F6 corrected it is active — a mechanics check saw five private-model
+  reconciliations add 64 `evidence.` references.
+- F4 is open and deliberately not implemented as a provenance event; §5.3
+  proposes its shape. Credit
   resolves per outcome token and horizon — up to 48 resolutions per tick —
   which would evict the rest of the 8192-event ring within a few hundred
   ticks, and a frontier entry per outcome token is not bounded by any live
@@ -268,8 +274,34 @@ Status:
 - F5 is open: the check can only be enforced once W1 is enabled, since the
   default private note carries no `causal.` reference.
 
-None of F1–F5 is a correctness bug in a learner. Each is a place where the
+**F6 — Private episodes never carry a competence identity.** Found by the
+W1 evidence runs (same audit). On the canonical runtime the action token of
+a private episode is the unique command id, so no action recurs in the
+training corpus and counterfactual queries name tokens absent from it.
+**Corrected on 2026-10-04** by owner instruction: a tick that actuated is
+named by its competence identity, or by the composite motor token, never by
+its command id. Its effect on what private models learn is unmeasured.
+
+None of F1–F5 is a correctness bug in a learner. F6 was one. Each is a place where the
 "same fact" cannot be recognised as the same.
+
+### 5.3 Proposed shape for F4 (not implemented)
+
+Outcome-value credit resolves per outcome token and horizon, up to 48 times
+per tick. Two ways to make an estimate traceable without an event per
+credit:
+
+| Option | Mechanism | Bound | Cost |
+|---|---|---|---|
+| A. Ledger-local references (preferred) | the pending credit keeps the scheduling episode's fact reference; on resolution the ledger entry keeps the last *k* (4) references and a count beside its statistics | `MAX_OUTCOME_VALUES` × *k*, evicted with the entry | changes the ledger checkpoint; no provenance traffic |
+| B. Per-tick aggregate event | one `outcome_value` provenance event per tick naming the outcomes credited and the count, with no produced live reference | one event per tick in the ring; no frontier growth | 8192-event ring then covers at most 8192 ticks of everything else |
+
+A keeps the answer where the estimate lives and costs nothing in the ring;
+B keeps provenance uniform but spends ring capacity every tick. Both are
+read-only for decisions (Constitution items 86, 91–93). Either changes
+checkpoint content and is SCIENTIFIC by surface. With F6 open, the episode
+reference of a motor-caused credit is a `causal.` reference only when
+`shared_fact_identity` is on; otherwise it is the private record id.
 
 ## 6. Epistemic origin
 
