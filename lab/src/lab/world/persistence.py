@@ -573,9 +573,7 @@ class WorldStorage:
 
             durable_prefix_digest = manifest_before.get("journal_prefix_digest")
             if durable_prefix_digest is None:
-                # One-time compatibility path for manifests written before P3.
-                durable_events = self._load_event_prefix(previous_event_count)
-                durable_prefix_digest = EventJournal.from_snapshot(durable_events).prefix_digest()
+                raise ValueError("durable manifest is missing journal_prefix_digest")
             if pop.journal.prefix_digest(previous_event_count) != durable_prefix_digest:
                 raise ValueError("journal prefix mismatch: durable prefix digest differs")
 

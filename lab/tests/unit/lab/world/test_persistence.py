@@ -480,6 +480,30 @@ def test_missing_manifest_recovers_event_prefix_without_duplicate_segments(tmp_p
     assert len(restored.journal) == len(pop.journal)
 
 
+def test_save_rejects_manifest_without_journal_prefix_digest(tmp_path: Path):
+    smoke = build_genesis_smoke_v1()
+    storage = WorldStorage(tmp_path / "manifest_without_digest")
+    pop = _make_pop(seed=616)
+    pop.run(1)
+    storage.save_checkpoint(
+        pop,
+        world_fingerprint=smoke.constitution.fingerprint(),
+        constitution=smoke.constitution,
+    )
+
+    manifest = json.loads(storage.manifest_file.read_text(encoding="utf-8"))
+    del manifest["journal_prefix_digest"]
+    storage.manifest_file.write_text(json.dumps(manifest), encoding="utf-8")
+    pop.run(1)
+
+    with pytest.raises(ValueError, match="missing journal_prefix_digest"):
+        storage.save_checkpoint(
+            pop,
+            world_fingerprint=smoke.constitution.fingerprint(),
+            constitution=smoke.constitution,
+        )
+
+
 def test_save_rejects_incompatible_in_memory_journal_prefix(tmp_path: Path):
     smoke = build_genesis_smoke_v1()
     storage = WorldStorage(tmp_path / "prefix_guard")
