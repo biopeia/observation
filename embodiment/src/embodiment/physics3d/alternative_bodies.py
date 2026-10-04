@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import math
 
-from embodiment.physics3d.articulated import ArticulatedBodySpec, ArticulatedPhysics
+from embodiment.physics3d.articulated import (
+    ArticulatedBodySpec,
+    ArticulatedPhysics,
+    FixedLinkTopology,
+)
 from embodiment.physics3d.mechanics import (
     GROUND_MATERIAL,
     JointSpec,
@@ -77,25 +81,35 @@ CRAWLER_TOPOLOGY: tuple[JointTopology, ...] = (
     JointTopology("rear_right_knee_pitch", "rear_right_upper", "rear_right_lower", (0, 0, -0.30)),
 )
 
-# Feet are fixed geometry on the distal links in v1; lower links are the
-# mechanically contacting endpoints. This intentionally keeps motor DoF = 12.
+# Passive foot pads are fixed to each distal lower link; they add geometry, not
+# actuated degrees of freedom.
 CRAWLER_SPEC = ArticulatedBodySpec(
     body_kind="crawler-v1",
-    state_schema_version=2,
+    state_schema_version=3,
     spawn_height=0.62,
     base_link_name="body",
     joint_specs=CRAWLER_JOINT_SPECS,
     joint_topology=CRAWLER_TOPOLOGY,
+    fixed_link_topology=(
+        FixedLinkTopology("front_left_lower", "front_left_foot", (0, 0, -0.28)),
+        FixedLinkTopology("front_right_lower", "front_right_foot", (0, 0, -0.28)),
+        FixedLinkTopology("rear_left_lower", "rear_left_foot", (0, 0, -0.30)),
+        FixedLinkTopology("rear_right_lower", "rear_right_foot", (0, 0, -0.30)),
+    ),
     segments=CRAWLER_SEGMENTS,
     contact_link_names=(
         "front_left_upper",
         "front_left_lower",
+        "front_left_foot",
         "front_right_upper",
         "front_right_lower",
+        "front_right_foot",
         "rear_left_upper",
         "rear_left_lower",
+        "rear_left_foot",
         "rear_right_upper",
         "rear_right_lower",
+        "rear_right_foot",
     ),
     structural_neighbour_names=(
         ("body", "front_left_upper"),

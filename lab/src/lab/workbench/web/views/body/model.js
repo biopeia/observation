@@ -195,10 +195,18 @@ export function bodyModelFromCatalog(item) {
     }
   }
 
+  const fixedLinks = (Array.isArray(raw.fixed_links) ? raw.fixed_links : [])
+    .filter((link) => (
+      link && typeof link.parent === 'string' && typeof link.child === 'string' &&
+      Array.isArray(link.origin) && link.origin.length === 3
+    ))
+    .map((link) => ({ parent: link.parent, child: link.child, offset: link.origin.map(Number) }));
+
   return {
     bodyKind: String(item.body_kind || item.id || ''),
     baseLink: String(raw.base_link),
     joints,
+    fixedLinks,
     segments,
     segmentActivityJoints,
   };

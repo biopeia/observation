@@ -22,14 +22,12 @@ def test_p8_local_runner_is_the_canonical_full_reprofile_entrypoint() -> None:
     assert '"addopts="' in runner
 
 
-def test_p8_ci_report_is_non_blocking_and_quick_only() -> None:
+def test_p8_reprofile_stays_local_and_is_not_a_ci_gate() -> None:
     root = _root()
     workflow = (root / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
 
-    job = workflow[workflow.index("  performance-report:") :]
-    assert "continue-on-error: true" in job
-    assert "scripts/reprofile_performance.py --quick" in job
-    assert "actions/upload-artifact@v4" in job
+    assert "  performance-report:" not in workflow
+    assert "scripts/reprofile_performance.py" not in workflow
 
 
 def test_p8_does_not_turn_wall_clock_timings_into_ci_thresholds() -> None:

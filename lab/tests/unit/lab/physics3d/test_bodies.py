@@ -31,7 +31,8 @@ def test_default_registry_exposes_three_distinct_morphologies() -> None:
 
     assert bodies["crawler-v1"].motor_dof == 12
     assert bodies["crawler-v1"].effector_count == 24
-    assert bodies["crawler-v1"].receptor_count == 57
+    # Four fixed feet are explicit somatic contact regions in crawler-v1.
+    assert bodies["crawler-v1"].receptor_count == 65
 
     assert bodies["asymmetric-v1"].motor_dof == 15
     assert bodies["asymmetric-v1"].effector_count == 30
