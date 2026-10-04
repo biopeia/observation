@@ -264,6 +264,7 @@ def test_resident_checkpoint_round_trip_preserves_agenda_scheduler_and_workspace
 
 def test_resident_reconciles_hypothesis_only_with_matching_factual_model_domain() -> None:
     resident = ResidentGenerativeCognition(organism_id="organism.test")
+    resident.set_factual_evidence_resolver(lambda ref: ref == "evidence.observed")
     resident.register_model(_Model())
     resident.step(
         tick=1,
@@ -321,6 +322,7 @@ def test_resident_reconciles_hypothesis_only_with_matching_factual_model_domain(
 
 def test_resident_marks_matching_action_hypothesis_contradicted_by_factual_outcome() -> None:
     resident = ResidentGenerativeCognition(organism_id="organism.test")
+    resident.set_factual_evidence_resolver(lambda ref: ref == "evidence.observed")
     resident.register_model(_Model())
     resident.step(
         tick=1,
@@ -338,6 +340,65 @@ def test_resident_marks_matching_action_hypothesis_contradicted_by_factual_outco
 
     hypothesis = next(iter(resident.hypotheses.values()))
     assert reconciled == 1
+    assert hypothesis.status.value == "contradicted"
+    assert hypothesis.factual_conflict_refs == ("evidence.observed",)
+
+
+@pytest.mark.parametrize(
+    "evidence_refs", [(), ("evidence.missing",), ("evidence.observed", "evidence.unknown")]
+)
+def test_resident_rejects_unresolved_factual_evidence_without_mutation(evidence_refs) -> None:
+    resident = ResidentGenerativeCognition(organism_id="organism.test")
+    resident.set_factual_evidence_resolver(lambda ref: ref == "evidence.observed")
+    resident.register_model(_Model())
+    resident.step(
+        tick=1,
+        cognition=None,
+        prospective_candidate_ids=("competence.a",),
+        mode=GenerativeMode.ONLINE,
+    )
+    hypothesis = next(iter(resident.hypotheses.values()))
+
+    if not evidence_refs:
+        with pytest.raises(ValueError, match="requires evidence refs"):
+            resident.note_factual_outcome(
+                action_id="competence.a",
+                outcome_tokens=("outcome.test",),
+                evidence_refs=evidence_refs,
+            )
+    else:
+        assert (
+            resident.note_factual_outcome(
+                action_id="competence.a",
+                outcome_tokens=("outcome.test",),
+                evidence_refs=evidence_refs,
+            )
+            == 0
+        )
+    assert hypothesis.status.value == "predicted"
+    assert resident.reconciliation_count == 0
+
+
+def test_resident_contradicts_hypothesis_only_with_resolved_observed_fact() -> None:
+    resident = ResidentGenerativeCognition(organism_id="organism.test")
+    resident.set_factual_evidence_resolver(lambda ref: ref == "evidence.observed")
+    resident.register_model(_Model())
+    resident.step(
+        tick=1,
+        cognition=None,
+        prospective_candidate_ids=("competence.a",),
+        mode=GenerativeMode.ONLINE,
+    )
+
+    assert (
+        resident.note_factual_outcome(
+            action_id="competence.a",
+            outcome_tokens=("outcome.different",),
+            evidence_refs=("evidence.observed",),
+        )
+        == 1
+    )
+    hypothesis = next(iter(resident.hypotheses.values()))
     assert hypothesis.status.value == "contradicted"
     assert hypothesis.factual_conflict_refs == ("evidence.observed",)
 

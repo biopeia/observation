@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from symbiont.actuation.evidence import SensorimotorTransition
 from symbiont.actuation.types import Actuation
 from symbiont.cognition.types import NodeKind
 from symbiont.core.orchestration.runtime import RuntimeTickResult
@@ -32,6 +33,75 @@ def _direct(record_id: str, tick: int) -> ExperienceRecord:
         confidence_class=7,
         source_kind=SourceKind.DIRECT,
     )
+
+
+def test_factual_reference_resolves_only_to_retained_observed_experience() -> None:
+    runtime = PrivateModelOrganismRuntime(
+        organism_id="organism-a",
+        bootstrap_semantic_senses=False,
+        discover_senses=False,
+    )
+    observed = ExperienceRecord(
+        record_id="experience.observed",
+        organism_id="organism-a",
+        tick_class=1,
+        context_tokens=("sense.1",),
+        action_token="competence.a",
+        outcome_tokens=("effect.a",),
+        epistemic_status=EpistemicStatus.OBSERVED,
+        evidence_refs=("causal.transition.a",),
+        confidence_class=1,
+        source_kind=SourceKind.DIRECT,
+    )
+    predicted = ExperienceRecord(
+        record_id="experience.predicted",
+        organism_id="organism-a",
+        tick_class=2,
+        context_tokens=("sense.2",),
+        action_token="competence.a",
+        outcome_tokens=("effect.a",),
+        epistemic_status=EpistemicStatus.PREDICTED,
+        evidence_refs=(),
+        confidence_class=1,
+        source_kind=SourceKind.MODEL,
+    )
+    runtime._experience_ledger.append(observed)
+    runtime._experience_ledger.append(predicted)
+
+    assert runtime._resolve_factual_evidence_reference("causal.transition.a")
+    assert not runtime._resolve_factual_evidence_reference("evidence.not-recorded")
+    assert not runtime._resolve_factual_evidence_reference("experience.observed")
+    assert not runtime._resolve_factual_evidence_reference("experience.predicted")
+    assert not runtime._resolve_factual_evidence_reference("experience.missing")
+
+
+def test_factual_reference_resolves_through_canonical_sensorimotor_owner() -> None:
+    runtime = PrivateModelOrganismRuntime(
+        organism_id="organism-a",
+        bootstrap_semantic_senses=False,
+        discover_senses=False,
+    )
+    transition = SensorimotorTransition(
+        transition_id="transition.a",
+        tick_start=1,
+        tick_end=2,
+        context_ref="context.a",
+        commitment_id="commitment.a",
+        controller_id="controller.a",
+        competence_id="competence.a",
+        attempt_id="attempt.a",
+        intervention_signature_id="signature.a",
+        state_before_ref="state.before",
+        motor_command_ref="command.a",
+        actuation_ref="actuation.a",
+        prediction_ref=None,
+        state_after_ref="state.after",
+        observed_effect_id="effect.a",
+    )
+    runtime._action_domain.causal_evidence.observe(transition)
+
+    assert runtime._resolve_factual_evidence_reference("causal.transition.a")
+    assert not runtime._resolve_factual_evidence_reference("causal.transition.spoof")
 
 
 def test_raw_and_contradicted_model_predictions_cannot_train_successor():

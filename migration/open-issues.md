@@ -159,24 +159,31 @@ organism itself uses it in 25 places, tests in 85. Left as is.
 
 **OI-18 — Cognitive epistemic ownership and evidence lineage.**
 The bounded source-and-test audit is complete in
-[`Epistemic Ownership and Claim Levels v1`](../docs/design/core/epistemic-ownership-and-claim-levels-v1.md),
-but the design remains proposed and several ownership contracts are incomplete.
-Keep mechanisms separate; do not unify cognition scores, merge stores, or make
-E3/E4 claims from code or persistence. Planned follow-up, in order:
+[`Epistemic Ownership and Claim Levels v1`](../docs/design/core/epistemic-ownership-and-claim-levels-v1.md).
+The owner approved that bounded inventory and follow-up sequence on 2026-10-05.
+Several ownership contracts remain incomplete. Keep mechanisms separate; do
+not unify cognition scores, merge stores, or make E3/E4 claims from code or
+persistence. Follow-up status, in order:
 
-1. Specify the canonical evidence-reference owner and enforce resolution at
-   the `note_factual_outcome()` boundary; add a focused regression proving a
-   reference must resolve to a recorded `OBSERVED` experience before it can
-   reconcile a hypothesis.
+1. **Done (2026-10-05):** runtime-bound canonical evidence resolution is
+   enforced at the `note_factual_outcome()` boundary. Exact retained causal
+   evidence references must resolve to a sensorimotor transition with an
+   observed effect; private-model references must occur on a retained
+   `OBSERVED` `ExperienceRecord`. Missing, unknown, non-observed and
+   partially unresolved reference sets do not reconcile hypotheses. Focused
+   regressions cover both canonical owners, spoofed references, and a
+   contradictory outcome backed by valid observed evidence. The resolver is
+   runtime wiring, not checkpoint state. This step does not complete the
+   broader ownership/revision contracts below.
 2. Complete source/revision/retraction contracts for CognitiveGraph,
    predictor promotion/retirement, causal/sensorimotor evidence, competence
-   materialization/revocation, and their checkpoint/restore consumers.
+   materialization/revocation, and their checkpoint/restore consumers. **Open.**
 3. Define provenance and contradiction/eviction contracts for episodic
    retrieval/replay and consolidation; do not claim replay changes later
-   action choice without a differential engineering test.
+   action choice without a differential engineering test. **Open.**
 4. Specify caller authority, source attribution, and reconciliation for
    social claims and symbol/sequence grounding; preserve the current absence
-   of a canonical peer-claim-to-organism-decision path.
+   of a canonical peer-claim-to-organism-decision path. **Open.**
 5. Keep private-model prediction quality, ancestry utility, replay utility,
    and generative causal contribution as separate scientific questions. Any
    E3/E4 work requires its governing approved protocol and authorization; this
