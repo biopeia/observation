@@ -7,9 +7,7 @@ import json
 from copy import deepcopy
 from typing import Any, Mapping
 
-_MEMORY_SCHEMA_VERSION = 1
 _SUMMARY_SCHEMA_VERSION = 1
-_MAX_CONTRACT_MEMORIES = 8
 _MAX_EPOCH_SUMMARIES = 16
 _MAX_HISTORICAL_PRIMITIVES = 32
 CONTRACT_FINGERPRINT_SCHEMA_VERSION = 2
@@ -28,24 +26,16 @@ def _competence_development_payload(
     actuation: Mapping[str, Any] | None,
 ) -> Mapping[str, Any] | None:
     action_domain = _action_domain_payload(actuation)
-    if action_domain is not None:
-        payload = action_domain.get("competence_development")
-        if isinstance(payload, Mapping):
-            return payload
-    legacy = actuation.get("sensorimotor") if isinstance(actuation, Mapping) else None
-    return legacy if isinstance(legacy, Mapping) else None
+    payload = action_domain.get("competence_development") if action_domain is not None else None
+    return payload if isinstance(payload, Mapping) else None
 
 
 def _actuator_evidence_payload(
     actuation: Mapping[str, Any] | None,
 ) -> Mapping[str, Any] | None:
     action_domain = _action_domain_payload(actuation)
-    if action_domain is not None:
-        payload = action_domain.get("actuator_evidence")
-        if isinstance(payload, Mapping):
-            return payload
-    legacy = actuation.get("proposer") if isinstance(actuation, Mapping) else None
-    return legacy if isinstance(legacy, Mapping) else None
+    payload = action_domain.get("actuator_evidence") if action_domain is not None else None
+    return payload if isinstance(payload, Mapping) else None
 
 
 def _canonical_hash(payload: object) -> str:
@@ -144,98 +134,23 @@ def historical_motor_candidates(
     return result
 
 
-def archive_contract_memory(
-    checkpoint: Mapping[str, Any],
-    *,
-    contract_fingerprint_value: str,
-    epoch: int,
-    motor_cognitive_surface: Mapping[str, Any] | None,
-    active_private_model_id: str | None,
-) -> dict[str, Any]:
-    """Archive bounded body-specific knowledge without granting current authority."""
-    raw_store = checkpoint.get("embodiment_memory")
-    store = (
-        deepcopy(dict(raw_store))
-        if isinstance(raw_store, Mapping)
-        and raw_store.get("schema_version") == _MEMORY_SCHEMA_VERSION
-        else {"schema_version": _MEMORY_SCHEMA_VERSION, "contracts": []}
-    )
-    contracts = store.get("contracts")
-    if not isinstance(contracts, list):
-        contracts = []
-
-    entry = {
-        "contract_fingerprint": str(contract_fingerprint_value),
-        "last_seen_epoch": int(epoch),
-        "body_schema": deepcopy(checkpoint.get("body_schema")),
-        "historical_primitives": historical_motor_candidates(
-            checkpoint,
-            contract_fingerprint_value=contract_fingerprint_value,
-        ),
-        "motor_cognitive_surface": deepcopy(motor_cognitive_surface),
-        "private_model_ids": (
-            [active_private_model_id] if isinstance(active_private_model_id, str) else []
-        ),
-        "state": "historical",
-    }
-    existing = None
-    for index, candidate in enumerate(contracts):
-        if (
-            isinstance(candidate, Mapping)
-            and candidate.get("contract_fingerprint") == contract_fingerprint_value
-        ):
-            existing = index
-            break
-    if existing is not None:
-        previous = contracts.pop(existing)
-        if isinstance(previous, Mapping):
-            entry["first_seen_epoch"] = int(previous.get("first_seen_epoch") or epoch)
-        else:
-            entry["first_seen_epoch"] = int(epoch)
-    else:
-        entry["first_seen_epoch"] = int(epoch)
-    contracts.append(entry)
-    contracts = contracts[-_MAX_CONTRACT_MEMORIES:]
-    store["contracts"] = contracts
-    return store
-
-
-def memory_for_contract(
-    store: Mapping[str, Any] | None,
-    contract_fingerprint_value: str,
-) -> dict[str, Any] | None:
-    if not isinstance(store, Mapping) or store.get("schema_version") != _MEMORY_SCHEMA_VERSION:
-        return None
-    contracts = store.get("contracts")
-    if not isinstance(contracts, list):
-        return None
-    for entry in reversed(contracts):
-        if (
-            isinstance(entry, Mapping)
-            and entry.get("contract_fingerprint") == contract_fingerprint_value
-        ):
-            return deepcopy(dict(entry))
-    return None
-
-
 def inject_memory_candidates(
     fresh_actuation: dict[str, Any],
     memory: Mapping[str, Any] | None,
 ) -> dict[str, Any]:
     """Seed only non-authoritative historical hypotheses into a fresh learner."""
-    if not isinstance(memory, Mapping):
+    if memory is None:
         return fresh_actuation
+    if not isinstance(memory, Mapping):
+        raise ValueError("invalid embodiment memory")
     raw = memory.get("historical_primitives")
     if not isinstance(raw, list):
         return fresh_actuation
     action_domain = fresh_actuation.get("action_domain")
-    if isinstance(action_domain, dict):
-        sensorimotor = action_domain.get("competence_development")
-    else:
-        sensorimotor = fresh_actuation.get("sensorimotor")
+    sensorimotor = action_domain.get("competence_development") if isinstance(action_domain, dict) else None
     if not isinstance(sensorimotor, dict):
         return fresh_actuation
-    if int(sensorimotor.get("schema_version") or -1) not in {10, 11}:
+    if sensorimotor.get("schema_version") != 11:
         raise ValueError("fresh embodiment must provide canonical competence-development state")
     expected_scope = sensorimotor.get("embodiment_fingerprint")
     if not isinstance(expected_scope, str) or not expected_scope:
@@ -390,10 +305,8 @@ def append_epoch_summary(
 __all__ = [
     "CONTRACT_FINGERPRINT_SCHEMA_VERSION",
     "append_epoch_summary",
-    "archive_contract_memory",
     "build_epoch_summary",
     "contract_fingerprint",
     "historical_motor_candidates",
     "inject_memory_candidates",
-    "memory_for_contract",
 ]

@@ -106,12 +106,26 @@ class EmbodimentPrior:
     ) -> "EmbodimentPrior":
         if payload is None:
             return cls.novel()
-        if payload.get("authority") not in {None, "hypothesis_only"}:
+        required = {
+            "relation",
+            "authority",
+            "source_body_id",
+            "source_embodiment_id",
+            "contract_fingerprint",
+            "body_schema_prior",
+            "dynamics_prior",
+            "execution_binding_priors",
+            "historical_motor_candidates",
+            "private_model_ids",
+        }
+        if not required.issubset(payload):
+            raise ValueError("incomplete embodiment prior")
+        if payload.get("authority") != "hypothesis_only":
             raise ValueError("embodiment prior cannot carry authority")
-        candidates = payload.get("historical_motor_candidates", [])
+        candidates = payload.get("historical_motor_candidates")
         if not isinstance(candidates, list):
             raise ValueError("invalid embodiment historical candidates")
-        private_ids = payload.get("private_model_ids", [])
+        private_ids = payload.get("private_model_ids")
         if not isinstance(private_ids, list):
             raise ValueError("invalid embodiment prior model ids")
         return cls(
@@ -220,15 +234,18 @@ class EmbodimentArchive:
     def restore(cls, payload: Mapping[str, Any] | None) -> "EmbodimentArchive":
         if payload is None:
             return cls()
-        archive_schema = int(payload.get("schema_version") or 0)
-        if archive_schema not in {2, 3, cls.SCHEMA_VERSION}:
+        archive_schema = payload.get("schema_version")
+        if archive_schema != cls.SCHEMA_VERSION:
             raise ValueError("unsupported embodiment archive")
+        required = {"max_body_memories", "max_summaries", "body_memories", "summaries"}
+        if not required.issubset(payload):
+            raise ValueError("incomplete embodiment archive")
         obj = cls(
             max_body_memories=int(payload.get("max_body_memories", 16)),
             max_summaries=int(payload.get("max_summaries", 32)),
         )
-        raw_memories = payload.get("body_memories", [])
-        raw_summaries = payload.get("summaries", [])
+        raw_memories = payload["body_memories"]
+        raw_summaries = payload["summaries"]
         if (
             not isinstance(raw_memories, list)
             or len(raw_memories) > obj.max_body_memories
@@ -239,8 +256,23 @@ class EmbodimentArchive:
         for entry in raw_memories:
             if not isinstance(entry, Mapping):
                 raise ValueError("invalid body-specific memory")
-            raw_candidates = entry.get("historical_motor_candidates", [])
-            raw_private_ids = entry.get("private_model_ids", [])
+            required_memory = {
+                "body_id",
+                "contract_fingerprint",
+                "last_embodiment_id",
+                "body_schema_prior",
+                "sensory_prior",
+                "dynamics_prior",
+                "execution_binding_priors",
+                "historical_causal_state",
+                "historical_motor_candidates",
+                "motor_cognitive_surface",
+                "private_model_ids",
+            }
+            if not required_memory.issubset(entry):
+                raise ValueError("incomplete body-specific memory")
+            raw_candidates = entry["historical_motor_candidates"]
+            raw_private_ids = entry["private_model_ids"]
             if not isinstance(raw_candidates, list):
                 raise ValueError("invalid historical motor candidates")
             if not isinstance(raw_private_ids, list):
@@ -253,12 +285,7 @@ class EmbodimentArchive:
                     body_schema_prior=deepcopy(entry.get("body_schema_prior")),
                     sensory_prior=deepcopy(entry.get("sensory_prior")),
                     dynamics_prior=deepcopy(entry.get("dynamics_prior")),
-                    execution_binding_priors=deepcopy(
-                        entry.get(
-                            "execution_binding_priors",
-                            entry.get("embodied_competence_priors"),
-                        )
-                    ),
+                    execution_binding_priors=deepcopy(entry["execution_binding_priors"]),
                     historical_causal_state=deepcopy(entry.get("historical_causal_state")),
                     historical_motor_candidates=tuple(
                         deepcopy(dict(item)) for item in raw_candidates if isinstance(item, Mapping)
@@ -293,8 +320,21 @@ def archive_episode_checkpoint(
     body before the new physical adapter exists. Historical state remains a
     prior; this function grants no current execution authority.
     """
-    if int(episode_payload.get("schema_version") or 0) not in {2, 3}:
+    if episode_payload.get("schema_version") != 3:
         raise ValueError("unsupported embodiment episode checkpoint")
+    required_episode_fields = {
+        "execution_bindings",
+        "contract",
+        "body_id",
+        "embodiment_id",
+        "symbiont_id",
+        "dynamics_model",
+        "causal_evidence",
+        "adaptation",
+        "contract_history",
+    }
+    if not required_episode_fields.issubset(episode_payload):
+        raise ValueError("incomplete embodiment episode checkpoint")
     contract = episode_payload.get("contract")
     contract = contract if isinstance(contract, Mapping) else {}
     contract_fp = str(contract.get("contract_fingerprint") or "")
@@ -320,17 +360,8 @@ def archive_episode_checkpoint(
             dynamics_prior=deepcopy(episode_payload.get("dynamics_model"))
             if isinstance(episode_payload.get("dynamics_model"), Mapping)
             else None,
-            execution_binding_priors=deepcopy(
-                episode_payload.get("execution_bindings")
-                if isinstance(episode_payload.get("execution_bindings"), Mapping)
-                else episode_payload.get("embodied_competences")
-            )
-            if isinstance(
-                episode_payload.get("execution_bindings")
-                if episode_payload.get("execution_bindings") is not None
-                else episode_payload.get("embodied_competences"),
-                Mapping,
-            )
+            execution_binding_priors=deepcopy(episode_payload["execution_bindings"])
+            if isinstance(episode_payload["execution_bindings"], Mapping)
             else None,
             historical_causal_state=deepcopy(episode_payload.get("causal_evidence"))
             if isinstance(episode_payload.get("causal_evidence"), Mapping)
@@ -363,8 +394,6 @@ def archive_episode_checkpoint(
         sum(confidence_classes) / (15.0 * len(confidence_classes)) if confidence_classes else 0.0
     )
     bindings = episode_payload.get("execution_bindings")
-    if not isinstance(bindings, Mapping):
-        bindings = episode_payload.get("embodied_competences")
     bindings = bindings if isinstance(bindings, Mapping) else {}
     items = bindings.get("items")
     items = items if isinstance(items, list) else []
