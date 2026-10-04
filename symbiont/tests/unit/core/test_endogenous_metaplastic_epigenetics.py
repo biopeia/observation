@@ -149,6 +149,39 @@ def test_m3_sustained_prediction_pressure_becomes_capture_eligible():
     )
 
 
+def test_m3b_live_seed_captures_only_when_protocol_is_explicitly_enabled():
+    genome = _genome("m3b", learning_rate=0.10, exploration_rate=0.20)
+    protocol = EpigeneticProtocol(
+        enabled=True,
+        acquired_capture_enabled=True,
+        max_marks=2,
+    )
+    enabled_germline = create_germline_state(genome, acquired_capture_enabled=True)
+    enabled = CleanEmbodimentSeed(
+        "m3b-enabled",
+        genome=genome,
+        germline=enabled_germline,
+        epigenetic_protocol=protocol,
+    )
+    disabled_germline = create_germline_state(genome, acquired_capture_enabled=True)
+    disabled = CleanEmbodimentSeed(
+        "m3b-disabled",
+        genome=genome,
+        germline=disabled_germline,
+    )
+
+    # The seed's own opaque input/prediction-error path supplies the signal;
+    # no evaluator labels or direct calls to the capture method are involved.
+    for tick in range(200):
+        inputs = {"rec.0": float(tick % 2)}
+        enabled.step(inputs)
+        disabled.step(inputs)
+
+    assert enabled_germline.acquired_marks
+    assert enabled.epigenetic_capture_count == len(enabled_germline.acquired_marks)
+    assert disabled_germline.acquired_marks == {}
+
+
 def test_m4_expression_relaxes_toward_birth_after_pressure_ends():
     genome = _genome("m4")
     germline = create_germline_state(genome)

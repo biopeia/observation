@@ -48,7 +48,7 @@ from ...genetics.expression import (
     RegulatorySignals,
 )
 from ...genetics.genome import Genome
-from ...genetics.germline import GermlineState
+from ...genetics.germline import EpigeneticProtocol, GermlineState
 from ...host.continuity import LongitudinalContract
 from ..domains.action import ActionDomain
 from ..embodiment.body_schema import BodySchemaEngine
@@ -83,6 +83,7 @@ class CleanEmbodimentSeed:
         genome: Genome | None = None,
         germline: GermlineState | None = None,
         gene_expression_state: GeneExpressionState | None = None,
+        epigenetic_protocol: EpigeneticProtocol | None = None,
     ) -> None:
         if not symbiont_id:
             raise ValueError("symbiont_id must not be empty")
@@ -90,6 +91,7 @@ class CleanEmbodimentSeed:
         self._rng = random.Random(seed)
         self.genome = genome
         self.germline = germline
+        self.epigenetic_protocol = epigenetic_protocol or EpigeneticProtocol()
         self._expression_regulator = ExpressionRegulator()
         self.gene_expression_state = (
             gene_expression_state
@@ -128,9 +130,9 @@ class CleanEmbodimentSeed:
         self.competence_library = CompetenceLibrary()
         self._reset_embodiment_state()
 
-        # Passive compatibility telemetry only. Genome v2 never captures
-        # lifetime expression into the germline unless an explicit experiment
-        # invokes GermlineState.capture_acquired_variation itself.
+        # Capture remains off unless both the germline and protocol explicitly
+        # enable transmission. When enabled, capture runs on each tick's
+        # expression after regulation, never on an apparatus/evaluator label.
         self.last_epigenetic_capture: tuple[str, ...] = ()
         self.epigenetic_capture_count = 0
 
@@ -555,6 +557,21 @@ class CleanEmbodimentSeed:
                 "learning_rate": self.learning_rate,
                 "exploration_rate": self.exploration_rate,
             }
+            if self.germline is not None:
+                self.last_epigenetic_capture = self.germline.capture_acquired_variation(
+                    {
+                        "plasticity.learning_rate.baseline": (
+                            self.gene_expression_state.effective_learning_rate
+                        ),
+                        "sensorimotor.spontaneous_activity_baseline": (
+                            self.gene_expression_state.exploration_drive
+                        ),
+                    },
+                    genome=self.genome,
+                    protocol=self.epigenetic_protocol,
+                )
+                if self.last_epigenetic_capture:
+                    self.epigenetic_capture_count += len(self.last_epigenetic_capture)
 
         outputs = sorted(self.current_output_channels)
         if not outputs and self.last_activations:
