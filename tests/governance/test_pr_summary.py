@@ -59,7 +59,7 @@ def test_pr_summary_workflow_uses_trusted_workflow_run_definition() -> None:
     assert "github.event.workflow_run.head_repository.full_name == github.repository" in workflow
     assert "github.event.workflow_run.head_sha" in workflow
     assert "Candidate advanced" in workflow
-    assert "git fetch origin \"$HEAD_SHA\"" in workflow
+    assert 'git fetch origin "$HEAD_SHA"' in workflow
     assert "python scripts/governance/pr_summary.py" in workflow
 
 
