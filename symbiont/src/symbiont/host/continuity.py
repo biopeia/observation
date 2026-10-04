@@ -737,7 +737,7 @@ REGISTER: tuple[ContinuityEntry, ...] = (
 
 @dataclass(frozen=True, slots=True)
 class EnvelopeField:
-    """A checkpoint field that describes the save rather than organism state."""
+    """Checkpoint metadata, including its inventoried nested mapping paths."""
 
     checkpoint_field: str
     purpose: str
@@ -773,6 +773,37 @@ ENVELOPE_FIELDS: tuple[EnvelopeField, ...] = (
             "software_version",
             "checkpoint_schema_version",
             "session_controls",
+            "session_controls.cognitive_plasticity_enabled",
+            "session_controls.predictor_promotion_enabled",
+            "session_controls.persist_replay_state",
+            "session_controls.kernel_limits",
+            "session_controls.kernel_limits.consolidation_epoch_ticks",
+            "session_controls.kernel_limits.consolidation_interval_ticks",
+            "session_controls.kernel_limits.episodic_epoch_ticks",
+            "session_controls.kernel_limits.episodic_min_consolidation_epochs",
+            "session_controls.kernel_limits.fast_consolidation_threshold",
+            "session_controls.kernel_limits.fast_min_reliability",
+            "session_controls.kernel_limits.max_concepts",
+            "session_controls.kernel_limits.max_consolidation_candidates",
+            "session_controls.kernel_limits.max_edges",
+            "session_controls.kernel_limits.max_episodic_checkpoint_bytes",
+            "session_controls.kernel_limits.max_episodic_episode_records",
+            "session_controls.kernel_limits.max_episodic_episodes",
+            "session_controls.kernel_limits.max_episodic_interpretations_per_episode",
+            "session_controls.kernel_limits.max_episodic_replay_items",
+            "session_controls.kernel_limits.max_episodic_retrieval_candidates",
+            "session_controls.kernel_limits.max_incoming_consolidated_weight_norm",
+            "session_controls.kernel_limits.max_nodes",
+            "session_controls.kernel_limits.max_plastic_checkpoint_bytes",
+            "session_controls.kernel_limits.max_salient_event_traces",
+            "session_controls.kernel_limits.max_structural_mutations_per_consolidation",
+            "session_controls.kernel_limits.max_tentative_edges",
+            "session_controls.kernel_limits.reacclimation_ticks",
+            "session_controls.kernel_limits.slow_support_epochs",
+            "session_controls.executive_admission_policy",
+            "session_controls.executive_admission_policy.minimum_relevance",
+            "session_controls.executive_admission_policy.readout_threshold",
+            "session_controls.expression_regulator",
             "changed_since_restore",
         ),
     ),

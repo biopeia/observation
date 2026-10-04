@@ -66,12 +66,24 @@ def test_every_checkpoint_field_is_owned(layer: str, persist_replay_state: bool)
 def test_nested_checkpoint_envelope_fields_are_inventoried() -> None:
     runtime = _runtime(LAYERS[0])
     payload = runtime.checkpoint()
+
+    def nested_paths(value: dict[str, object], prefix: str = "") -> set[str]:
+        paths: set[str] = set()
+        for key, child in value.items():
+            path = f"{prefix}.{key}" if prefix else key
+            paths.add(path)
+            if isinstance(child, dict):
+                paths.update(nested_paths(child, path))
+        return paths
+
     for envelope in ENVELOPE_FIELDS:
         if not envelope.nested_checkpoint_fields:
             continue
         nested = payload[envelope.checkpoint_field]
         assert isinstance(nested, dict), envelope.checkpoint_field
-        assert set(nested) <= set(envelope.nested_checkpoint_fields), envelope.checkpoint_field
+        assert nested_paths(nested) <= set(envelope.nested_checkpoint_fields), (
+            envelope.checkpoint_field
+        )
 
 
 def test_state_identity_flag_matches_the_hashed_payload() -> None:
