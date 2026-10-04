@@ -181,3 +181,88 @@ def test_active_private_counterfactual_is_non_mutating_and_active_only():
     assert target_token == "<OUTCOME>"
     assert allow_shadow is False
     assert "action.primitive.deadbeef" in prefix
+
+
+def test_private_model_prediction_changes_prospective_choice():
+    from types import SimpleNamespace
+
+    from symbiont.agency.affordance import ActionAffordance, affordance_id_for
+    from symbiont.modeling import PrivateModelOrganismRuntime
+    from symbiont.modeling.proposals import ModelPredictionProposal
+
+    runtime = PrivateModelOrganismRuntime(
+        organism_id="private-prospective-choice",
+        bootstrap_semantic_senses=False,
+        discover_senses=False,
+    )
+    runtime._model_registry = SimpleNamespace(active=SimpleNamespace(model_id="model.active"))
+
+    class Bridge:
+        outcomes = {
+            "action.competence.a": "outcome.positive",
+            "action.competence.b": "outcome.negative",
+        }
+
+        def predict(self, context_tokens, *, model_id, target_token, allow_shadow):
+            action = next(token for token in context_tokens if token.startswith("action."))
+            return ModelPredictionProposal(
+                target_token=target_token,
+                horizon_class=1,
+                predicted_token=self.outcomes[action],
+                confidence_class=7,
+                model_id=model_id,
+            )
+
+    runtime._private_model_bridge = Bridge()
+    ledger = runtime._prospective_agency.outcome_value_ledger
+    for tick in range(4):
+        ledger.observe("outcome.positive", 1.0, tick=tick)
+        ledger.observe("outcome.negative", -1.0, tick=tick)
+
+    cognition = SimpleNamespace(
+        readouts_for_family=lambda family: {"competence.a": 0.9, "competence.b": 0.9}
+    )
+    affordances = tuple(
+        ActionAffordance(
+            affordance_id=affordance_id_for(
+                competence_id=competence_id,
+                anticipated_effect_id=f"effect.{suffix}",
+                context_ref="context.current",
+                embodiment_id="body.current",
+            ),
+            competence_id=competence_id,
+            anticipated_effect_id=f"effect.{suffix}",
+            context_ref="context.current",
+            embodiment_id="body.current",
+            prediction_confidence=0.9,
+            controllability=0.9,
+            executability_confidence=0.9,
+            prediction_ref=None,
+            evidence_refs=(f"evidence.{suffix}",),
+        )
+        for suffix, competence_id in (("a", "competence.a"), ("b", "competence.b"))
+    )
+
+    def decide():
+        return runtime._deliberate_prospectively(
+            cognition=cognition,
+            percepts=(),
+            affordances=affordances,
+            signal_references={},
+            tick=10,
+        )
+
+    first = decide()
+    assert first is not None
+    assert first.competence_id == "competence.a"
+    assert runtime.last_prospective_decision.reason == "selected"
+
+    # Hold the affordances, graph readouts, values, and active model identity
+    # fixed; intervene only on its output mapping.
+    runtime._private_model_bridge.outcomes = {
+        "action.competence.a": "outcome.negative",
+        "action.competence.b": "outcome.positive",
+    }
+    second = decide()
+    assert second is not None
+    assert second.competence_id == "competence.b"
