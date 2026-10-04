@@ -103,8 +103,7 @@ def test_continuation_controls_have_matching_register_owners() -> None:
 
     assert controls == registered
     assert all(
-        entry.continuity is ContinuityClass.MUST_REAPPLY_CONFIG
-        and not entry.in_state_identity
+        entry.continuity is ContinuityClass.MUST_REAPPLY_CONFIG and not entry.in_state_identity
         for entry in REGISTER
         if entry.checkpoint_field == "runtime_provenance"
     )
@@ -189,10 +188,10 @@ def test_open_gaps_are_exactly_the_audit_findings() -> None:
 
 def test_apparatus_fields_name_real_physics3d_state() -> None:
     pytest.importorskip("pybullet")
-    from lab.physics3d.runtime import PyBulletEmbodimentRuntime
+    from lab.physics3d.runtime import Physics3DEmbodimentRuntime
     from symbiont.core.embodiment import transition as reembodiment
 
-    source = inspect.getsource(PyBulletEmbodimentRuntime) + inspect.getsource(reembodiment)
+    source = inspect.getsource(Physics3DEmbodimentRuntime) + inspect.getsource(reembodiment)
     for field in APPARATUS_FIELDS:
         assert f"self.{field.attribute}" in source, field.attribute
         assert f'"{field.checkpoint_field}"' in source, field.checkpoint_field

@@ -78,9 +78,9 @@ def test_uncontacted_objects_are_invisible_but_contact_changes_opaque_receptors(
 @pytest.mark.slow
 def test_runtime_restores_environment_without_putting_world_in_organism():
     pytest.importorskip("pybullet")
-    from lab.physics3d.runtime import PyBulletEmbodimentRuntime
+    from lab.physics3d.runtime import Physics3DEmbodimentRuntime
 
-    runtime = PyBulletEmbodimentRuntime(
+    runtime = Physics3DEmbodimentRuntime(
         gui=False, environment="contact-garden-v1", physics_substeps_per_tick=1, seed=42
     )
     try:
@@ -92,7 +92,7 @@ def test_runtime_restores_environment_without_putting_world_in_organism():
         assert len(runtime.passive_world_observation()["entities"]) == 6
     finally:
         runtime.close()
-    restored = PyBulletEmbodimentRuntime(
+    restored = Physics3DEmbodimentRuntime(
         gui=False,
         physical_state=physical,
         runtime_checkpoint=cognitive,
@@ -119,7 +119,7 @@ def test_runtime_restores_environment_without_putting_world_in_organism():
     ],
 )
 def test_runtime_rejects_physical_checkpoint_missing_current_contract_field(field: str):
-    from lab.physics3d.runtime import PyBulletEmbodimentRuntime
+    from lab.physics3d.runtime import Physics3DEmbodimentRuntime
 
     physical_state = {
         "lab_world": {"name": "flat-v1"},
@@ -143,11 +143,11 @@ def test_runtime_rejects_physical_checkpoint_missing_current_contract_field(fiel
     physical_state.pop(field)
 
     with pytest.raises(RuntimeError, match="physical checkpoint is missing"):
-        PyBulletEmbodimentRuntime(gui=False, physical_state=physical_state)
+        Physics3DEmbodimentRuntime(gui=False, physical_state=physical_state)
 
 
 def test_runtime_rejects_current_restore_without_embodiment_episode():
-    from lab.physics3d.runtime import PyBulletEmbodimentRuntime
+    from lab.physics3d.runtime import Physics3DEmbodimentRuntime
 
     physical_state = {
         "lab_world": {"name": "flat-v1"},
@@ -170,13 +170,11 @@ def test_runtime_rejects_current_restore_without_embodiment_episode():
     }
 
     with pytest.raises(RuntimeError, match="missing embodiment fields.*embodiment_episode"):
-        PyBulletEmbodimentRuntime(
-            gui=False, physical_state=physical_state, runtime_checkpoint={}
-        )
+        Physics3DEmbodimentRuntime(gui=False, physical_state=physical_state, runtime_checkpoint={})
 
 
 def test_runtime_rejects_deprecated_locomotion_evaluator_aliases():
-    from lab.physics3d.runtime import PyBulletEmbodimentRuntime
+    from lab.physics3d.runtime import Physics3DEmbodimentRuntime
 
     physical_state = {
         "lab_world": {"name": "flat-v1"},
@@ -192,7 +190,7 @@ def test_runtime_rejects_deprecated_locomotion_evaluator_aliases():
     }
 
     with pytest.raises(RuntimeError, match="invalid locomotion_evaluator"):
-        PyBulletEmbodimentRuntime(gui=False, physical_state=physical_state)
+        Physics3DEmbodimentRuntime(gui=False, physical_state=physical_state)
 
 
 def test_home_launch_keeps_environment_in_laboratory_run(tmp_path):

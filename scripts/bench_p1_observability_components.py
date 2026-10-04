@@ -22,7 +22,7 @@ from pathlib import Path
 import pybullet
 
 from lab.app.physics3d.monitor.viewer import UnifiedViewerProcess
-from lab.physics3d.runtime import PyBulletEmbodimentRuntime
+from lab.physics3d.runtime import Physics3DEmbodimentRuntime
 from lab.physics3d.telemetry.v41 import (
     AsyncTelemetryV41Writer,
     TelemetryV41Writer,
@@ -112,7 +112,7 @@ def _viewer_wall_seconds(root: Path, *, with_viewer: bool, ticks: int) -> float:
 def main() -> None:
     parser_repeats = 3
     sample_count = 100
-    with PyBulletEmbodimentRuntime(
+    with Physics3DEmbodimentRuntime(
         gui=False,
         seed=127,
         organism_id="p1-component-profile",

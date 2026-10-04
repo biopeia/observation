@@ -6,14 +6,14 @@ import pytest
 
 pytest.importorskip("pybullet")
 
-from lab.physics3d.runtime import PyBulletEmbodimentRuntime
+from lab.physics3d.runtime import Physics3DEmbodimentRuntime
 
 
 def _matched_runtimes(
     *, seed: int, body_kind: str, environment: str | None
-) -> tuple[PyBulletEmbodimentRuntime, PyBulletEmbodimentRuntime]:
+) -> tuple[Physics3DEmbodimentRuntime, Physics3DEmbodimentRuntime]:
     """Fork two runs from one captured organism/body state."""
-    source = PyBulletEmbodimentRuntime(
+    source = Physics3DEmbodimentRuntime(
         gui=False,
         seed=seed,
         organism_id=f"phase-a-a5-{body_kind}-{seed}",
@@ -27,8 +27,8 @@ def _matched_runtimes(
     finally:
         source.close()
 
-    def restore() -> PyBulletEmbodimentRuntime:
-        return PyBulletEmbodimentRuntime(
+    def restore() -> Physics3DEmbodimentRuntime:
+        return Physics3DEmbodimentRuntime(
             gui=False,
             seed=seed,
             organism_id=f"phase-a-a5-{body_kind}-{seed}",

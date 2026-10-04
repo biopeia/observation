@@ -663,3 +663,8 @@ class ArticulatedPhysics:
         for address in self._joint_dof:
             data.qfrc_applied[address] = 0.0
         self.scene.forward()
+        # Recomputing the derived state also re-solves the constraints and
+        # overwrites the solver's warm start; put the saved one back so the
+        # next step is the one the saved body would have taken.
+        for address, value in zip(self._dof_addresses, warmstart):
+            data.qacc_warmstart[address] = value

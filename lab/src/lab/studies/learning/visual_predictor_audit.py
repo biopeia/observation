@@ -110,11 +110,11 @@ def lifespans(presence: dict[str, list[int]], *, last_tick: int) -> dict[str, An
 
 
 def audit_seed(seed: int, *, ticks: int, every: int) -> dict[str, Any]:
-    from lab.physics3d.runtime import PyBulletEmbodimentRuntime
+    from lab.physics3d.runtime import Physics3DEmbodimentRuntime
 
     visual_ids = _visual_receptor_ids()
     state_x = make_state_x(seed)
-    runtime = PyBulletEmbodimentRuntime(
+    runtime = Physics3DEmbodimentRuntime(
         gui=False,
         seed=seed,
         body_kind=BODY_KIND,

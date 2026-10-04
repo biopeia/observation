@@ -20,7 +20,7 @@ def test_physics_engine_samples_rich_observation_independently_of_cognition() ->
 def test_physics_runtime_keeps_rich_projection_behind_observer_boundary() -> None:
     root = Path(__file__).resolve().parents[2]
     source = (root / "lab" / "src" / "lab" / "physics3d" / "runtime.py").read_text(encoding="utf-8")
-    step = source[source.index("    def step(", source.index("class PyBulletEmbodimentRuntime")) :]
+    step = source[source.index("    def step(", source.index("class Physics3DEmbodimentRuntime")) :]
 
     assert "physical_actuation_override" in step.split("): Tick3D:", 1)[0]
     assert "include_observability=include_observability" in step

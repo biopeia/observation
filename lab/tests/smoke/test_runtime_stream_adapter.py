@@ -808,7 +808,7 @@ def test_physics3d_bridge_publishes_rich_mind_snapshot() -> None:
 def test_physics3d_topology_projection_keeps_nodes_beyond_128() -> None:
     from types import SimpleNamespace
 
-    from lab.physics3d.runtime import PyBulletEmbodimentRuntime
+    from lab.physics3d.runtime import Physics3DEmbodimentRuntime
 
     nodes = [
         SimpleNamespace(node_id=f"sensor.{index}", kind=SimpleNamespace(value="sense"))
@@ -835,7 +835,7 @@ def test_physics3d_topology_projection_keeps_nodes_beyond_128() -> None:
     ]
     bridge = SimpleNamespace(graph=SimpleNamespace(nodes=tuple(nodes), edges=tuple(edges)))
 
-    payload = PyBulletEmbodimentRuntime._cognitive_topology_payload(bridge)
+    payload = Physics3DEmbodimentRuntime._cognitive_topology_payload(bridge)
 
     assert payload is not None
     assert len(payload["nodes"]) == 131

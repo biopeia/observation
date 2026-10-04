@@ -1,4 +1,5 @@
 import inspect
+import re
 import sys
 
 import pytest
@@ -119,11 +120,13 @@ def test_effector_contract_rejects_non_positive_motor_count():
 
 
 def test_physics3d_optional_dependency_is_lazy():
+    import embodiment.physics3d.scene as scene
     import lab.physics3d.runtime as runtime
 
-    source = inspect.getsource(runtime)
-    assert "import pybullet as p" in source
-    assert "PyBullet is optional" in source
+    # The engine is imported where a scene is built, never at module import.
+    for module in (scene, runtime):
+        assert not re.search(r"^(import|from) mujoco", inspect.getsource(module), re.M)
+    assert "MuJoCo is optional" in inspect.getsource(runtime)
 
 
 def test_physics3d_cognition_accepts_experiment_local_limits():
@@ -220,14 +223,13 @@ def test_unified_viewer_mode_keeps_pybullet_native_gui_disabled():
     assert "UnifiedViewerProcess" in source
 
 
-def test_passive_camera_render_does_not_enter_organism_contract():
+def test_runtime_has_no_engine_renderer():
     import lab.physics3d.runtime as runtime
 
-    source = inspect.getsource(runtime.PyBulletEmbodimentRuntime.render_camera_frame)
-    assert "getCameraImage" in source
-    assert "organism.tick" not in source
-    assert "signal_knowledge" not in source
-    assert "experience_ledger" not in source
+    # ADR-0066: nothing renders through the engine; vision casts its own rays
+    # and presentation draws exported poses.
+    assert not hasattr(runtime.Physics3DEmbodimentRuntime, "render_camera_frame")
+    assert "Renderer" not in inspect.getsource(runtime)
 
 
 def test_unified_viewer_rendering_is_not_in_canonical_runtime_loop():
@@ -324,24 +326,18 @@ def test_runtime_module_source_compiles():
     compile(source, runtime.__file__, "exec")
 
 
-def test_runtime_imports_canonical_solver_configuration():
-    import lab.physics3d.runtime as runtime
-
-    assert runtime.configure_physics_solver is not None
-
-
 def test_runtime_reapplies_motor_command_each_physics_substep():
     import lab.physics3d.runtime as runtime
 
-    source = inspect.getsource(runtime.PyBulletEmbodimentRuntime.step)
+    source = inspect.getsource(runtime.Physics3DEmbodimentRuntime.step)
     assert "self.apparatus.prepare_physics_substep()" in source
-    assert source.index("prepare_physics_substep()") < source.index("stepSimulation(")
+    assert source.index("prepare_physics_substep()") < source.index("self.scene.step()")
 
 
 def test_physics3d_locomotion_constitution_uses_explicit_metabolism():
     import lab.physics3d.runtime as runtime
 
-    source = inspect.getsource(runtime.PyBulletEmbodimentRuntime.__init__)
+    source = inspect.getsource(runtime.Physics3DEmbodimentRuntime.__init__)
     assert "explicit_metabolism=True" in source
     assert "replenishment={kind: 0.0 for kind in metabolic_capacity}" in source
     from symbiont.core.organism_profile import CANONICAL
@@ -474,18 +470,18 @@ def test_l3_checkpoint_preserves_only_opaque_ordinal_mapping():
 def test_resource_ground_truth_is_evaluator_only():
     import lab.physics3d.runtime as runtime
 
-    source = inspect.getsource(runtime.PyBulletEmbodimentRuntime.step)
+    source = inspect.getsource(runtime.Physics3DEmbodimentRuntime.step)
     assert "resource_distance" in source
     assert "set_opaque_environment_state" in source
     assert "resource_distance=" not in inspect.getsource(
-        runtime.PyBulletEmbodimentRuntime.checkpoint
+        runtime.Physics3DEmbodimentRuntime.checkpoint
     )
 
 
 def test_physics3d_applies_all_concurrent_actuations_in_one_tick():
     from types import SimpleNamespace
 
-    from lab.physics3d.runtime import PyBulletEmbodimentRuntime
+    from lab.physics3d.runtime import Physics3DEmbodimentRuntime
     from symbiont.actuation.types import Actuation
 
     applied = {}
@@ -494,7 +490,7 @@ def test_physics3d_applies_all_concurrent_actuations_in_one_tick():
         def apply_effectors(self, physical):
             applied.update(physical)
 
-    runtime = PyBulletEmbodimentRuntime.__new__(PyBulletEmbodimentRuntime)
+    runtime = Physics3DEmbodimentRuntime.__new__(Physics3DEmbodimentRuntime)
     runtime.apparatus = Apparatus()
     runtime._actuator_to_effector = {
         "a": "motor.0",
@@ -524,7 +520,7 @@ def test_physics3d_external_physical_actuation_override_is_bounded_and_complete(
 
     import pytest
 
-    from lab.physics3d.runtime import PyBulletEmbodimentRuntime
+    from lab.physics3d.runtime import Physics3DEmbodimentRuntime
 
     applied = {}
 
@@ -534,7 +530,7 @@ def test_physics3d_external_physical_actuation_override_is_bounded_and_complete(
         def apply_effectors(self, physical):
             applied.update(physical)
 
-    runtime = PyBulletEmbodimentRuntime.__new__(PyBulletEmbodimentRuntime)
+    runtime = Physics3DEmbodimentRuntime.__new__(Physics3DEmbodimentRuntime)
     runtime.apparatus = Apparatus()
     runtime._actuator_to_effector = {}
     runtime.organism = SimpleNamespace(last_actuations=())
@@ -555,7 +551,7 @@ def test_physics3d_resume_projects_solver_penetration_but_direct_restore_stays_s
     import lab.physics3d.runtime as runtime
     from embodiment.physics3d.humanoid import HumanoidPhysics
 
-    source = inspect.getsource(runtime.PyBulletEmbodimentRuntime.__init__)
+    source = inspect.getsource(runtime.Physics3DEmbodimentRuntime.__init__)
     assert "strict_anatomical_limits=False" in source
 
     signature = inspect.signature(HumanoidPhysics.restore_physical_state)
@@ -566,7 +562,7 @@ def test_physics3d_newborns_use_mode_free_sensorimotor_constitution():
     import lab.integration.physics3d.apparatus as apparatus
     import lab.physics3d.runtime as runtime
 
-    runtime_source = inspect.getsource(runtime.PyBulletEmbodimentRuntime.__init__)
+    runtime_source = inspect.getsource(runtime.Physics3DEmbodimentRuntime.__init__)
     exclusion_source = inspect.getsource(apparatus.actuator_exclusion_groups)
 
     assert "motor_exploration_mode" not in runtime_source
@@ -647,10 +643,10 @@ def test_v5_hard_limited_body_exposes_multiple_rotational_axes():
 def test_physics3d_l4_uses_one_physical_energy_pool_for_all_metabolism() -> None:
     import lab.physics3d.runtime as runtime
 
-    source = inspect.getsource(runtime.PyBulletEmbodimentRuntime.__init__)
+    source = inspect.getsource(runtime.Physics3DEmbodimentRuntime.__init__)
     assert "physical_energy_capacity = sum(metabolic_capacity.values())" in source
     assert "living_body_state=living_body_state" in source
-    source = inspect.getsource(runtime.PyBulletEmbodimentRuntime.__init__)
+    source = inspect.getsource(runtime.Physics3DEmbodimentRuntime.__init__)
     assert "genome_symbiont_physics3d_v9" not in source
 
 
@@ -761,38 +757,43 @@ def test_actuator_work_decomposition_keeps_absolute_effort_distinct_from_net():
 def test_runtime_physics_trace_initializes_joint_payload_before_append():
     import lab.physics3d.runtime as runtime
 
-    source = inspect.getsource(runtime.PyBulletEmbodimentRuntime._physics_trace_sample)
+    source = inspect.getsource(runtime.Physics3DEmbodimentRuntime._physics_trace_sample)
     assert "joints: list[dict[str, object]] = []" in source
     assert source.index("joints: list") < source.index("joints.append")
 
 
 def test_runtime_settling_fails_closed_instead_of_treating_timeout_as_success():
-    from lab.physics3d.runtime import PyBulletEmbodimentRuntime
+    from types import SimpleNamespace
 
-    class NeverSettlesBullet:
-        def stepSimulation(self, **_kwargs):
-            return None
+    from lab.physics3d.runtime import Physics3DEmbodimentRuntime
 
-        def getBaseVelocity(self, *_args, **_kwargs):
-            return ((1.0, 0.0, 0.0), (0.0, 0.5, 0.0))
-
-        def getJointStates(self, *_args, **_kwargs):
-            return ((0.0, 0.25, 0.0, 0.0),)
-
-    class Body:
-        body_id = 1
-        motor_joint_indices = (0,)
+    class NeverSettles:
+        observer_joint_specs = (SimpleNamespace(name="joint"),)
+        position = 0.0
 
         def apply_effectors(self, _values):
             return None
 
         def prepare_physics_substep(self):
-            return None
+            self.position += 1.0
 
-    runtime = PyBulletEmbodimentRuntime.__new__(PyBulletEmbodimentRuntime)
-    runtime.p = NeverSettlesBullet()
-    runtime.client_id = 7
-    runtime.apparatus = Body()
+        def joint_states(self):
+            return [(self.position, 0.25)]
+
+        def base_velocity(self):
+            return [1.0, 0.0, 0.0], [0.0, 0.5, 0.0]
+
+        def contact_details(self):
+            return []
+
+        def joint_torques(self):
+            return [0.0]
+
+    runtime = Physics3DEmbodimentRuntime.__new__(Physics3DEmbodimentRuntime)
+    runtime.scene = SimpleNamespace(
+        model=SimpleNamespace(opt=SimpleNamespace(timestep=1.0 / 240.0)), step=lambda: None
+    )
+    runtime.apparatus = NeverSettles()
 
     with pytest.raises(RuntimeError, match="failed passive settling"):
         runtime._settle_new_body(
