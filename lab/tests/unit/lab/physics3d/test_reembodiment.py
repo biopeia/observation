@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from copy import deepcopy
 
+import pytest
+
 from symbiont.actuation.surface import ActuatorSurface
 from symbiont.core.cognition.host_self_model import RecencyClass
 from symbiont.core.embodiment.body_schema import BodySchemaEngine
@@ -253,6 +255,32 @@ def test_current_checkpoint_without_lifecycle_metadata_is_not_guessed_as_legacy(
         "current": {},
         "history_count": 0,
     }
+
+
+@pytest.mark.parametrize(
+    "marker",
+    [
+        "schema_version",
+        "runtime_provenance.checkpoint_schema_version",
+        "checkpoint_lineage.schema_version",
+    ],
+)
+def test_current_checkpoint_without_lifecycle_cannot_reembody_as_legacy(marker: str) -> None:
+    payload = _checkpoint(vital_state="active")
+    payload.pop("embodiment_lifecycle")
+    if marker == "schema_version":
+        payload["schema_version"] = CHECKPOINT_SCHEMA_VERSION
+    elif marker == "runtime_provenance.checkpoint_schema_version":
+        payload["runtime_provenance"] = {"checkpoint_schema_version": CHECKPOINT_SCHEMA_VERSION}
+    else:
+        payload["checkpoint_lineage"] = {"schema_version": CHECKPOINT_SCHEMA_VERSION}
+
+    with pytest.raises(ValueError, match="refusing legacy body fallback"):
+        prepare_fresh_embodiment_checkpoint(
+            payload,
+            _fresh(),
+            contract=EmbodimentDescriptor("new-body", 2, 2),
+        )
 
 
 def test_current_schema_provenance_also_blocks_legacy_lifecycle_fallback() -> None:

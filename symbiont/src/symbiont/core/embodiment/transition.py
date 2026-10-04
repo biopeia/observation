@@ -462,6 +462,16 @@ def prepare_fresh_embodiment_checkpoint(
     authority are withdrawn; adaptation to the new embodiment must be acquired
     through ordinary experience.
     """
+    raw_lifecycle = previous.get("embodiment_lifecycle")
+    has_current_lifecycle = (
+        isinstance(raw_lifecycle, Mapping)
+        and raw_lifecycle.get("schema_version") == _SCHEMA_VERSION
+    )
+    if _declares_current_checkpoint_schema(previous) and not has_current_lifecycle:
+        raise ValueError(
+            "current-schema checkpoint lacks valid embodiment_lifecycle; "
+            "refusing legacy body fallback"
+        )
     previous = migrate_temporal_domains(previous)
     result = deepcopy(dict(previous))
     # Archive the canonical episode before removing its current authority.
