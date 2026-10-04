@@ -29,7 +29,7 @@ from symbiont.core.embodiment.longitudinal import (
     inject_memory_candidates,
     memory_for_contract,
 )
-from symbiont.host.checkpoint import stamp_checkpoint_identity
+from symbiont.host.checkpoint import CHECKPOINT_SCHEMA_VERSION, stamp_checkpoint_identity
 from symbiont.host.continuity import LongitudinalContract
 
 # Longitudinal contract of the subject this module builds (issue #273).
@@ -61,6 +61,23 @@ def _body_vital_state(payload: Mapping[str, Any]) -> str:
         if isinstance(value, str) and value:
             return value
     return "unknown"
+
+
+def _declares_current_checkpoint_schema(payload: Mapping[str, Any]) -> bool:
+    """Recognize current-schema markers even if one envelope field was lost."""
+    provenance = payload.get("runtime_provenance")
+    lineage = payload.get("checkpoint_lineage")
+    declared = (
+        payload.get("schema_version"),
+        provenance.get("checkpoint_schema_version") if isinstance(provenance, Mapping) else None,
+        lineage.get("schema_version") if isinstance(lineage, Mapping) else None,
+    )
+    return any(
+        isinstance(version, int)
+        and not isinstance(version, bool)
+        and version >= CHECKPOINT_SCHEMA_VERSION
+        for version in declared
+    )
 
 
 def _legacy_contract(_payload: Mapping[str, Any]) -> EmbodimentDescriptor:
@@ -171,6 +188,16 @@ def lifecycle_summary(payload: Mapping[str, Any]) -> dict[str, object]:
             "history_count": len(raw.get("history", ()))
             if isinstance(raw.get("history"), list)
             else 0,
+        }
+    # A current-schema checkpoint should always carry one of the recognized
+    # lifecycle representations. Do not turn missing/corrupt current metadata
+    # into an anthropomorphic-v4 legacy body assertion.
+    if _declares_current_checkpoint_schema(payload):
+        return {
+            "state": "unavailable",
+            "epoch": 0,
+            "current": {},
+            "history_count": 0,
         }
     contract = _legacy_contract(payload)
     return {

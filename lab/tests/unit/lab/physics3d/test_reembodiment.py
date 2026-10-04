@@ -14,6 +14,7 @@ from symbiont.core.embodiment.transition import (
     prepare_fresh_embodiment_checkpoint,
     update_lifecycle_for_checkpoint,
 )
+from symbiont.host.checkpoint import CHECKPOINT_SCHEMA_VERSION
 
 
 def _checkpoint(*, vital_state: str = "dead") -> dict:
@@ -237,6 +238,43 @@ def test_pre_epoch_lifecycle_fallback_is_explicitly_the_legacy_profile() -> None
     # This compatibility projection carries no physical body/episode identity.
     assert "body_id" not in summary["current"]
     assert "embodiment_id" not in summary["current"]
+
+
+def test_current_checkpoint_without_lifecycle_metadata_is_not_guessed_as_legacy() -> None:
+    payload = _checkpoint(vital_state="active")
+    payload["schema_version"] = CHECKPOINT_SCHEMA_VERSION
+    payload.pop("embodiment_lifecycle")
+
+    summary = lifecycle_summary(payload)
+
+    assert summary == {
+        "state": "unavailable",
+        "epoch": 0,
+        "current": {},
+        "history_count": 0,
+    }
+
+
+def test_current_schema_provenance_also_blocks_legacy_lifecycle_fallback() -> None:
+    payload = _checkpoint(vital_state="active")
+    payload.pop("embodiment_lifecycle")
+    payload["runtime_provenance"] = {"checkpoint_schema_version": CHECKPOINT_SCHEMA_VERSION}
+
+    summary = lifecycle_summary(payload)
+
+    assert summary["state"] == "unavailable"
+    assert summary["current"] == {}
+
+
+def test_current_schema_lineage_also_blocks_legacy_lifecycle_fallback() -> None:
+    payload = _checkpoint(vital_state="active")
+    payload.pop("embodiment_lifecycle")
+    payload["checkpoint_lineage"] = {"schema_version": CHECKPOINT_SCHEMA_VERSION}
+
+    summary = lifecycle_summary(payload)
+
+    assert summary["state"] == "unavailable"
+    assert summary["current"] == {}
 
 
 def test_legacy_embodiment_memory_migrates_one_way_into_core_archive() -> None:
