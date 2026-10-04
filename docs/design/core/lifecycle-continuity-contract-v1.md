@@ -98,6 +98,23 @@ within one active schema still have no individual provenance, future designs
 that retain or merge entries across episodes must add provenance or preserve
 this whole-schema reset rule.
 
+### 3.2 Body-bound edges inside longitudinal developmental history
+
+The `DevelopmentalTracker` accumulates lifetime counters and bounded
+developmental summaries across Bodies. Its `previous_stressed` bit is
+different: it compares adjacent observations and therefore belongs to the
+current Body's physiological episode. Canonical re-embodiment preserves the
+tracker's cumulative history but resets this edge bit before the first
+observation of the new Body. Otherwise, that Body's first active observation
+could be counted as recovery from stress experienced only by the closed Body.
+
+This nested exception is declared in `REGISTER` as
+`_developmental_tracker.development.previous_stressed` → `REPLACED`; the
+remaining `development` checkpoint state is preserved. The transition and
+register contract are tested by
+`lab/tests/unit/lab/physics3d/test_reembodiment.py::test_reembodiment_does_not_count_new_body_activation_as_old_body_recovery`
+and `lab/tests/unit/host/test_continuity_register.py::test_developmental_tracker_resets_only_body_bound_stress_edge`.
+
 Evidence scope: `lab/tests/integration/test_reembodiment_continuity.py` verifies
 that the archived prior BodySchema is exact, the active schema is undeveloped
 after restore, current-episode boundary evidence uses Body B signal identities,
