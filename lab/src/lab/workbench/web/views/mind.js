@@ -123,14 +123,25 @@ function switchTab(tabId) {
 // Telemetry strip update
 // ─────────────────────────────────────────────────────────────────────────────
 
+function observedTopologyCount(kind) {
+  if (_snap.availability?.topology !== 'observed') return null;
+  const nodes = Array.isArray(_snap.topology?.nodes) ? _snap.topology.nodes : null;
+  if (!nodes) return null;
+  return nodes.filter((node) => node?.kind === kind).length;
+}
+
+function countLabel(value, suffix) {
+  return value == null ? `—${suffix}` : `${value}${suffix}`;
+}
+
 function updateTelemetryStrip(force = false) {
   const now = performance.now();
   if (!force && now - _lastUITime < UI_THROTTLE_MS) return;
 
-  const topology = _snap.topology ?? { nodes: [] };
-  const nodes = topology.nodes ?? [];
-  const concepts = _tel.cognitiveConcepts ?? nodes.filter(node => node.kind === 'concept').length;
-  const predictors = _tel.predictorCount ?? nodes.filter(node => node.kind === 'predictor').length;
+  // A zero derived from topology is a fact only when topology itself was
+  // observed. Missing telemetry plus missing topology remains unknown.
+  const concepts = _tel.cognitiveConcepts ?? observedTopologyCount('concept');
+  const predictors = _tel.predictorCount ?? observedTopologyCount('predictor');
   const physiology = currentPhysiologyState();
 
   setTelem('mind-t-tick', _tel.tick != null ? `t${_tel.tick}` : '—');
@@ -152,7 +163,11 @@ function updateTelemetryStrip(force = false) {
       ? `${_tel.resourceProgress >= 0 ? '+' : ''}${_tel.resourceProgress.toFixed(2)} m`
       : '—',
   );
-  setTelem('mind-t-cognition', `${concepts}C / ${predictors}P`, PAL.violet);
+  setTelem(
+    'mind-t-cognition',
+    `${countLabel(concepts, 'C')} / ${countLabel(predictors, 'P')}`,
+    PAL.violet,
+  );
   setTelem(
     'mind-t-motor',
     _tel.motorOrigin ?? '—',
@@ -229,8 +244,7 @@ function refreshSnapshotViews() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Connect to /api/organism for lightweight cognition + vitals telemetry.
- * This stream runs at all times while the view is mounted.
+ * Connect to /api/organism for coherent local observation and Observatory fallback.
  */
 function resetCurrentObservation() {
   for (const key of Object.keys(_tel)) _tel[key] = null;
@@ -241,10 +255,13 @@ function resetCurrentObservation() {
   _snap.beliefs = [];
   _snap.sensoryDevelopment = [];
   _snap.sensoryRelations = [];
+  _snap.availability = {};
 }
 
 function updateCoherence() {
   _streamState.coherent =
+    _streamState.runId != null &&
+    _streamState.organismId != null &&
     _streamState.telemetryTick != null &&
     _streamState.snapshotTick != null &&
     _streamState.telemetryTick === _streamState.snapshotTick;
@@ -257,7 +274,7 @@ function updateCoherence() {
 function ingestTelemetryEvent(data, meta = {}) {
   if (!applyTelemetryEvent(data)) return;
   if (!meta.historical) _streamState.lastTelemetryAt = Date.now();
-  _streamState.telemetryTick = meta.frameTick ?? data.tick ?? _streamState.telemetryTick;
+  _streamState.telemetryTick = meta.frameTick ?? data.tick ?? null;
   updateCoherence();
   recordMindHistory({ captureSnapshot: false, persist: !meta.historical });
   if (!meta.historical) updateTelemetryStrip();
@@ -284,6 +301,8 @@ function updateMindSourceState(next) {
     reason: next.reason ?? null,
   });
   if (_streamState.organismId) {
+    // Development remains organism-longitudinal while history records retain
+    // run boundaries. Live state was already cleared above on identity change.
     activateMindDevelopmentHistory(_streamState.organismId, _streamState.runId);
   }
   updateCoherence();
@@ -316,22 +335,16 @@ export function update(root, appState) {
   }
 }
 
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Public API
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Mount the Mind view into `root`.
- *
- * @param {HTMLElement} root
- */
+/** Mount the Mind view into root. */
 export function mount(root, appState = null) {
   if (!(root instanceof HTMLElement)) {
     throw new TypeError('Mind view requires a valid HTMLElement root');
   }
 
-  // Guard: unmount any previous instance.
   if (_root) unmount();
 
   _root = root;
@@ -341,12 +354,9 @@ export function mount(root, appState = null) {
   _lastUITime = 0;
   _activeTab = 'overview';
 
-  // Reset passive view state and observer-only presentation memory without
-  // changing organism state.
   resetMindDataState();
   cognition.resetPresentation();
 
-  // Build DOM. Layout owns structure only; all stateful actions are delegated.
   buildMindLayout(root, {
     activeTab: _activeTab,
     graphDimension: _graph.dimension,
@@ -361,16 +371,11 @@ export function mount(root, appState = null) {
     onReturnLive: () => cognition.returnLive(),
   });
 
-  // Show waiting overlay initially
   setWaiting(true, 'Connecting to organism streams…');
-
   renderOverview();
   updateTelemetryStrip(true);
-
-  // Apply initial tab style
   switchTab('overview');
 
-  // SSE transport is isolated from rendering/state interpretation.
   _streams = new MindStreams({
     onTelemetry: ingestTelemetryEvent,
     onSnapshot: (snapshot, meta = {}) => {
@@ -393,6 +398,7 @@ export function mount(root, appState = null) {
     },
     onTopology: (topology) => {
       _snap.topology = topology;
+      _snap.availability = { ...(_snap.availability ?? {}), topology: 'observed' };
       if (_activeTab === 'cognition') {
         cognition.init(
           document.getElementById('mind-cognition-canvas')?.width ?? 900,
@@ -405,7 +411,6 @@ export function mount(root, appState = null) {
   });
   _streams.connect();
 
-  // ResizeObserver to keep canvases properly sized
   _resizeObs = new ResizeObserver(() => {
     if (_activeTab === 'cognition') cognition.resize();
     if (_activeTab === 'phenotype') {
@@ -417,26 +422,20 @@ export function mount(root, appState = null) {
   _resizeObs.observe(root);
 }
 
-/**
- * Unmount the Mind view: stop animations, close SSE streams, clear DOM.
- */
+/** Unmount the Mind view and release presentation resources. */
 export function unmount() {
   persistMindDevelopmentHistory({ force: true });
 
-  // Stop animations and discard observer-only presentation ghosts.
   cognition.stop();
   cognition.resetPresentation();
 
-  // Close transport coordinator.
   if (_streams) {
     _streams.close();
     _streams = null;
   }
 
-  // Stop resize observer
   if (_resizeObs) { _resizeObs.disconnect(); _resizeObs = null; }
 
-  // Release volatile graph state.
   _graph.nodes = [];
   _graph.edges = [];
   _graph.hoveredNode = null;
@@ -446,7 +445,6 @@ export function unmount() {
   _graph.velocity3d.clear();
   _graph.projected3d.clear();
 
-  // Clear DOM and restore styles owned by the host before mounting.
   if (_root) {
     _root.replaceChildren();
     _root.classList.remove('mind-view-root');
