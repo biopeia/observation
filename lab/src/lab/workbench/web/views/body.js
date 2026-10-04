@@ -27,6 +27,27 @@ function createViewer(root, domain) {
   return globalInstance;
 }
 
+function drainTransportIssues() {
+  const decoder = globalInstance?.liveDecoder;
+  if (!decoder?.takeIssue) return;
+  let issue = decoder.takeIssue();
+  while (issue) {
+    const status = globalInstance?.statusEl;
+    if (status && ['gap', 'waiting-for-anchor', 'schema-error'].includes(issue.kind)) {
+      status.textContent = issue.kind === 'schema-error'
+        ? '○ Invalid observation payload — waiting for valid data'
+        : `○ Observation gap${issue.channel ? ` · ${issue.channel}` : ''} — waiting for anchor`;
+      status.style.color = 'var(--amber, #f1fa8c)';
+      status.dataset.observationFreshness = 'stale';
+    } else if (status && issue.kind === 'rebase') {
+      status.textContent = `● Live · rebased${issue.reason ? ` (${issue.reason})` : ''}`;
+      status.style.color = 'var(--mint, #50fa7b)';
+      status.dataset.observationFreshness = 'live';
+    }
+    issue = decoder.takeIssue();
+  }
+}
+
 export function mount(root, state = null, { domain = 'world' } = {}) {
   if (globalInstance) unmount();
   mountedRoot = root;
@@ -37,6 +58,8 @@ export function mount(root, state = null, { domain = 'world' } = {}) {
 
 export function update(root, state = null) {
   if (!globalInstance || root !== mountedRoot) return;
+  drainTransportIssues();
+
   const nextIdentity = physicalIdentity(state);
   if (!nextIdentity || nextIdentity === presentationIdentity) return;
 
