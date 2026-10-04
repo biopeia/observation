@@ -384,6 +384,9 @@ def test_knowledge_survives_as_knowledge_without_authority(case: _Case) -> None:
 
     action_entry = next(entry for entry in REGISTER if entry.attribute == "_action_domain")
     assert dict(action_entry.nested_reembodiment) == {
+        "action_domain.selection_threshold": Reembodiment.REPLACED,
+        "action_domain.actuator_evidence": Reembodiment.REPLACED,
+        "action_domain.competence_development": Reembodiment.REPLACED,
         "action_domain.sensorimotor_v2.effect_space": Reembodiment.PRESERVED,
         "action_domain.sensorimotor_v2.causal_evidence": Reembodiment.PRESERVED,
         "action_domain.sensorimotor_v2.agency_acquisition": Reembodiment.PRESERVED,
@@ -410,6 +413,9 @@ def test_knowledge_survives_as_knowledge_without_authority(case: _Case) -> None:
     fresh_v2 = case.fresh["actuation"]["action_domain"]["sensorimotor_v2"]
     current_action = case.transformed["actuation"]["action_domain"]
     current_v2 = current_action["sensorimotor_v2"]
+    fresh_action = case.fresh["actuation"]["action_domain"]
+    for field in ("selection_threshold", "actuator_evidence", "competence_development"):
+        assert current_action[field] == fresh_action[field], field
     for field in (
         "effect_space",
         "causal_evidence",

@@ -327,6 +327,9 @@ REGISTER: tuple[ContinuityEntry, ...] = (
         # are properties of this domain.
         extra_checkpoint_fields=("executive_intention",),
         nested_reembodiment=(
+            ("action_domain.selection_threshold", _BODY),
+            ("action_domain.actuator_evidence", _BODY),
+            ("action_domain.competence_development", _BODY),
             ("action_domain.sensorimotor_v2.effect_space", _KEEP),
             ("action_domain.sensorimotor_v2.causal_evidence", _KEEP),
             ("action_domain.sensorimotor_v2.agency_acquisition", _KEEP),
