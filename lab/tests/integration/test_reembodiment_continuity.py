@@ -597,6 +597,37 @@ def test_registered_nested_reembodiment_paths_resolve_in_checkpoint(case: _Case)
             )
 
 
+def test_nested_continuity_policies_cover_every_checkpoint_field(case: _Case) -> None:
+    """A classified aggregate must not hide unclassified sibling fields."""
+    for entry in REGISTER:
+        if not entry.nested_reembodiment:
+            continue
+        policies = dict(entry.nested_reembodiment)
+        for root in entry.nested_checkpoint_fields:
+            aggregate = case.transformed
+            for part in root.split("."):
+                assert isinstance(aggregate, Mapping) and part in aggregate, (entry.attribute, root)
+                aggregate = aggregate[part]
+            if not isinstance(aggregate, Mapping):
+                assert root in policies, (entry.attribute, root)
+                continue
+
+            covered: set[str] = set()
+            for path in policies:
+                candidates = [
+                    path
+                    if path == other or path.startswith(f"{other}.")
+                    else f"{other}.{path}"
+                    for other in entry.nested_checkpoint_fields
+                ]
+                resolved = [candidate for candidate in candidates if _has_path(case.transformed, candidate)]
+                assert len(resolved) == 1, (entry.attribute, path, candidates)
+                candidate = resolved[0]
+                if candidate == root or candidate.startswith(f"{root}."):
+                    covered.add(candidate.removeprefix(f"{root}.").split(".", maxsplit=1)[0])
+            assert covered == set(aggregate), (entry.attribute, root, covered, set(aggregate))
+
+
 def test_nested_reembodiment_policies_match_transformed_values(case: _Case) -> None:
     for entry in REGISTER:
         for path, policy in entry.nested_reembodiment:
