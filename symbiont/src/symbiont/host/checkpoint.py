@@ -279,7 +279,7 @@ def _saved_by_current_schema(payload: dict[str, Any]) -> bool:
     """Whether the runtime that saved this state declared a verifying schema.
 
     Decided from what the saving runtime recorded — in the lineage block and in
-    runtime_provenance — which transforms and migrations carry over unchanged.
+    runtime_provenance — which identity-verifying transforms carry over unchanged.
     A verifiable ``identity_scope`` alone is not evidence of it: an authorized
     transform gives a legacy checkpoint a verifiable identity without giving it
     the fields that only a later schema writes.
