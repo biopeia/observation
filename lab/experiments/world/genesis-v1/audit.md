@@ -1,7 +1,10 @@
 # Genesis v1 — W01/W02 audit
 
-Preregistration and script: `run_w01_w02.py`. Raw output: `results.json`.
-Runner: `symbiont_lab.world.adapter.SingleOrganismGenesisRuntime` (W3,
+Archived evidence. The runner is retired; this report and `results.json` are
+retained as historical records, not a current runtime contract.
+
+Preregistration and runner: `run_w01_w02.py` (retired). Raw output: `results.json`.
+The historical runner used `symbiont_lab.world.adapter.SingleOrganismGenesisRuntime` (W3,
 docs/design/symbiont-world-v1.md §15) against `symbiont_lab.world.genesis_v1`
 (the frozen Genesis v1 preset). Seeds `101, 127, 149`, `300` ticks each,
 single stationary organism, hex world 8×8 (bounded smoke scale, not the

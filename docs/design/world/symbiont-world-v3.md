@@ -94,15 +94,18 @@ symbiont_world
 
 symbiont_lab.world
 ├── Genesis presets
-├── SingleOrganismGenesisRuntime
 ├── PopulationGenesisRuntime
 ├── deferred damage
 ├── founder placement
-├── W01/W02/W03 experiments
+├── population-world experiments
 ├── dashboard server
 ├── read-only API
 └── SVG world view
 ```
+
+The Genesis v1 single-organism W01/W02 runners have been retired. Their
+audit reports and raw outputs remain archived as evidence; they are not
+executable entrypoints or current runtime contracts.
 
 There is also a server that continuously executes the world independently of the browser.
 

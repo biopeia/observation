@@ -1,6 +1,8 @@
 # W02 retry — audit
 
-Script: `run_w02_retry.py`. Raw output: `w02_retry_results.json`.
+Archived evidence. The runner is retired; this report and
+`w02_retry_results.json` remain historical records, not a current runtime
+contract. Historical runner: `run_w02_retry.py`.
 
 ## Result: H0 still stands, with a sharper diagnosis
 

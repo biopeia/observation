@@ -13,7 +13,6 @@ from environment.genesis_v1 import (
     build_ground_truth,
 )
 from lab.integration.world.adapter import (
-    SingleOrganismGenesisRuntime,
     WorldDiscoveryProvider,
     WorldReadingProvider,
     WorldTickRecord,
@@ -36,7 +35,6 @@ __all__ = [
     "build_genesis_smoke_v1",
     "build_genesis_v1",
     "build_ground_truth",
-    "SingleOrganismGenesisRuntime",
     "WorldDiscoveryProvider",
     "WorldReadingProvider",
     "WorldTickRecord",

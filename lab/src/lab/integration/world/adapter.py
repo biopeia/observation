@@ -1,8 +1,7 @@
 """Genesis World ↔ organism boundary.
 
-Historical single-organism adapters remain for frozen studies. The canonical
-persistent World uses the experimental-clean population path: mixed opaque
-physical receptors, opaque motor actuation and no typed local behavior priors.
+The persistent World uses the population path: mixed opaque physical
+receptors, opaque motor actuation and no typed local behavior priors.
 """
 
 from __future__ import annotations
@@ -16,19 +15,17 @@ from dataclasses import dataclass
 from typing import Any
 
 from environment.contracts import WorldAction, WorldObservation
-from environment.deferred import DeferredEffect, DeferredEffectQueue
-from environment.genesis import GroundTruth, WorldEnvironment
-from environment.observation import local_observation, opaque_signal_id
+from environment.genesis import GroundTruth
+from environment.observation import opaque_signal_id
 from environment.rng import derive_world_rng, derive_world_seed
-from environment.state import WorldState
-from environment.topology import BodyPlacement, HexCoord, HexTopology
+from environment.topology import HexCoord
 from lab.integration.organism import create_canonical_organism
 from symbiont.actuation.surface import ActuatorConstitution, derive_actuator_constitution
 from symbiont.actuation.types import Actuation
 from symbiont.cognition.birth import load_base_genome
 from symbiont.cognition.limits import KernelLimits
 from symbiont.core.embodiment.metabolism import MetabolicLedger
-from symbiont.core.embodiment.physiology import PhysiologyController, VitalState
+from symbiont.core.embodiment.physiology import PhysiologyController
 from symbiont.core.social.ecology import SharedHabitat
 from symbiont.genetics.genome import Genome
 from symbiont.host.continuity import LongitudinalContract
@@ -41,7 +38,6 @@ from symbiont.modeling.runtime import ModeledOrganismRuntime
 # Longitudinal contract of the subject this module builds (issue #273).
 LONGITUDINAL_CONTRACT = LongitudinalContract.REDUCED_SEED_TRANSPLANT
 
-_HAZARD_DAMAGE_QUANTUM = 0.05
 _OCCUPANCY_SIGNAL = opaque_signal_id("local-occupancy-density")
 _RECEPTION_PRESENT_SIGNAL = opaque_signal_id("local-reception-presence")
 _RECEPTION_SYMBOL_SIGNAL = opaque_signal_id("local-reception-symbol")
@@ -476,10 +472,7 @@ class WorldTickRecord:
 
 @dataclass(slots=True)
 class _OrganismRig:
-    """Everything one organism needs to perceive/act in a world, minus
-    world-shared state (WorldState/WorldEnvironment). Factored out so
-    SingleOrganismGenesisRuntime and PopulationGenesisRuntime (v2) build
-    organisms identically -- one construction path, not two."""
+    """Everything one organism needs to perceive/act, minus world-shared state."""
 
     runtime: ModeledOrganismRuntime | None
     reading_provider: WorldReadingProvider
@@ -686,143 +679,3 @@ def _act(rig: _OrganismRig) -> ActionExecutionResult:
         executed=executed,
         reason=None if executed else "no_available_effector",
     )
-
-
-class SingleOrganismGenesisRuntime:
-    """Runs exactly one ModeledOrganismRuntime inside a Genesis v1 world.
-
-    v1 scope only (docs/design/archive/symbiont-world-v1.md §15): the organism
-    never issues WorldAction.move; occupancy never changes after
-    construction. No communication, no reproduction.
-    """
-
-    def __init__(
-        self,
-        *,
-        organism_id: str,
-        world_seed: int,
-        ground_truth: GroundTruth,
-        topology: HexTopology,
-        start_cell: HexCoord,
-        world_id: str = "genesis-v1",
-        policy: str = "cognitive",
-        organism_seed: int | None = None,
-        deferred_resource_delays: dict[str, int] | None = None,
-        deferred_damage_amount: float = 0.1,
-    ) -> None:
-        self.organism_id = organism_id
-        self.world_seed = world_seed
-        self.organism_seed = world_seed if organism_seed is None else organism_seed
-        self.topology = topology
-        self._deferred_resource_delays = deferred_resource_delays or {}
-        self._deferred_damage_amount = deferred_damage_amount
-        self._deferred_queue = DeferredEffectQueue()
-        self.environment = WorldEnvironment(ground_truth)
-        self.state = WorldState(world_id=world_id)
-        if not self.state.occupancy.occupy(start_cell, organism_id):
-            raise ValueError("start_cell already occupied")
-        self.state.bodies[organism_id] = BodyPlacement(
-            organism_id=organism_id, occupied_cell=start_cell
-        )
-
-        self._rig = _construct_organism(
-            organism_id=organism_id,
-            world_id=world_id,
-            world_seed=world_seed,
-            organism_seed=self.organism_seed,
-            ground_truth=ground_truth,
-            policy=policy,
-        )
-        self.runtime = self._rig.runtime
-        self._reading_provider = self._rig.reading_provider
-        self._resource_habitats = self._rig.resource_habitats
-        self.history: list[WorldTickRecord] = []
-
-    def _occupied_cell(self) -> HexCoord:
-        return self.state.bodies[self.organism_id].occupied_cell
-
-    def is_alive(self) -> bool:
-        return self.runtime._physiology.state is not VitalState.DEAD
-
-    def run_tick(self) -> WorldTickRecord:
-        if not self.is_alive():
-            raise RuntimeError("organism is dead; the run has already ended")
-
-        current_tick = self.state.tick
-        cell = self._occupied_cell()
-        hazard_hits: list[str] = []
-        observation: WorldObservation | None = None
-        action_result: ActionExecutionResult | None = None
-
-        with self.state.begin_tick():
-            self.environment.propagate_fields(current_tick)
-            self.environment.renew_resources(cell)
-
-            for effect in self._deferred_queue.pop_due(self.organism_id, current_tick):
-                if self.is_alive():
-                    self.runtime.apply_environmental_damage(effect.amount)
-
-            pre_pool = {
-                resource_id: pool_value
-                for resource_id, pool_value in self.environment.resource_pool(cell).items()
-            }
-            for resource_id, habitat in self._resource_habitats.items():
-                habitat.set_environment_resources(pre_pool.get(resource_id, 0.0))
-
-            observation = local_observation(
-                self.topology,
-                self.state.occupancy,
-                self.state.bodies[self.organism_id],
-                self.environment,
-            )
-            self._reading_provider.set_observation(observation)
-
-            self.runtime.tick()
-            action_result = _act(self._rig)
-
-            for resource_id, habitat in self._resource_habitats.items():
-                consumed = pre_pool.get(resource_id, 0.0) - habitat.snapshot().available_resources
-                if consumed > 0.0:
-                    self.environment.acquire(cell, resource_id, consumed)
-                    delay = self._deferred_resource_delays.get(resource_id)
-                    if delay is not None:
-                        self._deferred_queue.schedule(
-                            DeferredEffect(
-                                organism_id=self.organism_id,
-                                due_tick=current_tick + delay,
-                                amount=self._deferred_damage_amount,
-                            )
-                        )
-
-            density = observation.signals.get(_OCCUPANCY_SIGNAL, 0.0)
-            if self.is_alive():
-                for hazard_ordinal, (hazard_id, exposure) in enumerate(
-                    self.environment.hazard_exposures_at(cell, density).items()
-                ):
-                    rng = derive_world_rng(
-                        self.world_seed, f"hazard.slot.{hazard_ordinal}:{current_tick}"
-                    )
-                    if rng.random() < exposure:
-                        self.runtime.apply_environmental_damage(_HAZARD_DAMAGE_QUANTUM)
-                        hazard_hits.append(hazard_id)
-
-        if observation is None or action_result is None:
-            raise RuntimeError("tick aborted without observation or action")
-
-        record = WorldTickRecord(
-            tick=current_tick,
-            observation=observation,
-            action=action_result,
-            hazard_hits=tuple(hazard_hits),
-            alive=self.is_alive(),
-        )
-        self.history.append(record)
-        return record
-
-    def run(self, ticks: int) -> tuple[WorldTickRecord, ...]:
-        records: list[WorldTickRecord] = []
-        for _ in range(ticks):
-            if not self.is_alive():
-                break
-            records.append(self.run_tick())
-        return tuple(records)
