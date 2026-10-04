@@ -1,0 +1,64 @@
+{
+  "id": "crawler-passive-characterization-20261004",
+  "scope": "mechanical",
+  "commit": "61397bd652aeac26759fb07db04417655a2ddaef",
+  "experiment_id": "crawler-passive-characterization-v1",
+  "seed": 0,
+  "scientific_input": {
+    "mode": "protocol-generated",
+    "external_state": false
+  },
+  "governance_ref": "61397bd652aeac26759fb07db04417655a2ddaef",
+  "authorization_model": "external-operator-policy",
+  "owner_pid": 2302088,
+  "owner_start_token": "36057537",
+  "started_at": "2026-10-04T21:16:15.385927+00:00",
+  "wall_minutes": 15,
+  "memory_gb": 3.0,
+  "cpu_threads": 2,
+  "disk_gb": 2.0,
+  "resource_preflight": {
+    "available_memory_gb": 4.711402893066406,
+    "free_disk_gb": 12.442852020263672,
+    "available_cpu_threads": 8
+  },
+  "state": "complete",
+  "child_pid": 2304613,
+  "child_start_token": "36072595",
+  "worktree_commit": "61397bd652aeac26759fb07db04417655a2ddaef",
+  "dependency_extras": [
+    "physics3d"
+  ],
+  "environment_path": "/home/alessbarb/workspace/repos/active/symbiont-lab/.git/symbiont-agent/runs/crawler-passive-characterization-20261004/environment",
+  "command": [
+    "/home/alessbarb/workspace/repos/active/symbiont-lab/.git/symbiont-agent/runs/crawler-passive-characterization-20261004/environment/bin/python",
+    "-m",
+    "lab.experiments.verified_child",
+    "code",
+    "from __future__ import annotations\nimport dataclasses, hashlib, importlib.metadata, json, math, os, platform, subprocess, sys\nfrom pathlib import Path\nfrom statistics import fmean\n\nfrom embodiment.physics3d.alternative_bodies import CRAWLER_SPEC, CrawlerPhysics\nfrom embodiment.physics3d.mechanics import GROUND_MATERIAL\nfrom embodiment.physics3d.scene import PhysicsScene\nfrom lab.physics3d.settling import settle_passive_body\n\nG = 9.81\nDT = 1.0 / 240.0\nRUN_ID = os.environ[\"SYMBIONT_RUN_ID\"]\nWORK = Path(os.environ[\"SYMBIONT_RUN_WORK\"])\n\ndef plain(value):\n    if dataclasses.is_dataclass(value):\n        return {k: plain(v) for k, v in dataclasses.asdict(value).items()}\n    if isinstance(value, dict):\n        return {str(k): plain(v) for k, v in value.items()}\n    if isinstance(value, (tuple, list)):\n        return [plain(v) for v in value]\n    if isinstance(value, (str, int, float, bool)) or value is None:\n        return value\n    return repr(value)\n\ndef vec(values):\n    return [float(v) for v in values]\n\ndef norm(values):\n    return math.sqrt(sum(float(v) ** 2 for v in values))\n\ndef model_record(scene, body):\n    import mujoco\n    m = scene.model\n    name = lambda typ, i: mujoco.mj_id2name(m, typ, i) or f\"unnamed-{i}\"\n    joints = []\n    for i in range(int(m.njnt)):\n        d = int(m.jnt_dofadr[i])\n        joints.append({\"name\": name(mujoco.mjtObj.mjOBJ_JOINT, i), \"type\": int(m.jnt_type[i]), \"limited\": bool(m.jnt_limited[i]), \"range\": vec(m.jnt_range[i]), \"damping\": float(m.dof_damping[d]) if d < m.nv else None, \"frictionloss\": float(m.dof_frictionloss[d]) if d < m.nv else None, \"armature\": float(m.dof_armature[d]) if d < m.nv else None, \"stiffness\": float(m.jnt_stiffness[i])})\n    geoms = []\n    for i in range(int(m.ngeom)):\n        geoms.append({\"name\": name(mujoco.mjtObj.mjOBJ_GEOM, i), \"body_id\": int(m.geom_bodyid[i]), \"type\": int(m.geom_type[i]), \"size\": vec(m.geom_size[i]), \"friction\": vec(m.geom_friction[i]), \"condim\": int(m.geom_condim[i]), \"solref\": vec(m.geom_solref[i]), \"solimp\": vec(m.geom_solimp[i]), \"margin\": float(m.geom_margin[i])})\n    bodies = []\n    for i in range(int(m.nbody)):\n        bodies.append({\"name\": name(mujoco.mjtObj.mjOBJ_BODY, i), \"mass_kg\": float(m.body_mass[i]), \"inertia\": vec(m.body_inertia[i]), \"ipos\": vec(m.body_ipos[i])})\n    return {\"counts\": {\"nbody\": int(m.nbody), \"njnt\": int(m.njnt), \"ngeom\": int(m.ngeom), \"nq\": int(m.nq), \"nv\": int(m.nv)}, \"options\": {\"timestep_s\": float(m.opt.timestep), \"gravity_m_s2\": vec(m.opt.gravity), \"solver\": int(m.opt.solver), \"integrator\": int(m.opt.integrator), \"iterations\": int(m.opt.iterations), \"tolerance\": float(m.opt.tolerance)}, \"bodies\": bodies, \"joints\": joints, \"geoms\": geoms, \"body_mass_distribution\": {\"total_mass_kg\": float(body.mass_distribution()[0]), \"center_of_mass_m\": vec(body.mass_distribution()[1])}}\n\ndef capture(scene, body, phase, tick):\n    pos, quat = body.base_pose()\n    linear, angular = body.base_velocity()\n    joints = body.joint_states()\n    total_mass, com = body.mass_distribution()\n    contacts = [c for c in body.contact_details() if int(c[\"other_body_id\"]) == 0]\n    rec = {\"phase\": phase, \"tick\": tick, \"time_s\": float(scene.data.time), \"base_position_m\": vec(pos), \"base_quaternion_xyzw\": vec(quat), \"base_linear_velocity_m_s\": vec(linear), \"base_angular_velocity_rad_s\": vec(angular), \"joint_position_rad\": {s.name: float(joints[i][0]) for i, s in enumerate(CRAWLER_SPEC.joint_specs)}, \"joint_velocity_rad_s\": {s.name: float(joints[i][1]) for i, s in enumerate(CRAWLER_SPEC.joint_specs)}, \"center_of_mass_m\": vec(com), \"body_mass_kg\": float(total_mass), \"ground_contact_count\": len(contacts), \"ground_normal_reaction_n\": sum(float(c[\"normal_force\"]) for c in contacts), \"ground_penetration_max_m\": max((max(0.0, -float(c[\"distance\"])) for c in contacts), default=0.0), \"ground_contacts\": [{\"link_index\": int(c[\"link_index\"]), \"link_name\": c[\"link_name\"], \"position_m\": vec(c[\"position\"]), \"normal\": vec(c[\"normal\"]), \"normal_force_n\": float(c[\"normal_force\"]), \"distance_m\": float(c[\"distance\"])} for c in contacts]}\n    def check(x):\n        if isinstance(x, float): return math.isfinite(x)\n        if isinstance(x, dict): return all(check(v) for v in x.values())\n        if isinstance(x, list): return all(check(v) for v in x)\n        return True\n    rec[\"finite\"] = check({k:v for k,v in rec.items() if k != \"finite\"})\n    return rec\n\ndef run_rep(rep):\n    scene = PhysicsScene(timestep=DT, gravity=(0.0, 0.0, -G))\n    scene.add_ground(GROUND_MATERIAL)\n    body = CrawlerPhysics(scene)\n    trace = []\n    original_step = scene.step\n    phase = \"settling\"\n    tick = 0\n    trace.append(capture(scene, body, \"initial\", tick))\n    def measured_step():\n        nonlocal tick\n        original_step()\n        tick += 1\n        trace.append(capture(scene, body, phase, tick))\n    scene.step = measured_step\n    effective = model_record(scene, body)\n    settle = settle_passive_body(scene, body)\n    post_summary = None\n    if settle.converged:\n        phase = \"post_settle\"\n        body.apply_effectors({})\n        post = [x for x in trace if x[\"phase\"] == \"post_settle\"]\n        for _ in range(480):\n            body.prepare_physics_substep()\n            scene.step()\n        post = [x for x in trace if x[\"phase\"] == \"post_settle\"]\n        forces = [x[\"ground_normal_reaction_n\"] for x in post]\n        pen = [x[\"ground_penetration_max_m\"] for x in post]\n        contacts = [x[\"ground_contact_count\"] for x in post]\n        start, end = post[0], post[-1]\n        post_summary = {\"steps\": len(post), \"base_drift_m\": math.dist(start[\"base_position_m\"], end[\"base_position_m\"]), \"com_height_start_m\": start[\"center_of_mass_m\"][2], \"com_height_end_m\": end[\"center_of_mass_m\"][2], \"com_drift_m\": abs(end[\"center_of_mass_m\"][2]-start[\"center_of_mass_m\"][2]), \"mean_ground_reaction_n\": fmean(forces), \"max_ground_reaction_n\": max(forces), \"expected_weight_n\": effective[\"body_mass_distribution\"][\"total_mass_kg\"]*G, \"reaction_to_weight_ratio\": fmean(forces)/(effective[\"body_mass_distribution\"][\"total_mass_kg\"]*G), \"max_ground_penetration_m\": max(pen), \"mean_ground_penetration_m\": fmean(pen), \"mean_ground_contact_points\": fmean(contacts), \"max_ground_contact_points\": max(contacts), \"max_base_linear_speed_m_s\": max(norm(x[\"base_linear_velocity_m_s\"]) for x in post), \"max_base_angular_speed_rad_s\": max(norm(x[\"base_angular_velocity_rad_s\"]) for x in post), \"max_joint_speed_rad_s\": max((abs(v) for x in post for v in x[\"joint_velocity_rad_s\"].values()), default=0.0)}\n    finite = all(x[\"finite\"] for x in trace)\n    return {\"replicate\": rep, \"effective_model\": effective, \"settling\": settle.as_dict(), \"post_settle_summary\": post_summary, \"finite_all_steps\": finite, \"disposition\": \"reportable\" if finite and settle.converged and post_summary is not None else \"not_evaluable\", \"trace\": trace}\n\nsource_commit = subprocess.check_output([\"git\", \"rev-parse\", \"HEAD\"], text=True).strip()\nlock_hash = hashlib.sha256(Path(\"uv.lock\").read_bytes()).hexdigest()\nrunner_config_hash = hashlib.sha256(os.environ[\"SYMBIONT_EFFECTIVE_CONFIG\"].encode()).hexdigest()\nreport = {\"protocol\": \"crawler-passive-characterization-v1\", \"run_id\": RUN_ID, \"source_commit\": source_commit, \"seed\": None, \"launcher_seed_bookkeeping\": int(os.environ[\"SYMBIONT_SEED\"]), \"no_stochastic_input\": True, \"runner_effective_config_sha256\": runner_config_hash, \"dependency_versions\": {\"python\": sys.version, \"platform\": platform.platform(), \"mujoco\": importlib.metadata.version(\"mujoco\"), \"numpy\": importlib.metadata.version(\"numpy\"), \"uv_lock_sha256\": lock_hash}, \"declared_inputs\": {\"crawler_spec\": plain(CRAWLER_SPEC), \"ground_material\": plain(GROUND_MATERIAL)}, \"replicates\": [run_rep(1), run_rep(2)]}\nreport[\"disposition\"] = \"reportable\" if all(r[\"disposition\"] == \"reportable\" for r in report[\"replicates\"]) else \"not_evaluable\"\nreport_path = WORK / \"crawler-passive-characterization.json\"\nraw = json.dumps(report, sort_keys=True, indent=2, allow_nan=False).encode()\nreport_path.write_bytes(raw)\nmanifest = {\"protocol\": report[\"protocol\"], \"run_id\": RUN_ID, \"source_commit\": source_commit, \"artifacts\": {report_path.name: \"sha256:\" + hashlib.sha256(raw).hexdigest()}, \"runner_effective_config_sha256\": runner_config_hash, \"replicate_dispositions\": [r[\"disposition\"] for r in report[\"replicates\"]], \"overall_disposition\": report[\"disposition\"]}\nmanifest_path = WORK / \"artifact-manifest.json\"\nmanifest_path.write_text(json.dumps(manifest, sort_keys=True, indent=2) + \"\\n\")\nprint(json.dumps({\"run_id\": RUN_ID, \"source_commit\": source_commit, \"disposition\": report[\"disposition\"], \"replicates\": [{\"settling\": r[\"settling\"], \"post_settle_summary\": r[\"post_settle_summary\"], \"trace_records\": len(r[\"trace\"]), \"finite_all_steps\": r[\"finite_all_steps\"], \"disposition\": r[\"disposition\"]} for r in report[\"replicates\"]], \"report_sha256\": hashlib.sha256(raw).hexdigest(), \"runner_effective_config_sha256\": runner_config_hash}, sort_keys=True))"
+  ],
+  "execution_fingerprint": {
+    "dependency_lock_hash": "c7ab0b8674e6a1f83368453ac91f3ba11c08a7f3514e7d509bffe239b9f2c3fe",
+    "effective_config_hash": "85247916aa735c4a69ef8d74aeba2d3e2c6ee0337d64ac400b2f783591480d18",
+    "experiment_id": "crawler-passive-characterization-v1",
+    "git_commit": "61397bd652aeac26759fb07db04417655a2ddaef",
+    "is_dirty": false,
+    "python_base_prefix": "/usr",
+    "python_executable": "/usr/bin/python3.12",
+    "python_prefix": "/home/alessbarb/workspace/repos/active/symbiont-lab/.git/symbiont-agent/runs/crawler-passive-characterization-20261004/environment",
+    "python_version": "3.12.3",
+    "repo_root": "/tmp/symbiont-lab-worktrees/run-61397bd652-ylkcs4_3",
+    "seed": 0,
+    "symbiont_file": "/tmp/symbiont-lab-worktrees/run-61397bd652-ylkcs4_3/symbiont/src/symbiont/__init__.py",
+    "symbiont_lab_file": "/tmp/symbiont-lab-worktrees/run-61397bd652-ylkcs4_3/lab/src/lab/__init__.py"
+  },
+  "ended_at": "2026-10-04T21:18:46.602978+00:00",
+  "elapsed_seconds": 151.21245288848877,
+  "returncode": 0,
+  "generation": {
+    "name": "generation-000000",
+    "path": "generations/generation-000000",
+    "file_count": 3,
+    "complete_sha256": "bae6a50b1101facbafa59d60609becb3ec921cf784192d0c123bff239b6cb06d"
+  }
+}
