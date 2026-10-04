@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from symbiont.core.orchestration.runtime import OrganismRuntime
+from symbiont.core.organism_profile import CANONICAL
 from symbiont.host.sources import HostSenseSources
 from symbiont.sensory.interoception import InteroceptionProvider
 
@@ -68,3 +69,23 @@ def test_without_host_telemetry_the_organism_publishes_only_its_own_channels() -
         capability.capability_id
         for capability in runtime._lifecycle._discovery.discover().capabilities
     } == set(InteroceptionProvider.ORGANISM_CAPABILITY_IDS)
+
+
+def test_canonical_profile_v1_is_invariant_to_unperceived_host_telemetry() -> None:
+    """Profile v1 has no interoception, so process instrumentation is not sensed."""
+
+    def run(telemetry: object | None) -> str:
+        runtime = OrganismRuntime(
+            organism_id="canonical-instrumentation-probe",
+            **CANONICAL.runtime_kwargs(),
+            host_sense_sources=HostSenseSources(
+                process_telemetry=telemetry,
+                availability="available",
+            ),
+        )
+        for _ in range(TICKS):
+            runtime.tick()
+        assert runtime._interoception_provider is None
+        return runtime.state_hash()
+
+    assert run(None) == run(FakeTelemetry(**EXTREME))
