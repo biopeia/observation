@@ -5,13 +5,9 @@ from dataclasses import replace
 
 import pytest
 
-from embodiment.physics3d.alternative_bodies import (
-    ASYMMETRIC_SPEC,
-    CRAWLER_SPEC,
-    AsymmetricPhysics,
-    CrawlerPhysics,
-)
 from embodiment.physics3d.articulated import ArticulatedPhysics, build_articulated_urdf
+from embodiment.physics3d.asymmetric import ASYMMETRIC_SPEC, AsymmetricPhysics
+from embodiment.physics3d.crawler import CRAWLER_SPEC, CrawlerPhysics
 from embodiment.physics3d.humanoid import ANTHROPOMORPHIC_SPEC, HumanoidPhysics
 
 
