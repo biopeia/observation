@@ -348,7 +348,20 @@ class SequenceGroundingLedger:
         for row in associations:
             if not isinstance(row, Mapping):
                 raise ValueError("invalid sequence association row")
-            item = SequenceAssociation(**row)
+            symbols = row.get("symbols")
+            outcome_tokens = row.get("outcome_tokens")
+            if not isinstance(symbols, (list, tuple)) or not isinstance(
+                outcome_tokens, (list, tuple)
+            ):
+                raise ValueError("sequence association tokens must be sequences")
+            item = SequenceAssociation(
+                sequence_id=row["sequence_id"],
+                symbols=tuple(symbols),
+                outcome_tokens=tuple(outcome_tokens),
+                support=row["support"],
+                contradiction=row["contradiction"],
+                last_tick=row["last_tick"],
+            )
             if item.sequence_id != SymbolSequence(item.symbols).sequence_id:
                 raise ValueError("sequence identity mismatch")
             ledger._associations[(item.sequence_id, item.outcome_tokens)] = item

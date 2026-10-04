@@ -34,6 +34,9 @@ from symbiont.modeling import (
     ModelObjective,
     ModelState,
     NativeTokenizer,
+    SequenceMessage,
+    SymbolMessage,
+    SymbolSequence,
     TrainingRequest,
 )
 from symbiont.modeling.private_runtime import PrivateModelOrganismRuntime
@@ -148,6 +151,33 @@ class _Case:
             evidence_id="evidence.own",
             confidence_class=5,
         )
+        # Include acquired receiver-side symbol/sequence grounding in the same
+        # developed subject as the other longitudinal subsystems below.
+        sender_id = "reembodiment-peer"
+        symbol_id = developed.symbol_policy.symbol_space[0]
+        developed.symbol_grounding_ledger.receive(
+            SymbolMessage(
+                symbol_id,
+                sender_id,
+                developed.organism_id,
+                DEVELOPMENT_TICKS - 2,
+            ),
+            tick=DEVELOPMENT_TICKS - 2,
+        )
+        developed.observe_symbolic_outcome("outcome.symbol", tick=DEVELOPMENT_TICKS - 1)
+        sequence = SymbolSequence(tuple(developed.symbol_policy.symbol_space[:2]))
+        developed.sequence_grounding_ledger.receive(
+            SequenceMessage(
+                sequence,
+                sender_id,
+                developed.organism_id,
+                DEVELOPMENT_TICKS - 2,
+            ),
+            tick=DEVELOPMENT_TICKS - 2,
+        )
+        developed.observe_sequence_outcome(
+            ("outcome.sequence",), tick=DEVELOPMENT_TICKS - 1
+        )
         domain = developed._action_domain
         self.body_a_fingerprint = body_a.surface.contract_fingerprint
         self.valid_bindings_in_a = sum(
@@ -161,6 +191,8 @@ class _Case:
         self.child_vocabulary = child_vocabulary
         self.own_social_claims = developed.social_evidence_ledger.claims
         self.social_relations = _json(developed.social_ledger.checkpoint())
+        self.symbol_grounding = _json(developed.symbol_grounding_ledger.checkpoint())
+        self.sequence_grounding = _json(developed.sequence_grounding_ledger.checkpoint())
         self.previous = _json(developed.checkpoint())
         del developed
 
@@ -234,6 +266,8 @@ def test_body_a_development_is_not_trivial(case: _Case) -> None:
     assert case.own_social_claims
     assert case.previous["social_evidence_ledger"]["held"]
     assert case.previous["social_ledger"]["relations"]
+    assert case.previous["symbol_grounding_ledger"]["associations"]
+    assert case.previous["sequence_grounding_ledger"]["associations"]
     # The current runtime does not support acquired epigenetic prior keys. This
     # fixture therefore asserts the absence rather than implying such state is
     # part of the tested continuity claim; SYM-10 remains a separate gap.
@@ -346,6 +380,8 @@ def test_knowledge_survives_as_knowledge_without_authority(case: _Case) -> None:
     ] == list(case.child_vocabulary)
     assert restored.social_evidence_ledger.claims == case.own_social_claims
     assert _json(restored.social_ledger.checkpoint()) == case.social_relations
+    assert _json(restored.symbol_grounding_ledger.checkpoint()) == case.symbol_grounding
+    assert _json(restored.sequence_grounding_ledger.checkpoint()) == case.sequence_grounding
     assert _competence_ids(restored) >= case.competences_in_a
     assert not any(
         binding.status is BindingStatus.VALID

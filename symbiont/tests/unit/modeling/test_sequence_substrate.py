@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from symbiont.modeling import (
@@ -59,7 +61,8 @@ def test_receiver_grounding_is_local_exact_and_checkpoint_replay_safe() -> None:
     receiver.observe_sequence_outcome(("opaque.outcome",), tick=1)
     assert receiver.predict_sequence(sequence) == ("opaque.outcome",)
     restored = SequenceGroundingLedger.restore(
-        receiver.sequence_grounding_ledger.checkpoint(), organism_id=receiver.organism_id
+        json.loads(json.dumps(receiver.sequence_grounding_ledger.checkpoint())),
+        organism_id=receiver.organism_id,
     )
     assert restored.checkpoint() == receiver.sequence_grounding_ledger.checkpoint()
 
