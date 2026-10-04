@@ -198,7 +198,11 @@ class _Case:
         self.previous = _json(developed.checkpoint())
         del developed
 
-        self.body_b = CausalBody(actuator_count=6, seed=311)
+        # Reuse Body A's opaque receptor IDs in a distinct, differently sized
+        # Body. Re-embodiment must not rely on source IDs being globally unique
+        # to avoid reactivating old-body sensory bindings.
+        self.body_b = CausalBody(actuator_count=6, seed=127)
+        assert set(body_a.receptor_ids) & set(self.body_b.receptor_ids)
         self.fresh = _json(_subject(self.body_b).checkpoint())
         self.transformed = prepare_fresh_embodiment_checkpoint(
             self.previous,
