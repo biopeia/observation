@@ -6,7 +6,7 @@ from typing import Any, Mapping
 
 from .expression import GeneExpressionState, restore_expression_state
 from .genome import Genome, GenomeCodec, GenomeError, _genome_to_plain_dict
-from .germline import EpigeneticMark, GermlineState
+from .germline import PERSISTENCE_TICKS, EpigeneticMark, GermlineState
 from .schema import DEFAULT_GENOME_SCHEMA, GenomeSchema
 
 
@@ -91,6 +91,7 @@ def export_germline(state: GermlineState) -> dict[str, object]:
         ],
         "acquired_marks": [_mark_to_dict(mark) for _, mark in sorted(state.acquired_marks.items())],
         "acquired_capture_enabled": state.acquired_capture_enabled,
+        "capture_streaks": dict(sorted(state.capture_streaks.items())),
     }
 
 
@@ -106,20 +107,34 @@ def restore_germline(
         "acquired_marks",
         "acquired_capture_enabled",
     }
-    if set(payload) != required:
+    allowed = required | {"capture_streaks"}
+    if not required <= set(payload) or not set(payload) <= allowed:
         raise ValueError("germline checkpoint keys mismatch")
     birth = payload["birth_expression"]
     inherited = payload["inherited_marks"]
     acquired = payload["acquired_marks"]
     enabled = payload["acquired_capture_enabled"]
+    raw_streaks = payload.get("capture_streaks", {})
     if (
         not isinstance(birth, Mapping)
         or not isinstance(inherited, list)
         or not isinstance(acquired, list)
+        or not isinstance(raw_streaks, Mapping)
     ):
         raise ValueError("malformed germline checkpoint")
     if not isinstance(enabled, bool):
         raise ValueError("acquired_capture_enabled must be bool")
+    streaks: dict[str, int] = {}
+    for locus, count in raw_streaks.items():
+        if (
+            not isinstance(locus, str)
+            or not schema.spec(locus).regulable
+            or isinstance(count, bool)
+            or not isinstance(count, int)
+            or not 0 < count < PERSISTENCE_TICKS
+        ):
+            raise ValueError("invalid epigenetic capture persistence checkpoint")
+        streaks[locus] = count
     schema.validate_flat(birth)
     inherited_marks = tuple(
         _mark_from_dict(item) for item in inherited if isinstance(item, Mapping)
@@ -135,6 +150,7 @@ def restore_germline(
     )
     state.birth_expression = {str(k): v for k, v in birth.items()}
     state.acquired_marks = {mark.locus: mark for mark in acquired_marks}
+    state.capture_streaks = streaks
     return state
 
 

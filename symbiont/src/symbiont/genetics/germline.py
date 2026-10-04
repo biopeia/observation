@@ -9,6 +9,8 @@ from typing import Mapping
 from .genome import Genome, flatten_genes
 from .schema import DEFAULT_GENOME_SCHEMA, GenomeSchema
 
+PERSISTENCE_TICKS = 64
+
 
 @dataclass(frozen=True, slots=True)
 class EpigeneticMark:
@@ -69,6 +71,7 @@ class GermlineState:
     inherited_marks: dict[str, EpigeneticMark] = field(default_factory=dict)
     acquired_marks: dict[str, EpigeneticMark] = field(default_factory=dict)
     acquired_capture_enabled: bool = False
+    capture_streaks: dict[str, int] = field(default_factory=dict)
 
     @classmethod
     def from_genome(
@@ -129,10 +132,17 @@ class GermlineState:
         if not (
             self.acquired_capture_enabled and active.enabled and active.acquired_capture_enabled
         ):
+            self.capture_streaks.clear()
             return ()
         captured: list[str] = []
         max_marks = active.max_marks
+        observed_loci = set(current_expression)
+        for locus in tuple(self.capture_streaks):
+            if locus not in observed_loci:
+                self.capture_streaks.pop(locus, None)
         for locus, current in sorted(current_expression.items()):
+            if locus in self.acquired_marks:
+                continue
             if len(self.acquired_marks) >= max_marks and locus not in self.acquired_marks:
                 break
             spec = schema.spec(locus)
@@ -141,8 +151,14 @@ class GermlineState:
             birth = float(self.birth_expression.get(locus, flatten_genes(genome)[locus]))
             delta = float(current) - birth
             if abs(delta) < active.min_capture_delta:
+                self.capture_streaks.pop(locus, None)
+                continue
+            streak = self.capture_streaks.get(locus, 0) + 1
+            self.capture_streaks[locus] = streak
+            if streak < PERSISTENCE_TICKS:
                 continue
             self.acquired_marks[locus] = EpigeneticMark(locus=locus, delta=delta)
+            self.capture_streaks.pop(locus, None)
             captured.append(locus)
         return tuple(captured)
 
@@ -160,4 +176,5 @@ __all__ = [
     "EpigeneticProtocol",
     "GermlineState",
     "InheritancePackage",
+    "PERSISTENCE_TICKS",
 ]

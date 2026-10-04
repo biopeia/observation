@@ -7,9 +7,15 @@ from importlib import resources
 import pytest
 
 from symbiont.core.orchestration.clean_embodiment_seed import CleanEmbodimentSeed
+from symbiont.genetics.checkpoint import export_germline, restore_germline
 from symbiont.genetics.expression import GeneExpressionState
 from symbiont.genetics.genome import Genome, GenomeCodec
-from symbiont.genetics.germline import EpigeneticMark, GermlineState
+from symbiont.genetics.germline import (
+    PERSISTENCE_TICKS,
+    EpigeneticMark,
+    EpigeneticProtocol,
+    GermlineState,
+)
 
 
 def _base_genome(genome_id: str = "genome_test_canonical") -> Genome:
@@ -45,6 +51,45 @@ def test_inherited_mark_changes_birth_expression_without_changing_genotype() -> 
         genome.plasticity.learning_rate.baseline + 0.01
     )
     assert genome.genotype_hash == genotype_hash
+
+
+def test_germline_capture_persistence_resets_and_survives_checkpoint() -> None:
+    genome = _base_genome("genome_test_capture_persistence")
+    germline = GermlineState.from_genome(genome, acquired_capture_enabled=True)
+    current = {
+        "plasticity.learning_rate.baseline": (
+            genome.plasticity.learning_rate.baseline + 0.05
+        )
+    }
+
+    for _ in range(PERSISTENCE_TICKS // 2):
+        assert germline.capture_acquired_variation(current, genome=genome) == ()
+    assert germline.capture_streaks == {}
+
+    for _ in range(PERSISTENCE_TICKS // 2):
+        germline.capture_acquired_variation(
+            current,
+            genome=genome,
+            protocol=EpigeneticProtocol(enabled=True, acquired_capture_enabled=True),
+        )
+    assert germline.acquired_marks == {}
+    assert germline.capture_streaks["plasticity.learning_rate.baseline"] == PERSISTENCE_TICKS // 2
+
+    restored = restore_germline(export_germline(germline), genome)
+    legacy_payload = export_germline(germline)
+    legacy_payload.pop("capture_streaks")
+    assert restore_germline(legacy_payload, genome).capture_streaks == {}
+    protocol = EpigeneticProtocol(enabled=True, acquired_capture_enabled=True)
+    remaining = PERSISTENCE_TICKS - restored.capture_streaks[
+        "plasticity.learning_rate.baseline"
+    ]
+    for _ in range(remaining - 1):
+        assert restored.capture_acquired_variation(
+            current, genome=genome, protocol=protocol
+        ) == ()
+    assert restored.capture_acquired_variation(
+        current, genome=genome, protocol=protocol
+    ) == ("plasticity.learning_rate.baseline",)
 
 
 def test_symbiont_uses_canonical_germline_expression_at_birth() -> None:

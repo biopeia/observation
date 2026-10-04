@@ -88,11 +88,24 @@ def test_m2_transient_shock_does_not_create_acquired_mark():
 
     state = GeneExpressionState.from_genome(genome, germline=germline)
     regulator = ExpressionRegulator()
+    protocol = EpigeneticProtocol(
+        enabled=True,
+        acquired_capture_enabled=True,
+        max_marks=2,
+    )
     for _ in range(8):
         state = regulator.update(
             genome,
             state,
             RegulatorySignals(prediction_error=1.0, embodiment_mismatch=1.0),
+        )
+        germline.capture_acquired_variation(
+            {
+                "plasticity.learning_rate.baseline": state.effective_learning_rate,
+                "sensorimotor.spontaneous_activity_baseline": state.exploration_drive,
+            },
+            protocol=protocol,
+            genome=genome,
         )
 
     assert germline.acquired_marks == {}
@@ -104,24 +117,26 @@ def test_m3_sustained_prediction_pressure_becomes_capture_eligible():
     state = GeneExpressionState.from_genome(genome, germline=germline)
     regulator = ExpressionRegulator()
 
+    protocol = EpigeneticProtocol(
+        enabled=True,
+        acquired_capture_enabled=True,
+        max_marks=2,
+    )
+    captured: set[str] = set()
     for _ in range(160):
         state = regulator.update(
             genome,
             state,
             RegulatorySignals(prediction_error=1.0, embodiment_mismatch=1.0),
         )
-    captured = germline.capture_acquired_variation(
-        {
-            "plasticity.learning_rate.baseline": state.effective_learning_rate,
-            "sensorimotor.spontaneous_activity_baseline": state.exploration_drive,
-        },
-        protocol=EpigeneticProtocol(
-            enabled=True,
-            acquired_capture_enabled=True,
-            max_marks=2,
-        ),
-        genome=genome,
-    )
+        captured.update(germline.capture_acquired_variation(
+            {
+                "plasticity.learning_rate.baseline": state.effective_learning_rate,
+                "sensorimotor.spontaneous_activity_baseline": state.exploration_drive,
+            },
+            protocol=protocol,
+            genome=genome,
+        ))
     assert captured
     assert set(captured) <= {
         "plasticity.learning_rate.baseline",

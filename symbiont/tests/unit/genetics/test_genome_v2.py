@@ -16,7 +16,11 @@ from symbiont.genetics.expression import (
     RegulatorySignals,
 )
 from symbiont.genetics.genome import GenomeCodec
-from symbiont.genetics.germline import EpigeneticProtocol, GermlineState
+from symbiont.genetics.germline import (
+    PERSISTENCE_TICKS,
+    EpigeneticProtocol,
+    GermlineState,
+)
 from symbiont.genetics.schema import DEFAULT_GENOME_SCHEMA
 
 
@@ -173,12 +177,19 @@ def test_epigenetic_capture_is_disabled_without_explicit_protocol():
         )
         == ()
     )
+    protocol = EpigeneticProtocol(
+        enabled=True,
+        acquired_capture_enabled=True,
+        min_capture_delta=0.001,
+    )
+    for _ in range(PERSISTENCE_TICKS - 1):
+        assert germline.capture_acquired_variation(
+            current,
+            genome=genome,
+            protocol=protocol,
+        ) == ()
     assert germline.capture_acquired_variation(
         current,
         genome=genome,
-        protocol=EpigeneticProtocol(
-            enabled=True,
-            acquired_capture_enabled=True,
-            min_capture_delta=0.001,
-        ),
+        protocol=protocol,
     ) == ("plasticity.learning_rate.baseline",)
