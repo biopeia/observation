@@ -26,7 +26,7 @@ RUNTIMES = dict(zip(LAYERS, (OrganismRuntime, ModeledOrganismRuntime, PrivateMod
 # named here and in the register entry that carries it.
 # Semantic classification findings not yet resolved. A gap is attached to the
 # exact state entry whose contract still needs owner-level resolution.
-OPEN_GAPS: set[str] = {"SYM-06"}
+OPEN_GAPS: set[str] = set()
 
 
 def _runtime(layer: str, **kwargs: object) -> OrganismRuntime:

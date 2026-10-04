@@ -272,6 +272,17 @@ def _active_private_model_id(checkpoint: Mapping[str, Any]) -> str | None:
     return None
 
 
+def _historical_sensory_prior(checkpoint: Mapping[str, Any]) -> dict[str, object] | None:
+    """Capture learned sensory state without granting it active source bindings."""
+    fields = ("sensory_system", "sensory_development")
+    prior = {
+        field: deepcopy(dict(checkpoint[field]))
+        for field in fields
+        if isinstance(checkpoint.get(field), Mapping)
+    }
+    return prior or None
+
+
 def _carry_sensorimotor_v2_knowledge(
     previous: Mapping[str, Any],
     fresh_actuation: dict[str, Any],
@@ -441,6 +452,7 @@ def prepare_fresh_embodiment_checkpoint(
                 if isinstance(previous.get("body_schema"), Mapping)
                 else None
             ),
+            sensory_prior=_historical_sensory_prior(previous),
             living_body=(
                 previous.get("living_body")
                 if isinstance(previous.get("living_body"), Mapping)
@@ -463,6 +475,15 @@ def prepare_fresh_embodiment_checkpoint(
         result["body_schema"] = body_schema.export(
             current_tick=int(previous.get("saved_at_tick") or 0)
         )
+    # Acquired sensory models bind opaque source/capability IDs. Preserve them
+    # only as historical priors; fresh models prevent reused IDs from
+    # reactivating old transducers or adaptive sense states.
+    for sensory_field in ("sensory_system", "sensory_development"):
+        fresh_sensory = fresh.get(sensory_field)
+        if isinstance(fresh_sensory, Mapping):
+            result[sensory_field] = deepcopy(dict(fresh_sensory))
+        else:
+            result.pop(sensory_field, None)
     # A new physical Body always starts a new canonical episode. Never carry
     # the previous body/episode identity through the compatibility transform.
     result.pop("embodiment_episode", None)
@@ -568,6 +589,7 @@ def prepare_fresh_embodiment_checkpoint(
                     contract_fingerprint=existing.contract_fingerprint,
                     last_embodiment_id=existing.last_embodiment_id,
                     body_schema_prior=existing.body_schema_prior,
+                    sensory_prior=_historical_sensory_prior(previous) or existing.sensory_prior,
                     dynamics_prior=existing.dynamics_prior,
                     execution_binding_priors=existing.execution_binding_priors,
                     historical_causal_state=existing.historical_causal_state,
@@ -604,6 +626,7 @@ def prepare_fresh_embodiment_checkpoint(
                     if isinstance(previous.get("body_schema"), Mapping)
                     else None
                 ),
+                sensory_prior=_historical_sensory_prior(previous),
                 historical_motor_candidates=current_candidates,
                 motor_cognitive_surface=(
                     deepcopy(dict(historical_motor_surface))
@@ -630,6 +653,7 @@ def prepare_fresh_embodiment_checkpoint(
                         if isinstance(legacy_known.get("body_schema"), Mapping)
                         else None
                     ),
+                    sensory_prior=None,
                     historical_motor_candidates=tuple(
                         deepcopy(dict(item))
                         for item in legacy_known.get("historical_primitives", [])
@@ -699,9 +723,10 @@ def prepare_fresh_embodiment_checkpoint(
     )
 
     # The Symbiont itself is invariant across re-embodiment. Cognitive state,
-    # private models, self-model and sensory learning are preserved. The active
-    # BodySchema is fresh for the new Body; its prior complete schema remains
-    # in the closed episode archive as historical evidence.
+    # private models and self-model are preserved. Sensory learning is archived
+    # as a historical prior because its source bindings belong to the old Body.
+    # The active BodySchema is fresh for the new Body; its prior complete schema
+    # remains in the closed episode archive as historical evidence.
     if historical_bridge is not None:
         result["cognitive_bridge"] = historical_bridge
 

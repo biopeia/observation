@@ -50,6 +50,8 @@ FRESH_BODY_FIELDS = {
     "metabolism",
     "homeostasis",
     "physiology",
+    "sensory_system",
+    "sensory_development",
     "pending_embodied_work",
     "resting_requested",
 }
@@ -298,6 +300,15 @@ def test_body_owned_state_comes_from_the_fresh_body(case: _Case) -> None:
     for field in sorted(FRESH_BODY_FIELDS):
         assert case.transformed[field] == case.fresh[field], field
     assert case.transformed["last_runtime_vital_state"] == "active"
+    archived = case.transformed["embodiment_archive"]["body_memories"]
+    assert any(
+        item["sensory_prior"]
+        == {
+            "sensory_system": case.previous["sensory_system"],
+            "sensory_development": case.previous["sensory_development"],
+        }
+        for item in archived
+    )
 
 
 def test_identity_and_time_continue_and_the_transform_is_recorded(case: _Case) -> None:
@@ -375,7 +386,10 @@ def test_knowledge_survives_as_knowledge_without_authority(case: _Case) -> None:
     assert restored.model_registry.active.model_id == case.active_model_id
     assert restored.model_registry.active.state is ModelState.ACTIVE
     assert restored.model_registry.get(case.ancestor_model_id).state is ModelState.SHADOW
-    assert restored.checkpoint()["training_ancestry"]["vocabularies"][
+    restored_checkpoint = restored.checkpoint()
+    assert restored_checkpoint["sensory_system"] == case.transformed["sensory_system"]
+    assert restored_checkpoint["sensory_development"] == case.transformed["sensory_development"]
+    assert restored_checkpoint["training_ancestry"]["vocabularies"][
         case.active_model_id
     ] == list(case.child_vocabulary)
     assert restored.social_evidence_ledger.claims == case.own_social_claims

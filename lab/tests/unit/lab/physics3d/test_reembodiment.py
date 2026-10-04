@@ -367,8 +367,17 @@ def test_changed_contract_archives_old_schema_and_restarts_body_specific_learnin
     assert transformed["body_schema"]["state"] == "undeveloped"
     assert transformed["body_schema"]["parts"] == []
     assert transformed["self_model"] == previous["self_model"]
-    assert transformed["sensory_development"] == previous["sensory_development"]
-    assert transformed["sensory_system"] == previous["sensory_system"]
+    assert transformed["sensory_development"] == _fresh(slots=40)["sensory_development"]
+    assert any(
+        item["sensory_prior"]["sensory_development"] == previous["sensory_development"]
+        for item in transformed["embodiment_archive"]["body_memories"]
+    )
+    assert transformed["sensory_system"] == _fresh()["sensory_system"]
+    archived = transformed["embodiment_archive"]["body_memories"]
+    assert archived[0]["sensory_prior"] == {
+        "sensory_system": previous["sensory_system"],
+        "sensory_development": previous["sensory_development"],
+    }
     assert transformed["actuation"]["sensorimotor"]["primitives"] == []
     assert transformed["actuation"]["sensorimotor"]["historical_candidates"] == []
     assert transformed["actuation"]["proposer"] == {"learned": "fresh"}
@@ -488,8 +497,6 @@ def test_every_reembodiment_preserves_symbiont_learned_state() -> None:
         "episodic_memory",
         "private_model_registry",
         "self_model",
-        "sensory_development",
-        "sensory_system",
         "genome",
     )
 
@@ -506,6 +513,14 @@ def test_every_reembodiment_preserves_symbiont_learned_state() -> None:
         )
         for key in learned_keys:
             assert transformed[key] == previous[key]
+        assert any(
+            item["sensory_prior"]
+            == {
+                "sensory_system": previous["sensory_system"],
+                "sensory_development": previous["sensory_development"],
+            }
+            for item in transformed["embodiment_archive"]["body_memories"]
+        )
         assert transformed["body_schema"]["state"] == "undeveloped"
         assert transformed["body_schema"]["parts"] == []
 

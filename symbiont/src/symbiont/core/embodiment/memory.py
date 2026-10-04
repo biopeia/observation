@@ -15,6 +15,7 @@ class BodySpecificMemory:
     contract_fingerprint: str
     last_embodiment_id: str
     body_schema_prior: dict[str, object] | None = None
+    sensory_prior: dict[str, object] | None = None
     dynamics_prior: dict[str, object] | None = None
     execution_binding_priors: dict[str, object] | None = None
     historical_causal_state: dict[str, object] | None = None
@@ -28,6 +29,7 @@ class BodySpecificMemory:
             "contract_fingerprint": self.contract_fingerprint,
             "last_embodiment_id": self.last_embodiment_id,
             "body_schema_prior": deepcopy(self.body_schema_prior),
+            "sensory_prior": deepcopy(self.sensory_prior),
             "dynamics_prior": deepcopy(self.dynamics_prior),
             "execution_binding_priors": deepcopy(self.execution_binding_priors),
             "historical_causal_state": deepcopy(self.historical_causal_state),
@@ -142,7 +144,7 @@ class EmbodimentPrior:
 class EmbodimentArchive:
     """Bounded history indexed independently by embodiment, body and contract."""
 
-    SCHEMA_VERSION = 3
+    SCHEMA_VERSION = 4
 
     def __init__(
         self,
@@ -219,7 +221,7 @@ class EmbodimentArchive:
         if payload is None:
             return cls()
         archive_schema = int(payload.get("schema_version") or 0)
-        if archive_schema not in {2, cls.SCHEMA_VERSION}:
+        if archive_schema not in {2, 3, cls.SCHEMA_VERSION}:
             raise ValueError("unsupported embodiment archive")
         obj = cls(
             max_body_memories=int(payload.get("max_body_memories", 16)),
@@ -249,6 +251,7 @@ class EmbodimentArchive:
                     contract_fingerprint=str(entry["contract_fingerprint"]),
                     last_embodiment_id=str(entry["last_embodiment_id"]),
                     body_schema_prior=deepcopy(entry.get("body_schema_prior")),
+                    sensory_prior=deepcopy(entry.get("sensory_prior")),
                     dynamics_prior=deepcopy(entry.get("dynamics_prior")),
                     execution_binding_priors=deepcopy(
                         entry.get(
@@ -276,6 +279,7 @@ def archive_episode_checkpoint(
     episode_payload: Mapping[str, Any],
     *,
     body_schema_prior: Mapping[str, Any] | None,
+    sensory_prior: Mapping[str, Any] | None = None,
     living_body: Mapping[str, Any] | None,
     symbiont_tick: int,
     end_reason: str,
@@ -309,6 +313,9 @@ def archive_episode_checkpoint(
             last_embodiment_id=embodiment_id,
             body_schema_prior=deepcopy(dict(body_schema_prior))
             if isinstance(body_schema_prior, Mapping)
+            else None,
+            sensory_prior=deepcopy(dict(sensory_prior))
+            if isinstance(sensory_prior, Mapping)
             else None,
             dynamics_prior=deepcopy(episode_payload.get("dynamics_model"))
             if isinstance(episode_payload.get("dynamics_model"), Mapping)

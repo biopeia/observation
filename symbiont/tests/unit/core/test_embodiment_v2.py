@@ -401,12 +401,34 @@ def test_embodiment_archive_v2_migrates_execution_binding_prior_name() -> None:
         "items": [],
     }
     checkpoint = archive.checkpoint()
-    assert checkpoint["schema_version"] == 3
+    assert checkpoint["schema_version"] == 4
     assert (
         checkpoint["body_memories"][0]["execution_binding_priors"]
         == memory.execution_binding_priors
     )
     assert "embodied_competence_priors" not in checkpoint["body_memories"][0]
+
+
+def test_embodiment_archive_roundtrips_historical_sensory_prior() -> None:
+    archive = EmbodimentArchive()
+    sensory_prior = {
+        "sensory_system": {"sensors": [{"sensor_id": "sensor.body-a"}]},
+        "sensory_development": {"states": [{"capability_id": "capability.body-a"}]},
+    }
+    archive.remember_body(
+        BodySpecificMemory(
+            body_id="body.a",
+            contract_fingerprint="contract.a",
+            last_embodiment_id="embodiment.a",
+            sensory_prior=sensory_prior,
+        )
+    )
+
+    restored = EmbodimentArchive.restore(archive.checkpoint())
+
+    memory = restored.for_body("body.a")
+    assert memory is not None
+    assert memory.sensory_prior == sensory_prior
 
 
 def test_embodiment_prior_rejects_any_restored_authority() -> None:
