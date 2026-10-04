@@ -55,7 +55,11 @@ def test_history_endpoint_keeps_the_complete_coherent_frame_contract() -> None:
             "cognition": {"type": "cognition", "tick": 41, "predictor_count": 2},
             "vitals": {"type": "vitals", "tick": 41, "alive": True},
             "mind": {"tick": 41, "display_id": "symbiont:test"},
-            "provenance": {"owner": "observer", "contract": "completed-render-frame-v2"},
+            "provenance": {
+                "owner": "observer",
+                "contract": "completed-render-frame-v1",
+                "identity_contract": "observation-identity-v1",
+            },
         }
     )
 
@@ -72,7 +76,8 @@ def test_history_endpoint_keeps_the_complete_coherent_frame_contract() -> None:
     assert frame["body"]["base_position"] == [1, 2, 3]
     assert frame["cognition"]["predictor_count"] == 2
     assert frame["vitals"]["alive"] is True
-    assert frame["provenance"]["contract"] == "completed-render-frame-v2"
+    assert frame["provenance"]["contract"] == "completed-render-frame-v1"
+    assert frame["provenance"]["identity_contract"] == "observation-identity-v1"
 
 
 def test_api_state_exposes_aggregate_observation_transport_health() -> None:
