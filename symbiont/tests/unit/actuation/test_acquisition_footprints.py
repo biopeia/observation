@@ -114,7 +114,6 @@ def test_checkpoint_continues_the_same_footprints_and_provenance():
         effect_space=payload["effect_space"],
         causal_evidence=payload["causal_evidence"],
         acquisition=payload["acquisition"],
-        body_schema=None,
     )
     mark = len(continuous.provenance.events())
     for acquisition in (continuous, restored):
@@ -195,7 +194,6 @@ def test_footprint_mode_and_atom_catalog_survive_checkpoint():
         effect_space=payload["effect_space"],
         causal_evidence=payload["causal_evidence"],
         acquisition=payload["acquisition"],
-        body_schema=None,
     )
     assert restored.footprint_effects is True
     args = {"controller_seed_ref": "p", "patterns": ({A: 0.5},), "tick": 5}

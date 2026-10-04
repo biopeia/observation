@@ -249,11 +249,11 @@ def _carry_sensorimotor_v2_knowledge(
         # Everything learned remains untouched.
         if "surface_binding" in fresh_v2:
             preserved_v2["surface_binding"] = deepcopy(fresh_v2["surface_binding"])
-        preserved_v2["execution_bindings"] = {
-            "schema_version": 1,
-            "capacity": 512,
-            "items": [],
-        }
+        fresh_bindings = fresh_v2.get("execution_bindings")
+        if not isinstance(fresh_bindings, Mapping):
+            raise ValueError("fresh sensorimotor state lacks execution bindings")
+        preserved_v2["execution_bindings"] = deepcopy(dict(fresh_bindings))
+        preserved_v2["execution_bindings"]["items"] = []
         preserved_v2["binding_invalidation"] = "reembodiment"
 
         if isinstance(fresh_domain, dict):

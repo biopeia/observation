@@ -2437,7 +2437,6 @@ class ActionDomain:
             effect_space=raw_effects if isinstance(raw_effects, Mapping) else None,
             causal_evidence=raw_evidence if isinstance(raw_evidence, Mapping) else None,
             acquisition=raw_acquisition if isinstance(raw_acquisition, Mapping) else None,
-            body_schema=body_schema,
         )
         self.acquisition.bind_surface(
             self.surface.actuator_ids if self.enabled and self.surface is not None else None,

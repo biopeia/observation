@@ -153,7 +153,6 @@ def test_dimension_survives_checkpoint():
         effect_space=acquisition.effect_space.checkpoint(),
         causal_evidence=acquisition.causal_evidence.checkpoint(),
         acquisition=acquisition.checkpoint(),
-        body_schema=None,
     )
     restored.bind_surface(SURFACE.actuator_ids, surface_fingerprint=SURFACE.contract_fingerprint)
     assert restored.action_dimensions.items == before

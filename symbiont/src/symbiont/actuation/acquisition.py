@@ -150,7 +150,6 @@ class AgencyAcquisition:
         self.recent_attempts: deque[ActionAttempt] = deque(maxlen=_RECENT_ATTEMPTS)
         self.attempt_count = 0
         # (migrated, unresolved) evidence items at the last pre-atom restore.
-        self.atom_migration: tuple[int, int] | None = None
         # Organism-level causal provenance (Causal Provenance v1), shared by
         # every domain; footprints are its first adopter.
         self.provenance = ProvenanceLog()
@@ -1102,87 +1101,97 @@ class AgencyAcquisition:
         effect_space: Mapping[str, Any] | None,
         causal_evidence: Mapping[str, Any] | None,
         acquisition: Mapping[str, Any] | None,
-        body_schema: "BodySchemaEngine | None",
     ) -> None:
-        if effect_space is not None:
-            self.effect_space = EffectSpace.restore(dict(effect_space))
-        if causal_evidence is not None:
-            self.causal_evidence = CausalEvidenceLedger.restore(dict(causal_evidence))
-            if causal_evidence.get("schema_version") != CausalEvidenceLedger.SCHEMA_VERSION:
-                # Factorized Effects §8: pre-atom evidence gets the exact atoms of
-                # its whole-state effect while that effect is still known.
-                self.atom_migration = self.causal_evidence.migrate_atoms(self._effect_atom_ids)
-        persisted_estimates = False
-        if acquisition is not None:
-            version = acquisition.get("schema_version")
-            if version not in (1, 2, self.SCHEMA_VERSION):
-                raise ValueError("unsupported agency acquisition checkpoint")
-            raw_count = acquisition.get("attempt_count", 0)
-            if not isinstance(raw_count, int) or raw_count < 0:
-                raise ValueError("invalid attempt count")
-            self.attempt_count = raw_count
-            raw_signatures = acquisition.get("intervention_signatures")
-            raw_dimensions = acquisition.get("action_dimensions")
-            self.signatures = InterventionSignatureRegistry.restore(
-                raw_signatures if isinstance(raw_signatures, Mapping) else None
+        if effect_space is None:
+            raise ValueError("current checkpoint is missing effect space")
+        self.effect_space = EffectSpace.restore(dict(effect_space))
+        if causal_evidence is None:
+            raise ValueError("current checkpoint is missing causal evidence")
+        self.causal_evidence = CausalEvidenceLedger.restore(dict(causal_evidence))
+        if acquisition is None:
+            raise ValueError("current checkpoint is missing agency acquisition state")
+        version = acquisition.get("schema_version")
+        if version != self.SCHEMA_VERSION:
+            raise ValueError("unsupported agency acquisition checkpoint")
+        required_fields = {
+            "attempt_count",
+            "intervention_signatures",
+            "action_dimensions",
+            "controllability",
+            "agency",
+            "footprint_effects",
+            "footprint_membership",
+            "footprint_effect_sources",
+            "atom_catalog",
+            "provenance",
+            "footprints",
+            "footprint_commitments",
+            "open_commitment",
+        }
+        missing_fields = required_fields.difference(acquisition)
+        if missing_fields:
+            raise ValueError(
+                "current agency acquisition checkpoint is missing fields: "
+                + ", ".join(sorted(missing_fields))
             )
-            self.action_dimensions = ActionDimensionRegistry.restore(
-                raw_dimensions if isinstance(raw_dimensions, Mapping) else None,
-                policy=self.dimension_policy,
+        raw_count = acquisition["attempt_count"]
+        if not isinstance(raw_count, int) or raw_count < 0:
+            raise ValueError("invalid attempt count")
+        self.attempt_count = raw_count
+        raw_signatures = acquisition.get("intervention_signatures")
+        raw_dimensions = acquisition.get("action_dimensions")
+        if not isinstance(raw_signatures, Mapping) or not isinstance(raw_dimensions, Mapping):
+            raise ValueError("invalid agency acquisition registries")
+        self.signatures = InterventionSignatureRegistry.restore(raw_signatures)
+        self.action_dimensions = ActionDimensionRegistry.restore(
+            raw_dimensions, policy=self.dimension_policy
+        )
+        # Schema 3: causal provenance frontier and footprints (none before).
+        if not isinstance(acquisition["footprint_effects"], bool):
+            raise ValueError("invalid footprint effects setting")
+        self.footprint_effects = acquisition["footprint_effects"]
+        self._footprint_effect_sources = {
+            str(raw["effect_id"]): tuple(str(v) for v in raw["source"])
+            for raw in acquisition.get("footprint_effect_sources", [])
+        }
+        self._atom_catalog = {}
+        for atom_id, feature, direction, magnitude in acquisition.get("atom_catalog", []):
+            atom = EffectAtom(str(feature), int(direction), int(magnitude))
+            if atom.effect_id != atom_id:
+                raise ValueError("atom catalog entry does not match its identity")
+            self._atom_catalog[atom_id] = atom
+        self.provenance = ProvenanceLog.restore(acquisition["provenance"])
+        self.footprints = FootprintRegistry.restore(
+            acquisition["footprints"], provenance=self.provenance
+        )
+        membership = acquisition["footprint_membership"]
+        if not isinstance(membership, Mapping):
+            raise ValueError("invalid footprint membership settings")
+        self.set_footprint_membership(
+            quiet_near=membership.get("quiet_near"),
+            multiplicity=membership["multiplicity"],
+            test=membership["test"],
+        )
+        self._footprint_commitments = {
+            tuple(str(v) for v in raw["source"]): deque(
+                (str(c) for c in raw["commitments"]),
+                maxlen=self.FOOTPRINT_COMMITMENTS_PER_SOURCE,
             )
-            # Schema 3: causal provenance frontier and footprints (none before).
-            if "footprint_effects" in acquisition:
-                self.footprint_effects = bool(acquisition["footprint_effects"])
-            self._footprint_effect_sources = {
-                str(raw["effect_id"]): tuple(str(v) for v in raw["source"])
-                for raw in acquisition.get("footprint_effect_sources", [])
-            }
-            self._atom_catalog = {}
-            for atom_id, feature, direction, magnitude in acquisition.get("atom_catalog", []):
-                atom = EffectAtom(str(feature), int(direction), int(magnitude))
-                if atom.effect_id != atom_id:
-                    raise ValueError("atom catalog entry does not match its identity")
-                self._atom_catalog[atom_id] = atom
-            self.provenance = ProvenanceLog.restore(acquisition.get("provenance"))
-            self.footprints = FootprintRegistry.restore(
-                acquisition.get("footprints"), provenance=self.provenance
-            )
-            membership = acquisition.get("footprint_membership") or {}
-            self.set_footprint_membership(
-                quiet_near=membership.get("quiet_near"),
-                multiplicity=bool(membership.get("multiplicity", False)),
-                test=str(membership.get("test", "margin")),
-            )
-            self._footprint_commitments = {
-                tuple(str(v) for v in raw["source"]): deque(
-                    (str(c) for c in raw["commitments"]),
-                    maxlen=self.FOOTPRINT_COMMITMENTS_PER_SOURCE,
-                )
-                for raw in acquisition.get("footprint_commitments", [])
-            }
-            raw_open = acquisition.get("open_commitment")
-            self._open_commitment = (
-                (str(raw_open["commitment"]), tuple(str(v) for v in raw_open["source"]))
-                if isinstance(raw_open, Mapping)
-                else None
-            )
-            if version in (2, self.SCHEMA_VERSION):
-                self.controllability_model = ControllabilityModel()
-                self.controllability_model.restore_estimates(acquisition.get("controllability"))
-                self.agency_model = AgencyModel()
-                self.agency_model.restore_estimates(acquisition.get("agency"))
-                persisted_estimates = True
-        else:
-            # Historical checkpoints (Sensorimotor v3) never learned dimensions:
-            # start empty rather than regenerating them from the surface (§83).
-            self.signatures = InterventionSignatureRegistry()
-            self.action_dimensions = ActionDimensionRegistry(policy=self.dimension_policy)
+            for raw in acquisition.get("footprint_commitments", [])
+        }
+        raw_open = acquisition.get("open_commitment")
+        self._open_commitment = (
+            (str(raw_open["commitment"]), tuple(str(v) for v in raw_open["source"]))
+            if isinstance(raw_open, Mapping)
+            else None
+        )
+        self.controllability_model = ControllabilityModel()
+        self.controllability_model.restore_estimates(acquisition["controllability"])
+        self.agency_model = AgencyModel()
+        self.agency_model.restore_estimates(acquisition["agency"])
         self.pending_attempt = None
         self.bind_surface(self._surface_ids, surface_fingerprint=self._surface_fingerprint)
         self.effect_model.rebuild(self.causal_evidence)
-        if not persisted_estimates:
-            # Migration only: older checkpoints lacked the estimate tables.
-            self.rebuild_views(body_schema=body_schema)
 
     def rebuild_views(self, *, body_schema: "BodySchemaEngine | None") -> None:
         members = self.action_dimensions.members

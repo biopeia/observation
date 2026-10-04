@@ -131,7 +131,7 @@ def test_ledger_bounds_passive_windows_separately():
     assert ledger.intervention_evidence == ()
 
 
-def test_ledger_v3_roundtrip_and_v2_migration_marks_no_passive_windows():
+def test_ledger_roundtrip_and_rejects_v2_checkpoint():
     acquisition = fresh_acquisition()
     act(acquisition, 0, {A: 0.5}, {"signal.a": 0.4})
     rest(acquisition, 4, {})
@@ -156,11 +156,8 @@ def test_ledger_v3_roundtrip_and_v2_migration_marks_no_passive_windows():
             }
         ],
     }
-    migrated = CausalEvidenceLedger.restore(legacy)
-    (item,) = migrated.evidence
-    assert not item.is_passive
-    assert item.attempt_id is None and item.intervention_signature_id is None
-    assert item.competence_id == "competence.legacy"
+    with pytest.raises(ValueError, match="unsupported causal-evidence checkpoint"):
+        CausalEvidenceLedger.restore(legacy)
 
 
 def test_unobserved_consequence_loses_reliability_when_source_acts():
@@ -201,20 +198,18 @@ def test_restore_preserves_path_dependent_causal_estimates_exactly():
         effect_space=acquisition.effect_space.checkpoint(),
         causal_evidence=acquisition.causal_evidence.checkpoint(),
         acquisition=acquisition.checkpoint(),
-        body_schema=None,
     )
     assert restored.controllability_model.estimates == acquisition.controllability_model.estimates
     assert restored.agency_model.estimates == acquisition.agency_model.estimates
-    rebuilt = AgencyAcquisition()
+    from pytest import raises
+
     legacy = dict(acquisition.checkpoint(), schema_version=1)
-    rebuilt.restore_causal_state(
-        effect_space=acquisition.effect_space.checkpoint(),
-        causal_evidence=acquisition.causal_evidence.checkpoint(),
-        acquisition=legacy,
-        body_schema=None,
-    )
-    # Migration path only: rebuilt from final counts, hence not path-identical.
-    assert rebuilt.controllability_model.estimates
+    with raises(ValueError, match="unsupported agency acquisition checkpoint"):
+        AgencyAcquisition().restore_causal_state(
+            effect_space=acquisition.effect_space.checkpoint(),
+            causal_evidence=acquisition.causal_evidence.checkpoint(),
+            acquisition=legacy,
+        )
 
 
 def test_body_schema_sensorimotor_view_survives_export():
