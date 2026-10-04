@@ -65,8 +65,6 @@ from symbiont.core.embodiment.metabolism import MetabolicLedger
 from symbiont.core.embodiment.physiology import LivingBodyState, VitalState
 from symbiont.core.embodiment.transition import (
     EmbodimentDescriptor,
-    migrate_legacy_memory_store,
-    migrate_temporal_domains,
     prepare_fresh_embodiment_checkpoint,
     update_lifecycle_for_checkpoint,
 )
@@ -560,12 +558,18 @@ class PyBulletEmbodimentRuntime:
             self._embodiment_contract = contract
             self._embodiment_lifecycle: dict[str, Any] | None = None
             self._embodiment_epoch_summaries: list[dict[str, Any]] = []
-            self._temporal_migration: dict[str, Any] | None = None
             self._reembodied = False
         else:
             # Verify the saved identity before any transform re-identifies it.
             verify_checkpoint_identity(dict(runtime_checkpoint))
-            runtime_checkpoint = migrate_temporal_domains(runtime_checkpoint)
+            unsupported_fields = {"embodiment_memory", "temporal_migration"}.intersection(
+                runtime_checkpoint
+            )
+            if unsupported_fields:
+                raise RuntimeError(
+                    "checkpoint contains unsupported legacy fields: "
+                    + ", ".join(sorted(unsupported_fields))
+                )
             effective = runtime_checkpoint.get("effective_config", {})
             if not isinstance(effective, Mapping) or not bool(
                 effective.get("explicit_metabolism", False)
@@ -614,10 +618,6 @@ class PyBulletEmbodimentRuntime:
                 if isinstance(raw_summaries, list)
                 else []
             )
-            raw_migration = restored_payload.get("temporal_migration")
-            self._temporal_migration = (
-                deepcopy(raw_migration) if isinstance(raw_migration, dict) else None
-            )
             self.organism = restore_canonical_organism(
                 restored_payload,
                 PrivateModelOrganismRuntime,
@@ -665,16 +665,6 @@ class PyBulletEmbodimentRuntime:
         self._embodiment_archive = EmbodimentArchive.restore(
             raw_core_archive if isinstance(raw_core_archive, Mapping) else None
         )
-        legacy_memory = (
-            restored_payload.get("embodiment_memory") if runtime_checkpoint is not None else None
-        )
-        self._embodiment_archive = migrate_legacy_memory_store(
-            self._embodiment_archive,
-            legacy_memory if isinstance(legacy_memory, Mapping) else None,
-        )
-        if runtime_checkpoint is not None:
-            restored_payload.pop("embodiment_memory", None)
-
         self._last_physical_tick = self.tick_count
         self._telemetry_seen_experience_ids = {
             str(record.record_id) for record in self.organism.experience_ledger.records
@@ -1068,8 +1058,6 @@ class PyBulletEmbodimentRuntime:
             payload["embodiment_lifecycle"] = deepcopy(self._embodiment_lifecycle)
         if self._embodiment_epoch_summaries:
             payload["embodiment_epoch_summaries"] = deepcopy(self._embodiment_epoch_summaries)
-        if self._temporal_migration is not None:
-            payload["temporal_migration"] = deepcopy(self._temporal_migration)
 
         if lifecycle_state == "active":
             if self._embodiment_episode.state is EmbodimentState.SUSPENDED:
@@ -1118,10 +1106,6 @@ class PyBulletEmbodimentRuntime:
             [deepcopy(item) for item in raw_summaries if isinstance(item, dict)]
             if isinstance(raw_summaries, list)
             else []
-        )
-        raw_migration = payload.get("temporal_migration")
-        self._temporal_migration = (
-            deepcopy(raw_migration) if isinstance(raw_migration, dict) else self._temporal_migration
         )
         return payload
 
