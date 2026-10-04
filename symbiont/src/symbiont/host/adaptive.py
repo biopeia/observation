@@ -317,7 +317,7 @@ class SamplingPlan:
 # without an explicit checkpoint migration and biological regression study.
 _ADAPTIVE_HISTORICAL_MIN_SAMPLES: int = 4
 
-from ..core.foundation.limits import OrganismLimits
+from ..foundation.limits import OrganismLimits
 
 _DEFAULT_LIMITS = OrganismLimits()
 

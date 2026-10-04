@@ -14,7 +14,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-from ..core.foundation.epistemic import DEFAULT_EPISTEMIC_CONVENTIONS
+from ..foundation.epistemic import DEFAULT_EPISTEMIC_CONVENTIONS
 from .acclimation import CapabilityBaseline
 
 _CENTER_CLASSES = 32

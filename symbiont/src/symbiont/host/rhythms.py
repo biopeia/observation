@@ -44,8 +44,8 @@ class _ContextKey:
     phase: CyclePhase
 
 
-from ..core.foundation.epistemic import DEFAULT_EPISTEMIC_CONVENTIONS
-from ..core.foundation.limits import OrganismLimits
+from ..foundation.epistemic import DEFAULT_EPISTEMIC_CONVENTIONS
+from ..foundation.limits import OrganismLimits
 
 _DEFAULT_LIMITS = OrganismLimits()
 

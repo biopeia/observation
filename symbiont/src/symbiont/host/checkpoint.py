@@ -5,7 +5,7 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
-from ..core.foundation.limits import OrganismLimits
+from ..foundation.limits import OrganismLimits
 from .acclimation import CapabilityBaseline, HostAcclimation
 from .consolidated_baseline import (
     ConsolidatedBaselineSeed,
