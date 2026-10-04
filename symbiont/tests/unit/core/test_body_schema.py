@@ -5,7 +5,6 @@ import pytest
 from symbiont.core.cognition.host_self_model import RecencyClass
 from symbiont.core.embodiment.body_schema import (
     BODY_SCHEMA_VERSION,
-    LEGACY_BODY_SCHEMA_VERSION,
     MAX_SENSORY_PARTS,
     BodySchemaEngine,
 )
@@ -255,13 +254,9 @@ def test_restore_rejects_developed_state_before_that_contract_exists():
         BodySchemaEngine.restore(_empty_checkpoint(state="developed"), current_tick=0)
 
 
-def test_legacy_restore_rejects_dependencies():
-    payload = _empty_checkpoint(
-        schema_version=LEGACY_BODY_SCHEMA_VERSION,
-        dependencies=[{"source_id": "a", "target_id": "b"}],
-    )
-    payload.pop("cognitive_learning")
-    with pytest.raises(ValueError, match="legacy.*dependencies"):
+def test_restore_rejects_pre_current_schema():
+    payload = _empty_checkpoint(schema_version=1)
+    with pytest.raises(ValueError, match="unsupported body_schema schema_version"):
         BodySchemaEngine.restore(payload, current_tick=0)
 
 

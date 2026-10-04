@@ -12,7 +12,6 @@ from ..foundation.epistemic import DEFAULT_EPISTEMIC_CONVENTIONS, RecencyClass
 from ..foundation.limits import OrganismLimits
 
 _DEFAULT_LIMITS = OrganismLimits()
-LEGACY_BODY_SCHEMA_VERSION = 1
 BODY_SCHEMA_VERSION = 2
 MAX_SENSORY_PARTS = _DEFAULT_LIMITS.max_sensory_parts
 MAX_COGNITIVE_REGIONS = _DEFAULT_LIMITS.max_cognitive_regions
@@ -1490,7 +1489,7 @@ class BodySchemaEngine:
         if not isinstance(payload, dict):
             raise ValueError("body_schema payload must be a JSON object")
         version = payload.get("schema_version")
-        if version not in (LEGACY_BODY_SCHEMA_VERSION, BODY_SCHEMA_VERSION):
+        if version != BODY_SCHEMA_VERSION:
             raise ValueError(f"unsupported body_schema schema_version: {version!r}")
         id_salt = payload.get("id_salt")
         if not isinstance(id_salt, str) or not _is_lower_hex(id_salt, length=32):
@@ -1499,7 +1498,6 @@ class BodySchemaEngine:
         state = payload.get("state")
         allowed_states = {
             "undeveloped",
-            "partial",  # legacy observer/checkpoint state
             "developing",
             "established",
             "revising",
@@ -1509,7 +1507,7 @@ class BodySchemaEngine:
         raw_parts = payload.get("parts")
         if not isinstance(raw_parts, list):
             raise ValueError("body_schema parts must be an array")
-        max_parts = MAX_SENSORY_PARTS if version == LEGACY_BODY_SCHEMA_VERSION else MAX_BODY_PARTS
+        max_parts = MAX_BODY_PARTS
         if len(raw_parts) > max_parts:
             raise ValueError(f"body_schema parts exceeds bound ({max_parts})")
         if payload.get("global_state") != {}:
@@ -1524,7 +1522,7 @@ class BodySchemaEngine:
             kind = entry.get("kind")
             if kind == "sense":
                 cls._restore_sensory_part(model, entry, current_tick=current_tick)
-            elif version == BODY_SCHEMA_VERSION and kind == "cognitive_region":
+            elif kind == "cognitive_region":
                 part_id = entry.get("part_id")
                 if not isinstance(part_id, str) or part_id in public_regions:
                     raise ValueError("duplicate or invalid public cognitive region")
@@ -1535,21 +1533,15 @@ class BodySchemaEngine:
         raw_dependencies = payload.get("dependencies")
         if not isinstance(raw_dependencies, list):
             raise ValueError("body_schema dependencies must be an array")
-        if version == LEGACY_BODY_SCHEMA_VERSION:
-            if raw_dependencies:
-                raise ValueError("legacy body_schema must not contain dependencies")
-            if payload.get("cognitive_learning") is not None:
-                raise ValueError("legacy body_schema must not contain cognitive_learning")
-        else:
-            if len(raw_dependencies) > MAX_BODY_DEPENDENCIES:
-                raise ValueError("body_schema dependencies exceed bound")
-            cls._restore_cognitive_learning(
-                model,
-                payload.get("cognitive_learning"),
-                public_regions=public_regions,
-                public_dependencies=raw_dependencies,
-                current_tick=current_tick,
-            )
+        if len(raw_dependencies) > MAX_BODY_DEPENDENCIES:
+            raise ValueError("body_schema dependencies exceed bound")
+        cls._restore_cognitive_learning(
+            model,
+            payload.get("cognitive_learning"),
+            public_regions=public_regions,
+            public_dependencies=raw_dependencies,
+            current_tick=current_tick,
+        )
 
         view = payload.get("sensorimotor_view")
         if view is not None:
@@ -1604,7 +1596,6 @@ class BodySchemaEngine:
 
 __all__ = [
     "BODY_SCHEMA_VERSION",
-    "LEGACY_BODY_SCHEMA_VERSION",
     "MAX_BODY_PARTS",
     "MAX_BODY_DEPENDENCIES",
     "MAX_COGNITIVE_REGIONS",

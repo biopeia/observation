@@ -6,7 +6,6 @@ import pytest
 
 from symbiont.core.embodiment.body_schema import (
     BODY_SCHEMA_VERSION,
-    LEGACY_BODY_SCHEMA_VERSION,
     MAX_COGNITIVE_REGIONS,
     BodySchemaEngine,
 )
@@ -203,7 +202,7 @@ def test_body_schema_rejects_raw_graph_or_node_shaped_cognitive_evidence():
     assert schema.export_representation(current_tick=0)["dependencies"] == []
 
 
-def test_legacy_v1_sensory_checkpoint_migrates_without_changing_part_identity():
+def test_restore_rejects_pre_current_schema():
     schema = BodySchemaEngine(id_salt="8" * 32)
     schema.observe_self_model(
         {
@@ -217,19 +216,7 @@ def test_legacy_v1_sensory_checkpoint_migrates_without_changing_part_identity():
         },
         tick=10,
     )
-    current = schema.export(current_tick=10)
-    sense_id = next(part["part_id"] for part in current["parts"] if part["kind"] == "sense")
-    legacy = deepcopy(current)
-    legacy["schema_version"] = LEGACY_BODY_SCHEMA_VERSION
-    legacy["dependencies"] = []
-    legacy.pop("cognitive_learning")
-
-    restored = BodySchemaEngine.restore(legacy, current_tick=10)
-    migrated = restored.export_representation(current_tick=10)
-
-    assert migrated["schema_version"] == BODY_SCHEMA_VERSION
-    assert (
-        next(part["part_id"] for part in migrated["parts"] if part["kind"] == "sense") == sense_id
-    )
-    assert migrated["dependencies"] == []
-    assert migrated["global_state"] == {}
+    payload = schema.export(current_tick=10)
+    payload["schema_version"] = 1
+    with pytest.raises(ValueError, match="unsupported body_schema schema_version"):
+        BodySchemaEngine.restore(payload, current_tick=10)
