@@ -5,7 +5,7 @@ from collections.abc import Collection, Mapping
 from hashlib import sha256
 from typing import Any
 
-from ..foundation.limits import OrganismLimits
+from ...foundation.limits import OrganismLimits
 
 COGNITIVE_SELF_OBSERVATION_VERSION = 1
 MAX_COGNITIVE_CHANNELS_PER_TICK = OrganismLimits().max_cognitive_channels_per_tick

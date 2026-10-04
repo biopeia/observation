@@ -53,12 +53,12 @@ def build_organism_parser(parser: argparse.ArgumentParser) -> None:
         "--graph-file", help="Override the canonical germinal graph (requires --genome-file)"
     )
 
-    from symbiont.core.foundation.epistemic import DEFAULT_EPISTEMIC_CONVENTIONS
     from symbiont.core.runtime_defaults import (
         DEFAULT_CHECKPOINT_TICKS,
         DEFAULT_STATE_FILE,
         DEFAULT_TICK_INTERVAL_SECONDS,
     )
+    from symbiont.foundation.epistemic import DEFAULT_EPISTEMIC_CONVENTIONS
 
     live_cmd = sub.add_parser(
         "live",

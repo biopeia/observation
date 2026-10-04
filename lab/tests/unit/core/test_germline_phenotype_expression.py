@@ -5,18 +5,17 @@ from dataclasses import replace
 import pytest
 
 from lab.evolution.reproduction import create_offspring_package
-from symbiont.core.lineage.germline import (
+from symbiont.core.orchestration.clean_embodiment_seed import CleanEmbodimentSeed
+from symbiont.genetics import (
     EpigeneticMark,
+    Genome,
     GermlineState,
-    SymbiontGenome,
-    create_germline_state,
     create_standard_genome,
 )
-from symbiont.core.orchestration.clean_embodiment_seed import CleanEmbodimentSeed
 from symbiont.genetics.germline import EpigeneticProtocol
 
 
-def _genome_with(genome_id: str, **overrides: float | int) -> SymbiontGenome:
+def _genome_with(genome_id: str, **overrides: float | int) -> Genome:
     base = create_standard_genome(genome_id)
     learning_value = float(overrides.get("learning_rate", base.plasticity.learning_rate.baseline))
     learning = replace(
@@ -45,12 +44,12 @@ def test_genome_learning_rate_is_actual_sensorimotor_phenotype():
     slow = CleanEmbodimentSeed(
         "sym-slow",
         genome=slow_genome,
-        germline=create_germline_state(slow_genome),
+    germline=GermlineState.from_genome(slow_genome),
     )
     fast = CleanEmbodimentSeed(
         "sym-fast",
         genome=fast_genome,
-        germline=create_germline_state(fast_genome),
+    germline=GermlineState.from_genome(fast_genome),
     )
 
     assert slow.learning_rate == pytest.approx(0.03)
@@ -92,7 +91,7 @@ def test_genome_is_authoritative_over_constructor_fallback_when_present():
         learning_rate=0.99,
         exploration_rate=0.01,
         genome=genome,
-        germline=create_germline_state(genome),
+        germline=GermlineState.from_genome(genome),
     )
 
     assert sym.learning_rate == pytest.approx(0.17)
@@ -117,13 +116,13 @@ def test_exploration_locus_changes_operational_trajectory_under_same_seed():
         "same-cognitive-id",
         seed=991,
         genome=low_genome,
-        germline=create_germline_state(low_genome),
+        germline=GermlineState.from_genome(low_genome),
     )
     high = CleanEmbodimentSeed(
         "same-cognitive-id",
         seed=991,
         genome=high_genome,
-        germline=create_germline_state(high_genome),
+        germline=GermlineState.from_genome(high_genome),
     )
 
     for sym in (low, high):

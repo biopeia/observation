@@ -7,7 +7,7 @@ from collections import deque
 from dataclasses import asdict, dataclass, field
 from typing import Any, Iterable
 
-from ..foundation.limits import OrganismLimits
+from ...foundation.limits import OrganismLimits
 from .identity import claim_id
 from .knowledge_types import SignalObservationBatch
 from .prediction import PredictionTrial, RidgePredictor

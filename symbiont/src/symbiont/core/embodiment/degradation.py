@@ -22,7 +22,7 @@ class RetainedItem:
     state: RetentionState = RetentionState.ACTIVE
 
 
-from ..foundation.limits import OrganismLimits
+from ...foundation.limits import OrganismLimits
 from .physiology import DEFAULT_PHYSIOLOGY_CONFIG
 
 _DEFAULT_MAX_ITEMS = OrganismLimits().max_degradation_items

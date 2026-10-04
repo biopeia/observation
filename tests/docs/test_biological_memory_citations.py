@@ -3,7 +3,7 @@ from __future__ import annotations
 from .conftest import REPO_ROOT
 
 # NOTE: symbiont/src/symbiont/core/cognition/host_self_model.py is deliberately excluded: an unrelated
-# main-branch refactor (RecencyClass moved to symbiont.core.foundation.epistemic)
+# architecture refactor (RecencyClass moved to symbiont.foundation.epistemic)
 # removed the docstring that carried this citation entirely, so there is
 # nothing left in that file to point at any docs/design/ path.
 CITING_FILES = [

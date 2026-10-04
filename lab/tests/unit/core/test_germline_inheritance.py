@@ -11,7 +11,6 @@ from lab.evolution import (
     mutate_genome,
     recombine_genomes,
 )
-from symbiont.core.lineage.germline import create_standard_genome
 from symbiont.genetics import (
     DEFAULT_GENOME_SCHEMA,
     EpigeneticMark,
@@ -19,6 +18,7 @@ from symbiont.genetics import (
     GermlineState,
     InheritancePackage,
     canonical_gene_bindings,
+    create_standard_genome,
 )
 from symbiont.genetics.germline import PERSISTENCE_TICKS
 

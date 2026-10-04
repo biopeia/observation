@@ -25,7 +25,7 @@ class CulturalArtifact:
             raise ValueError("invalid cultural artifact")
 
 
-from ..foundation.limits import OrganismLimits
+from ...foundation.limits import OrganismLimits
 
 _DEFAULT_LIMITS = OrganismLimits()
 

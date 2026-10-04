@@ -7,10 +7,6 @@ from .reactive_memory import ReactiveAssociation, ReactiveMemory
 from .reactivity import InnateReactivity
 from .types import ReactiveState
 
-# Compatibility name for historical regulation tests and checkpoints.  The
-# canonical implementation remains the shared gene-expression state.
-PhenotypicRegulationState = GeneExpressionState
-
 __all__ = [
     "ActionArbitrator",
     "ArbitrationDecision",
@@ -18,5 +14,4 @@ __all__ = [
     "ReactiveAssociation",
     "ReactiveMemory",
     "ReactiveState",
-    "PhenotypicRegulationState",
 ]

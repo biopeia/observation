@@ -10,6 +10,7 @@ from .checkpoint import (
     restore_germline,
 )
 from .expression import ExpressionRegulator, GeneExpressionState, RegulatorySignals
+from .factory import create_standard_genome
 from .genome import (
     AdaptiveGeneRange,
     DevelopmentGenes,
@@ -55,6 +56,7 @@ __all__ = [
     "SensorimotorGenes",
     "StructuralGenes",
     "canonical_gene_bindings",
+    "create_standard_genome",
     "export_expression",
     "export_genome",
     "export_germline",

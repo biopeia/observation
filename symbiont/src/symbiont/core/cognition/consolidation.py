@@ -106,7 +106,7 @@ def surprise_from_loss(loss: float | None) -> float:
     return max(0.0, min(1.0, loss / _SURPRISE_SATURATION_LOSS))
 
 
-from ..foundation.epistemic import DEFAULT_EPISTEMIC_CONVENTIONS
+from ...foundation.epistemic import DEFAULT_EPISTEMIC_CONVENTIONS
 
 _MATURITY_THRESHOLDS = (
     DEFAULT_EPISTEMIC_CONVENTIONS.maturity_thresholds

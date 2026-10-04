@@ -19,9 +19,9 @@ from dataclasses import asdict, is_dataclass
 from typing import Any
 
 from ...cognition.limits import KernelLimits
+from ...foundation.epistemic import DEFAULT_EPISTEMIC_CONVENTIONS, EpistemicConventions
+from ...foundation.limits import OrganismLimits
 from ..embodiment.physiology_config import DEFAULT_PHYSIOLOGY_CONFIG, PhysiologyConfig
-from .epistemic import DEFAULT_EPISTEMIC_CONVENTIONS, EpistemicConventions
-from .limits import OrganismLimits
 
 FINGERPRINT_SCHEMA_VERSION = 5
 

@@ -16,14 +16,14 @@ from dataclasses import asdict, dataclass
 from typing import Sequence
 
 from lab.evolution.reproduction import create_offspring_package
-from symbiont.core.lineage.germline import (
+from symbiont.core.orchestration.clean_embodiment_seed import CleanEmbodimentSeed
+from symbiont.genetics import (
     EpigeneticMark,
+    Genome,
     GermlineState,
     InheritancePackage,
-    SymbiontGenome,
     create_standard_genome,
 )
-from symbiont.core.orchestration.clean_embodiment_seed import CleanEmbodimentSeed
 from symbiont.genetics.germline import EpigeneticProtocol
 from symbiont.genetics.schema import DEFAULT_GENOME_SCHEMA
 from symbiont.host.continuity import LongitudinalContract
@@ -131,7 +131,7 @@ def _normalize_seeds(seeds: Sequence[int]) -> tuple[int, ...]:
     return result
 
 
-def _control_germline(genome: SymbiontGenome) -> GermlineState:
+def _control_germline(genome: Genome) -> GermlineState:
     return GermlineState.from_genome(genome)
 
 

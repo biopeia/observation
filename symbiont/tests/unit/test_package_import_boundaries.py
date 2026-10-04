@@ -38,3 +38,30 @@ def test_core_facade_remains_available_on_demand() -> None:
     )
 
     assert result.returncode == 0, result.stderr
+
+
+def test_removed_compatibility_surfaces_are_not_importable() -> None:
+    source = """
+import importlib.util
+import symbiont.core as core
+import symbiont.core.regulation as regulation
+for module in (
+    'symbiont.core.foundation.limits',
+    'symbiont.core.foundation.epistemic',
+    'symbiont.core.lineage.germline',
+):
+    assert importlib.util.find_spec(module) is None, module
+for name in ('SymbiontGenome', 'LocusSpec', 'LocusType'):
+    assert not hasattr(core, name), name
+assert not hasattr(regulation, 'PhenotypicRegulationState')
+from symbiont.genetics import Genome, create_standard_genome
+assert isinstance(create_standard_genome('canonical'), Genome)
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", source],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr

@@ -218,16 +218,6 @@ from .embodiment.body import (
 from .embodiment.body_schema import BodySchemaEngine
 from .embodiment.dynamics import SensorimotorDynamicsModel
 from .embodiment.session import EmbodimentSession, PortBinding, implant
-from .lineage.germline import (
-    STANDARD_COGNITIVE_LOCI,
-    EpigeneticMark,
-    GermlineState,
-    InheritancePackage,
-    LocusSpec,
-    LocusType,
-    SymbiontGenome,
-    create_standard_genome,
-)
 from .orchestration.clean_embodiment_seed import CleanEmbodimentSeed
 from .orchestration.individual import Individual, IndividualTickRecord, create_individual
 
@@ -251,13 +241,5 @@ __all__.extend(
         "Individual",
         "IndividualTickRecord",
         "create_individual",
-        "EpigeneticMark",
-        "GermlineState",
-        "InheritancePackage",
-        "LocusSpec",
-        "LocusType",
-        "STANDARD_COGNITIVE_LOCI",
-        "SymbiontGenome",
-        "create_standard_genome",
     ]
 )

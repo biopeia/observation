@@ -30,13 +30,13 @@ from symbiont.core.embodiment.agency import (
 )
 from symbiont.core.embodiment.body import Body
 from symbiont.core.embodiment.body_schema import BodySchemaEngine
-from symbiont.core.lineage.germline import (
+from symbiont.core.orchestration.clean_embodiment_seed import CleanEmbodimentSeed
+from symbiont.core.orchestration.individual import create_individual
+from symbiont.genetics import (
     GermlineState,
     InheritancePackage,
     create_standard_genome,
 )
-from symbiont.core.orchestration.clean_embodiment_seed import CleanEmbodimentSeed
-from symbiont.core.orchestration.individual import create_individual
 
 
 def test_ast_body_morphology_and_names_never_enter_cognition():
@@ -52,7 +52,7 @@ def test_ast_body_morphology_and_names_never_enter_cognition():
         / "core"
         / "orchestration"
         / "clean_embodiment_seed.py",
-        repo_root / "symbiont" / "src" / "symbiont" / "core" / "lineage" / "germline.py",
+        repo_root / "symbiont" / "src" / "symbiont" / "genetics" / "germline.py",
     ]
 
     forbidden_terms = {

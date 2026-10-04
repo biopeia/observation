@@ -7,14 +7,13 @@ from pathlib import Path
 import pytest
 
 import symbiont
-from symbiont.core.lineage.germline import (
+from symbiont.core.orchestration.clean_embodiment_seed import CleanEmbodimentSeed
+from symbiont.genetics import (
     EpigeneticMark,
+    Genome,
     GermlineState,
-    SymbiontGenome,
-    create_germline_state,
     create_standard_genome,
 )
-from symbiont.core.orchestration.clean_embodiment_seed import CleanEmbodimentSeed
 from symbiont.genetics.expression import (
     ExpressionRegulator,
     GeneExpressionState,
@@ -41,7 +40,7 @@ def _code_tokens(tree: ast.AST) -> list[str]:
     return tokens
 
 
-def _genome(genome_id: str, **overrides: float | int) -> SymbiontGenome:
+def _genome(genome_id: str, **overrides: float | int) -> Genome:
     base = create_standard_genome(genome_id)
     learning_value = float(overrides.get("learning_rate", base.plasticity.learning_rate.baseline))
     learning = replace(
@@ -84,7 +83,7 @@ def test_m1_regulator_is_semantically_invariant_to_external_names():
 
 def test_m2_transient_shock_does_not_create_acquired_mark():
     genome = _genome("m2")
-    germline = create_germline_state(genome, acquired_capture_enabled=True)
+    germline = GermlineState.from_genome(genome, acquired_capture_enabled=True)
     CleanEmbodimentSeed("m2-sym", genome=genome, germline=germline)
 
     state = GeneExpressionState.from_genome(genome, germline=germline)
@@ -114,7 +113,7 @@ def test_m2_transient_shock_does_not_create_acquired_mark():
 
 def test_m3_sustained_prediction_pressure_becomes_capture_eligible():
     genome = _genome("m3", learning_rate=0.10, exploration_rate=0.20)
-    germline = create_germline_state(genome, acquired_capture_enabled=True)
+    germline = GermlineState.from_genome(genome, acquired_capture_enabled=True)
     state = GeneExpressionState.from_genome(genome, germline=germline)
     regulator = ExpressionRegulator()
 
@@ -157,14 +156,14 @@ def test_m3b_live_seed_captures_only_when_protocol_is_explicitly_enabled():
         acquired_capture_enabled=True,
         max_marks=2,
     )
-    enabled_germline = create_germline_state(genome, acquired_capture_enabled=True)
+    enabled_germline = GermlineState.from_genome(genome, acquired_capture_enabled=True)
     enabled = CleanEmbodimentSeed(
         "m3b-enabled",
         genome=genome,
         germline=enabled_germline,
         epigenetic_protocol=protocol,
     )
-    disabled_germline = create_germline_state(genome, acquired_capture_enabled=True)
+    disabled_germline = GermlineState.from_genome(genome, acquired_capture_enabled=True)
     disabled = CleanEmbodimentSeed(
         "m3b-disabled",
         genome=genome,

@@ -22,20 +22,20 @@ from symbiont.core.embodiment.physiology import (
     DEFAULT_PHYSIOLOGY_CONFIG,
     PhysiologyConfig,
 )
-from symbiont.core.foundation.epistemic import (
-    DEFAULT_EPISTEMIC_CONVENTIONS,
-    EpistemicConventions,
-    RecencyClass,
-)
 from symbiont.core.foundation.fingerprint import (
     FINGERPRINT_SCHEMA_VERSION,
     generate_runtime_fingerprint,
 )
-from symbiont.core.foundation.limits import OrganismLimits
 from symbiont.core.runtime_defaults import (
     DEFAULT_CHECKPOINT_TICKS,
     DEFAULT_TICK_INTERVAL_SECONDS,
 )
+from symbiont.foundation.epistemic import (
+    DEFAULT_EPISTEMIC_CONVENTIONS,
+    EpistemicConventions,
+    RecencyClass,
+)
+from symbiont.foundation.limits import OrganismLimits
 from symbiont.host.adaptive import (
     _ADAPTIVE_HISTORICAL_MIN_SAMPLES,
     AdaptiveSenseModel,
@@ -131,8 +131,8 @@ def test_observatory_independence_and_limits() -> None:
     # Scan all observatory python files to guarantee NO imports of internal symbiont biology
     observatory_dir = Path(__file__).resolve().parents[3] / "observatory"
     forbidden_modules = {
-        "symbiont.core.foundation.limits",
-        "symbiont.core.foundation.epistemic",
+        "symbiont.foundation.limits",
+        "symbiont.foundation.epistemic",
         "symbiont.core.embodiment.physiology",
         "symbiont.core.cognition.host_self_model",
     }

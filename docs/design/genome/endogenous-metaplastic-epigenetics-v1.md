@@ -68,7 +68,7 @@ Inheritance-policy loci (`acquired_transmission_rate`, `epigenetic_decay`, `max_
 
 ## 5. Regulatory state
 
-Add an internal `PhenotypicRegulationState` holding birth expression, current expression, prediction-error EMA and per-locus persistence counters. It belongs to Symbiont and contains no World truth.
+Add an internal regulatory state holding birth expression, current expression, prediction-error EMA and per-locus persistence counters. It belongs to Symbiont and contains no World truth.
 
 ## 6. Generic regulatory rule
 
@@ -80,7 +80,7 @@ No World meaning or utility is consulted.
 
 ## 7. Bounds
 
-Every update is clamped by the existing `LocusSpec`. No regulator can expand its constitutional limits.
+Every update is clamped by the locus bounds in the canonical genome. No regulator can expand its constitutional limits.
 
 ## 8. Persistence gate before germline capture
 

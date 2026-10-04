@@ -3,7 +3,7 @@
 Defines the shared conventions for how the organism discretizes, quantizes,
 smoothes, and considers signals established or mature.
 
-These are distinct from physical resource bounds (:class:`~symbiont.core.foundation.limits.OrganismLimits`)
+These are distinct from physical resource bounds (:class:`~symbiont.foundation.limits.OrganismLimits`)
 and physiological dynamics (:class:`~symbiont.core.embodiment.physiology.PhysiologyConfig`).
 """
 

@@ -26,7 +26,7 @@ class EvidenceRevisionResult:
     dissent: DissentRecord | None
 
 
-from ..foundation.limits import OrganismLimits
+from ...foundation.limits import OrganismLimits
 
 _DEFAULT_LIMITS = OrganismLimits()
 

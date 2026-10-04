@@ -7,9 +7,9 @@ from enum import StrEnum
 from hashlib import sha256
 from typing import Any
 
+from ...foundation.epistemic import DEFAULT_EPISTEMIC_CONVENTIONS, RecencyClass
+from ...foundation.limits import OrganismLimits
 from ..cognition.self_model import MAX_COGNITIVE_CHANNELS_PER_TICK
-from ..foundation.epistemic import DEFAULT_EPISTEMIC_CONVENTIONS, RecencyClass
-from ..foundation.limits import OrganismLimits
 
 _DEFAULT_LIMITS = OrganismLimits()
 BODY_SCHEMA_VERSION = 2

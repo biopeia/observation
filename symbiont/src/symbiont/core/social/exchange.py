@@ -6,7 +6,7 @@ import hashlib
 import json
 from dataclasses import dataclass
 
-from ..foundation.limits import OrganismLimits
+from ...foundation.limits import OrganismLimits
 
 MAX_EXCHANGE_BYTES = OrganismLimits().max_exchange_bytes
 

@@ -5,11 +5,11 @@ from dataclasses import dataclass
 from statistics import median
 from typing import Any, Collection, Iterable
 
-from ...host.readings import CapabilitySamplingOutcome, ReadingQuality, SamplingOutcomeKind
-from ..foundation.epistemic import (
+from ...foundation.epistemic import (
     DEFAULT_EPISTEMIC_CONVENTIONS,
     RecencyClass,
 )
+from ...host.readings import CapabilitySamplingOutcome, ReadingQuality, SamplingOutcomeKind
 
 _RECENCY_REPRESENTATIVE_IDLE_TICKS = DEFAULT_EPISTEMIC_CONVENTIONS.recency_representative_map()
 _RECENCY_THRESHOLDS = tuple(
