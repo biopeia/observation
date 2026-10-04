@@ -5,18 +5,14 @@ import pytest
 
 from embodiment.physics3d.humanoid import (
     BODY_KIND,
-    BODY_MATERIAL,
     BODY_STATE_SCHEMA_VERSION,
-    GROUND_MATERIAL,
     JOINT_AXES,
     JOINT_LIMITS,
     JOINT_SPECS,
-    MECHANICAL_LIMIT_GUARD,
     MOTOR_DOF,
     PHYSICAL_RECEPTOR_COUNT,
     TOTAL_RECEPTOR_COUNT,
     HumanoidPhysics,
-    SurfaceMaterial,
     apply_surface_material,
     build_anthropomorphic_urdf,
     effector_contract_ids,
@@ -24,6 +20,12 @@ from embodiment.physics3d.humanoid import (
     mechanical_joint_limits,
     physical_receptor_contract_ids,
     receptor_contract_ids,
+)
+from embodiment.physics3d.mechanics import (
+    BODY_MATERIAL,
+    GROUND_MATERIAL,
+    MECHANICAL_LIMIT_GUARD,
+    SurfaceMaterial,
 )
 from lab.integration.physics3d.apparatus import (
     OpaqueBodyInteroception,
@@ -936,7 +938,9 @@ def test_physics_substep_installs_damping_before_active_torque() -> None:
 
 
 def test_actuator_work_decomposition_keeps_absolute_effort_distinct_from_net():
-    from embodiment.physics3d.humanoid import ActuatorWork
+    from embodiment.physics3d.mechanics import (
+        ActuatorWork,
+    )
 
     work = ActuatorWork(
         positive_j=4.0,

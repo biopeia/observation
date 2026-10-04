@@ -8,11 +8,13 @@ from statistics import fmean
 from typing import Iterable, Mapping, Sequence
 
 from embodiment.physics3d.humanoid import (
-    GROUND_MATERIAL,
     JOINT_SPECS,
     HumanoidPhysics,
     apply_surface_material,
     configure_physics_solver,
+)
+from embodiment.physics3d.mechanics import (
+    GROUND_MATERIAL,
 )
 from lab.physics3d.settling import SettlingResult, settle_passive_body
 

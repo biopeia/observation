@@ -12,8 +12,9 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from embodiment.physics3d.humanoid import (
+from embodiment.physics3d.mechanics import (
     BODY_MATERIAL,
+    CARRIER_MASS,
     END_RANGE_DAMPING,
     END_RANGE_MARGIN,
     END_RANGE_STIFFNESS,
@@ -38,7 +39,6 @@ JOINT_LIMIT_IMPEDANCE = (0.99, 0.999, 0.001, 0.5, 2.0)
 GLOBAL_KINEMATIC_RECEPTORS = 10
 ECOLOGICAL_RECEPTORS = 1
 INTEROCEPTIVE_RECEPTOR_COUNT = 4
-CARRIER_MASS = 0.05
 
 
 @dataclass(frozen=True, slots=True)
@@ -222,7 +222,7 @@ class ArticulatedPhysics:
 
     SPEC: ArticulatedBodySpec
 
-    def __init__(self, scene: Any) -> None:
+    def __init__(self, scene: Any, *, spawn_height: float | None = None) -> None:
         spec = self.SPEC
         self.scene = scene
         self._sensor_values: dict[str, float] = {}
@@ -254,7 +254,7 @@ class ArticulatedPhysics:
             spec.base_link_name,
             *spec.contact_link_names,
         )
-        self._add_to_scene(spec.spawn_height)
+        self._add_to_scene(spec.spawn_height if spawn_height is None else float(spawn_height))
         scene.recompile()
         self._bind()
         # Zero is outside the range of some joints; start each at the nearest
@@ -268,9 +268,7 @@ class ArticulatedPhysics:
     def _add_to_scene(self, spawn_height: float) -> None:
         spec = self.SPEC
         mujoco = self.scene.mj
-        urdf = re.sub(
-            r"(<robot[^>]*>)", r"\1" + _URDF_COMPILER, build_articulated_urdf(spec), count=1
-        )
+        urdf = re.sub(r"(<robot[^>]*>)", r"\1" + _URDF_COMPILER, self._urdf(), count=1)
         loaded = mujoco.MjSpec.from_string(urdf)
         frame = self.scene.spec.worldbody.add_frame(pos=[0.0, 0.0, float(spawn_height)])
         root = frame.attach_body(loaded.worldbody.first_body(), NAME_PREFIX, "")
@@ -285,16 +283,27 @@ class ArticulatedPhysics:
             if geom.name.startswith(NAME_PREFIX) or geom.parent.name.startswith(NAME_PREFIX):
                 geom.friction = friction
         limit_response = [2.0 * float(self.scene.spec.option.timestep), 1.0]
+        damping = {f"{NAME_PREFIX}{item.name}": item.passive_damping for item in spec.joint_specs}
         for joint in self.scene.spec.joints:
-            if joint.name.startswith(NAME_PREFIX) and joint.name != f"{NAME_PREFIX}root":
+            if joint.name in damping:
                 joint.solref_limit = limit_response
                 joint.solimp_limit = list(JOINT_LIMIT_IMPEDANCE)
+                # Viscous joint damping, integrated implicitly by the engine.
+                # (linear, quadratic, cubic) coefficients; only the linear one.
+                joint.damping = [float(damping[joint.name]), 0.0, 0.0]
         # A link and its parent never collide in MuJoCo; structural neighbours
         # joined through a massless carrier need an explicit exclusion.
         for left, right in spec.structural_neighbour_names:
             self.scene.spec.add_exclude(
                 bodyname1=f"{NAME_PREFIX}{left}", bodyname2=f"{NAME_PREFIX}{right}"
             )
+
+    def _urdf(self) -> str:
+        return build_articulated_urdf(self.SPEC)
+
+    def _passive_torque(self, spec: JointSpec, *, position: float, velocity: float) -> float:
+        """Torque the body's own tissue adds to a joint, beside the command."""
+        return _end_range_resistance(spec, position=position, velocity=velocity)
 
     def _bind(self) -> None:
         """Resolve this body's element ids in the scene's current model."""
@@ -380,6 +389,38 @@ class ArticulatedPhysics:
         ]
         return linear, angular
 
+    def _contact_details(self) -> list[dict[str, object]]:
+        """Observer-side description of each contact this body takes part in."""
+        model, data = self._current()
+        mujoco = self.scene.mj
+        import numpy
+
+        name_by_link = {index: name for name, index in self._link_index_by_name.items()}
+        force = numpy.zeros(6)
+        details: list[dict[str, object]] = []
+        for index in range(int(data.ncon)):
+            contact = data.contact[index]
+            bodies = (
+                int(model.geom_bodyid[contact.geom1]),
+                int(model.geom_bodyid[contact.geom2]),
+            )
+            for own, other in (bodies, bodies[::-1]):
+                if own not in self._link_by_body_id:
+                    continue
+                mujoco.mj_contactForce(model, data, index, force)
+                link = self._link_by_body_id[own]
+                details.append(
+                    {
+                        "link_index": link,
+                        "link_name": name_by_link[link],
+                        "position": [float(value) for value in contact.pos],
+                        "normal": [float(value) for value in contact.frame[:3]],
+                        "normal_force": max(0.0, float(force[0])),
+                        "other_body_id": other,
+                    }
+                )
+        return details
+
     def _contact_loads(self) -> tuple[set[int], dict[int, float], int]:
         """Links of this body in contact, their peak normal force, contact count."""
         model, data = self._current()
@@ -458,7 +499,7 @@ class ArticulatedPhysics:
         """Set each joint's torque for the next step: command plus end-range resistance."""
         _model, data = self._current()
         for ordinal, (position, velocity) in enumerate(self._joint_states()):
-            passive = _end_range_resistance(
+            passive = self._passive_torque(
                 self.SPEC.joint_specs[ordinal], position=position, velocity=velocity
             )
             commanded = float(self._applied_torque_by_joint.get(ordinal, 0.0))
@@ -541,6 +582,7 @@ class ArticulatedPhysics:
             "joints": joints,
             "links": links,
             "contact_links": sorted(active_links),
+            "contacts": self._contact_details(),
             "contact_count": contact_count,
             # ADR-0066 decision 5: what the engine needs to continue this body
             # exactly.  The readable fields above are derived from it.

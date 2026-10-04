@@ -13,9 +13,11 @@ from dataclasses import asdict, dataclass
 from typing import Iterable
 
 from embodiment.physics3d.humanoid import (
-    GROUND_MATERIAL,
     HumanoidPhysics,
     apply_surface_material,
+)
+from embodiment.physics3d.mechanics import (
+    GROUND_MATERIAL,
 )
 from lab.modeling import SparseEchoStateRegressor
 

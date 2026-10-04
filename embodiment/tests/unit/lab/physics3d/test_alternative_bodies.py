@@ -11,6 +11,7 @@ from embodiment.physics3d.alternative_bodies import (
     CrawlerPhysics,
 )
 from embodiment.physics3d.articulated import build_articulated_urdf
+from embodiment.physics3d.humanoid import ANTHROPOMORPHIC_SPEC, HumanoidPhysics
 
 
 @pytest.mark.parametrize("spec", [CRAWLER_SPEC, ASYMMETRIC_SPEC])
@@ -37,6 +38,7 @@ def test_alternative_body_contract_dimensions_are_self_consistent(spec) -> None:
 BODIES = [
     (CrawlerPhysics, CRAWLER_SPEC),
     (AsymmetricPhysics, ASYMMETRIC_SPEC),
+    (HumanoidPhysics, ANTHROPOMORPHIC_SPEC),
 ]
 
 
