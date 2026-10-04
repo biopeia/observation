@@ -313,7 +313,13 @@ class PrivateModelOrganismRuntime(ModeledOrganismRuntime):
 
         action_token = None
         source = SourceKind.INTERNAL
-        if result.action_result is not None:
+        actuations = result.actuations or (
+            (result.actuation,) if result.actuation is not None else ()
+        )
+        # A motor command is identified by what was done, not by its command
+        # id: a per-command token never recurs, so nothing could be learned or
+        # reconciled about it (Cognitive Cycle v1 F6).
+        if result.action_result is not None and not actuations:
             action_id = result.action_result.action_id
             action_token = f"action.{action_id}"
             context.append(
@@ -334,10 +340,7 @@ class PrivateModelOrganismRuntime(ModeledOrganismRuntime):
                         result.action_result.executed,
                     )
                 )
-        elif result.actuations or result.actuation is not None:
-            actuations = result.actuations or (
-                (result.actuation,) if result.actuation is not None else ()
-            )
+        elif actuations:
             action_source = self.last_action_source
             if action_source == "none":
                 action_source = getattr(self, "_last_motor_origin_detail", action_source)

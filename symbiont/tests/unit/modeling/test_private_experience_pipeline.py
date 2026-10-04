@@ -537,3 +537,54 @@ def test_shared_fact_identity_reconciles_imagination_under_one_source(monkeypatc
     runtime.tick()
 
     assert [note["evidence_refs"] for note in notes] == [("causal.transition.abc",)]
+
+
+def _acted(runtime: PrivateModelOrganismRuntime, **fields) -> RuntimeTickResult:
+    """A tick result shaped like production: the action domain reports its command."""
+    actuation = Actuation(actuator_id="actuator.0123456789abcdef", requested=0.8, delivered=0.6)
+    return RuntimeTickResult(
+        tick=1,
+        snapshot=None,
+        percepts=(),
+        drift_observations={},
+        allocations=(),
+        investigated_capability=None,
+        evidence_gathered=0,
+        dissent=None,
+        narrative=(),
+        actuation=actuation,
+        actuations=(actuation,),
+        action_result=SimpleNamespace(
+            action_id="command.unique-per-tick", executed=True, reason=None
+        ),
+        **fields,
+    )
+
+
+def test_motor_command_is_named_by_its_competence_not_its_command_id():
+    """Cognitive Cycle v1 F6: the production result carries a per-command id."""
+    runtime = PrivateModelOrganismRuntime(
+        organism_id="private-action-identity",
+        bootstrap_semantic_senses=False,
+        discover_senses=False,
+    )
+    runtime._last_executed_primitive_id = "primitive.0123456789abcdef"
+    runtime._action_domain.last_action_source = "competence"
+
+    frame = runtime._capture_private_frame(_acted(runtime))
+
+    assert frame.action_token == "action.primitive.0123456789abcdef"
+    assert frame.source_kind is SourceKind.ACTION_OUTCOME
+
+
+def test_unnamed_motor_command_uses_the_composite_token_not_its_command_id():
+    runtime = PrivateModelOrganismRuntime(
+        organism_id="private-action-identity",
+        bootstrap_semantic_senses=False,
+        discover_senses=False,
+    )
+
+    frame = runtime._capture_private_frame(_acted(runtime))
+
+    assert frame.action_token == "action.motor.composite"
+    assert any("delivered." in token for token in frame.context_tokens)

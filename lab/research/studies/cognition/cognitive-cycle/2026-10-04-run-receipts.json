@@ -1,0 +1,858 @@
+{
+ "note": "Receipts and state summaries of the Cognitive Cycle v1 evidence runs of 2026-10-04. The run directories were deleted from the host after this record was written; the organism states themselves are not preserved here.",
+ "runs": {
+  "cc-w1-arms-s42": {
+   "execution": {
+    "authorization_model": "external-operator-policy",
+    "command": [
+     "/home/alessbarb/workspace/repos/active/symbiont-lab/.git/symbiont-agent/runs/cc-w1-arms-s42/environment/bin/python",
+     "-m",
+     "lab.experiments.verified_child",
+     "module",
+     "lab.studies.learning.shared_fact_identity",
+     "/home/alessbarb/workspace/repos/active/symbiont-lab/.git/symbiont-agent/runs/cc-w1-arms-s42/input",
+     "/home/alessbarb/workspace/repos/active/symbiont-lab/.git/symbiont-agent/runs/cc-w1-arms-s42/work",
+     "--ticks",
+     "512",
+     "--seed",
+     "42"
+    ],
+    "commit": "25245d713d6f97fb412abd0780d3f58e76e8d8c5",
+    "cpu_threads": 2,
+    "dependency_extras": [
+     "modeling",
+     "physics3d"
+    ],
+    "disk_gb": 3.0,
+    "elapsed_seconds": 4423.251829862595,
+    "ended_at": "2026-10-04T14:44:59.399626+00:00",
+    "execution_fingerprint": {
+     "dependency_lock_hash": "6a2410855db7b4b7d87aeb624b95a9397160ccd066aa0d0977dd713241dc373a",
+     "effective_config_hash": "f93ea9987c24990cad97253ec5a7cda6e4d13f0970f38811a79d96e833d3494f",
+     "experiment_id": "learning.cognitive-cycle-shared-fact-identity",
+     "git_commit": "25245d713d6f97fb412abd0780d3f58e76e8d8c5",
+     "is_dirty": false,
+     "python_base_prefix": "/home/alessbarb/.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu",
+     "python_executable": "/home/alessbarb/.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu/bin/python3.12",
+     "python_prefix": "/home/alessbarb/workspace/repos/active/symbiont-lab/.git/symbiont-agent/runs/cc-w1-arms-s42/environment",
+     "python_version": "3.12.13",
+     "repo_root": "/tmp/symbiont-lab-worktrees/run-25245d713d-_pjmqdc5",
+     "seed": 42,
+     "symbiont_file": "/tmp/symbiont-lab-worktrees/run-25245d713d-_pjmqdc5/symbiont/src/symbiont/__init__.py",
+     "symbiont_lab_file": "/tmp/symbiont-lab-worktrees/run-25245d713d-_pjmqdc5/lab/src/lab/__init__.py"
+    },
+    "experiment_id": "learning.cognitive-cycle-shared-fact-identity",
+    "generation": {
+     "complete_sha256": "4aa7d051d0ab267e39b1a21570bad94164e5d0311b6fd8fa25c3dbde27e635c0",
+     "file_count": 749,
+     "name": "generation-000000",
+     "path": "generations/generation-000000"
+    },
+    "governance_ref": "1f71ee5e53386e2b4a18cf577207a1d7b69ac62b",
+    "id": "cc-w1-arms-s42",
+    "memory_gb": 8.0,
+    "resource_preflight": {
+     "available_cpu_threads": 8,
+     "available_memory_gb": 10.254066467285156,
+     "free_disk_gb": 17.239383697509766
+    },
+    "returncode": 0,
+    "scientific_input": {
+     "external_state": true,
+     "mode": "snapshot",
+     "snapshot": {
+      "body_kind": null,
+      "body_sha256": "b8857bc24d710df41136ed1273254c8aca72e6843c90b19bf354c621c561ed70",
+      "bundle_models_tree_sha256": "d700d9cb14192a7458e041e535bf27c53d56ae5f47c8dad008ae1bc9b2ec1982",
+      "models_tree_sha256": "7010122185e2b027b18e7bb9ad25205b9a7457956ce277f6be059ca453de5920",
+      "organism_sha256": "36cff468e6bf47c5166495c9b830accefd3e6fc2b1d48cfedb0aeae9a01faf2b",
+      "schema_version": 2,
+      "source_commit": "0ce589ba20ab2c7604d10dec14108fe9c2c7df11",
+      "unverified_legacy_origin": null
+     }
+    },
+    "scope": "development",
+    "seed": 42,
+    "started_at": "2026-10-04T13:31:16.112098+00:00",
+    "state": "complete",
+    "wall_minutes": 240,
+    "worktree_commit": "25245d713d6f97fb412abd0780d3f58e76e8d8c5"
+   },
+   "input_manifest": {
+    "body_age_ticks": null,
+    "body_age_ticks_from_bundle": 1536,
+    "body_id_from_bundle": "body.98b74e50060058b044fb4919",
+    "body_kind": null,
+    "body_kind_from_bundle": "anthropomorphic-v6-vision",
+    "body_kind_from_state": "anthropomorphic-v6",
+    "body_sha256": "b8857bc24d710df41136ed1273254c8aca72e6843c90b19bf354c621c561ed70",
+    "bundle_models_tree_sha256": "d700d9cb14192a7458e041e535bf27c53d56ae5f47c8dad008ae1bc9b2ec1982",
+    "captured_at": "2026-10-04T13:31:15.699347+00:00",
+    "captured_tick": 1536,
+    "checkpoint_hash": "sha256:b4a604e624327f476182d8b14865211c3488266748652e215cf6ca5e9bea4935",
+    "checkpoint_id": "chk-bf85c617767c-00001536",
+    "embodiment_id": null,
+    "embodiment_id_from_bundle": "embodiment.3c7930084be114356f8200fb",
+    "models_source": "external",
+    "models_tree_sha256": "7010122185e2b027b18e7bb9ad25205b9a7457956ce277f6be059ca453de5920",
+    "organism_id": "symbiont:3d:351dbf85c617767c",
+    "organism_sha256": "36cff468e6bf47c5166495c9b830accefd3e6fc2b1d48cfedb0aeae9a01faf2b",
+    "scenario": "development",
+    "schema_version": 2,
+    "snapshot_id": "input",
+    "snapshot_schema": 14,
+    "source_commit": "0ce589ba20ab2c7604d10dec14108fe9c2c7df11"
+   },
+   "manifest.json": {
+    "body_age_ticks": null,
+    "body_age_ticks_from_bundle": 1536,
+    "body_id_from_bundle": "body.98b74e50060058b044fb4919",
+    "body_kind": null,
+    "body_kind_from_bundle": "anthropomorphic-v6-vision",
+    "body_kind_from_state": "anthropomorphic-v6",
+    "body_sha256": "b8857bc24d710df41136ed1273254c8aca72e6843c90b19bf354c621c561ed70",
+    "bundle_models_tree_sha256": "d700d9cb14192a7458e041e535bf27c53d56ae5f47c8dad008ae1bc9b2ec1982",
+    "captured_at": "2026-10-04T13:31:15.699347+00:00",
+    "captured_tick": 1536,
+    "checkpoint_hash": "sha256:b4a604e624327f476182d8b14865211c3488266748652e215cf6ca5e9bea4935",
+    "checkpoint_id": "chk-bf85c617767c-00001536",
+    "embodiment_id": null,
+    "embodiment_id_from_bundle": "embodiment.3c7930084be114356f8200fb",
+    "models_source": "external",
+    "models_tree_sha256": "7010122185e2b027b18e7bb9ad25205b9a7457956ce277f6be059ca453de5920",
+    "organism_id": "symbiont:3d:351dbf85c617767c",
+    "organism_sha256": "36cff468e6bf47c5166495c9b830accefd3e6fc2b1d48cfedb0aeae9a01faf2b",
+    "scenario": "development",
+    "schema_version": 2,
+    "snapshot_id": "input",
+    "snapshot_schema": 14,
+    "source_commit": "0ce589ba20ab2c7604d10dec14108fe9c2c7df11"
+   },
+   "states": {
+    "off/organism.symbiont": {
+     "action_outcome_episodes": 609,
+     "action_token_prefixes": {
+      "action.command": 609
+     },
+     "distinct_action_tokens": 609,
+     "factual_source_prefixes": {
+      "causal": 27,
+      "episode": 20
+     },
+     "generative_tick": 1918,
+     "hypotheses": {
+      "competence-effect/contradicted": 27,
+      "competence-effect/predicted": 2,
+      "private-slm/predicted": 6
+     },
+     "hypothesis_target_prefixes": {
+      "gc.prospective.primitive": 35
+     },
+     "ledger_records": {
+      "contradicted/model": 577,
+      "observed/action_outcome": 609,
+      "observed/direct": 220,
+      "predicted/model": 609,
+      "supported/model": 33
+     },
+     "model_states": {
+      "active": 1,
+      "degraded": 3,
+      "retired": 57
+     },
+     "organism_id": "symbiont:3d:351dbf85c617767c",
+     "reconciliation_count": 27,
+     "saved_at_tick": 2048
+    },
+    "off_replicate/organism.symbiont": {
+     "action_outcome_episodes": 609,
+     "action_token_prefixes": {
+      "action.command": 609
+     },
+     "distinct_action_tokens": 609,
+     "factual_source_prefixes": {
+      "causal": 27,
+      "episode": 20
+     },
+     "generative_tick": 1918,
+     "hypotheses": {
+      "competence-effect/contradicted": 27,
+      "competence-effect/predicted": 2,
+      "private-slm/predicted": 6
+     },
+     "hypothesis_target_prefixes": {
+      "gc.prospective.primitive": 35
+     },
+     "ledger_records": {
+      "contradicted/model": 577,
+      "observed/action_outcome": 609,
+      "observed/direct": 220,
+      "predicted/model": 609,
+      "supported/model": 33
+     },
+     "model_states": {
+      "active": 1,
+      "degraded": 3,
+      "retired": 57
+     },
+     "organism_id": "symbiont:3d:351dbf85c617767c",
+     "reconciliation_count": 27,
+     "saved_at_tick": 2048
+    },
+    "on/organism.symbiont": {
+     "action_outcome_episodes": 609,
+     "action_token_prefixes": {
+      "action.command": 609
+     },
+     "distinct_action_tokens": 609,
+     "factual_source_prefixes": {
+      "causal": 27,
+      "episode": 20
+     },
+     "generative_tick": 1918,
+     "hypotheses": {
+      "competence-effect/contradicted": 27,
+      "competence-effect/predicted": 2,
+      "private-slm/predicted": 6
+     },
+     "hypothesis_target_prefixes": {
+      "gc.prospective.primitive": 35
+     },
+     "ledger_records": {
+      "contradicted/model": 575,
+      "observed/action_outcome": 609,
+      "observed/direct": 220,
+      "predicted/model": 609,
+      "supported/model": 35
+     },
+     "model_states": {
+      "active": 1,
+      "degraded": 3,
+      "retired": 57
+     },
+     "organism_id": "symbiont:3d:351dbf85c617767c",
+     "reconciliation_count": 27,
+     "saved_at_tick": 2048
+    },
+    "organism.symbiont": {
+     "action_outcome_episodes": 601,
+     "action_token_prefixes": {
+      "action.command": 601
+     },
+     "distinct_action_tokens": 601,
+     "factual_source_prefixes": {
+      "causal": 27
+     },
+     "generative_tick": 1404,
+     "hypotheses": {
+      "competence-effect/contradicted": 27,
+      "competence-effect/predicted": 2,
+      "private-slm/predicted": 6
+     },
+     "hypothesis_target_prefixes": {
+      "gc.prospective.primitive": 35
+     },
+     "ledger_records": {
+      "contradicted/model": 571,
+      "observed/action_outcome": 601,
+      "observed/direct": 244,
+      "predicted/model": 601,
+      "supported/model": 31
+     },
+     "model_states": {
+      "active": 1,
+      "degraded": 3,
+      "retired": 41
+     },
+     "organism_id": "symbiont:3d:351dbf85c617767c",
+     "reconciliation_count": 27,
+     "saved_at_tick": 1536
+    }
+   }
+  },
+  "cc-w1-dev-s42": {
+   "execution": {
+    "authorization_model": "external-operator-policy",
+    "command": [
+     "/home/alessbarb/workspace/repos/active/symbiont-lab/.git/symbiont-agent/runs/cc-w1-dev-s42/environment/bin/python",
+     "-m",
+     "lab.experiments.verified_child",
+     "code",
+     "import sys; from pathlib import Path; from lab.physics3d.engine import run; w=Path(sys.argv[1]); sys.exit(run(headless=True, ticks=1536, seed=42, symbiont_file=w/'organism.symbiont', body_file=w/'body.json', telemetry_file=w/'telemetry', body_kind='anthropomorphic-v6-vision', show_monitor=False, enable_slm=True, slm_train_interval=1, slm_device='cpu', slm_synchronous=True, checkpoint_interval=256, factorized_effects=True, observation_hz=1, new_symbiont=True, fresh_body=True, provenance_journal=w/'provenance.jsonl', measurement_file=w/'measurement.json'))",
+     "/home/alessbarb/workspace/repos/active/symbiont-lab/.git/symbiont-agent/runs/cc-w1-dev-s42/work"
+    ],
+    "commit": "0ce589ba20ab2c7604d10dec14108fe9c2c7df11",
+    "cpu_threads": 2,
+    "dependency_extras": [
+     "modeling",
+     "physics3d"
+    ],
+    "disk_gb": 2.0,
+    "elapsed_seconds": 370.2122037410736,
+    "ended_at": "2026-10-04T12:54:09.968803+00:00",
+    "execution_fingerprint": {
+     "dependency_lock_hash": "6a2410855db7b4b7d87aeb624b95a9397160ccd066aa0d0977dd713241dc373a",
+     "effective_config_hash": "6001ec83cf9ea1eac7b0c0405bc1f758474038a53198737fcd28352240eeb1e9",
+     "experiment_id": "learning.cognitive-cycle-shared-fact-identity",
+     "git_commit": "0ce589ba20ab2c7604d10dec14108fe9c2c7df11",
+     "is_dirty": false,
+     "python_base_prefix": "/home/alessbarb/.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu",
+     "python_executable": "/home/alessbarb/.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu/bin/python3.12",
+     "python_prefix": "/home/alessbarb/workspace/repos/active/symbiont-lab/.git/symbiont-agent/runs/cc-w1-dev-s42/environment",
+     "python_version": "3.12.13",
+     "repo_root": "/tmp/symbiont-lab-worktrees/run-0ce589ba20-3ds1zkd5",
+     "seed": 42,
+     "symbiont_file": "/tmp/symbiont-lab-worktrees/run-0ce589ba20-3ds1zkd5/symbiont/src/symbiont/__init__.py",
+     "symbiont_lab_file": "/tmp/symbiont-lab-worktrees/run-0ce589ba20-3ds1zkd5/lab/src/lab/__init__.py"
+    },
+    "experiment_id": "learning.cognitive-cycle-shared-fact-identity",
+    "generation": {
+     "complete_sha256": "160831ed1fadf9dfd184b4cc18fafd37cbe43e7258564b9b712c418b981c05d0",
+     "file_count": 30,
+     "name": "generation-000000",
+     "path": "generations/generation-000000"
+    },
+    "governance_ref": "1f71ee5e53386e2b4a18cf577207a1d7b69ac62b",
+    "id": "cc-w1-dev-s42",
+    "memory_gb": 3.5,
+    "resource_preflight": {
+     "available_cpu_threads": 8,
+     "available_memory_gb": 5.0341644287109375,
+     "free_disk_gb": 17.509376525878906
+    },
+    "returncode": 1,
+    "scientific_input": {
+     "external_state": false,
+     "mode": "protocol-generated"
+    },
+    "scope": "development",
+    "seed": 42,
+    "started_at": "2026-10-04T12:47:59.742958+00:00",
+    "state": "complete",
+    "wall_minutes": 60,
+    "worktree_commit": "0ce589ba20ab2c7604d10dec14108fe9c2c7df11"
+   },
+   "measurement.json": {
+    "epoch_metrics": {
+     "absorbed_material_total": 0.0,
+     "adaptation_recovered_at_tick": null,
+     "adaptation_state": "unstable",
+     "mechanical_work_total": 139.3466378864211,
+     "physiological_cost_total": 0.13934663788642118,
+     "reacclimation_completed": true,
+     "reacclimation_ticks_consumed": 0,
+     "reacclimation_window_completed": true,
+     "vital_state_ticks": {
+      "active": 256
+     }
+    },
+    "measurement": {
+     "binding_status": {
+      "invalidated": 0,
+      "stale": 0,
+      "valid": 0
+     },
+     "capacity": {
+      "effect_space": {
+       "admissions": 89,
+       "capacity": 512,
+       "demotions": 0,
+       "evictions": 0,
+       "occupancy": 89,
+       "pressure": 0.173828125,
+       "promotions": 0,
+       "relearned_after_eviction": 0
+      },
+      "execution_bindings": {
+       "admissions": 0,
+       "capacity": 512,
+       "demotions": 0,
+       "evictions": 0,
+       "occupancy": 0,
+       "pressure": 0.0,
+       "promotions": 0,
+       "relearned_after_eviction": 0
+      },
+      "executive_keys": {
+       "admissions": 0,
+       "capacity": 256,
+       "demotions": 0,
+       "evictions": 0,
+       "occupancy": 0,
+       "pressure": 0.0,
+       "promotions": 0,
+       "relearned_after_eviction": 0
+      },
+      "generative_representations": {
+       "admissions": 1,
+       "capacity": 256,
+       "demotions": 0,
+       "evictions": 0,
+       "occupancy": 1,
+       "pressure": 0.00390625,
+       "promotions": 0,
+       "relearned_after_eviction": 0
+      },
+      "primitive_stats": {
+       "admissions": 34,
+       "capacity": 512,
+       "demotions": 0,
+       "evictions": 0,
+       "occupancy": 34,
+       "pressure": 0.06640625,
+       "promotions": 0,
+       "relearned_after_eviction": 0
+      },
+      "primitives": {
+       "admissions": 3,
+       "capacity": 256,
+       "demotions": 0,
+       "evictions": 0,
+       "occupancy": 3,
+       "pressure": 0.01171875,
+       "promotions": 0,
+       "relearned_after_eviction": 0
+      }
+     },
+     "competence_availability": {
+      "admissible": 0,
+      "executable": 0,
+      "known": 0,
+      "predictable": 0,
+      "suppressed": 0
+     },
+     "generative": {
+      "max_sterile_per_representation": 0,
+      "sterile_reactivations": 0
+     },
+     "passive_evidence": {
+      "ledger_passive_windows": 80,
+      "motor_baseline_frames": 32
+     },
+     "private_models": {
+      "by_state": {
+       "active": 1,
+       "degraded": 1,
+       "shadow": 1
+      },
+      "eligible_ancestors": 0,
+      "max_generation": 0,
+      "models": 3,
+      "retirement_deferrals": 0,
+      "root_reasons": {},
+      "roots": 3
+     }
+    },
+    "tick": 256
+   },
+   "states": {}
+  },
+  "cc-w1-dev-s42-r2": {
+   "execution": {
+    "authorization_model": "external-operator-policy",
+    "command": [
+     "/home/alessbarb/workspace/repos/active/symbiont-lab/.git/symbiont-agent/runs/cc-w1-dev-s42-r2/environment/bin/python",
+     "-m",
+     "lab.experiments.verified_child",
+     "code",
+     "import sys; from pathlib import Path; from lab.physics3d.engine import run; w=Path(sys.argv[1]); sys.exit(run(headless=True, ticks=1536, seed=42, symbiont_file=w/'organism.symbiont', body_file=w/'body.json', telemetry_file=w/'telemetry', body_kind='anthropomorphic-v6-vision', show_monitor=False, enable_slm=True, slm_train_interval=1, slm_device='cpu', slm_synchronous=True, checkpoint_interval=256, factorized_effects=True, observation_hz=1, new_symbiont=True, fresh_body=True, provenance_journal=w/'provenance.jsonl', measurement_file=w/'measurement.json'))",
+     "/home/alessbarb/workspace/repos/active/symbiont-lab/.git/symbiont-agent/runs/cc-w1-dev-s42-r2/work"
+    ],
+    "commit": "0ce589ba20ab2c7604d10dec14108fe9c2c7df11",
+    "cpu_threads": 2,
+    "dependency_extras": [
+     "modeling",
+     "physics3d"
+    ],
+    "disk_gb": 2.0,
+    "elapsed_seconds": 2000.6893241405487,
+    "ended_at": "2026-10-04T13:27:57.546741+00:00",
+    "execution_fingerprint": {
+     "dependency_lock_hash": "6a2410855db7b4b7d87aeb624b95a9397160ccd066aa0d0977dd713241dc373a",
+     "effective_config_hash": "6001ec83cf9ea1eac7b0c0405bc1f758474038a53198737fcd28352240eeb1e9",
+     "experiment_id": "learning.cognitive-cycle-shared-fact-identity",
+     "git_commit": "0ce589ba20ab2c7604d10dec14108fe9c2c7df11",
+     "is_dirty": false,
+     "python_base_prefix": "/home/alessbarb/.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu",
+     "python_executable": "/home/alessbarb/.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu/bin/python3.12",
+     "python_prefix": "/home/alessbarb/workspace/repos/active/symbiont-lab/.git/symbiont-agent/runs/cc-w1-dev-s42-r2/environment",
+     "python_version": "3.12.13",
+     "repo_root": "/tmp/symbiont-lab-worktrees/run-0ce589ba20-a808y6jq",
+     "seed": 42,
+     "symbiont_file": "/tmp/symbiont-lab-worktrees/run-0ce589ba20-a808y6jq/symbiont/src/symbiont/__init__.py",
+     "symbiont_lab_file": "/tmp/symbiont-lab-worktrees/run-0ce589ba20-a808y6jq/lab/src/lab/__init__.py"
+    },
+    "experiment_id": "learning.cognitive-cycle-shared-fact-identity",
+    "generation": {
+     "complete_sha256": "d71f2dec2f139f073e4aaab263a64b31ea70f88c16eaadcd7e389f7ae3b9c87f",
+     "file_count": 160,
+     "name": "generation-000000",
+     "path": "generations/generation-000000"
+    },
+    "governance_ref": "1f71ee5e53386e2b4a18cf577207a1d7b69ac62b",
+    "id": "cc-w1-dev-s42-r2",
+    "memory_gb": 8.0,
+    "resource_preflight": {
+     "available_cpu_threads": 8,
+     "available_memory_gb": 10.177265167236328,
+     "free_disk_gb": 11.135738372802734
+    },
+    "returncode": 0,
+    "scientific_input": {
+     "external_state": false,
+     "mode": "protocol-generated"
+    },
+    "scope": "development",
+    "seed": 42,
+    "started_at": "2026-10-04T12:54:36.817081+00:00",
+    "state": "complete",
+    "wall_minutes": 90,
+    "worktree_commit": "0ce589ba20ab2c7604d10dec14108fe9c2c7df11"
+   },
+   "measurement.json": {
+    "epoch_metrics": {
+     "absorbed_material_total": 0.0,
+     "adaptation_recovered_at_tick": null,
+     "adaptation_state": "unstable",
+     "mechanical_work_total": 729.4907556331907,
+     "physiological_cost_total": 0.7294907556331894,
+     "reacclimation_completed": true,
+     "reacclimation_ticks_consumed": 0,
+     "reacclimation_window_completed": true,
+     "vital_state_ticks": {
+      "active": 1123,
+      "stressed": 413
+     }
+    },
+    "measurement": {
+     "binding_status": {
+      "invalidated": 0,
+      "stale": 2,
+      "valid": 10
+     },
+     "capacity": {
+      "effect_space": {
+       "admissions": 498,
+       "capacity": 512,
+       "demotions": 0,
+       "evictions": 0,
+       "occupancy": 498,
+       "pressure": 0.97265625,
+       "promotions": 0,
+       "relearned_after_eviction": 0
+      },
+      "execution_bindings": {
+       "admissions": 12,
+       "capacity": 512,
+       "demotions": 0,
+       "evictions": 0,
+       "occupancy": 12,
+       "pressure": 0.0234375,
+       "promotions": 0,
+       "relearned_after_eviction": 0
+      },
+      "executive_keys": {
+       "admissions": 2,
+       "capacity": 256,
+       "demotions": 0,
+       "evictions": 0,
+       "occupancy": 2,
+       "pressure": 0.0078125,
+       "promotions": 0,
+       "relearned_after_eviction": 0
+      },
+      "generative_representations": {
+       "admissions": 6,
+       "capacity": 256,
+       "demotions": 0,
+       "evictions": 0,
+       "occupancy": 6,
+       "pressure": 0.0234375,
+       "promotions": 0,
+       "relearned_after_eviction": 0
+      },
+      "primitive_stats": {
+       "admissions": 248,
+       "capacity": 512,
+       "demotions": 0,
+       "evictions": 0,
+       "occupancy": 248,
+       "pressure": 0.484375,
+       "promotions": 0,
+       "relearned_after_eviction": 0
+      },
+      "primitives": {
+       "admissions": 25,
+       "capacity": 256,
+       "demotions": 0,
+       "evictions": 0,
+       "occupancy": 25,
+       "pressure": 0.09765625,
+       "promotions": 0,
+       "relearned_after_eviction": 0
+      }
+     },
+     "competence_availability": {
+      "admissible": 10,
+      "executable": 10,
+      "known": 12,
+      "predictable": 12,
+      "suppressed": 1
+     },
+     "generative": {
+      "max_sterile_per_representation": 0,
+      "sterile_reactivations": 0
+     },
+     "passive_evidence": {
+      "ledger_passive_windows": 382,
+      "motor_baseline_frames": 137
+     },
+     "private_models": {
+      "by_state": {
+       "active": 1,
+       "degraded": 3,
+       "retired": 41
+      },
+      "eligible_ancestors": 0,
+      "max_generation": 0,
+      "models": 45,
+      "retirement_deferrals": 0,
+      "root_reasons": {},
+      "roots": 45
+     }
+    },
+    "tick": 1536
+   },
+   "states": {
+    "organism.symbiont": {
+     "action_outcome_episodes": 601,
+     "action_token_prefixes": {
+      "action.command": 601
+     },
+     "distinct_action_tokens": 601,
+     "factual_source_prefixes": {
+      "causal": 27
+     },
+     "generative_tick": 1404,
+     "hypotheses": {
+      "competence-effect/contradicted": 27,
+      "competence-effect/predicted": 2,
+      "private-slm/predicted": 6
+     },
+     "hypothesis_target_prefixes": {
+      "gc.prospective.primitive": 35
+     },
+     "ledger_records": {
+      "contradicted/model": 571,
+      "observed/action_outcome": 601,
+      "observed/direct": 244,
+      "predicted/model": 601,
+      "supported/model": 31
+     },
+     "model_states": {
+      "active": 1,
+      "degraded": 3,
+      "retired": 41
+     },
+     "organism_id": "symbiont:3d:351dbf85c617767c",
+     "reconciliation_count": 27,
+     "saved_at_tick": 1536
+    }
+   }
+  },
+  "cc-w1-reembody-s42": {
+   "execution": {
+    "authorization_model": "external-operator-policy",
+    "command": [
+     "/home/alessbarb/workspace/repos/active/symbiont-lab/.git/symbiont-agent/runs/cc-w1-reembody-s42/environment/bin/python",
+     "-m",
+     "lab.experiments.verified_child",
+     "code",
+     "import sys, shutil; from pathlib import Path; from lab.physics3d.engine import run; i=Path(sys.argv[1]); w=Path(sys.argv[2])/'state'; w.mkdir(); shutil.copy2(i/'organism.symbiont', w/'organism.symbiont'); shutil.copytree(i/'models', w/'models'); sys.exit(run(headless=True, ticks=256, seed=42, symbiont_file=w/'organism.symbiont', body_file=w/'body.json', telemetry_file=w/'telemetry', body_kind='anthropomorphic-v6-vision', show_monitor=False, enable_slm=True, slm_train_interval=1, slm_device='cpu', slm_synchronous=True, checkpoint_interval=256, factorized_effects=True, observation_hz=1, fresh_body=True, provenance_journal=w/'provenance.jsonl'))",
+     "/home/alessbarb/workspace/repos/active/symbiont-lab/.git/symbiont-agent/runs/cc-w1-reembody-s42/input",
+     "/home/alessbarb/workspace/repos/active/symbiont-lab/.git/symbiont-agent/runs/cc-w1-reembody-s42/work"
+    ],
+    "commit": "af474b9438068510ef5042821023da6bc9a5c575",
+    "cpu_threads": 2,
+    "dependency_extras": [
+     "modeling",
+     "physics3d"
+    ],
+    "disk_gb": 2.0,
+    "elapsed_seconds": 704.7305347919464,
+    "ended_at": "2026-10-04T14:58:10.170371+00:00",
+    "execution_fingerprint": {
+     "dependency_lock_hash": "6a2410855db7b4b7d87aeb624b95a9397160ccd066aa0d0977dd713241dc373a",
+     "effective_config_hash": "65ed8d77fb2e22d42baa12afbc6aaf6e5376b897ce70ac65183a3a8ec1aec171",
+     "experiment_id": "learning.cognitive-cycle-shared-fact-identity",
+     "git_commit": "af474b9438068510ef5042821023da6bc9a5c575",
+     "is_dirty": false,
+     "python_base_prefix": "/home/alessbarb/.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu",
+     "python_executable": "/home/alessbarb/.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu/bin/python3.12",
+     "python_prefix": "/home/alessbarb/workspace/repos/active/symbiont-lab/.git/symbiont-agent/runs/cc-w1-reembody-s42/environment",
+     "python_version": "3.12.13",
+     "repo_root": "/tmp/symbiont-lab-worktrees/run-af474b9438-r0vj9zpu",
+     "seed": 42,
+     "symbiont_file": "/tmp/symbiont-lab-worktrees/run-af474b9438-r0vj9zpu/symbiont/src/symbiont/__init__.py",
+     "symbiont_lab_file": "/tmp/symbiont-lab-worktrees/run-af474b9438-r0vj9zpu/lab/src/lab/__init__.py"
+    },
+    "experiment_id": "learning.cognitive-cycle-shared-fact-identity",
+    "generation": {
+     "complete_sha256": "e0e38c9c186b072e8bfacbf0ca5b81bf8d1e2735204320be555a03dbc492a661",
+     "file_count": 319,
+     "name": "generation-000000",
+     "path": "generations/generation-000000"
+    },
+    "governance_ref": "1f71ee5e53386e2b4a18cf577207a1d7b69ac62b",
+    "id": "cc-w1-reembody-s42",
+    "memory_gb": 8.0,
+    "resource_preflight": {
+     "available_cpu_threads": 8,
+     "available_memory_gb": 10.225341796875,
+     "free_disk_gb": 15.090869903564453
+    },
+    "returncode": 0,
+    "scientific_input": {
+     "external_state": true,
+     "mode": "snapshot",
+     "snapshot": {
+      "body_kind": null,
+      "body_sha256": "b8857bc24d710df41136ed1273254c8aca72e6843c90b19bf354c621c561ed70",
+      "bundle_models_tree_sha256": "d700d9cb14192a7458e041e535bf27c53d56ae5f47c8dad008ae1bc9b2ec1982",
+      "models_tree_sha256": "7010122185e2b027b18e7bb9ad25205b9a7457956ce277f6be059ca453de5920",
+      "organism_sha256": "36cff468e6bf47c5166495c9b830accefd3e6fc2b1d48cfedb0aeae9a01faf2b",
+      "schema_version": 2,
+      "source_commit": "0ce589ba20ab2c7604d10dec14108fe9c2c7df11",
+      "unverified_legacy_origin": null
+     }
+    },
+    "scope": "development",
+    "seed": 42,
+    "started_at": "2026-10-04T14:46:25.399635+00:00",
+    "state": "complete",
+    "wall_minutes": 90,
+    "worktree_commit": "af474b9438068510ef5042821023da6bc9a5c575"
+   },
+   "input_manifest": {
+    "body_age_ticks": null,
+    "body_age_ticks_from_bundle": 1536,
+    "body_id_from_bundle": "body.98b74e50060058b044fb4919",
+    "body_kind": null,
+    "body_kind_from_bundle": "anthropomorphic-v6-vision",
+    "body_kind_from_state": "anthropomorphic-v6",
+    "body_sha256": "b8857bc24d710df41136ed1273254c8aca72e6843c90b19bf354c621c561ed70",
+    "bundle_models_tree_sha256": "d700d9cb14192a7458e041e535bf27c53d56ae5f47c8dad008ae1bc9b2ec1982",
+    "captured_at": "2026-10-04T14:46:24.979693+00:00",
+    "captured_tick": 1536,
+    "checkpoint_hash": "sha256:b4a604e624327f476182d8b14865211c3488266748652e215cf6ca5e9bea4935",
+    "checkpoint_id": "chk-bf85c617767c-00001536",
+    "embodiment_id": null,
+    "embodiment_id_from_bundle": "embodiment.3c7930084be114356f8200fb",
+    "models_source": "external",
+    "models_tree_sha256": "7010122185e2b027b18e7bb9ad25205b9a7457956ce277f6be059ca453de5920",
+    "organism_id": "symbiont:3d:351dbf85c617767c",
+    "organism_sha256": "36cff468e6bf47c5166495c9b830accefd3e6fc2b1d48cfedb0aeae9a01faf2b",
+    "scenario": "development",
+    "schema_version": 2,
+    "snapshot_id": "input",
+    "snapshot_schema": 14,
+    "source_commit": "0ce589ba20ab2c7604d10dec14108fe9c2c7df11"
+   },
+   "manifest.json": {
+    "body_age_ticks": null,
+    "body_age_ticks_from_bundle": 1536,
+    "body_id_from_bundle": "body.98b74e50060058b044fb4919",
+    "body_kind": null,
+    "body_kind_from_bundle": "anthropomorphic-v6-vision",
+    "body_kind_from_state": "anthropomorphic-v6",
+    "body_sha256": "b8857bc24d710df41136ed1273254c8aca72e6843c90b19bf354c621c561ed70",
+    "bundle_models_tree_sha256": "d700d9cb14192a7458e041e535bf27c53d56ae5f47c8dad008ae1bc9b2ec1982",
+    "captured_at": "2026-10-04T14:46:24.979693+00:00",
+    "captured_tick": 1536,
+    "checkpoint_hash": "sha256:b4a604e624327f476182d8b14865211c3488266748652e215cf6ca5e9bea4935",
+    "checkpoint_id": "chk-bf85c617767c-00001536",
+    "embodiment_id": null,
+    "embodiment_id_from_bundle": "embodiment.3c7930084be114356f8200fb",
+    "models_source": "external",
+    "models_tree_sha256": "7010122185e2b027b18e7bb9ad25205b9a7457956ce277f6be059ca453de5920",
+    "organism_id": "symbiont:3d:351dbf85c617767c",
+    "organism_sha256": "36cff468e6bf47c5166495c9b830accefd3e6fc2b1d48cfedb0aeae9a01faf2b",
+    "scenario": "development",
+    "schema_version": 2,
+    "snapshot_id": "input",
+    "snapshot_schema": 14,
+    "source_commit": "0ce589ba20ab2c7604d10dec14108fe9c2c7df11"
+   },
+   "states": {
+    "organism.symbiont": {
+     "action_outcome_episodes": 601,
+     "action_token_prefixes": {
+      "action.command": 601
+     },
+     "distinct_action_tokens": 601,
+     "factual_source_prefixes": {
+      "causal": 27
+     },
+     "generative_tick": 1404,
+     "hypotheses": {
+      "competence-effect/contradicted": 27,
+      "competence-effect/predicted": 2,
+      "private-slm/predicted": 6
+     },
+     "hypothesis_target_prefixes": {
+      "gc.prospective.primitive": 35
+     },
+     "ledger_records": {
+      "contradicted/model": 571,
+      "observed/action_outcome": 601,
+      "observed/direct": 244,
+      "predicted/model": 601,
+      "supported/model": 31
+     },
+     "model_states": {
+      "active": 1,
+      "degraded": 3,
+      "retired": 41
+     },
+     "organism_id": "symbiont:3d:351dbf85c617767c",
+     "reconciliation_count": 27,
+     "saved_at_tick": 1536
+    },
+    "state/organism.symbiont": {
+     "action_outcome_episodes": 600,
+     "action_token_prefixes": {
+      "action.command": 600
+     },
+     "distinct_action_tokens": 600,
+     "factual_source_prefixes": {
+      "causal": 27
+     },
+     "generative_tick": 1660,
+     "hypotheses": {
+      "competence-effect/contradicted": 27,
+      "competence-effect/predicted": 2,
+      "private-slm/predicted": 6
+     },
+     "hypothesis_target_prefixes": {
+      "gc.prospective.primitive": 35
+     },
+     "ledger_records": {
+      "contradicted/model": 566,
+      "observed/action_outcome": 600,
+      "observed/direct": 248,
+      "predicted/model": 600,
+      "supported/model": 34
+     },
+     "model_states": {
+      "active": 1,
+      "degraded": 3,
+      "retired": 49
+     },
+     "organism_id": "symbiont:3d:351dbf85c617767c",
+     "reconciliation_count": 27,
+     "saved_at_tick": 1792
+    }
+   }
+  }
+ }
+}
