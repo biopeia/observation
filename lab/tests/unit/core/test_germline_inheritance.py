@@ -20,6 +20,7 @@ from symbiont.genetics import (
     InheritancePackage,
     canonical_gene_bindings,
 )
+from symbiont.genetics.germline import PERSISTENCE_TICKS
 
 
 def test_standard_genome_is_canonical_v2_without_legacy_bridge():
@@ -125,11 +126,19 @@ def test_explicit_epigenetic_protocol_can_capture_only_regulable_loci():
         min_capture_delta=0.001,
     )
 
+    current_expression = {
+        "plasticity.learning_rate.baseline": genome.plasticity.learning_rate.baseline + 0.02,
+        "development.soft_node_budget": float(genome.development.soft_node_budget + 32),
+    }
+    for _ in range(PERSISTENCE_TICKS - 1):
+        assert state.capture_acquired_variation(
+            current_expression,
+            genome=genome,
+            protocol=protocol,
+        ) == ()
+
     captured = state.capture_acquired_variation(
-        {
-            "plasticity.learning_rate.baseline": genome.plasticity.learning_rate.baseline + 0.02,
-            "development.soft_node_budget": float(genome.development.soft_node_budget + 32),
-        },
+        current_expression,
         genome=genome,
         protocol=protocol,
     )
