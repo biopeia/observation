@@ -57,7 +57,6 @@ class ContinuityEntry:
     restore_path: str
     reembodiment: Reembodiment
     in_state_identity: bool
-    migration: str = "none"
     known_gap: str | None = None
     extra_checkpoint_fields: tuple[str, ...] = ()
     nested_reembodiment: tuple[tuple[str, Reembodiment], ...] = ()
@@ -97,7 +96,6 @@ def _core(
     reembodiment: Reembodiment,
     *,
     restore_path: str = _BASE_RESTORE,
-    migration: str = "none",
     known_gap: str | None = None,
     extra_checkpoint_fields: tuple[str, ...] = (),
     nested_reembodiment: tuple[tuple[str, Reembodiment], ...] = (),
@@ -115,7 +113,6 @@ def _core(
         # Every other core checkpoint field is hashed into checkpoint_id.
         # Lineage is the identity itself and provenance describes the save.
         in_state_identity=checkpoint_field not in (None, *_UNHASHED_FIELDS),
-        migration=migration,
         known_gap=known_gap,
         extra_checkpoint_fields=extra_checkpoint_fields,
         nested_reembodiment=nested_reembodiment,
@@ -133,7 +130,6 @@ def _upper(
     reembodiment: Reembodiment,
     *,
     restore_path: str,
-    migration: str = "none",
     known_gap: str | None = None,
 ) -> ContinuityEntry:
     return ContinuityEntry(
@@ -146,7 +142,6 @@ def _upper(
         reembodiment=reembodiment,
         # Subclasses extend the payload builder, so their fields are hashed too.
         in_state_identity=checkpoint_field not in (None, *_UNHASHED_FIELDS),
-        migration=migration,
         known_gap=known_gap,
     )
 
@@ -186,7 +181,6 @@ REGISTER: tuple[ContinuityEntry, ...] = (
         _P,
         "checkpoint_lineage",
         _KEEP,
-        migration="absent before lineage tracking: the restored organism starts a new root",
     ),
     _core(
         "_lineage_history",
@@ -194,10 +188,6 @@ REGISTER: tuple[ContinuityEntry, ...] = (
         _P,
         "checkpoint_lineage",
         _KEEP,
-        migration=(
-            "a checkpoint without a verifiable identity marks every later save "
-            "unverified_legacy_origin"
-        ),
     ),
     # --- genome and expression -----------------------------------------------------
     _core("_genome", "genetics", _P, "genome", _KEEP),
@@ -207,7 +197,6 @@ REGISTER: tuple[ContinuityEntry, ...] = (
         _P,
         "gene_expression",
         _KEEP,
-        migration="absent: derived from the genome",
     ),
     _core("_germline_state", "genetics.germline", _P, "germline_state", _KEEP),
     _core("_parent_ids", "genetics.inheritance", _P, "parent_ids", _KEEP),
@@ -218,9 +207,6 @@ REGISTER: tuple[ContinuityEntry, ...] = (
         _R,
         "heritable_genome",
         _NA,
-        migration=(
-            "non-empty legacy HeritableGenome payloads are rejected; current checkpoints write null"
-        ),
     ),
     _core("_mutation_seed", "genetics", _P, "mutation_seed", _KEEP),
     _core("_epigenetic_priors", "genetics", _P, "epigenetic_priors", _KEEP),
@@ -687,7 +673,6 @@ REGISTER: tuple[ContinuityEntry, ...] = (
             "private_learning_state",
             _KEEP,
             restore_path=_MODELED_RESTORE,
-            migration="absent: recomputed from the organism's own causal transitions",
         )
         for attribute in (
             "_private_learning_last_transition_tick",
@@ -708,7 +693,6 @@ REGISTER: tuple[ContinuityEntry, ...] = (
             "training_ancestry",
             _KEEP,
             restore_path=_MODELED_RESTORE,
-            migration="absent: ancestry training was never enabled",
         )
         for attribute in (
             "ancestry_training",
@@ -886,12 +870,6 @@ APPARATUS_FIELDS: tuple[ApparatusField, ...] = (
         "_embodiment_epoch_summaries",
         _P,
         "preserved and extended with the closed epoch summary",
-    ),
-    ApparatusField(
-        "temporal_migration",
-        "_temporal_migration",
-        _P,
-        "preserved: records that contaminated physiology cannot be reconstructed",
     ),
 )
 

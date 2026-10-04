@@ -122,7 +122,7 @@ def test_state_identity_flag_matches_the_hashed_payload() -> None:
 
 def test_entries_are_internally_consistent() -> None:
     for entry in REGISTER:
-        assert entry.owner and entry.restore_path and entry.migration, entry.attribute
+        assert entry.owner and entry.restore_path, entry.attribute
         if entry.continuity is ContinuityClass.MUST_PRESERVE and entry.checkpoint_field is None:
             assert entry.known_gap is not None, entry.attribute
         if entry.continuity is ContinuityClass.MUST_RESET:
@@ -147,15 +147,6 @@ def test_entries_are_internally_consistent() -> None:
             )
         else:
             assert not entry.nested_checkpoint_fields, entry.attribute
-
-
-def test_retired_heritable_genome_is_not_misclassified_as_reembodiment_state() -> None:
-    entry = next(entry for entry in REGISTER if entry.attribute == "_heritable_genome")
-
-    assert entry.continuity is ContinuityClass.MUST_RESET
-    assert entry.reembodiment is Reembodiment.NOT_APPLICABLE
-    assert "rejected" in entry.migration
-    assert "write null" in entry.migration
 
 
 def test_developmental_tracker_resets_only_body_bound_stress_edge() -> None:
