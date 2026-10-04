@@ -179,15 +179,15 @@ def test_reembodiment_register_distinguishes_active_state_from_archived_priors()
 
     assert entries["_sensory_system"].reembodiment is Reembodiment.REPLACED
     assert entries["_sensory_system"].archived_as_prior == (
-        "embodiment_archive.body_memories.sensory_prior.sensory_system"
+        "embodiment_archive.body_memories[*].sensory_prior.sensory_system"
     )
     assert entries["_adaptive_senses"].reembodiment is Reembodiment.REPLACED
     assert entries["_adaptive_senses"].archived_as_prior == (
-        "embodiment_archive.body_memories.sensory_prior.sensory_development"
+        "embodiment_archive.body_memories[*].sensory_prior.sensory_development"
     )
     assert entries["_body_schema"].reembodiment is Reembodiment.PRESERVED
     assert entries["_body_schema"].archived_as_prior == (
-        "embodiment_archive.body_memories.body_schema_prior"
+        "embodiment_archive.body_memories[*].body_schema_prior"
     )
 
 

@@ -260,7 +260,7 @@ REGISTER: tuple[ContinuityEntry, ...] = (
         _P,
         "sensory_development",
         _BODY,
-        archived_as_prior="embodiment_archive.body_memories.sensory_prior.sensory_development",
+        archived_as_prior="embodiment_archive.body_memories[*].sensory_prior.sensory_development",
     ),
     _core(
         "_sensory_system",
@@ -268,7 +268,7 @@ REGISTER: tuple[ContinuityEntry, ...] = (
         _P,
         "sensory_system",
         _BODY,
-        archived_as_prior="embodiment_archive.body_memories.sensory_prior.sensory_system",
+        archived_as_prior="embodiment_archive.body_memories[*].sensory_prior.sensory_system",
     ),
     _core("_evidence_ledger", "cognition.evidence", _P, "evidence_ledger", _KEEP),
     _core("_signal_knowledge", "signals.knowledge", _P, "signal_knowledge", _KEEP),
@@ -306,7 +306,7 @@ REGISTER: tuple[ContinuityEntry, ...] = (
         _P,
         "body_schema",
         _KEEP,
-        archived_as_prior="embodiment_archive.body_memories.body_schema_prior",
+        archived_as_prior="embodiment_archive.body_memories[*].body_schema_prior",
         nested_reembodiment=(
             ("schema_version", _NA),
             ("id_salt", _KEEP),

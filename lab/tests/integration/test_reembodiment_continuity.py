@@ -612,6 +612,22 @@ def test_registered_nested_reembodiment_paths_resolve_in_checkpoint(case: _Case)
             )
 
 
+def test_registered_archived_priors_match_the_closed_body_snapshot(case: _Case) -> None:
+    memories = case.transformed["embodiment_archive"]["body_memories"]
+    for entry in REGISTER:
+        if entry.archived_as_prior is None:
+            continue
+        assert "embodiment_archive.body_memories[*]." in entry.archived_as_prior
+        suffix = entry.archived_as_prior.split("body_memories[*].", maxsplit=1)[1]
+        path = suffix.split(".")
+        original = case.previous[entry.checkpoint_field]
+        assert any(
+            _value_at(memory, ".".join(path)) == original
+            for memory in memories
+            if all(_has_path(memory, ".".join(path[:index])) for index in range(1, len(path) + 1))
+        ), (entry.attribute, entry.archived_as_prior)
+
+
 def test_nested_continuity_policies_cover_every_checkpoint_field(case: _Case) -> None:
     """A classified aggregate must not hide unclassified sibling fields."""
     for entry in REGISTER:
