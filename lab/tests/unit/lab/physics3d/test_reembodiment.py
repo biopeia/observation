@@ -4,7 +4,6 @@ from copy import deepcopy
 
 import pytest
 
-from symbiont.actuation.surface import ActuatorSurface
 from symbiont.core.cognition.host_self_model import RecencyClass
 from symbiont.core.embodiment.body_schema import BodySchemaEngine
 from symbiont.core.embodiment.development import DevelopmentalTracker
@@ -91,6 +90,11 @@ def _checkpoint(*, vital_state: str = "dead") -> dict:
             "start_symbiont_tick": 0,
             "embodiment_tick": 41,
             "contract": {"contract_fingerprint": "motor-surface-62"},
+            "execution_bindings": {"schema_version": 1, "capacity": 512, "items": []},
+            "dynamics_model": {"schema_version": 1, "items": []},
+            "causal_evidence": {"schema_version": 2, "evidence": []},
+            "adaptation": {},
+            "contract_history": [],
         },
         "actuation": {
             "enabled": True,
@@ -768,16 +772,17 @@ def test_dead_checkpoint_closes_epoch_summary_and_archives_memory() -> None:
 
 def test_contract_fingerprint_changes_when_opaque_motor_unit_grouping_changes() -> None:
     base = _fresh()
+    base["actuation"]["action_domain"] = {
+        "competence_development": {"exclusive_actuator_groups": []}
+    }
     grouped = deepcopy(base)
-    grouped["actuation"]["sensorimotor"]["exclusive_actuator_groups"] = [
-        ["actuator.a", "actuator.b"],
-        ["actuator.c", "actuator.d"],
-    ]
+    grouped["actuation"]["action_domain"]["competence_development"][
+        "exclusive_actuator_groups"
+    ] = [["actuator.a", "actuator.b"], ["actuator.c", "actuator.d"]]
     regrouped = deepcopy(base)
-    regrouped["actuation"]["sensorimotor"]["exclusive_actuator_groups"] = [
-        ["actuator.a", "actuator.c"],
-        ["actuator.b", "actuator.d"],
-    ]
+    regrouped["actuation"]["action_domain"]["competence_development"][
+        "exclusive_actuator_groups"
+    ] = [["actuator.a", "actuator.c"], ["actuator.b", "actuator.d"]]
 
     base_fp = contract_fingerprint(base, receptor_count=107, effector_count=62)
     grouped_fp = contract_fingerprint(grouped, receptor_count=107, effector_count=62)

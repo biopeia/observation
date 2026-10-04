@@ -8,6 +8,14 @@ from lab.app.physics3d.runs import Physics3DRunStore
 from lab.integration.physics3d.bodies import DEFAULT_BODY_REGISTRY, BodyDescriptor, BodyRegistry
 
 
+def _write_bundle(path, runtime_payload, *, models_dir=None):
+    from lab.physics3d.persistence import save_symbiont_bundle
+
+    model_root = models_dir or path.parent / "models"
+    model_root.mkdir(parents=True, exist_ok=True)
+    return save_symbiont_bundle(runtime_payload, model_root, path)
+
+
 def test_run_store_prepares_new_organism_and_fresh_body(tmp_path) -> None:
     store = Physics3DRunStore(tmp_path)
     launch = store.prepare(
@@ -74,14 +82,25 @@ def test_run_store_does_not_adopt_default_subject_alias(tmp_path) -> None:
 
 
 def test_catalog_summary_does_not_materialize_private_models(tmp_path, monkeypatch) -> None:
-    from lab.physics3d import persistence
-
     organism_dir = tmp_path / "organisms" / "org-test"
     organism_dir.mkdir(parents=True)
     bundle = organism_dir / "organism.symbiont"
-    with persistence.zipfile.ZipFile(bundle, "w") as archive:
-        archive.writestr("runtime.json", '{"organism_id":"symbiont:test","saved_at_tick":7}')
-        archive.writestr("models/" + "a" * 64 + ".pt", b"large-model-placeholder")
+    models = organism_dir / "source-models"
+    model_id = "private-model"
+    for suffix in (".json", ".pt", ".tokenizer.json"):
+        (models / f"{model_id}{suffix}").parent.mkdir(parents=True, exist_ok=True)
+        (models / f"{model_id}{suffix}").write_bytes(b"model-artifact")
+    _write_bundle(
+        bundle,
+        {
+            "organism_id": "symbiont:test",
+            "saved_at_tick": 7,
+            "private_model_registry": {
+                "records": [{"model_id": model_id, "state": "shadow"}]
+            },
+        },
+        models_dir=models,
+    )
 
     store = Physics3DRunStore(tmp_path)
     items = store.organisms()
@@ -91,19 +110,31 @@ def test_catalog_summary_does_not_materialize_private_models(tmp_path, monkeypat
 
 
 def test_dead_body_leaves_symbiont_runnable_for_fresh_reembodiment(tmp_path) -> None:
-    from lab.physics3d import persistence
-
     organism_dir = tmp_path / "organisms" / "org-dead"
     organism_dir.mkdir(parents=True)
     bundle = organism_dir / "organism.symbiont"
-    with persistence.zipfile.ZipFile(bundle, "w") as archive:
-        archive.writestr(
-            "runtime.json",
-            '{"organism_id":"symbiont:persistent","saved_at_tick":9,'
-            '"living_body":{"vital_state":"dead"}}',
-        )
+    _write_bundle(
+        bundle,
+        {
+            "organism_id": "symbiont:persistent",
+            "saved_at_tick": 9,
+            "embodiment_lifecycle": {
+                "epoch": 1,
+                "state": "dormant",
+                "current": {
+                    "body_id": "body-current",
+                    "embodiment_id": "embodiment-current",
+                    "body_kind": "anthropomorphic-v6",
+                    "receptor_count": 107,
+                    "effector_count": 62,
+                    "body_vital_state": "dead",
+                },
+            },
+            "living_body": {"vital_state": "dead"},
+        },
+    )
     (organism_dir / "metadata.json").write_text(
-        '{"ref":"org-dead","body_kind":"anthropomorphic-v4","last_body_ref":"body-old"}',
+        '{"ref":"org-dead","body_kind":"anthropomorphic-v6","last_body_ref":"body-old"}',
         encoding="utf-8",
     )
 

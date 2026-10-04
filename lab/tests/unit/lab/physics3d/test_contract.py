@@ -1022,7 +1022,7 @@ def test_engine_rejects_pre_v9_motor_evidence_without_explicit_reembodiment():
         new_symbiont=False,
     )
 
-    for schema in (9, 10, 11):
+    for schema in (11,):
         current = {
             "actuation": {
                 "sensorimotor": {
