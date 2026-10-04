@@ -109,9 +109,11 @@ included because it supplies the baseline compared by EvidenceRevisionLedger.
 - Model ancestry that survives restore is a durability result (at most E1). It
   does not demonstrate improved learning or adaptation (E3/E4).
 - Generative hypotheses, scheduling, reconciliation, and persistence establish
-  implemented architecture and testable state transitions; one resident
-  hypothesis-to-executive-admission path is differentially tested at E2. They
-  do not demonstrate decision benefit or causal outcome attribution (E3/E4).
+  implemented architecture and testable state transitions. For generative
+  hypotheses specifically, one resident-owned hypothesis-to-executive-admission
+  path is differentially tested at E2; the other E2 rows in the inventory refer
+  to distinct mechanisms and consumers. These tests do not demonstrate decision
+  benefit or causal outcome attribution (E3/E4).
 - Re-embodiment integration tests establish selected mechanical preservation
   and withdrawal of execution authority. They do not establish useful transfer.
 - No scientific run is authorized by this document. Any E3/E4 claim must satisfy
