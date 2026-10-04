@@ -26,6 +26,29 @@ class ObservationMessage:
     data: bytes
 
 
+def _with_rebase_notice(message: ObservationMessage, reason: str) -> ObservationMessage:
+    """Annotate a materialized replay without mutating canonical observer state.
+
+    The annotation belongs to transport provenance only. It tells presentation
+    consumers that continuity was intentionally rebased after a dropped backlog
+    or unavailable replay window; it never feeds back into organism/runtime data.
+    """
+    try:
+        payload = json.loads(message.data)
+    except (TypeError, ValueError):
+        return message
+    if not isinstance(payload, dict):
+        return message
+    if payload.get("type") != "observation_delta" or payload.get("kind") != "anchor":
+        return message
+    enriched = dict(payload)
+    enriched["transport"] = {"rebase": str(reason)}
+    return ObservationMessage(
+        stream_id=message.stream_id,
+        data=json.dumps(enriched, separators=(",", ":"), ensure_ascii=False).encode("utf-8"),
+    )
+
+
 class ObservationBus:
     """Pub-sub hub with bounded consumers and reconnect replay.
 
@@ -56,6 +79,9 @@ class ObservationBus:
         self._sequence = 0
         self._world_scene: dict | None = None
         self._delta = ObservationDeltaEncoder(anchor_interval=anchor_interval)
+        self._consumer_overflows = 0
+        self._history_rebases = 0
+        self._replay_truncations = 0
 
     def push(self, event: dict[str, Any]) -> int:
         with self._lock:
@@ -109,6 +135,7 @@ class ObservationBus:
                 self._last_by_type[event_type] if event_type in _DEPENDENT_TYPES else message
             )
             for consumer, based_channels in self._queues.items():
+                overflowed = False
                 if consumer.full():
                     # Any retained delta may depend on a dropped message, even
                     # when it belongs to a different channel from this event.
@@ -120,10 +147,14 @@ class ObservationBus:
                         except queue.Empty:
                             break
                     based_channels.clear()
+                    overflowed = True
+                    self._consumer_overflows += 1
                 selected = message
                 if event_type in _DEPENDENT_TYPES:
                     if event_type not in based_channels:
                         selected = self._last_by_type[event_type]
+                        if overflowed:
+                            selected = _with_rebase_notice(selected, "consumer_overflow")
                     based_channels.add(event_type)
                 consumer.put_nowait(selected)
             return stream_id
@@ -145,13 +176,19 @@ class ObservationBus:
                 )
             ]
             based_channels: set[str] = set()
-            if after_sequence is None or int(after_sequence) < history_floor - 1:
+            if after_sequence is None:
                 replay = current
+            elif int(after_sequence) < history_floor - 1:
+                self._history_rebases += 1
+                replay = [_with_rebase_notice(message, "history_rotated") for message in current]
             else:
                 replay = [message for message in history if message.stream_id > int(after_sequence)]
                 if len(replay) > self._queue_size:
                     # Slicing a delta chain would discard required revisions.
-                    replay = current
+                    self._replay_truncations += 1
+                    replay = [
+                        _with_rebase_notice(message, "replay_truncated") for message in current
+                    ]
             for message in replay[-self._queue_size :]:
                 consumer.put_nowait(message)
                 payload = json.loads(message.data)
@@ -209,3 +246,16 @@ class ObservationBus:
     def latest_sequence(self) -> int:
         with self._lock:
             return self._sequence
+
+    def transport_status(self) -> dict[str, int]:
+        """Observer-only aggregate health counters; no per-client history is exposed."""
+        with self._lock:
+            return {
+                "subscribers": len(self._queues),
+                "consumer_overflows": self._consumer_overflows,
+                "history_rebases": self._history_rebases,
+                "replay_truncations": self._replay_truncations,
+                "history_size": len(self._history),
+                "history_capacity": self._history.maxlen or 0,
+                "queue_capacity": self._queue_size,
+            }
