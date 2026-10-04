@@ -18,6 +18,14 @@ measurement the first step.
 Approval covers the design and the three decisions above. It does not launch
 any experiment, and it does not replace the external review that SCIENTIFIC
 and CONSTITUTIONAL changes take at publication. Work starts with step 0 of §9.
+
+**Step 0 done (2026-10-04):**
+[report](../../../lab/research/perf/2026-10-04-substrate-cut-step0.md). The
+cost table of §2 no longer holds at the current baseline: the organism step
+is about 70 % of a tick and physics 14–19 %; the engine spike is feasible;
+one revision per top-level state section saves only about 16 %. This meets
+the "reconsider if" condition of §14. The ordering and scope of the
+workstreams are with the owner before step 1 starts.
 See [`register.md`](../register.md).
 
 ## 1. Premise
@@ -259,9 +267,10 @@ where it is, on the lab side.
   new regime only after its study is rerun there.
 - Interaction to resolve first:
   [Physics3D A7 Stability Gate v1](../embodiment/physics3d-a7-stability-gate-v1.md)
-  is approved and partially implemented against PyBullet 3.2.7. W2 invalidates
-  its apparatus. The owner decides whether A7 runs before the cut, is
-  re-specified after it, or is closed as not assessable.
+  was approved and partially implemented against PyBullet 3.2.7. W2 invalidates
+  its apparatus. Owner decision (2026-10-04): closed as not assessable; it is
+  not run before the cut, and stability on the new substrate needs its own
+  protocol.
 
 ## 9. Sequence and gates
 
@@ -316,12 +325,12 @@ Decided on 2026-10-04:
 | Clean cut, pre-cut evidence pinned and labelled, one re-baseline | ADR-0065 |
 | MuJoCo (CPU) as the single engine; visual sampling by a ray caster owned by `modality` | ADR-0066 |
 | Revisioned state sections, passive observation, binary canonical checkpoint | ADR-0067 |
+| A7 stability gate closed as not assessable | §8 |
 
 Still open, for the owner:
 
-1. Disposition of the A7 stability gate (§8).
-2. Which studies are rerun for the new baseline.
-3. Whether `symbiont` may carry a compiled extension. This is decided only if
+1. Which studies are rerun for the new baseline.
+2. Whether `symbiont` may carry a compiled extension. This is decided only if
    the W4 gate of §9 passes, and it needs its own ADR.
 
 ## 13. Relationships
@@ -335,7 +344,7 @@ Still open, for the owner:
   at the cut (ADR-0067).
 - Invalidates the apparatus of the
   [Physics3D A7 Stability Gate v1](../embodiment/physics3d-a7-stability-gate-v1.md)
-  (ADR-0066); disposition open.
+  (ADR-0066); closed as not assessable.
 - Partially superseded ADRs: ADR-0009 decision 1 (hash basis), ADR-0011
   decision 3 (renderer identity), ADR-0024 decision 3 (delta derivation).
 - Constrained by [ADR-0024](../../adr/ADR-0024-high-frequency-binary-telemetry-and-decimated-transport.md),
