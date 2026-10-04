@@ -168,8 +168,10 @@ def _transitive_importers(
 def _test_hits_modules(imports: set[str], modules: set[str]) -> bool:
     for imported in imports:
         for module in modules:
-            if imported == module or imported.startswith(module + ".") or module.startswith(
-                imported + "."
+            if (
+                imported == module
+                or imported.startswith(module + ".")
+                or module.startswith(imported + ".")
             ):
                 return True
     return False
