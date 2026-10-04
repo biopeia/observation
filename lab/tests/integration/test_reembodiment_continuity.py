@@ -591,6 +591,9 @@ def test_reembodiment_withdraws_an_inflight_intention_before_checkpoint(case: _C
     assert transformed["executive_intention"]["progress_evidence"] == 0
     assert transformed["executive_intention"]["consecutive_mismatches"] == 0
     assert transformed["executive_intention"]["reconciliation_trace"] is None
+    assert transformed["executive_intention"]["formed"] == intention["formed"]
+    assert transformed["executive_intention"]["counts"] == intention["counts"]
+    assert transformed["executive_intention"]["outcome_evidence"] == intention["outcome_evidence"]
 
 
 def test_a_modified_reembodied_checkpoint_is_rejected(case: _Case) -> None:
