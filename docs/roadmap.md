@@ -78,6 +78,28 @@ pre-schema-11 checkpoints, useful transfer, adaptive advantage, or scientific
 value of retained state. Apparatus-owned embodiment history remains protected by
 the portable bundle rather than checkpoint identity.
 
+### COG-1 — Cognitive epistemic ownership and evidence lineage
+
+**Status:** PLANNED — bounded source-and-test audit complete; owner approval and
+contract follow-up remain open under OI-18.
+
+**Priority:** P1 engineering integrity. This is not a scientific capability
+milestone and authorizes no experiments.
+
+**Governing design:**
+[Epistemic Ownership and Claim Levels v1](design/core/epistemic-ownership-and-claim-levels-v1.md).
+**Execution tracking:** [OI-18](../migration/open-issues.md#oi-18-cognitive-epistemic-ownership-and-evidence-lineage).
+
+Follow the OI-18 sequence: enforce canonical evidence-reference resolution for
+generative factual reconciliation; complete source/revision/retraction
+contracts for graph, predictor, sensorimotor, and competence evidence; specify
+episodic/replay and social/grounding provenance boundaries. Keep cognitive
+owners separate unless a later contract audit demonstrates equivalent
+semantics and consumers. Prediction quality, replay utility, ancestry benefit,
+and generative causal contribution remain separate evidence questions governed
+by their approved scientific records; this roadmap item does not authorize
+them.
+
 ### ARCH-1 — Canonical social epistemology ownership
 
 **Status:** DECIDED — Option A (owner decision, 2026-10-02); implemented with

@@ -157,6 +157,39 @@ A 478-line mixin that forwards 42 private attributes of `CognitiveBridge` to
 its collaborators. It is internal API indirection, not an old data format: the
 organism itself uses it in 25 places, tests in 85. Left as is.
 
+**OI-18 — Cognitive epistemic ownership and evidence lineage.**
+The bounded source-and-test audit is complete in
+[`Epistemic Ownership and Claim Levels v1`](../docs/design/core/epistemic-ownership-and-claim-levels-v1.md),
+but the design remains proposed and several ownership contracts are incomplete.
+Keep mechanisms separate; do not unify cognition scores, merge stores, or make
+E3/E4 claims from code or persistence. Planned follow-up, in order:
+
+1. Specify the canonical evidence-reference owner and enforce resolution at
+   the `note_factual_outcome()` boundary; add a focused regression proving a
+   reference must resolve to a recorded `OBSERVED` experience before it can
+   reconcile a hypothesis.
+2. Complete source/revision/retraction contracts for CognitiveGraph,
+   predictor promotion/retirement, causal/sensorimotor evidence, competence
+   materialization/revocation, and their checkpoint/restore consumers.
+3. Define provenance and contradiction/eviction contracts for episodic
+   retrieval/replay and consolidation; do not claim replay changes later
+   action choice without a differential engineering test.
+4. Specify caller authority, source attribution, and reconciliation for
+   social claims and symbol/sequence grounding; preserve the current absence
+   of a canonical peer-claim-to-organism-decision path.
+5. Keep private-model prediction quality, ancestry utility, replay utility,
+   and generative causal contribution as separate scientific questions. Any
+   E3/E4 work requires its governing approved protocol and authorization; this
+   issue authorizes no experiment.
+
+**Acceptance:** each live owner has the §2 contract fields in the linked design
+or an owner-approved successor; production evidence references cannot be
+reconciled without resolving to their canonical observed source; targeted
+regressions cover invalid, missing, and contradictory evidence paths; no
+consolidation or stronger capability claim is made without evidence matching
+the relevant level. Scientific utility and causal claims remain outside this
+engineering issue.
+
 ## Consolidated longitudinal-integrity audit (2026-10-04)
 
 This is a status reconciliation, not a claim that all scientific capabilities
@@ -171,7 +204,7 @@ unverified semantics and evidence.
 | SYM-04 BodySchema historical knowledge vs current-body authority | **Resolved for the canonical re-embodiment path** | The consumer audit found no active read of archived BodySchema priors; the current schema resets at transition and old content remains historical. No transfer-utility claim follows, and external consumers of exported snapshots are outside the audit scope |
 | SYM-05 exact checkpoint schema policy | **Implemented/documented**; only schema 12 restores | Historical checkpoints are archival evidence, not live-restorable organisms |
 | SYM-06 continuity register semantic correctness | **Sensory binding and developmental edge cases resolved; broader register audit remains open** | `_sensory_system` and `_adaptive_senses` now have an explicit split: acquired state is retained only as `BodySpecificMemory.sensory_prior`, while active models come from the fresh Body checkpoint. `DevelopmentalTracker.previous_stressed` is reset at re-embodiment so the first active observation of a new Body cannot count as recovery from the closed Body. Regression and composite tests cover these cases; the register-wide semantic audit remains incomplete |
-| SYM-07 epistemic ownership | **Bounded source trace recorded; owner audit open** | The proposed design maps current runtime/persistence owners, selected consumers, and known limits for the listed mechanisms. Required §2 ownership fields are not fully established or owner-approved across all live mechanisms; no consolidation or E2+ claims follow from this trace |
+| SYM-07 epistemic ownership | **Bounded audit closed; follow-up tracked as OI-18** | Source/test review and selected consumer paths are documented in the proposed design. Owner approval and complete source/revision contracts remain open; no consolidation or capability claims beyond the scoped E0–E2 evidence follow from this audit |
 | SYM-08 broad `OrganismRuntime` | **Open architectural debt** | Defer extraction until stable ownership boundaries justify it |
 | SYM-09 budding semantics | **Contract clarified** as clonal budding | No recombination or Genome v2 reproductive inheritance is claimed |
 | SYM-10 integrated transgenerational epigenetics | **Open functional gap** | Somatic and germline marks are not an evidenced inheritance chain |
