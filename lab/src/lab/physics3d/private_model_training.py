@@ -447,7 +447,7 @@ class PrivateModelTrainingService:
     ) -> None:
         """Attach ACTIVE inference or a known-contract SHADOW candidate.
 
-        Historical candidates never become ACTIVE here. A DEGRADED record may
+        Embodiment-known candidates never become ACTIVE here. A DEGRADED record may
         re-enter SHADOW because registry transitions explicitly permit
         DEGRADED -> SHADOW; activation still requires independent promotion.
         """

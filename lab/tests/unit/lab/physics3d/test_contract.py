@@ -1007,7 +1007,7 @@ def test_engine_rejects_pre_v9_motor_evidence_without_explicit_reembodiment():
             },
         },
     }
-    with pytest.raises(RuntimeError, match="requires migratable v9"):
+    with pytest.raises(RuntimeError, match="requires schema 11"):
         _require_current_motor_evidence(
             legacy,
             fresh_body=False,
@@ -1022,7 +1022,7 @@ def test_engine_rejects_pre_v9_motor_evidence_without_explicit_reembodiment():
         new_symbiont=False,
     )
 
-    for schema in (9, 10):
+    for schema in (9, 10, 11):
         current = {
             "actuation": {
                 "sensorimotor": {
@@ -1051,7 +1051,7 @@ def test_engine_reads_motor_evidence_schema_from_the_action_domain():
         body.advance(runtime.last_actuations)
     _require_current_motor_evidence(runtime.checkpoint(), fresh_body=False, new_symbiont=False)
 
-    for schema in (9, 10, 11):
+    for schema in (11,):
         _require_current_motor_evidence(
             {
                 "actuation": {
@@ -1061,7 +1061,7 @@ def test_engine_reads_motor_evidence_schema_from_the_action_domain():
             fresh_body=False,
             new_symbiont=False,
         )
-    with pytest.raises(RuntimeError, match="requires migratable v9"):
+    with pytest.raises(RuntimeError, match="requires schema 11"):
         _require_current_motor_evidence(
             {"actuation": {"action_domain": {"competence_development": {"schema_version": 8}}}},
             fresh_body=False,

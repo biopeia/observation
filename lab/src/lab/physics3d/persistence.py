@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from lab.physics3d.runtime import Tick3D
-from lab.physics3d.telemetry.reader import detect_telemetry_run, open_telemetry
+from lab.physics3d.telemetry.reader import open_telemetry
 from symbiont import __version__ as symbiont_version
 from symbiont.core.embodiment.transition import lifecycle_summary
 from symbiont.host.durable import durable_atomic_replacement, durable_atomic_write_json
@@ -567,37 +567,14 @@ class TelemetryWriter:
 
 def load_telemetry_records(
     path: str | Path,
-    *,
-    ignore_errors: bool = False,
 ) -> list[dict]:
-    """Read Tick3D summaries through the version-neutral telemetry API."""
-    version, target = detect_telemetry_run(path)
-    if version != "legacy":
-        return list(open_telemetry(target).iter_summaries())
-
-    records = []
-    with target.open("r", encoding="utf-8") as handle:
-        for line_no, line in enumerate(handle, start=1):
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                item = json.loads(line)
-                if isinstance(item, dict):
-                    records.append(item)
-            except json.JSONDecodeError as exc:
-                if ignore_errors:
-                    continue
-                raise ValueError(f"corrupt telemetry record at line {line_no}: {exc}") from exc
-    return records
+    """Read summaries from the current structured telemetry format."""
+    return list(open_telemetry(path).iter_summaries())
 
 
 def load_telemetry_transitions(path: str | Path) -> list[dict]:
-    """Read fully reconstructed rich states independent of storage version."""
-    version, target = detect_telemetry_run(path)
-    if version == "legacy":
-        raise ValueError("historical single-file telemetry has no reconstructible rich transitions")
-    return list(open_telemetry(target).iter_states())
+    """Read fully reconstructed rich states from the current telemetry format."""
+    return list(open_telemetry(path).iter_states())
 
 
 __all__ = [

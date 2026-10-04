@@ -31,26 +31,12 @@ from lab.physics3d.telemetry.binary import (
     BinaryTickBucket,
     binary_record_hash,
 )
-from lab.physics3d.telemetry.compaction import (
-    ObjectStore,
-    StateDiffer,
-    StatePatcher,
-    canonical_json_bytes,
-    payload_sha256,
-)
-from lab.physics3d.telemetry.events import EventStreamReader
-from lab.physics3d.telemetry.numeric import (
-    FrameSchemaRegistryReader,
-    FrameStreamReader,
-)
+from lab.physics3d.telemetry.compaction import canonical_json_bytes, payload_sha256
 from lab.physics3d.telemetry.schema import (
     partition_state,
     reassemble_state,
 )
 from lab.physics3d.telemetry.structural import (
-    LegacyStructuralStreamReader,
-    StructuralDeltaReader,
-    StructuralPathRegistryReader,
     logical_view,
     structural_view,
 )
@@ -111,113 +97,6 @@ def _stream_record_hash(record: Mapping[str, Any]) -> str:
     if "__record_sha256" in record:
         return binary_record_hash(record)
     return payload_sha256(record)
-
-
-class _StaticStreamWriter:
-    def __init__(self, handle: TextIO, object_store: ObjectStore) -> None:
-        self.handle = handle
-        self.object_store = object_store
-        self._previous_hash: dict[str, str] = {}
-        self.records = 0
-        self.bytes_written = 0
-
-    def append(self, tick: int, channel: str, value: Any) -> str | None:
-        digest, _created = self.object_store.put(value)
-        if self._previous_hash.get(channel) == digest:
-            return None
-        record = {"t": int(tick), "c": str(channel), "h": digest}
-        self.bytes_written += _append_line(self.handle, record)
-        self.records += 1
-        self._previous_hash[channel] = digest
-        return payload_sha256(record)
-
-    def drop(self, channel: str) -> None:
-        self._previous_hash.pop(str(channel), None)
-
-    def prime_hashes(self) -> dict[str, str]:
-        return dict(self._previous_hash)
-
-
-class _StaticStreamReader:
-    def __init__(self, object_store: ObjectStore) -> None:
-        self.object_store = object_store
-        self.values: dict[str, Any] = {}
-
-    def prime(self, values: Mapping[str, Any]) -> None:
-        self.values = deepcopy(dict(values))
-
-    def apply(self, record: Mapping[str, Any]) -> tuple[str, Any]:
-        channel = str(record["c"])
-        value = self.object_store.get(str(record["h"]))
-        self.values[channel] = value
-        return channel, value
-
-    def drop(self, channel: str) -> None:
-        self.values.pop(str(channel), None)
-
-
-class _FallbackWriter:
-    def __init__(self, handle: TextIO) -> None:
-        self.handle = handle
-        self._differ = StateDiffer(object_store=None)
-        self._previous: dict[str, Any] = {}
-        self.records = 0
-        self.bytes_written = 0
-        self.operations = 0
-
-    def append(self, tick: int, value: Mapping[str, Any]) -> dict[str, Any] | None:
-        current = dict(value)
-        patch = self._differ.diff(self._previous, current)
-        self._previous = deepcopy(current)
-        if not patch:
-            return None
-        record = {"t": int(tick), "p": patch}
-        self.bytes_written += _append_line(self.handle, record)
-        self.records += 1
-        self.operations += len(patch)
-        return {
-            "record_sha256": payload_sha256(record),
-            "operations": len(patch),
-        }
-
-
-class _TickBucket:
-    """Consume a sorted NDJSON stream one tick at a time with constant memory."""
-
-    def __init__(self, handle: TextIO, *, start_offset: int = 0) -> None:
-        self.handle = handle
-        self.handle.seek(int(start_offset))
-        self._pending: dict[str, Any] | None = None
-
-    def _next(self) -> dict[str, Any] | None:
-        while True:
-            line = self.handle.readline()
-            if not line:
-                return None
-            if not line.strip():
-                continue
-            item = json.loads(line)
-            if not isinstance(item, dict):
-                raise ValueError("telemetry stream record must be an object")
-            return item
-
-    def take(self, tick: int) -> list[dict[str, Any]]:
-        result: list[dict[str, Any]] = []
-        while True:
-            if self._pending is None:
-                self._pending = self._next()
-            if self._pending is None:
-                break
-            record_tick = int(self._pending.get("t", -1))
-            if record_tick < tick:
-                raise ValueError(
-                    f"telemetry stream advanced behind committed tick: {record_tick} < {tick}"
-                )
-            if record_tick > tick:
-                break
-            result.append(self._pending)
-            self._pending = None
-        return result
 
 
 class TelemetryV41Writer:
@@ -809,14 +688,6 @@ class AsyncTelemetryV41Writer(AsyncTelemetryWorker):
 class TelemetryV41Reader:
     """Streaming verified reader for telemetry v4.1."""
 
-    _TEXT_STREAM_PATHS = {
-        "dense": ("frames", "dense.ndjson"),
-        "summary": ("frames", "summary.ndjson"),
-        "structural": ("structures", "state.ndjson"),
-        "events": ("events", "events.ndjson"),
-        "static": ("structures", "static.ndjson"),
-        "fallback": ("frames", "fallback.ndjson"),
-    }
     _BINARY_STREAM_PATHS = {
         "dense": ("frames", "dense.bin"),
         "summary": ("frames", "summary.bin"),
@@ -838,30 +709,20 @@ class TelemetryV41Reader:
         self.ticks_path = self.root / "ticks.ndjson"
         if not self.ticks_path.is_file():
             raise FileNotFoundError(f"telemetry tick commits not found: {self.ticks_path}")
-        self.layout_revision = int(self.manifest.get("layout_revision", 1) or 1)
-        if self.layout_revision >= 4:
-            self.strings = BinaryStringTableReader(self.root / "schemas" / "strings.bin")
-            self.registry = BinaryFrameSchemaReader(
-                self.root / "schemas" / "frames.bin",
-                self.strings,
-            )
-            self.structural_paths = BinaryPathRegistryReader(
-                self.root / "schemas" / "structural-paths.bin",
-                self.strings,
-            )
-            self.object_store = None
-        else:
-            self.strings = None
-            self.registry = FrameSchemaRegistryReader(self.root / "schemas" / "frames.ndjson")
-            self.structural_paths = StructuralPathRegistryReader(
-                self.root / "schemas" / "structural-paths.ndjson"
-            )
-            self.object_store = ObjectStore(self.root / "objects" / "sha256")
-        self._patcher = StatePatcher(object_store=None)
-
+        self.layout_revision = int(self.manifest.get("layout_revision", -1))
+        if self.layout_revision != 4:
+            raise ValueError(f"unsupported telemetry layout revision: {self.layout_revision}")
+        self.strings = BinaryStringTableReader(self.root / "schemas" / "strings.bin")
+        self.registry = BinaryFrameSchemaReader(
+            self.root / "schemas" / "frames.bin",
+            self.strings,
+        )
+        self.structural_paths = BinaryPathRegistryReader(
+            self.root / "schemas" / "structural-paths.bin",
+            self.strings,
+        )
     def _stream_path(self, name: str) -> Path:
-        paths = self._BINARY_STREAM_PATHS if self.layout_revision >= 4 else self._TEXT_STREAM_PATHS
-        return self.root.joinpath(*paths[name])
+        return self.root.joinpath(*self._BINARY_STREAM_PATHS[name])
 
     def _anchor_files(self) -> list[tuple[int, Path]]:
         result: list[tuple[int, Path]] = []
@@ -965,86 +826,44 @@ class TelemetryV41Reader:
         dense_schemas = dict(anchor.get("schemas", {}).get("dense", {}))
         summary_schema = anchor.get("schemas", {}).get("summary")
 
-        if self.layout_revision >= 4:
-            dense = BinaryDenseReader(self.registry, self.strings)
-            for channel, value in partition.dense.items():
-                dense.prime(
-                    channel,
-                    value,
-                    schema_id=dense_schemas.get(channel),
-                )
-
-            structural = BinaryDeltaReader(
-                self.structural_paths,
-                self.strings,
-                transform=structural_view,
-                inverse=logical_view,
-            )
-            for channel, value in partition.structural.items():
-                structural.prime(channel, value)
-
-            summary_reader = BinaryDenseReader(
-                self.registry,
-                self.strings,
-            )
-            summary_reader.prime(
-                "summary",
-                summary,
-                schema_id=summary_schema,
+        dense = BinaryDenseReader(self.registry, self.strings)
+        for channel, value in partition.dense.items():
+            dense.prime(
+                channel,
+                value,
+                schema_id=dense_schemas.get(channel),
             )
 
-            events = BinaryEventReader(self.strings)
-            events.prime(partition.events)
+        structural = BinaryDeltaReader(
+            self.structural_paths,
+            self.strings,
+            transform=structural_view,
+            inverse=logical_view,
+        )
+        for channel, value in partition.structural.items():
+            structural.prime(channel, value)
 
-            static = BinaryStaticReader(self.strings)
-            static.prime(partition.static)
+        summary_reader = BinaryDenseReader(
+            self.registry,
+            self.strings,
+        )
+        summary_reader.prime(
+            "summary",
+            summary,
+            schema_id=summary_schema,
+        )
 
-            fallback_reader = BinaryDeltaReader(
-                self.structural_paths,
-                self.strings,
-            )
-            fallback_reader.prime(
-                "fallback",
-                partition.fallback,
-            )
-            fallback = fallback_reader
-        else:
-            dense = FrameStreamReader(self.registry)
-            for channel, value in partition.dense.items():
-                dense.prime(
-                    channel,
-                    value,
-                    schema_id=dense_schemas.get(channel),
-                )
+        events = BinaryEventReader(self.strings)
+        events.prime(partition.events)
 
-            if self.layout_revision >= 3:
-                structural = StructuralDeltaReader(self.structural_paths)
-                for channel, value in partition.structural.items():
-                    structural.prime(channel, value)
-            else:
-                structural = LegacyStructuralStreamReader(self.registry)
-                structural_schemas = dict(anchor.get("schemas", {}).get("structural", {}))
-                for channel, value in partition.structural.items():
-                    structural.prime(
-                        channel,
-                        value,
-                        schema_id=structural_schemas.get(channel),
-                    )
+        static = BinaryStaticReader(self.strings)
+        static.prime(partition.static)
 
-            summary_reader = FrameStreamReader(self.registry)
-            summary_reader.prime(
-                "summary",
-                summary,
-                schema_id=summary_schema,
-            )
-
-            events = EventStreamReader()
-            events.prime(partition.events)
-
-            static = _StaticStreamReader(self.object_store)
-            static.prime(partition.static)
-
-            fallback = deepcopy(partition.fallback)
+        fallback = BinaryDeltaReader(
+            self.structural_paths,
+            self.strings,
+        )
+        fallback.prime("fallback", partition.fallback)
 
         return dense, structural, summary_reader, events, static, fallback
 
@@ -1100,39 +919,24 @@ class TelemetryV41Reader:
             return
 
         offsets = dict(anchor.get("stream_offsets", {}))
-        stream_names = (
-            self._BINARY_STREAM_PATHS if self.layout_revision >= 4 else self._TEXT_STREAM_PATHS
-        )
-        if self.layout_revision >= 4:
-            handles = {name: self._stream_path(name).open("rb") for name in stream_names}
-            binary_decoders = {
-                "dense": dense.decode_record,
-                "summary": summary_reader.decode_record,
-                "structural": structural.decode_record,
-                "events": events.decode_record,
-                "static": static.decode_record,
-                "fallback": fallback.decode_record,
-            }
-            buckets = {
-                name: BinaryTickBucket(
-                    handle,
-                    binary_decoders[name],
-                    start_offset=int(offsets.get(name, 0)),
-                )
-                for name, handle in handles.items()
-            }
-        else:
-            handles = {
-                name: self._stream_path(name).open("r", encoding="utf-8", newline="\n")
-                for name in stream_names
-            }
-            buckets = {
-                name: _TickBucket(
-                    handle,
-                    start_offset=int(offsets.get(name, 0)),
-                )
-                for name, handle in handles.items()
-            }
+        stream_names = self._BINARY_STREAM_PATHS
+        handles = {name: self._stream_path(name).open("rb") for name in stream_names}
+        binary_decoders = {
+            "dense": dense.decode_record,
+            "summary": summary_reader.decode_record,
+            "structural": structural.decode_record,
+            "events": events.decode_record,
+            "static": static.decode_record,
+            "fallback": fallback.decode_record,
+        }
+        buckets = {
+            name: BinaryTickBucket(
+                handle,
+                binary_decoders[name],
+                start_offset=int(offsets.get(name, 0)),
+            )
+            for name, handle in handles.items()
+        }
         try:
             for commit in self._iter_commits(start_offset=int(anchor.get("ticks_offset", 0))):
                 tick = int(commit["tick"])
@@ -1144,9 +948,7 @@ class TelemetryV41Reader:
                     break
 
                 events.begin_tick()
-                fallback_state = (
-                    fallback.values.get("fallback", {}) if self.layout_revision >= 4 else fallback
-                )
+                fallback_state = fallback.values.get("fallback", {})
                 self._apply_removed(
                     commit.get("removed_channels", {}),
                     dense,
@@ -1199,19 +1001,9 @@ class TelemetryV41Reader:
                         raise ValueError(
                             f"telemetry fallback record commitment mismatch at tick {tick}"
                         )
-                if self.layout_revision >= 4:
-                    for item in fallback_records:
-                        fallback.apply(item)
-                    fallback_state = fallback.values.get("fallback", {})
-                else:
-                    for item in fallback_records:
-                        fallback = self._patcher.apply(
-                            fallback,
-                            item.get("p", ()),
-                        )
-                        if not isinstance(fallback, dict):
-                            raise ValueError("fallback patch did not reconstruct a mapping")
-                    fallback_state = fallback
+                for item in fallback_records:
+                    fallback.apply(item)
+                fallback_state = fallback.values.get("fallback", {})
 
                 summary_records = buckets["summary"].take(tick)
                 if len(summary_records) != 1:
@@ -1331,51 +1123,6 @@ class TelemetryV41Reader:
                 continue
             yield summary
 
-    def _event_seek_offset(self, start_tick: int | None) -> int:
-        if self.layout_revision >= 4:
-            return 0
-        if start_tick is None:
-            return 0
-        index_path = self.root / "indexes" / "events.ndjson"
-        event_path = self._stream_path("events")
-        if not index_path.is_file() or not event_path.is_file():
-            return 0
-
-        requested = int(start_tick)
-        candidate_tick = None
-        candidate_offset = None
-        try:
-            with index_path.open("r", encoding="utf-8") as handle:
-                for line in handle:
-                    if not line.strip():
-                        continue
-                    item = json.loads(line)
-                    tick = int(item.get("tick", -1))
-                    if tick >= requested:
-                        candidate_tick = tick
-                        candidate_offset = int(item.get("offset", -1))
-                        break
-        except (OSError, ValueError, TypeError, json.JSONDecodeError):
-            return 0
-
-        if candidate_tick is None or candidate_offset is None or candidate_offset < 0:
-            return 0
-
-        # Indexes are derivative and untrusted. Validate the candidate against
-        # canonical event bytes before using it; otherwise fall back to scan.
-        try:
-            with event_path.open("r", encoding="utf-8") as handle:
-                handle.seek(candidate_offset)
-                line = handle.readline()
-                if not line.strip():
-                    return 0
-                item = json.loads(line)
-                if int(item.get("t", -1)) != candidate_tick:
-                    return 0
-        except (OSError, ValueError, TypeError, json.JSONDecodeError):
-            return 0
-        return candidate_offset
-
     def iter_events(
         self,
         *,
@@ -1387,39 +1134,13 @@ class TelemetryV41Reader:
         if not path.is_file():
             return
 
-        if self.layout_revision >= 4:
-            decoder = BinaryEventReader(self.strings)
-            with path.open("rb") as handle:
-                iterator = BinaryRecordIterator(
-                    handle,
-                    decoder.decode_record,
-                )
-                while True:
-                    item = iterator.next()
-                    if item is None:
-                        break
-                    tick = int(item["t"])
-                    channel = str(item["c"])
-                    if start_tick is not None and tick < int(start_tick):
-                        continue
-                    if end_tick is not None and tick > int(end_tick):
-                        break
-                    if event_type is not None and channel != event_type:
-                        continue
-                    yield {
-                        "tick": tick,
-                        "type": channel,
-                        "operation": item.get("o"),
-                        "payload": deepcopy(item.get("v")),
-                    }
-            return
-
-        with path.open("r", encoding="utf-8") as handle:
-            handle.seek(self._event_seek_offset(start_tick))
-            for line in handle:
-                if not line.strip():
-                    continue
-                item = json.loads(line)
+        decoder = BinaryEventReader(self.strings)
+        with path.open("rb") as handle:
+            iterator = BinaryRecordIterator(handle, decoder.decode_record)
+            while True:
+                item = iterator.next()
+                if item is None:
+                    break
                 tick = int(item["t"])
                 channel = str(item["c"])
                 if start_tick is not None and tick < int(start_tick):

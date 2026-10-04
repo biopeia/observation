@@ -33,16 +33,10 @@ from lab.physics3d.private_model_training import PrivateModelTrainingService
 from lab.physics3d.runtime import PhysicsServerDisconnected, PyBulletEmbodimentRuntime
 from lab.physics3d.telemetry.v41 import AsyncTelemetryV41Writer
 from symbiont import __version__ as symbiont_version
-from symbiont.actuation.sensorimotor import RESTORABLE_SCHEMA_VERSIONS
+from symbiont.actuation.sensorimotor import SENSORIMOTOR_SCHEMA_VERSION
 
 DEFAULT_STATE_DIR = Path("~/.local/state/symbiont/physics3d").expanduser()
-# v2 deliberately uses a new file. The former Physics3D portable file belonged
-# to the parallel Symbiont/Individual stack and cannot be losslessly reinterpreted
-# as a canonical OrganismRuntime checkpoint.
 DEFAULT_SYMBIONT_FILE = DEFAULT_STATE_DIR / "subject.symbiont"
-LEGACY_SYMBIONT_FILE = DEFAULT_STATE_DIR / "subject.symbiont.json"
-LEGACY_RUNTIME_FILE = DEFAULT_STATE_DIR / "subject.symbiont-v2.json"
-LEGACY_BODY_FILE = DEFAULT_STATE_DIR / "subject.body-v4.json"
 DEFAULT_BODY_FILE = DEFAULT_STATE_DIR / "subject.body-v6.json"
 DEFAULT_TELEMETRY_FILE = DEFAULT_STATE_DIR / "telemetry-v4.1"
 
@@ -63,14 +57,6 @@ def _archive_existing_subject(
     telemetry_file: Path,
 ) -> Path | None:
     candidates = [symbiont_file, body_file, telemetry_file]
-    if (
-        symbiont_file == DEFAULT_SYMBIONT_FILE
-        and body_file == DEFAULT_BODY_FILE
-        and LEGACY_BODY_FILE not in candidates
-    ):
-        # Preserve the final v5 pose as historical apparatus evidence when the
-        # default subject is moved to the v6 constitution.
-        candidates.append(LEGACY_BODY_FILE)
     existing = tuple(
         path for path in candidates if path.exists() and (path != telemetry_file or path.is_file())
     )
@@ -208,12 +194,12 @@ def _require_current_motor_evidence(
     if isinstance(actuation, dict) and actuation.get("enabled") is False:
         return  # no motor evidence to reinterpret
     schema = _sensorimotor_checkpoint_schema(payload)
-    if schema in RESTORABLE_SCHEMA_VERSIONS:
+    if schema == SENSORIMOTOR_SCHEMA_VERSION:
         return
     raise RuntimeError(
         "Physics3D checkpoint carries sensorimotor evidence from an incompatible "
-        f"schema ({schema!r}); canonical motor learning requires migratable v9, "
-        "body-scoped v10 or current v11 evidence. "
+        f"schema ({schema!r}); current canonical motor learning requires schema "
+        f"{SENSORIMOTOR_SCHEMA_VERSION}. "
         "Use --fresh-body to re-embody the same Symbiont and revalidate "
         "body-specific knowledge, or --new-symbiont for a clean individual. "
         "The old motor evidence will not be silently reinterpreted."
@@ -330,18 +316,6 @@ def run(
             fresh_body=fresh_body,
             new_symbiont=new_symbiont,
         )
-    elif symbiont_file == DEFAULT_SYMBIONT_FILE and not new_symbiont:
-        legacy = next(
-            (path for path in (LEGACY_SYMBIONT_FILE, LEGACY_RUNTIME_FILE) if path.exists()),
-            None,
-        )
-        if legacy is not None:
-            print(
-                f"Legacy Physics3D subject preserved at {legacy}. "
-                "Starting a new canonical-runtime subject; no incompatible cognitive "
-                "state is being fabricated or silently migrated."
-            )
-
     physical_state = None
     if body_file.exists() and not fresh_body and not new_symbiont:
         candidate = load_body_state_file(body_file)
@@ -492,7 +466,7 @@ def run(
         )
         private_model_training.attach_existing(
             runtime.organism,
-            candidate_model_ids=runtime.historical_private_model_candidates,
+            candidate_model_ids=runtime.embodiment_private_model_candidates,
         )
         if slm_synchronous:
             # Revision Coherence §8.4 item 6 (P5): lineage bookkeeping and

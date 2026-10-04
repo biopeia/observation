@@ -23,7 +23,7 @@ def run_replay(telemetry_file: Path) -> int:
         print(f"Error: Telemetry file not found at {path}", file=sys.stderr)
         return 1
     print(f"Loading telemetry records from {path}...")
-    records = load_telemetry_records(path, ignore_errors=True)
+    records = load_telemetry_records(path)
     if not records:
         print(f"Error: No valid telemetry records found in {path}", file=sys.stderr)
         return 1
@@ -39,14 +39,14 @@ def run_replay(telemetry_file: Path) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Run a canonical Symbiont runtime in a PyBullet body or replay historical telemetry"
+        description="Run a canonical Symbiont runtime in a PyBullet body or replay current telemetry"
     )
     parser.add_argument(
         "--replay",
         nargs="?",
         const=str(DEFAULT_TELEMETRY_FILE),
         default=None,
-        help="launch Mission Control replay from a telemetry run/root (v3, v4.0, v4.1 or archived NDJSON)",
+        help="launch Mission Control replay from a current v4.1 telemetry run/root",
     )
     parser.add_argument(
         "--headless",

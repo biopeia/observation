@@ -48,7 +48,7 @@ def _manifest_version(path: Path) -> str | None:
 def detect_telemetry_run(path: str | Path) -> tuple[str, Path]:
     target = Path(path).expanduser()
     if target.is_file():
-        return "legacy", target
+        raise ValueError("single-file telemetry is not a supported runtime format")
     if not target.is_dir():
         raise FileNotFoundError(f"telemetry path not found: {target}")
     if (target / "ticks.ndjson").is_file():
@@ -67,9 +67,7 @@ def detect_telemetry_run(path: str | Path) -> tuple[str, Path]:
 def open_telemetry(path: str | Path) -> TelemetryReaderProtocol:
     version, target = detect_telemetry_run(path)
     if version != "v4.1":
-        raise ValueError(
-            "single-file telemetry exposes summaries only; it has no reconstructible rich state"
-        )
+        raise ValueError(f"unsupported telemetry format: {version}")
     return TelemetryV41Reader(target, verify=True)
 
 

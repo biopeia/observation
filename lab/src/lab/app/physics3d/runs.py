@@ -22,8 +22,6 @@ from lab.integration.physics3d.bodies import DEFAULT_BODY_REGISTRY, BodyRegistry
 from lab.observation.cadence import ExecutionRates
 from lab.physics3d.engine import (
     DEFAULT_STATE_DIR,
-    DEFAULT_SYMBIONT_FILE,
-    LEGACY_BODY_FILE,
 )
 from lab.physics3d.persistence import (
     read_symbiont_bundle_manifest,
@@ -162,7 +160,6 @@ class Physics3DRunStore:
         body_registry: BodyRegistry = DEFAULT_BODY_REGISTRY,
     ) -> None:
         self.root = Path(root).expanduser()
-        self._include_legacy_default = self.root.resolve() == DEFAULT_LAB_STATE_ROOT.resolve()
         self.organisms_dir = self.root / "organisms"
         self.bodies_dir = self.root / "bodies"
         self.runs_dir = self.root / "runs"
@@ -319,18 +316,6 @@ class Physics3DRunStore:
             )
             items.append(item)
 
-        if self._include_legacy_default and DEFAULT_SYMBIONT_FILE.is_file():
-            summary = self._bundle_summary(DEFAULT_SYMBIONT_FILE)
-            items.append(
-                {
-                    **summary,
-                    "ref": "legacy-default",
-                    "legacy": True,
-                    "bundle_available": True,
-                    "body_kind": "anthropomorphic-v4",
-                    "last_body_ref": "legacy-default" if LEGACY_BODY_FILE.is_file() else None,
-                }
-            )
         items.sort(
             key=lambda item: str(item.get("updated_at") or item.get("created_at") or ""),
             reverse=True,
@@ -377,51 +362,6 @@ class Physics3DRunStore:
         records.sort(key=lambda item: str(item.get("started_at") or ""), reverse=True)
         return records[: max(1, int(limit))]
 
-    def _materialize_legacy_organism(self) -> str:
-        summary = self._bundle_summary(DEFAULT_SYMBIONT_FILE)
-        identity = str(summary.get("organism_id") or uuid.uuid4().hex[:12])
-        safe = "".join(ch for ch in identity.lower() if ch.isalnum())[-12:] or uuid.uuid4().hex[:12]
-        ref = f"org-{safe}"
-        directory = self.organisms_dir / ref
-        directory.mkdir(parents=True, exist_ok=True)
-        destination = directory / "organism.symbiont"
-        if not destination.exists():
-            shutil.copy2(DEFAULT_SYMBIONT_FILE, destination)
-        last_body_ref = None
-        if LEGACY_BODY_FILE.is_file():
-            last_body_ref = f"body-legacy-{safe}"
-            body_dir = self.bodies_dir / last_body_ref
-            body_dir.mkdir(parents=True, exist_ok=True)
-            body_destination = body_dir / "body.json"
-            if not body_destination.exists():
-                shutil.copy2(LEGACY_BODY_FILE, body_destination)
-            _write_json(
-                body_dir / "metadata.json",
-                {
-                    "ref": last_body_ref,
-                    "body_kind": "anthropomorphic-v4",
-                    "created_at": _now(),
-                    "updated_at": _now(),
-                    "migrated_from": str(LEGACY_BODY_FILE),
-                    "organism_ref": ref,
-                    "checkpoint_available": True,
-                },
-            )
-        descriptor = self.body_registry.get("anthropomorphic-v6")
-        metadata = {
-            **summary,
-            "ref": ref,
-            "created_at": _now(),
-            "updated_at": _now(),
-            "migrated_from": str(DEFAULT_SYMBIONT_FILE),
-            "body_kind": "anthropomorphic-v4",
-            "last_body_ref": last_body_ref,
-            "receptor_count": descriptor.receptor_count,
-            "effector_count": descriptor.effector_count,
-        }
-        _write_json(directory / "metadata.json", metadata)
-        return ref
-
     def prepare(self, payload: dict[str, Any]) -> Physics3DLaunchSpec:
         body_kind = str(payload.get("body_kind") or "anthropomorphic-v6")
         descriptor = self.body_registry.get(body_kind)
@@ -465,8 +405,6 @@ class Physics3DRunStore:
             organism_ref = str(organism.get("ref") or "").strip()
             if not organism_ref:
                 raise ValueError("existing organism requires ref")
-            if organism_ref == "legacy-default":
-                organism_ref = self._materialize_legacy_organism()
             metadata = self._organism_metadata(organism_ref)
             bundle = self.organisms_dir / organism_ref / "organism.symbiont"
             if not bundle.is_file():

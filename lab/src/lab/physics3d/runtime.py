@@ -878,7 +878,7 @@ class PyBulletEmbodimentRuntime:
         return int(self._embodiment_episode.embodiment_tick)
 
     @property
-    def historical_private_model_candidates(self) -> tuple[str, ...]:
+    def embodiment_private_model_candidates(self) -> tuple[str, ...]:
         lifecycle = self._embodiment_lifecycle
         current = lifecycle.get("current") if isinstance(lifecycle, Mapping) else None
         raw = current.get("candidate_private_model_ids") if isinstance(current, Mapping) else None

@@ -95,7 +95,7 @@ def test_telemetry_writer_persists_new_dataclass_metrics_without_whitelist(tmp_p
     }
 
 
-def test_load_telemetry_records(tmp_path):
+def test_load_telemetry_records_rejects_archived_single_file_format(tmp_path):
     import pytest
 
     from lab.physics3d.persistence import load_telemetry_records
@@ -109,17 +109,8 @@ def test_load_telemetry_records(tmp_path):
     ]
     path.write_text("\n".join(lines), encoding="utf-8")
 
-    # Strict mode raises ValueError
-    with pytest.raises(ValueError, match="corrupt telemetry record at line 3"):
+    with pytest.raises(ValueError, match="single-file telemetry is not a supported runtime format"):
         load_telemetry_records(path)
-
-    # Resilient mode ignores invalid lines
-    records = load_telemetry_records(path, ignore_errors=True)
-    assert len(records) == 2
-    assert records[0]["tick"] == 1
-    assert records[0]["schema_confidence"] == 0.2
-    assert records[1]["tick"] == 2
-    assert records[1]["schema_confidence"] == 0.5
 
 
 def test_load_telemetry_records_nonexistent_raises():

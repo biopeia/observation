@@ -62,6 +62,17 @@ def test_injected_run_store_does_not_import_global_legacy_subject(tmp_path) -> N
     assert store.organisms() == []
 
 
+def test_run_store_does_not_adopt_default_subject_alias(tmp_path) -> None:
+    store = Physics3DRunStore(tmp_path)
+    with pytest.raises(ValueError, match="checkpoint is unavailable"):
+        store.prepare(
+            {
+                "organism": {"mode": "existing", "ref": "legacy-default"},
+                "body": {"mode": "fresh"},
+            }
+        )
+
+
 def test_catalog_summary_does_not_materialize_private_models(tmp_path, monkeypatch) -> None:
     from lab.physics3d import persistence
 

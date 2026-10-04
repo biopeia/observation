@@ -1,22 +1,13 @@
 from __future__ import annotations
 
 from lab.physics3d.telemetry.compaction import canonical_json_bytes
-from lab.physics3d.telemetry.numeric import (
-    FrameSchemaRegistryReader,
-    FrameSchemaRegistryWriter,
-)
 from lab.physics3d.telemetry.schema import (
     TemporalClass,
     event_mode,
     partition_state,
     reassemble_state,
 )
-from lab.physics3d.telemetry.structural import (
-    LegacyStructuralStreamReader,
-    LegacyStructuralStreamWriter,
-    logical_view,
-    structural_view,
-)
+from lab.physics3d.telemetry.structural import logical_view, structural_view
 
 
 def test_partition_reassembles_exact_state():
@@ -108,7 +99,7 @@ def test_reassembly_materializes_parents_before_extracted_children():
             "mechanical_work_joules": 0.3,
         },
     }
-    split = partition_state(state, layout_revision=2)
+    split = partition_state(state)
     restored = reassemble_state(
         dense=split.dense,
         structural=split.structural,
@@ -119,41 +110,12 @@ def test_reassembly_materializes_parents_before_extracted_children():
     assert canonical_json_bytes(restored) == canonical_json_bytes(state)
 
 
-def test_layout_revision_one_preserves_early_v41_partition_contract():
-    state = {
-        "runtime": {
-            "narrative": [{"capability_id": "cpu"}],
-            "signal_references": {"signal.a": "sense.a"},
-            "signal_knowledge": [{"signal_id": "signal.a"}],
-        },
-        "pre": {
-            "physical": {"base_position": [1.0, 2.0, 3.0]},
-            "sensory_input": {"values": {"signal.a": 0.1}},
-        },
-        "post": {"physical": {"base_position": [1.1, 2.0, 3.0]}},
-    }
 
-    legacy = partition_state(state, layout_revision=1)
-    current = partition_state(state, layout_revision=2)
+def test_historical_layout_revisions_are_rejected():
+    import pytest
 
-    assert "pre" in legacy.dense
-    assert "pre.physical" not in legacy.dense
-    assert "runtime.narrative" not in legacy.structural
-
-    assert "pre.physical" in current.dense
-    assert "runtime.narrative" in current.structural
-    assert "runtime.signal_references" in current.structural
-
-    assert canonical_json_bytes(
-        reassemble_state(
-            dense=legacy.dense,
-            structural=legacy.structural,
-            events=legacy.events,
-            static=legacy.static,
-            fallback=legacy.fallback,
-        )
-    ) == canonical_json_bytes(state)
-
+    with pytest.raises(ValueError, match="unsupported telemetry layout revision: 1"):
+        partition_state({}, layout_revision=1)
 
 def test_composite_edge_identity_is_order_independent_in_storage():
     first = [
@@ -202,37 +164,3 @@ def test_signal_knowledge_claims_are_keyed_by_claim_id():
     assert claims_payload["n"] == "claim_id"
     assert set(claims_payload["i"]) == {"s:claim.1", "s:claim.2"}
     assert logical_view(stored) == value
-
-
-def test_legacy_structural_codec_does_not_reinterpret_claim_id(tmp_path):
-    schema_path = tmp_path / "frames.ndjson"
-    stream_path = tmp_path / "structural.ndjson"
-    value = [
-        {
-            "signal_id": "signal.a",
-            "claims": [
-                {"claim_id": "claim.1", "status": "candidate"},
-                {"claim_id": "claim.2", "status": "supported"},
-            ],
-        }
-    ]
-
-    with (
-        schema_path.open("w+", encoding="utf-8") as schemas,
-        stream_path.open("w+", encoding="utf-8") as stream,
-    ):
-        registry = FrameSchemaRegistryWriter(schemas)
-        writer = LegacyStructuralStreamWriter(stream, registry)
-        writer.append(1, "runtime.signal_knowledge", value)
-        schemas.flush()
-        stream.flush()
-
-    registry = FrameSchemaRegistryReader(schema_path)
-    reader = LegacyStructuralStreamReader(registry)
-    import json
-
-    record = json.loads(stream_path.read_text(encoding="utf-8"))
-    channel, restored = reader.apply(record)
-
-    assert channel == "runtime.signal_knowledge"
-    assert restored == value

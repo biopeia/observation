@@ -64,39 +64,6 @@ STATIC_RULES: tuple[LayoutRule, ...] = (
     ),
 )
 
-LEGACY_V41_STRUCTURAL_RULES: tuple[LayoutRule, ...] = (
-    LayoutRule(
-        "cognitive_topology",
-        ("cognitive_topology",),
-        TemporalClass.STRUCTURAL,
-    ),
-    LayoutRule(
-        "body_schema",
-        ("body_schema",),
-        TemporalClass.STRUCTURAL,
-    ),
-    LayoutRule(
-        "runtime.signal_knowledge",
-        ("runtime", "signal_knowledge"),
-        TemporalClass.STRUCTURAL,
-    ),
-    LayoutRule(
-        "runtime.sensory_phenotype",
-        ("runtime", "sensory_phenotype"),
-        TemporalClass.STRUCTURAL,
-    ),
-    LayoutRule(
-        "self_model",
-        ("self_model",),
-        TemporalClass.STRUCTURAL,
-    ),
-    LayoutRule(
-        "sensorimotor",
-        ("sensorimotor",),
-        TemporalClass.STRUCTURAL,
-    ),
-)
-
 STRUCTURAL_RULES: tuple[LayoutRule, ...] = (
     LayoutRule(
         "cognitive_topology",
@@ -138,19 +105,6 @@ STRUCTURAL_RULES: tuple[LayoutRule, ...] = (
         ("sensorimotor",),
         TemporalClass.STRUCTURAL,
     ),
-)
-
-LEGACY_V41_DENSE_RULES: tuple[LayoutRule, ...] = (
-    LayoutRule("pre", ("pre",), TemporalClass.DENSE),
-    LayoutRule("post", ("post",), TemporalClass.DENSE),
-    LayoutRule("runtime", ("runtime",), TemporalClass.DENSE),
-    LayoutRule("cognition", ("cognition",), TemporalClass.DENSE),
-    LayoutRule("action", ("action",), TemporalClass.DENSE),
-    LayoutRule("physics", ("physics",), TemporalClass.DENSE),
-    LayoutRule("outcome", ("outcome",), TemporalClass.DENSE),
-    LayoutRule("timing_ms", ("timing_ms",), TemporalClass.DENSE),
-    LayoutRule("slm", ("slm",), TemporalClass.DENSE),
-    LayoutRule("episodic_memory", ("episodic_memory",), TemporalClass.DENSE),
 )
 
 DENSE_RULES: tuple[LayoutRule, ...] = (
@@ -255,19 +209,15 @@ class PartitionedState:
 def partition_state(
     state: Mapping[str, Any],
     *,
-    layout_revision: int = 2,
+    layout_revision: int = 4,
 ) -> PartitionedState:
     """Split one logical state according to the v4.1 temporal contract.
 
     Nested event/structural paths are extracted before their parents. Anything
     not covered by the declared layout remains in exact fallback storage.
     """
-    if int(layout_revision) <= 1:
-        structural_rules = LEGACY_V41_STRUCTURAL_RULES
-        dense_rules = LEGACY_V41_DENSE_RULES
-    else:
-        structural_rules = STRUCTURAL_RULES
-        dense_rules = DENSE_RULES
+    if int(layout_revision) != 4:
+        raise ValueError(f"unsupported telemetry layout revision: {layout_revision}")
 
     residual = deepcopy(dict(state))
     events: dict[str, Any] = {}
@@ -285,12 +235,12 @@ def partition_state(
         if value is not _MISSING:
             static[rule.channel] = value
 
-    for rule in structural_rules:
+    for rule in STRUCTURAL_RULES:
         value = pop_path(residual, rule.path)
         if value is not _MISSING:
             structural[rule.channel] = value
 
-    for rule in dense_rules:
+    for rule in DENSE_RULES:
         value = pop_path(residual, rule.path)
         if value is not _MISSING:
             dense[rule.channel] = value
@@ -371,8 +321,6 @@ __all__ = [
     "ALL_RULES",
     "DENSE_RULES",
     "EVENT_RULES",
-    "LEGACY_V41_DENSE_RULES",
-    "LEGACY_V41_STRUCTURAL_RULES",
     "LayoutRule",
     "PartitionedState",
     "STATIC_RULES",

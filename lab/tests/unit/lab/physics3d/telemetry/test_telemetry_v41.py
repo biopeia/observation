@@ -631,6 +631,31 @@ def test_v41_manifest_declares_layout_revision_four(tmp_path):
     assert (writer.root / "frames" / "dense.bin").is_file()
 
 
+def test_reader_rejects_historical_layout_revision(tmp_path):
+    import pytest
+
+    writer = TelemetryV41Writer(
+        tmp_path,
+        organism_id="symbiont:test",
+        start_tick=0,
+        seed=1,
+        physics_hz=240,
+        cognition_hz=24,
+        embodiment_mode="test",
+        run_id="old-layout",
+    )
+    writer.append({"tick": 1}, rich_state={"tick": 1})
+    writer.close()
+
+    manifest_path = writer.root / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["layout_revision"] = 3
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="unsupported telemetry layout revision: 3"):
+        TelemetryV41Reader(writer.root)
+
+
 def test_v41_corrupt_event_index_falls_back_to_canonical_scan(tmp_path):
     writer = TelemetryV41Writer(
         tmp_path,
