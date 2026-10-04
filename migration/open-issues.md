@@ -110,13 +110,15 @@ current.
 
 **OI-3 — CLOSED.** See "State after the third round".
 
-**OI-4 — What remains in `lab.physics3d` and `lab.world`.**
-Engine, runtime and persistence compose organism, body and environment; they
-are Lab composition and stay. `resource` is environment code but imports
-`SurfaceMaterial` from the humanoid body; since environment must not import
-embodiment, it needs its own material description and the Lab to map one onto
-the other. `observer_semantics` is observer-only labelling and belongs to the
-Lab. `lab.world` keeps the population runtime, transactions and persistence.
+**OI-4 — What remains in `lab.physics3d` and `lab.world`.** Engine, runtime
+and persistence compose organism, body and environment; they are Lab
+composition and stay. **Resolved sub-boundary:**
+`environment.physics3d.resource` owns its `ContactMaterial`; it does not import
+the body's `SurfaceMaterial`. The five-domain import contract prohibits peer
+dependencies and is exercised by
+`tests/experimental_integrity/test_five_domain_architecture.py`. The
+observer-only labels in `observer_semantics` belong to the Lab. `lab.world`
+keeps the population runtime, transactions and persistence.
 
 **OI-5 — The Lab imports organism internals, not `symbiont.api`.**
 This applies to the Lab only. The other three libraries import nothing from
