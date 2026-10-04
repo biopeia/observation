@@ -386,20 +386,27 @@ Those runs remain scientifically limited for claims depending on those effects.
 
 ## 14. Test matrix
 
+The matrix below records the original gate design. The implemented outer
+checkpoint policy is stricter: schema 12 is the only live-restorable outer
+schema, and schemas 1–11 are rejected without migration. The historical
+compatibility cases below are archival evidence for the earlier migration
+policy; they are not current restore acceptance criteria. Migrations owned by
+an inner subsystem do not make an older outer checkpoint restorable.
+
 ### Unit
 
 - state hash recomputation and mismatch rejection;
 - current-schema required-field rejection;
-- migration-only absence accepted only for old schemas;
+- exact current outer-schema acceptance and rejection of every older outer
+  schema;
 - exchange guard restore;
 - exchange sequence restore;
 - continuity-class register validation.
 
 ### Compatibility
 
-- every supported historical schema migrates deterministically;
-- a modern payload with the same missing field fails where its historical
-  predecessor legitimately migrates;
+- historical schema fixtures remain readable as archival evidence, but are not
+  accepted as live organisms by the current outer-checkpoint loader;
 - legacy temporal contamination retains explicit provenance.
 
 ### Integration
