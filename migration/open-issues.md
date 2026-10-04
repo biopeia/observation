@@ -120,13 +120,15 @@ dependencies and is exercised by
 observer-only labels in `observer_semantics` belong to the Lab. `lab.world`
 keeps the population runtime, transactions and persistence.
 
-**OI-5 — The Lab imports organism internals, not `symbiont.api`.**
+**OI-5 — The Lab still imports organism internals beyond `symbiont.api`.**
 This applies to the Lab only. The other three libraries import nothing from
 Symbiont, and the fix for them was never to widen the API: code that needed the
-organism moved to `lab.integration`. The Lab has 843 import edges into
-`symbiont.*`; `symbiont.api` exists and is tested but nothing uses it yet.
-Whether `symbiont.modeling` and `symbiont.cognition.generative` are public
-surface is an open decision.
+organism moved to `lab.integration`. The canonical organism composition now
+uses `symbiont.api` for the runtime, checkpoint loader and canonical-cognition
+restore entry point. Lab production and study code still imports organism
+subsystems directly; deciding which additional internals (including
+`symbiont.modeling` and `symbiont.cognition.generative`) belong in the public
+surface remains open.
 
 **OI-17 — Domain contracts are implicit.**
 The Physics3D apparatus contract is now owned by `embodiment.physics3d` and

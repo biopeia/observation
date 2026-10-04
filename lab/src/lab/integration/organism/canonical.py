@@ -10,15 +10,14 @@ from modality.host.portable_surfaces import PortableSurfaceProvider
 from modality.host.process_telemetry import HostProcessTelemetry
 from modality.host.stdlib import StandardLibraryProvider
 from modality.host.stdlib_readings import StandardLibraryReadingProvider
-from symbiont.core.orchestration.canonical_birth import restore_resident_with_canonical_cognition
-from symbiont.core.orchestration.runtime import OrganismRuntime
+from symbiont.api import OrganismRuntime, load_checkpoint_file
+from symbiont.api import restore_resident_with_canonical_cognition
 from symbiont.core.orchestration.sense_requirements import (
     SENSE_OPTIONS,
     SenseRequirements,
     resolve_restore_sense_requirements,
     resolve_sense_requirements,
 )
-from symbiont.host.checkpoint import load_checkpoint_file
 from symbiont.host.sources import HostSenseSources
 
 # Platforms on which host senses can be offered.
