@@ -36,6 +36,7 @@ from symbiont.cognition.limits import KernelLimits
 from symbiont.core.embodiment.transition import (
     EmbodimentDescriptor,
     prepare_fresh_embodiment_checkpoint,
+    update_lifecycle_for_checkpoint,
 )
 from symbiont.core.organism_profile import CANONICAL
 from symbiont.host.checkpoint import verify_checkpoint_identity
@@ -138,6 +139,28 @@ def _newborn(seed: int, body: CausalBody) -> PrivateModelOrganismRuntime:
     )
 
 
+def _checkpoint_for_body(
+    runtime: PrivateModelOrganismRuntime, body: CausalBody
+) -> dict[str, Any]:
+    """Save a subject with the current apparatus-owned embodiment contract.
+
+    The study's synthetic host is not the Physics3D runtime, so it must attach
+    the same lifecycle metadata explicitly before a checkpoint can enter the
+    current-schema re-embodiment path. This is apparatus metadata; the
+    organism state hash deliberately excludes it.
+    """
+    payload = _json(runtime.checkpoint())
+    return update_lifecycle_for_checkpoint(
+        payload,
+        contract=EmbodimentDescriptor(
+            body_kind="causal-body-transfer-target",
+            receptor_count=ACTUATORS,
+            effector_count=ACTUATORS,
+        ),
+        state="active",
+    )
+
+
 def _restore(payload: dict[str, Any], body: CausalBody) -> PrivateModelOrganismRuntime:
     return restore_canonical_organism(
         payload,
@@ -216,7 +239,7 @@ def _develop(seed: int, mapping: Sequence[int], ticks: int) -> dict[str, Any]:
     for _ in range(ticks):
         runtime.tick()
         body.advance(runtime.last_actuations)
-    return _json(runtime.checkpoint())
+    return _checkpoint_for_body(runtime, body)
 
 
 def _entry_checkpoint(
@@ -224,7 +247,7 @@ def _entry_checkpoint(
 ) -> tuple[dict[str, Any], dict[str, Any] | None, list[str]]:
     """The checkpoint each arm is restored from in Body B, and what preceded it."""
     target = _body(seed, family["target"])
-    fresh = _json(_newborn(seed, target).checkpoint())
+    fresh = _checkpoint_for_body(_newborn(seed, target), target)
     if arm == "naive":
         # Saved at tick 0 and restored, so it passes the same restore and
         # reacclimation gate as the other arms.
@@ -263,9 +286,13 @@ def _entry_checkpoint(
         field
         for field in preserved
         if field in previous and transformed.get(field) != previous[field]
-    } - {"last_runtime_vital_state"}
+    } - {"last_runtime_vital_state", "innate_reactivity"}
     if changed:
         failures.append("preserved_state_changed:" + ",".join(sorted(changed)))
+
+    # InnateReactivity has longitudinal memory, but its current-frame velocity
+    # baselines are reset for Body B. Its nested policy is checked by the
+    # re-embodiment continuity contract tests, not by this coarse field compare.
 
     # BodySchema is a mixed historical/current representation. Its old value
     # must move to the episode archive while the active schema is cleared for
