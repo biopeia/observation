@@ -91,6 +91,29 @@ def test_launcher_supplied_limits_and_policy_are_reapplied() -> None:
     assert _saved(restored)["runtime_provenance"]["changed_since_restore"] == []
 
 
+def test_explicit_non_learning_condition_overrides_are_recorded() -> None:
+    saved = _saved(OrganismRuntime(**RUNTIME_KWARGS))
+    limits = replace(KernelLimits(), reacclimation_ticks=KernelLimits().reacclimation_ticks + 7)
+    policy = ExecutiveAdmissionPolicy(readout_threshold=0.5)
+
+    restored = OrganismRuntime.from_checkpoint(
+        saved,
+        **RUNTIME_KWARGS,
+        kernel_limits=limits,
+        executive_admission_policy=policy,
+        persist_replay_state=False,
+    )
+
+    assert restored._kernel_limits == limits
+    assert restored._executive_admission_policy == policy
+    assert restored._persist_replay_state is False
+    assert _saved(restored)["runtime_provenance"]["changed_since_restore"] == [
+        "executive_admission_policy",
+        "kernel_limits",
+        "persist_replay_state",
+    ]
+
+
 def test_a_different_continuation_is_recorded_as_a_changed_condition() -> None:
     runtime = OrganismRuntime(**RUNTIME_KWARGS)
     runtime.tick()
