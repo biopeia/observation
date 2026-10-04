@@ -94,7 +94,7 @@ def test_restore_raises_when_active_candidate_evidence_does_not_satisfy_promotio
         restore_actuation_state(payload, constitution, organism_id="org-gate", effect_threshold=0.6)
 
 
-def test_restore_accepts_legacy_naturally_promoted_active_candidate_without_windows():
+def test_restore_rejects_candidate_without_current_promotion_marker():
     constitution = derive_actuator_constitution(1)
     (actuator_id,) = constitution.actuator_ids
     proposer = ActuatorEvidenceModel(
@@ -117,17 +117,15 @@ def test_restore_accepts_legacy_naturally_promoted_active_candidate_without_wind
     candidate = payload["candidates"][actuator_id]
     assert candidate["probing_state"] == "active"
 
-    # Reproduce the exact pre-marker checkpoint shape from before
-    # natural_promotion_samples existed.
     candidate.pop("natural_promotion_samples", None)
 
-    restored = restore_actuation_state(
-        payload,
-        constitution,
-        organism_id="org-natural-legacy",
-        effect_threshold=0.6,
-    )
-    assert restored.active_repertoire == (actuator_id,)
+    with pytest.raises(ValueError, match="fields do not match the current schema"):
+        restore_actuation_state(
+            payload,
+            constitution,
+            organism_id="org-natural-legacy",
+            effect_threshold=0.6,
+        )
 
 
 def test_natural_promotion_threshold_round_trips_explicitly():

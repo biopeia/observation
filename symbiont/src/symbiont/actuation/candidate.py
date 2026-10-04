@@ -111,11 +111,11 @@ class ActuatorCandidateState:
             "cost_evidence",
             "probing_state",
             "last_seen_tick",
+            "natural_promotion_samples",
             "effect_relations",
         }
-        missing = required - set(payload)
-        if missing:
-            raise ValueError(f"ActuatorCandidateState payload missing fields: {sorted(missing)}")
+        if set(payload) != required:
+            raise ValueError("ActuatorCandidateState payload fields do not match the current schema")
 
         actuator_id = payload["actuator_id"]
         if not isinstance(actuator_id, str) or not actuator_id:
@@ -147,7 +147,7 @@ class ActuatorCandidateState:
             probing_state=probing_state,  # type: ignore[arg-type]
             last_seen_tick=_require_nonneg_int(payload["last_seen_tick"], "last_seen_tick"),
             natural_promotion_samples=_require_nonneg_int(
-                payload.get("natural_promotion_samples", 0),
+                payload["natural_promotion_samples"],
                 "natural_promotion_samples",
             ),
         )
