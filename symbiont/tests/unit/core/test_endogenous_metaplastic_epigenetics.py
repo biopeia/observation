@@ -143,6 +143,10 @@ def test_m3_sustained_prediction_pressure_becomes_capture_eligible():
         "sensorimotor.spontaneous_activity_baseline",
     }
     assert set(germline.acquired_marks) == set(captured)
+    learning_locus = "plasticity.learning_rate.baseline"
+    assert germline.effective_value(genome, learning_locus) == pytest.approx(
+        germline.birth_expression[learning_locus]
+    )
 
 
 def test_m4_expression_relaxes_toward_birth_after_pressure_ends():

@@ -109,14 +109,24 @@ class GermlineState:
         locus: str,
         *,
         schema: GenomeSchema = DEFAULT_GENOME_SCHEMA,
+        include_acquired_marks: bool = False,
     ) -> float | int:
+        """Return the phenotype expressed from inherited marks at birth.
+
+        Acquired marks are records for possible transmission, not an extra
+        control signal for the living individual. They enter phenotype only
+        after being passed to a child's ``inherited_marks``.
+        """
         base = flatten_genes(genome)[locus]
         spec = schema.spec(locus)
         value = float(base)
-        for marks in (self.inherited_marks, self.acquired_marks):
-            mark = marks.get(locus)
-            if mark is not None:
-                value += mark.delta * mark.strength
+        mark = self.inherited_marks.get(locus)
+        if mark is not None:
+            value += mark.delta * mark.strength
+        if include_acquired_marks:
+            acquired = self.acquired_marks.get(locus)
+            if acquired is not None:
+                value += acquired.delta * acquired.strength
         return spec.clamp(value)
 
     def capture_acquired_variation(
