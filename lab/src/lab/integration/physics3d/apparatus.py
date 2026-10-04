@@ -8,11 +8,9 @@ from __future__ import annotations
 
 import time
 from collections.abc import Callable, Mapping, Sequence
-from typing import Protocol
 
-from embodiment.physics3d.humanoid import (
-    interoceptive_receptor_contract_ids,
-)
+from embodiment.physics3d.contracts import Physics3DAppliance
+from embodiment.physics3d.humanoid import interoceptive_receptor_contract_ids
 from symbiont import __version__ as symbiont_version
 from symbiont.actuation.surface import ActuatorConstitution, derive_actuator_constitution
 from symbiont.cognition.birth import load_base_cognition
@@ -32,23 +30,6 @@ from symbiont.host.readings import (
 )
 from symbiont.sensory.limits import SensoryLimits
 from symbiont.sensory.system import SensorySystem
-
-
-class Physics3DApplianceContract(Protocol):
-    """Minimal opaque surface consumed by the Lab-to-organism adapter."""
-
-    receptor_ids: Sequence[str]
-    effector_ids: Sequence[str]
-    motor_bindings: Sequence[MotorBindingContract]
-
-    def sample_receptors(self) -> Mapping[str, float]: ...
-
-
-class MotorBindingContract(Protocol):
-    """Opaque port pairing needed to preserve actuator exclusion."""
-
-    positive_port: str
-    negative_port: str
 
 
 def _running_version() -> tuple[int, int, int]:
@@ -199,7 +180,7 @@ class PhysicsReadingProvider:
 
     def __init__(
         self,
-        apparatus: Physics3DApplianceContract,
+        apparatus: Physics3DAppliance,
         *,
         body_state_getter: Callable[[], LivingBodyState] | None = None,
         interoception: OpaqueBodyInteroception | None = None,
@@ -262,7 +243,7 @@ class PhysicsReadingProvider:
 
 def actuator_to_effector_map(
     constitution: ActuatorConstitution,
-    apparatus: Physics3DApplianceContract,
+    apparatus: Physics3DAppliance,
 ) -> dict[str, str]:
     """Bind opaque inherited actuator ordinals to opaque physical ports."""
     actuator_ids = constitution.actuator_ids
@@ -274,7 +255,7 @@ def actuator_to_effector_map(
 
 def actuator_exclusion_groups(
     constitution: ActuatorConstitution,
-    apparatus: Physics3DApplianceContract,
+    apparatus: Physics3DAppliance,
 ) -> tuple[tuple[str, str], ...]:
     """Project apparatus mutual exclusion into organism-owned opaque ids.
 

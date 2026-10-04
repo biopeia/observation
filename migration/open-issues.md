@@ -129,9 +129,10 @@ Whether `symbiont.modeling` and `symbiont.cognition.generative` are public
 surface is an open decision.
 
 **OI-17 — Domain contracts are implicit.**
-The Lab-to-Physics3D apparatus adapter now declares a minimal structural
-protocol for receptor sampling, opaque receptor/effector ids, and motor port
-pairings. This narrows one implicit boundary, but the broader issue remains:
+The Physics3D apparatus contract is now owned by `embodiment.physics3d` and
+consumed by the Lab adapter; it names receptor sampling, opaque
+receptor/effector ids, and motor port pairings. This closes that boundary, but
+the broader issue remains:
 other library hand-offs still use plain values/callables, and
 `lab.integration.physics3d.apparatus` still builds organism types
 (`SensorReading`, `Capability`, `ActuatorConstitution`) directly from body
