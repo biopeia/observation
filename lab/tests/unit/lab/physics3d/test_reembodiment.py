@@ -836,6 +836,35 @@ def test_temporal_migration_fails_safe_on_ambiguous_age() -> None:
     assert "temporal_migration" not in migrated
 
 
+def test_temporal_migration_rejects_tampered_current_checkpoint() -> None:
+    payload = _checkpoint(vital_state="active")
+    payload["schema_version"] = CHECKPOINT_SCHEMA_VERSION
+    payload["saved_at_tick"] = 10_000
+    payload["living_body"]["age_ticks"] = 10_000
+    payload["embodiment_lifecycle"] = {
+        "schema_version": 1,
+        "state": "dormant",
+        "epoch": 3,
+        "current": {
+            "body_kind": "body-v1",
+            "receptor_count": 2,
+            "effector_count": 2,
+            "started_tick": 8_000,
+        },
+        "history": [],
+    }
+    payload["runtime_provenance"] = {
+        "checkpoint_schema_version": CHECKPOINT_SCHEMA_VERSION,
+        "session_controls": {},
+    }
+    payload["checkpoint_lineage"] = {"schema_version": CHECKPOINT_SCHEMA_VERSION}
+    payload = stamp_checkpoint_identity(payload, transform="test-current-checkpoint")
+    payload["self_model"] = {"tampered": True}
+
+    with pytest.raises(ValueError, match="does not match its recorded checkpoint_id"):
+        migrate_temporal_domains(payload)
+
+
 def test_dead_checkpoint_closes_epoch_summary_and_archives_memory() -> None:
     payload = _checkpoint(vital_state="dead")
     payload["embodiment_lifecycle"] = {

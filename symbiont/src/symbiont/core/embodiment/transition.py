@@ -136,6 +136,9 @@ def migrate_temporal_domains(payload: Mapping[str, Any]) -> dict[str, Any]:
     if abs(stored_age - saved_tick) > 1:
         return result
 
+    # This migration also re-identifies its output. Do not let an authorized
+    # clock correction become a way to bless unrelated checkpoint tampering.
+    verify_checkpoint_identity(dict(payload))
     old_age = stored_age
     living["age_ticks"] = expected_age
     raw_death = living.get("death_tick")
