@@ -1,0 +1,120 @@
+from __future__ import annotations
+
+import sys
+
+import pytest
+
+from embodiment.physics3d.humanoid import HumanoidPhysics
+from environment.physics3d.resource import PhysicalResource
+
+
+class FakeBullet:
+    GEOM_SPHERE = 2
+
+    def __init__(self):
+        self.next_id = 1
+        self.contacts = []
+
+    def createCollisionShape(self, *args, **kwargs):
+        value = self.next_id
+        self.next_id += 1
+        return value
+
+    def createVisualShape(self, *args, **kwargs):
+        value = self.next_id
+        self.next_id += 1
+        return value
+
+    def createMultiBody(self, *args, **kwargs):
+        value = self.next_id
+        self.next_id += 1
+        return value
+
+    def changeDynamics(self, *args, **kwargs):
+        return None
+
+    def getContactPoints(self, **kwargs):
+        return tuple(self.contacts)
+
+
+@pytest.fixture(autouse=True)
+def bullet(monkeypatch):
+    """The resource reaches its declared backend by import; give it a fake one."""
+    fake = FakeBullet()
+    monkeypatch.setitem(sys.modules, "pybullet", fake)
+    return fake
+
+
+def test_resource_field_is_local_scalar_and_extinguishes_when_depleted():
+    resource = PhysicalResource(
+        7,
+        position=(2.0, 0.0, 0.0),
+        radius=0.2,
+        field_radius=4.0,
+        remaining=10.0,
+        transfer_per_tick=2.0,
+    )
+
+    near = resource.field_at((1.0, 0.0, 0.0))
+    far = resource.field_at((0.0, 0.0, 0.0))
+
+    assert 0.0 < far < near < 1.0
+    resource.remaining = 0.0
+    assert resource.field_at((2.0, 0.0, 0.0)) == 0.0
+
+
+def test_resource_debits_only_absorbed_material():
+    resource = PhysicalResource(
+        7,
+        remaining=10.0,
+        transfer_per_tick=2.0,
+    )
+
+    assert resource.offered_material() == 2.0
+    assert resource.consume_absorbed(0.4) == pytest.approx(0.4)
+    assert resource.remaining == pytest.approx(9.6)
+
+
+def test_resource_contact_is_physical_not_semantic(bullet):
+    resource = PhysicalResource(7)
+
+    assert resource.touching(99) is False
+    bullet.contacts.append(("opaque-contact",))
+    assert resource.touching(99) is True
+
+
+def test_opaque_environment_state_accepts_only_bounded_scalars():
+    body = HumanoidPhysics.__new__(HumanoidPhysics)
+    body._external_field_signal = 0.0
+
+    body.set_opaque_environment_state(external_field=0.3)
+    assert body._external_field_signal == pytest.approx(0.3)
+
+    with pytest.raises(ValueError):
+        body.set_opaque_environment_state(external_field=1.1)
+
+
+def test_world_loss_equals_body_gain_for_accepted_physical_transfer():
+    from symbiont.core.embodiment.metabolism import MetabolicLedger
+    from symbiont.core.embodiment.physiology import LivingBodyState
+
+    resource = PhysicalResource(
+        7,
+        remaining=10.0,
+        transfer_per_tick=2.0,
+    )
+    state = LivingBodyState(energy_reserve=0.5, max_energy=2.0)
+    ledger = MetabolicLedger(
+        replenishment={k: 0.0 for k in ("observation", "cognition", "persistence", "maintenance")},
+        body_state=state,
+    )
+
+    world_before = resource.remaining
+    body_before = state.energy_reserve
+    offered = resource.offered_material()
+    accepted = ledger.intake_untyped(offered)
+    consumed = resource.consume_absorbed(accepted)
+
+    assert consumed == pytest.approx(accepted)
+    assert world_before - resource.remaining == pytest.approx(state.energy_reserve - body_before)
+    assert accepted == pytest.approx(1.5)

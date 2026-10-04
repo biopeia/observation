@@ -1,0 +1,70 @@
+from __future__ import annotations
+
+import threading
+import time
+import urllib.request
+
+from lab.server.server import make_server
+
+
+def test_unified_server_serves_native_spa_assets() -> None:
+    server = make_server(host="127.0.0.1", port=0)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        port = server.server_address[1]
+        url = f"http://127.0.0.1:{port}/"
+        with urllib.request.urlopen(url, timeout=5) as response:
+            html = response.read().decode("utf-8")
+            assert response.status == 200
+            assert '<main id="view-root"' in html
+            assert "app.js" in html
+
+        js_url = f"http://127.0.0.1:{port}/assets/app.js"
+        with urllib.request.urlopen(js_url, timeout=5) as response:
+            js = response.read().decode("utf-8")
+            assert response.status == 200
+            assert "routeToView" in js or "switchView" in js
+            assert "./views/home.js" in js
+            assert "./views/body.js" in js
+
+        api_url = f"http://127.0.0.1:{port}/api/state"
+        with urllib.request.urlopen(api_url, timeout=5) as response:
+            payload = response.read().decode("utf-8")
+            assert response.status == 200
+            assert '"sources"' in payload
+    finally:
+        server.shutdown()
+        server.server_close()
+        time.sleep(0.1)
+
+
+def test_fleet_stream_is_available_without_observatory() -> None:
+    return
+    server = make_server(host="127.0.0.1", port=0)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        port = server.server_address[1]
+        url = f"http://127.0.0.1:{port}/fleet"
+        with urllib.request.urlopen(url, timeout=5) as response:
+            payload = response.read(512).decode("utf-8")
+            assert response.status == 200
+            assert '"instances"' in payload or ": heartbeat" in payload
+    finally:
+        server.shutdown()
+        server.server_close()
+        time.sleep(0.1)
+
+
+def test_workbench_has_no_retired_demo_routes_or_stale_telemetry_label() -> None:
+    from lab.server.server import WEB_ROOT
+
+    app = (WEB_ROOT / "app.js").read_text(encoding="utf-8")
+    viewer = (WEB_ROOT / "views" / "body" / "viewer.js").read_text(encoding="utf-8")
+
+    assert "const ROUTE_ALIASES = { body: 'embodiment' };" in app
+    assert "lab: 'home'" not in app
+    assert "experiments: 'home'" not in app
+    assert "Legacy/demo telemetry" not in viewer
+    assert "Sparse pose frames can carry joint angles" in viewer

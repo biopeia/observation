@@ -7,10 +7,10 @@ from pathlib import Path
 
 import pytest
 
-from observatory.schema_validate import validate
-from symbiont_lab.cli import observed_resident
+from lab.cli import observed_resident
+from lab.observatory.schema_validate import validate
 
-OBSERVATORY = Path(__file__).resolve().parents[3] / "observatory"
+OBSERVATORY = Path(__file__).resolve().parents[3] / "lab" / "src" / "lab" / "observatory"
 
 
 def _run(tmp_path: Path) -> int:
@@ -18,6 +18,7 @@ def _run(tmp_path: Path) -> int:
         [
             "--state-file",
             str(tmp_path / "organism.json"),
+            "--first-boot",
             "--observatory-dir",
             str(tmp_path / "observatory"),
             "--max-ticks",
@@ -62,6 +63,7 @@ def test_launcher_output_validates_against_the_closed_snapshot_schema(
         [
             "--state-file",
             str(tmp_path / "organism.json"),
+            "--first-boot",
             "--observatory-dir",
             str(tmp_path / "observatory"),
             "--max-ticks",
@@ -89,6 +91,7 @@ def test_slm_service_status_is_part_of_the_closed_contract(
         [
             "--state-file",
             str(tmp_path / "organism.json"),
+            "--first-boot",
             "--observatory-dir",
             str(tmp_path / "observatory"),
             "--max-ticks",

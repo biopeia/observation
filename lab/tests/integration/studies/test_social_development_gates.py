@@ -1,0 +1,18 @@
+from lab.studies import run_social_development_gate_study
+
+
+def test_social_development_gate_matrix_passes_without_runtime_labels() -> None:
+    result = run_social_development_gate_study()
+    assert result.all_gates_pass
+    assert result.boundary_contract
+    assert result.longitudinal_replay
+    assert result.lineage_replay
+    assert result.resource_revision
+    assert result.denial_revision
+    assert result.niche_differentiation
+    assert result.adversarial_boundaries
+    assert result.finite_competition
+    assert result.emergent_interactions
+    assert result.runtime_emergence
+    assert result.runtime_emergence_replay
+    assert result.runtime_population_generalization

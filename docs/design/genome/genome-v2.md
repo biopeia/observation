@@ -176,9 +176,18 @@ body-owned actuation surface
 embodiment-scoped sensorimotor knowledge
 ```
 
-Genome v1 checkpoints are verified with their historical hash before being migrated. Historical `HeritableGenome` is projected only once onto v2 loci that still have causal meaning; the rest are discarded instead of becoming dead configuration.
+**Historical migration plan, superseded by the current restore policy:** the
+Genome v1 / `HeritableGenome` projection described in earlier revisions is not
+implemented by the current runtime. The outer organism checkpoint loader
+accepts schema 14 only; a non-empty `HeritableGenome` payload is rejected, and
+the Genome v2 codec does not migrate Genome v1 payloads. Those artifacts are
+archival evidence, not directly restorable organisms. Do not infer a migration
+path from this document's earlier design history.
 
-Sensorimotor v10 adds `embodiment_fingerprint`. v9 checkpoints can be bound only once to an already validated current body. Pre-v9 fails closed.
+The sensorimotor subsystem codec has its own versions: v9 payloads can be
+bound only once to an already validated current body, while pre-v9 fails
+closed. This inner-codec rule does not make an older outer organism checkpoint
+restorable; only the current outer schema is accepted.
 
 ## Re-embodiment
 

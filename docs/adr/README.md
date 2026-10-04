@@ -51,6 +51,8 @@ mindmap
       ADR-0023 Transaccionalidad y conservación
       ADR-0032 Dominios temporales multiescala
       ADR-0042 Tiempo causal determinista
+      ADR-0065 Corte limpio del sustrato
+      ADR-0066 Motor MuJoCo y visión independiente
     Observación & Seguridad
       ADR-0009 Proveniencia State-X
       ADR-0010 Invariantes P0-P7
@@ -59,6 +61,7 @@ mindmap
       ADR-0018 Ciclo de vida del residente
       ADR-0024 Telemetría binaria y deltas
       ADR-0039 Integridad en telemetría espacial
+      ADR-0067 Secciones revisionadas y observación pasiva
 ```
 
 ---
@@ -134,6 +137,8 @@ mindmap
 | **[ADR-0023](ADR-0023-atomic-transactional-step-and-ecological-conservation.md)** | Atomic Transactional Step and Ecological Conservation Laws | Aceptado | Transaccionalidad atómica reversible (`IntegratedWorldTickTransaction`) y leyes de conservación de materia/fertilidad sin generación *ex nihilo*. |
 | **[ADR-0032](ADR-0032-multi-scale-temporal-domains-and-biological-rhythms.md)** | Multi-Scale Temporal Domains and Biological Rhythms | Aceptado | Jerarquía temporal desacoplada (micro/meso/macro) para aislar el ruido sensorial rápido de la aclimatación lenta y ciclos circadianos. |
 | **[ADR-0042](ADR-0042-deterministic-causal-time-and-sensor-cost.md)** | Deterministic Causal Time and Sensor Cost (EW-006) | Aceptado | El reloj del host y la velocidad de la CPU nunca determinan estado causal: coste de adquisición declarado por el aparato y fase rítmica interna derivada del tick. |
+| **[ADR-0065](ADR-0065-simulation-substrate-clean-cut.md)** | Cut the Simulation Substrate Over without Backward Compatibility | Accepted | One regime boundary: no pre-cut readers or second backend; pre-cut evidence pinned and labelled; self-consistency replaces cross-version equivalence; one re-baseline. |
+| **[ADR-0066](ADR-0066-mujoco-physics-engine-and-engine-independent-vision.md)** | MuJoCo as the Single Physics3D Engine and Engine-independent Visual Sampling | Accepted | MuJoCo (CPU) behind the appliance seam; visual sampling by a deterministic ray caster owned by `modality`; receptor contract of ADR-0011 unchanged. |
 
 ### 8. Observación & Seguridad
 
@@ -147,6 +152,7 @@ mindmap
 | **[ADR-0024](ADR-0024-high-frequency-binary-telemetry-and-decimated-transport.md)** | High-Frequency Binary Telemetry and Decimated Observation Transport | Aceptado | Telemetría binaria empaquetada de alta frecuencia en el bucle causal, desacoplada de la cadencia decimada de observación y transporte SSE. |
 | **[ADR-0039](ADR-0039-epistemic-integrity-in-visual-and-spatial-telemetry.md)** | Epistemic Integrity in Visual and Spatial Telemetry | Aceptado | Demarcación estricta entre la colocación visual del observador y la ausencia de coordenadas espaciales o mapas alocéntricos en el organismo. |
 | **[ADR-0044](ADR-0044-host-safety-and-lifecycle-invariants-in-the-constitution.md)** | Host-Safety and Lifecycle Invariants in the Constitution | Aceptado | Incorporar a la Constitución los invariantes permanentes de seguridad del anfitrión y de identidad del ciclo de vida (restore rechaza `DEAD`, clonar crea identidad nueva). |
+| **[ADR-0067](ADR-0067-revisioned-state-sections-and-passive-observation.md)** | Revisioned State Sections, Passive Observation and Binary Canonical Checkpoints | Accepted | State in owned, replaced-not-mutated sections with revisions; the observer compares revisions and the organism emits nothing; `checkpoint_hash` over a deterministic binary encoding. |
 
 ### 9. Governance
 

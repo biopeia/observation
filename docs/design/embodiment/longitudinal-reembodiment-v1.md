@@ -36,7 +36,7 @@ Associated normative documents:
 - [Temporal Separation Symbiont / Body](symbiont-body-temporal-separation-v1.md)
 - [Embodiment Memory](embodiment-memory-v1.md)
 - [Embodiment Epoch Summary](embodiment-epoch-summary-v1.md)
-- [Temporal Decontamination Audit](../../../research/audits/current/2026-09-temporal-decontamination.md)
+- [Temporal Decontamination Audit](../../../lab/research/audits/current/2026-09-temporal-decontamination.md)
 
 ---
 
@@ -45,6 +45,12 @@ Associated normative documents:
 The individual maintained the same `organism_id` for six epochs.
 
 Recorded sequence:
+
+> Historical observation from the pre-epoch portable-checkpoint path. The
+> `anthropomorphic-v4` label reflects the bounded `LEGACY_COMPATIBILITY_ASSUMPTION`
+> used when such a file has no epoch descriptor; it is not body discovery and
+> does not authorize restoration of an outer checkpoint. The current live
+> loader accepts schema 14 only and rejects schemas 1–13 without migration.
 
 | Epoch | Body | Global start | Global end | State on close |
 | --- | --- | ---: | ---: | --- |
@@ -335,6 +341,12 @@ BODY
 ---
 
 ## 11. Implementation order
+
+The historical “migrate checkpoints” item below is superseded by the current
+outer-checkpoint policy: only schema 14 restores, and older schemas are
+rejected. It is retained as specimen history, not an active runtime or
+implementation task. Any future archival conversion requires separate
+authorization and must not be described as organism continuation.
 
 ### P0.1 — Temporal separation
 

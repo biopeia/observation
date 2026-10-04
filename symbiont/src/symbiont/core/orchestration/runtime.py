@@ -1,0 +1,3534 @@
+from __future__ import annotations
+
+import hashlib
+import json
+import math
+import time
+import uuid
+from copy import deepcopy
+from dataclasses import asdict, dataclass
+from pathlib import Path
+from typing import Any, Self, cast
+
+from ...actuation.acquisition import AgencyAcquisition
+from ...actuation.action import MotorCommand
+from ...actuation.binding import CompetenceExecutionBindingRegistry
+from ...actuation.candidate import ActuatorCandidateState
+from ...actuation.checkpoint import restore_actuation_state
+from ...actuation.commitment import ActionCommitment, CommitmentStatus
+from ...actuation.competence import CompetenceGate, CompetenceLibrary, MotorCompetence
+from ...actuation.evidence import CausalEvidenceLedger, SensorimotorTransition
+from ...actuation.model import AgencyModel, CompetenceEffectModel, ControllabilityModel
+from ...actuation.proposer import ActuatorEvidenceModel
+from ...actuation.sensorimotor import CompetenceDevelopmentEngine, SensorimotorSnapshot
+from ...actuation.state import SensorimotorV2Snapshot
+from ...actuation.surface import ActuatorChannel, ActuatorConstitution, ActuatorSurface
+from ...actuation.system import ActuatorSystem
+from ...actuation.types import Actuation, MotorIntent
+from ...agency.affordance import ActionAffordance
+from ...agency.affordances import AffordanceResolver
+from ...agency.prospective import (
+    ExecutiveAdmissionPolicy,
+    GenerativeAnticipation,
+    ProspectiveDecision,
+    admit_afforded_action,
+)
+from ...cognition.checkpoint import export_genome_checkpoint, restore_genome_checkpoint
+from ...cognition.generative import (
+    CompetenceEffectGenerativeAdapter,
+    GenerativeMode,
+    GenerativeResidentSnapshot,
+    ResidentGenerativeCognition,
+)
+from ...cognition.graph import CognitiveGraph
+from ...cognition.learning import ShadowPrediction
+from ...cognition.limits import KernelLimits
+from ...genetics.checkpoint import export_germline, restore_germline
+from ...genetics.expression import ExpressionRegulator, GeneExpressionState
+from ...genetics.genome import Genome
+from ...genetics.germline import (
+    EpigeneticMark,
+    EpigeneticProtocol,
+    GermlineState,
+    InheritancePackage,
+)
+from ...host.acclimation import HostAcclimation
+from ...host.adaptive import AdaptiveSenseModel, SamplingPlan
+from ...host.checkpoint import (
+    CHECKPOINT_SCHEMA_VERSION,
+    IDENTITY_SCOPE,
+    CheckpointError,
+    checkpoint_state_hash,
+    continuation_condition_hash,
+    export_checkpoint,
+    import_checkpoint,
+    lineage_history,
+    load_checkpoint_file,
+    normalize_checkpoint,
+    require_current_schema_fields,
+    save_checkpoint_atomic,
+    verify_checkpoint_identity,
+)
+from ...host.continuity import LongitudinalContract
+from ...host.contracts import DiscoveryPolicy, DiscoveryProvider, HostManifest
+from ...host.discovery import HostDiscovery
+from ...host.drift import DriftAwareBaseline, DriftObservation
+from ...host.lifecycle import HostLifecycle, LifecycleSnapshot
+from ...host.percepts import DEFAULT_PERCEPT_NAMES, Percept
+from ...host.readings import ReadingProvider
+from ...host.rhythms import RhythmModel
+from ...host.sources import HostSenseSources
+from ...provenance import ProvenanceLog
+from ...sensory import SensorySystem
+from ...sensory.interoception import InteroceptionProvider, ShamInteroceptionProvider
+from ..cognition.attention import AttentionAllocation
+from ..cognition.bridge import CognitiveBridge, CognitiveBridgeResult
+from ..cognition.consolidation import MemoryConsolidator
+from ..cognition.evidence import DissentRecord, EvidenceRevisionLedger
+from ..cognition.host_self_model import SelfModel
+from ..cognition.self_model import derive_cognitive_self_namespace
+from ..domains.action import ActionDomain, ActionServices, ActionStepResult
+from ..domains.cognition import CognitionDomain, CognitionServices
+from ..domains.context import TickContext
+from ..domains.development import DevelopmentDomain
+from ..domains.embodiment import EmbodimentDomain, EmbodimentServices
+from ..domains.epistemic import EpistemicDomain, EpistemicServices
+from ..domains.intention import ExecutiveMode, IntentionPolicy
+from ..domains.lifecycle import LifecycleDomain
+from ..domains.memory import MemoryDomain, MemoryServices
+from ..domains.perception import PerceptionDomain, PerceptionServices
+from ..domains.physiology import (
+    PhysiologyDomain,
+    PhysiologyPreflightServices,
+    PhysiologyServices,
+)
+from ..domains.regulation import RegulationDomain, RegulationServices
+from ..embodiment.assimilation import AssimilationDecision, InformationAssimilator
+from ..embodiment.body_schema import BodySchemaEngine
+from ..embodiment.degradation import DegradationQueue
+from ..embodiment.development import DevelopmentalSnapshot, DevelopmentalTracker
+from ..embodiment.homeostasis import HomeostaticController, HomeostaticSnapshot
+from ..embodiment.metabolism import MetabolicLedger, MetabolicSnapshot
+from ..embodiment.ontogeny import OntogenyController, OntogenySnapshot
+from ..embodiment.physiology import (
+    DEFAULT_PHYSIOLOGY_CONFIG,
+    BodyStructureState,
+    LivingBodyState,
+    PhysiologyConfig,
+    PhysiologyController,
+    PhysiologySnapshot,
+    VitalState,
+)
+from ..foundation.narrative import NarrativeEntry
+from ..lineage.inheritance import EpigeneticPrior
+from ..organism_profile import CANONICAL, OrganismProfile
+from ..regulation import InnateReactivity, ReactiveMemory
+from ..signals.identity import SignalIdentity
+from ..signals.knowledge import MAX_KNOWLEDGE_CHECKPOINT_BYTES, SignalKnowledgeEngine
+from ..signals.knowledge_checkpoint import validate_checkpoint
+from ..social.communication import ConsentBoundChannel, SignedMessage
+from ..social.ecology import SharedHabitat
+from ..social.exchange import ExchangeEnvelope, ExchangeReplayGuard
+from ..social.relations import (
+    InteractionOutcome,
+    RelationLedger,
+    RelationValence,
+    ResourceEvidenceLedger,
+    SocialCompetitionRequest,
+    SocialHabitat,
+    SocialPresence,
+    SocialRelation,
+)
+from .sense_requirements import resolve_sense_requirements, restored_sense_options
+
+
+def _parse_running_version(version_string: str) -> tuple[int, int, int]:
+    parts = version_string.split(".")
+    major = int(parts[0])
+    minor = int(parts[1]) if len(parts) > 1 else 0
+    patch = int(parts[2]) if len(parts) > 2 else 0
+    return (major, minor, patch)
+
+
+def _canonical_hash(payload: dict[str, Any]) -> str:
+    """Content hash of a JSON-serializable payload, key order independent."""
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), allow_nan=False).encode(
+        "utf-8"
+    )
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _recorded_session_controls(normalized: dict[str, Any]) -> dict[str, Any] | None:
+    """Parse runtime_provenance.session_controls; None when it was never recorded."""
+    provenance = normalized.get("runtime_provenance")
+    if not isinstance(provenance, dict) or "session_controls" not in provenance:
+        return None
+    raw = provenance["session_controls"]
+    if not isinstance(raw, dict):
+        raise CheckpointError("invalid session_controls provenance")
+    required = {
+        "cognitive_plasticity_enabled",
+        "predictor_promotion_enabled",
+        "persist_replay_state",
+        "kernel_limits",
+        "executive_admission_policy",
+        "expression_regulator",
+    }
+    if raw.keys() != required:
+        missing = sorted(required - raw.keys())
+        unexpected = sorted(raw.keys() - required)
+        details = []
+        if missing:
+            details.append(f"missing: {', '.join(missing)}")
+        if unexpected:
+            details.append(f"unexpected: {', '.join(unexpected)}")
+        raise CheckpointError("invalid session_controls provenance (" + "; ".join(details) + ")")
+    controls: dict[str, Any] = {}
+    for name in (
+        "cognitive_plasticity_enabled",
+        "predictor_promotion_enabled",
+        "persist_replay_state",
+    ):
+        if name in raw:
+            if not isinstance(raw[name], bool):
+                raise CheckpointError(f"invalid session control: {name}")
+            controls[name] = raw[name]
+    try:
+        if "expression_regulator" in raw:
+            if not isinstance(raw["expression_regulator"], str) or not raw["expression_regulator"]:
+                raise CheckpointError("invalid session control: expression_regulator")
+            controls["expression_regulator"] = raw["expression_regulator"]
+        if "kernel_limits" in raw:
+            controls["kernel_limits"] = KernelLimits(**raw["kernel_limits"])
+        if "executive_admission_policy" in raw:
+            controls["executive_admission_policy"] = ExecutiveAdmissionPolicy(
+                **raw["executive_admission_policy"]
+            )
+    except (TypeError, ValueError) as exc:
+        raise CheckpointError(f"invalid session control: {exc}") from exc
+    return controls
+
+
+def _state_hash_of(checkpoint_payload: dict[str, Any]) -> str:
+    """Hash organism state, excluding save-event/provenance metadata.
+
+    ``checkpoint_lineage`` records save *events* and ``runtime_provenance``
+    records what code produced the save — neither is part of what the
+    organism *is*. Two checkpoints of the same underlying state must hash
+    identically regardless of when or under what version they were taken.
+    """
+    return checkpoint_state_hash(checkpoint_payload)
+
+
+@dataclass(slots=True, frozen=True)
+class RuntimeTickResult:
+    tick: int
+    snapshot: LifecycleSnapshot
+    percepts: tuple[Percept, ...]
+    drift_observations: dict[str, DriftObservation]
+    allocations: tuple[AttentionAllocation, ...]
+    investigated_capability: str | None
+    evidence_gathered: int
+    dissent: DissentRecord | None
+    narrative: tuple[NarrativeEntry, ...]
+    sampling_plan: SamplingPlan | None = None
+    perceptual_allocations: tuple[AttentionAllocation, ...] = ()
+    cognition: CognitiveBridgeResult | None = None
+    generative: GenerativeResidentSnapshot | None = None
+    signal_knowledge: tuple[dict[str, Any], ...] = ()
+    knowledge_events: tuple[dict[str, Any], ...] = ()
+    signal_references: dict[str, str] | None = None
+    metabolism: MetabolicSnapshot | None = None
+    assimilation: tuple[AssimilationDecision, ...] = ()
+    homeostasis: HomeostaticSnapshot | None = None
+    physiology: PhysiologySnapshot | None = None
+    ontogeny: OntogenySnapshot | None = None
+    degradation_excreted: int = 0
+    retained_items: int = 0
+    action_result: ActionStepResult | None = None
+    development: DevelopmentalSnapshot | None = None
+    sensory_phenotype: dict[str, Any] | None = None
+    # WARN(integrity): Bounded lifecycle facts emitted by the subject runtime.  The laboratory
+    # may project these into its own taxonomy, but must not manufacture them
+    # from snapshots after the fact.
+    runtime_events: tuple[str, ...] = ()
+    motor_intent: MotorIntent | None = None
+    actuation: Actuation | None = None
+    motor_intents: tuple[MotorIntent, ...] = ()
+    actuations: tuple[Actuation, ...] = ()
+    action_commitment: ActionCommitment | None = None
+    motor_command: MotorCommand | None = None
+    sensorimotor_transition: SensorimotorTransition | None = None
+    sensorimotor_v2: SensorimotorV2Snapshot | None = None
+    gene_expression: dict[str, object] | None = None
+
+
+class OrganismDeadError(RuntimeError):
+    """Raised when execution is requested after irreversible death."""
+
+
+# Factorized Effect Representation v1 §13.1: probing share when enabled.
+FACTORIZED_PROBING_SHARE = 0.5
+
+
+# Host systems whose aggregate surfaces the organism can sense (ADR-0062, rule 8).
+
+
+class OrganismRuntime:
+    """Continuous cognitive cycle over safe local perceptions.
+
+    In developmental mode discovery remains broad inside the provider's fixed safety
+    boundary, while sampling becomes selective. Cognitive learning happens only
+    after attention has been allocated for the current tick, so attention and the
+    self-model can constrain plastic updates instead of merely describing them.
+    """
+
+    LONGITUDINAL_CONTRACT = LongitudinalContract.CANONICAL_REEMBODIMENT
+
+    # Layer of the continuity register this runtime's checkpoint must satisfy.
+    _CONTINUITY_LAYER = "core"
+
+    _SUPPORTED_EPIGENETIC_KEYS = frozenset()
+
+    def __init__(
+        self,
+        *,
+        discovery_policy: DiscoveryPolicy | None = None,
+        host_lifecycle: HostLifecycle | None = None,
+        host_reading_providers: tuple[ReadingProvider, ...] | None = None,
+        host_sense_sources: HostSenseSources | None = None,
+        attention_budget: float = 1.0,
+        investigate_ticks: int = 2,
+        conflict_z: float = 2.0,
+        min_samples: int = 5,
+        acclimation: HostAcclimation | None = None,
+        rhythm_model: RhythmModel | None = None,
+        drift_baselines: dict[str, DriftAwareBaseline] | None = None,
+        tick_count: int = 0,
+        discover_senses: bool | None = None,
+        bootstrap_semantic_senses: bool | None = None,
+        adaptive_senses: AdaptiveSenseModel | None = None,
+        sensory_system: SensorySystem | None = None,
+        sensory_plasticity: bool | None = None,
+        self_model: SelfModel | None = None,
+        body_schema: BodySchemaEngine | None = None,
+        evidence_ledger: EvidenceRevisionLedger | None = None,
+        genome: Genome | None = None,
+        mutation_seed: int = 0,
+        epigenetic_priors: tuple[EpigeneticPrior, ...] = (),
+        epigenetic_decay: float = 0.05,
+        kernel_limits: KernelLimits | None = None,
+        cognitive_graph: CognitiveGraph | None = None,
+        cognitive_bridge: CognitiveBridge | None = None,
+        gene_expression_state: GeneExpressionState | None = None,
+        germline_state: GermlineState | None = None,
+        epigenetic_protocol: EpigeneticProtocol | None = None,
+        inheritance_package: InheritancePackage | None = None,
+        parent_ids: tuple[str, ...] = (),
+        expression_regulator: ExpressionRegulator | None = None,
+        memory_consolidator: MemoryConsolidator | None = None,
+        organism_id: str | None = None,
+        signal_identity: SignalIdentity | None = None,
+        signal_knowledge: SignalKnowledgeEngine | None = None,
+        metabolism: MetabolicLedger | None = None,
+        assimilator: InformationAssimilator | None = None,
+        homeostasis: HomeostaticController | None = None,
+        physiology: PhysiologyController | None = None,
+        living_body_state: LivingBodyState | None = None,
+        physiology_config: PhysiologyConfig | None = None,
+        habitat: SharedHabitat | None = None,
+        resource_habitats: dict[str, SharedHabitat] | None = None,
+        social_habitat: SocialHabitat | None = None,
+        social_ledger: RelationLedger | None = None,
+        social_resource_ledger: ResourceEvidenceLedger | None = None,
+        communication_channel: ConsentBoundChannel | None = None,
+        exchange_guard: ExchangeReplayGuard | None = None,
+        exchange_sequence: int = 0,
+        explicit_metabolism: bool = False,
+        auto_promote_predictors: bool | None = None,
+        generation: int = 0,
+        social_exchange_quantum: float = 0.1,
+        social_exchange_cost: float = 0.01,
+        resting_requested: bool = False,
+        degradation_queue: DegradationQueue | None = None,
+        interoception_enabled: bool | None = None,
+        interoception_mode: str | None = None,
+        developmental_tracker: DevelopmentalTracker | None = None,
+        actuation_enabled: bool = False,
+        actuator_constitution: ActuatorConstitution | None = None,
+        actuator_evidence: ActuatorEvidenceModel | None = None,
+        motor_selection_threshold: float = 0.1,
+        actuator_system: ActuatorSystem | None = None,
+        competence_development: CompetenceDevelopmentEngine | None = None,
+        generative_cognition: ResidentGenerativeCognition | None = None,
+        agency_acquisition: AgencyAcquisition | None = None,
+        executive_mode: ExecutiveMode = ExecutiveMode.FULL,
+        intention_policy: IntentionPolicy | None = None,
+        executive_admission_policy: ExecutiveAdmissionPolicy | None = None,
+        factorized_effects: bool | None = None,
+        persist_replay_state: bool | None = None,
+        profile: OrganismProfile | None = None,
+        competence_min_support: int | None = None,
+        competence_min_consistency: float | None = None,
+        retention_price_baseline: float | None = None,
+        retention_price_node: float | None = None,
+        dormancy_retention_factor: float | None = None,
+    ) -> None:
+        # Governed options left unset come from the organism profile (ADR-0062).
+        profile = profile if profile is not None else CANONICAL
+        self._profile_version = profile.version
+        sense_requirements = resolve_sense_requirements(
+            profile=profile,
+            discover_senses=discover_senses,
+            bootstrap_semantic_senses=bootstrap_semantic_senses,
+            interoception_enabled=interoception_enabled,
+            interoception_mode=interoception_mode,
+        )
+        discover_senses = sense_requirements.discover_senses
+        bootstrap_semantic_senses = sense_requirements.bootstrap_semantic_senses
+        if sensory_plasticity is None:
+            sensory_plasticity = profile.sensory_plasticity
+        if auto_promote_predictors is None:
+            auto_promote_predictors = profile.auto_promote_predictors
+        if factorized_effects is None:
+            factorized_effects = profile.factorized_effects
+        if intention_policy is None:
+            intention_policy = profile.intention_policy()
+        retention = (
+            profile.retention_price_baseline
+            if retention_price_baseline is None
+            else float(retention_price_baseline),
+            profile.retention_price_node
+            if retention_price_node is None
+            else float(retention_price_node),
+            profile.dormancy_retention_factor
+            if dormancy_retention_factor is None
+            else float(dormancy_retention_factor),
+        )
+        if (
+            not all(math.isfinite(value) and value >= 0.0 for value in retention)
+            or retention[2] > 1.0
+        ):
+            raise ValueError(
+                "retention prices must be non-negative and the dormancy factor within [0, 1]"
+            )
+        self._retention_prices = retention
+        self._competence_gate = CompetenceGate(
+            min_support=(
+                profile.competence_min_support
+                if competence_min_support is None
+                else int(competence_min_support)
+            ),
+            min_consistency=(
+                profile.competence_min_consistency
+                if competence_min_consistency is None
+                else float(competence_min_consistency)
+            ),
+        )
+        interoception_mode = sense_requirements.interoception_mode
+        interoception_enabled = interoception_mode != "absent"
+        if attention_budget <= 0.0:
+            raise ValueError("attention_budget must be positive")
+        if investigate_ticks < 0:
+            raise ValueError("investigate_ticks must be non-negative (0 disables investigation)")
+        if (
+            tick_count < 0
+            or generation < 0
+            or social_exchange_quantum <= 0.0
+            or social_exchange_cost < 0.0
+        ):
+            raise ValueError("invalid tick, generation, social quantum or social cost")
+        discovery_providers: list[DiscoveryProvider] = []
+        reading_providers: list[ReadingProvider] = []
+        self._bootstrap_semantic_senses = bootstrap_semantic_senses
+        self._adaptive_senses = (
+            adaptive_senses if adaptive_senses is not None else AdaptiveSenseModel()
+        )
+        self._sensory_system = (
+            sensory_system
+            if sensory_system is not None
+            else SensorySystem(plasticity_enabled=sensory_plasticity)
+        )
+        self._discover_senses = discover_senses
+        if interoception_mode not in {"enabled", "sham", "absent"}:
+            raise ValueError("interoception_mode must be enabled, sham or absent")
+        self._interoception_mode = interoception_mode
+        self._interoception_enabled = interoception_mode != "absent"
+
+        # Sense sources are composed outside the organism; it attaches what it
+        # is given. On its own it is a minimal organism with no host source.
+        if host_sense_sources is None:
+            host_sense_sources = HostSenseSources()
+        discovery_providers.extend(host_sense_sources.discovery_providers)
+        reading_providers.extend(host_sense_sources.reading_providers)
+
+        # Interoception is the organism's own: it needs no host and is governed
+        # only by its mode.
+        self._interoception_provider = None
+        if self._interoception_enabled:
+            provider_type = (
+                ShamInteroceptionProvider if interoception_mode == "sham" else InteroceptionProvider
+            )
+            self._interoception_provider = provider_type(
+                host_telemetry=host_sense_sources.process_telemetry
+            )
+            discovery_providers.append(self._interoception_provider)
+            reading_providers.append(self._interoception_provider)
+        self._reading_providers = tuple(reading_providers)
+        # The host is one sense source among others (Body, vision, ...). Where
+        # it cannot be read the organism is still born, and says so (ADR-0062).
+        if host_lifecycle is not None:
+            self._host_sense_source = "embodied"
+        elif not discover_senses:
+            self._host_sense_source = "not_requested"
+        else:
+            self._host_sense_source = host_sense_sources.availability
+        if host_lifecycle is not None:
+            if not isinstance(host_lifecycle, HostLifecycle):
+                raise TypeError("host_lifecycle must be a HostLifecycle")
+            self._lifecycle = host_lifecycle
+            self._reading_providers = tuple(host_reading_providers or ())
+        else:
+            self._lifecycle = HostLifecycle(
+                discovery=HostDiscovery(
+                    providers=tuple(discovery_providers), policy=discovery_policy
+                ),
+                reading_providers=self._reading_providers,
+            )
+        # Exact-continuation (replay) state holds raw-derived values. It is
+        # checkpointed only for deterministic hosts: an injected (synthetic)
+        # lifecycle or no readings at all. The real host restarts cold.
+        self._persist_replay_state = (
+            (host_lifecycle is not None or not self._reading_providers)
+            if persist_replay_state is None
+            else bool(persist_replay_state)
+        )
+        provided_min_samples: list[int] = []
+        if acclimation is not None and hasattr(acclimation, "_min_samples"):
+            provided_min_samples.append(int(acclimation._min_samples))
+        if rhythm_model is not None and hasattr(rhythm_model, "_min_samples"):
+            provided_min_samples.append(int(rhythm_model._min_samples))
+
+        if provided_min_samples:
+            first_min = provided_min_samples[0]
+            if any(s != first_min for s in provided_min_samples[1:]):
+                raise ValueError("contradictory min_samples in prebuilt subsystems")
+            self._min_samples = first_min
+        else:
+            self._min_samples = int(min_samples)
+
+        self._acclimation = (
+            acclimation
+            if acclimation is not None
+            else HostAcclimation(min_samples=self._min_samples)
+        )
+        self._rhythm_model = (
+            rhythm_model if rhythm_model is not None else RhythmModel(min_samples=self._min_samples)
+        )
+        self._drift_baselines = dict(drift_baselines) if drift_baselines is not None else {}
+        if evidence_ledger is not None and hasattr(evidence_ledger, "_conflict_z"):
+            self._conflict_z = float(evidence_ledger._conflict_z)
+        else:
+            self._conflict_z = float(conflict_z)
+        self._evidence_ledger = (
+            evidence_ledger
+            if evidence_ledger is not None
+            else EvidenceRevisionLedger(conflict_z=self._conflict_z)
+        )
+        self._attention_budget = attention_budget
+        self._investigate_ticks = investigate_ticks
+        self._tick_count = tick_count
+        self._organism_id = (
+            str(organism_id) if organism_id is not None else f"org_{uuid.uuid4().hex[:16]}"
+        )
+        self._signal_identity = (
+            signal_identity
+            if signal_identity is not None
+            else SignalIdentity(b"symbiont-signal-knowledge-key-32")
+        )
+        self._signal_knowledge = (
+            signal_knowledge if signal_knowledge is not None else SignalKnowledgeEngine()
+        )
+        self._explicit_metabolism = bool(explicit_metabolism)
+        self._auto_promote_predictors = bool(auto_promote_predictors)
+        # Runtime-scoped switches for existing capabilities. They are
+        # configuration, not acquired state: never part of effective_config
+        # or of state identity. Cognition does not write them. Their effective
+        # values are recorded in runtime_provenance and reapplied on restore
+        # (Longitudinal Integrity v1 §9).
+        self._cognitive_plasticity_enabled = True
+        self._predictor_promotion_enabled = True
+        self._restored_session_controls: dict[str, Any] | None = None
+        self._developmental_tracker = (
+            developmental_tracker if developmental_tracker is not None else DevelopmentalTracker()
+        )
+        self._lifecycle_domain = LifecycleDomain()
+        self._generation = generation
+        self._last_checkpoint_hash: str | None = None
+        self._lineage_history: dict[str, Any] = {}
+        self._social_exchange_quantum = float(social_exchange_quantum)
+        self._social_exchange_cost = float(social_exchange_cost)
+        self._resting_requested = bool(resting_requested)
+        if physiology_config is not None:
+            self._physiology_config = physiology_config
+            if degradation_queue is not None:
+                if (
+                    degradation_queue.aging_ticks != self._physiology_config.aging_ticks
+                    or degradation_queue.waste_ticks != self._physiology_config.waste_ticks
+                ):
+                    raise ValueError("incompatible degradation_queue ticks with physiology_config")
+            if (
+                metabolism is not None
+                and getattr(metabolism, "physiology_config", None) is not None
+            ):
+                if metabolism.physiology_config != self._physiology_config:
+                    raise ValueError(
+                        "incompatible metabolism physiology_config with runtime physiology_config"
+                    )
+            if homeostasis is not None and getattr(homeostasis, "config", None) is not None:
+                if homeostasis.config != self._physiology_config:
+                    raise ValueError(
+                        "incompatible homeostasis config with runtime physiology_config"
+                    )
+        else:
+            provided_configs: list[PhysiologyConfig] = []
+            if homeostasis is not None and getattr(homeostasis, "config", None) is not None:
+                provided_configs.append(homeostasis.config)
+            if (
+                metabolism is not None
+                and getattr(metabolism, "physiology_config", None) is not None
+            ):
+                provided_configs.append(metabolism.physiology_config)
+
+            if provided_configs:
+                first = provided_configs[0]
+                if any(cfg != first for cfg in provided_configs[1:]):
+                    raise ValueError("contradictory physiology configs in prebuilt subsystems")
+                base_config = first
+            else:
+                base_config = DEFAULT_PHYSIOLOGY_CONFIG
+
+            if degradation_queue is not None:
+                if provided_configs:
+                    if (
+                        degradation_queue.aging_ticks != base_config.aging_ticks
+                        or degradation_queue.waste_ticks != base_config.waste_ticks
+                    ):
+                        raise ValueError(
+                            "incompatible degradation_queue ticks with subsystem physiology config"
+                        )
+                    self._physiology_config = base_config
+                else:
+                    aging = degradation_queue.aging_ticks
+                    waste = degradation_queue.waste_ticks
+                    if aging != base_config.aging_ticks or waste != base_config.waste_ticks:
+                        from dataclasses import replace
+
+                        self._physiology_config = replace(
+                            base_config, aging_ticks=aging, waste_ticks=waste
+                        )
+                    else:
+                        self._physiology_config = base_config
+            else:
+                self._physiology_config = base_config
+
+        self._degradation = (
+            degradation_queue
+            if degradation_queue is not None
+            else DegradationQueue(
+                aging_ticks=self._physiology_config.aging_ticks,
+                waste_ticks=self._physiology_config.waste_ticks,
+            )
+        )
+
+        metabolic_seed_state = living_body_state
+        if metabolic_seed_state is None and homeostasis is not None:
+            metabolic_seed_state = homeostasis.body_state
+        if metabolic_seed_state is None and physiology is not None:
+            metabolic_seed_state = physiology.body_state
+
+        self._metabolism = (
+            metabolism
+            if metabolism is not None
+            else MetabolicLedger(
+                replenishment=(
+                    {k: 0.0 for k in ("observation", "cognition", "persistence", "maintenance")}
+                    if self._explicit_metabolism
+                    else None
+                ),
+                physiology_config=self._physiology_config,
+                body_state=metabolic_seed_state,
+            )
+        )
+
+        if self._interoception_provider is not None:
+            # The first internal percept must describe the organism's actual
+            # initial state.  Starting the provider at an unconditional 1.0
+            # would create a one-cycle blind spot exactly when a germinal
+            # organism has to make its first local decision.
+            self._metabolism.snapshot()
+            initial_ratio = self._metabolism.body_state.energy_reserve / max(
+                self._metabolism.body_state.max_energy,
+                1e-12,
+            )
+            self._interoception_provider.update_metrics(
+                tick_latency=0.0,
+                epistemic_surprise=0.0,
+                metabolic_reserve=max(0.0, min(1.0, initial_ratio)),
+                integrity=1.0,
+            )
+        self._assimilator = assimilator if assimilator is not None else InformationAssimilator()
+
+        if homeostasis is not None and getattr(homeostasis, "config", None) is not None:
+            if homeostasis.config != self._physiology_config:
+                raise ValueError("incompatible homeostasis config with runtime physiology_config")
+
+        if living_body_state is None:
+            source_state = (
+                homeostasis.body_state
+                if homeostasis is not None
+                else (
+                    physiology.body_state if physiology is not None else self._metabolism.body_state
+                )
+            )
+            physiology_snapshot = physiology.snapshot() if physiology is not None else None
+            living_body_state = LivingBodyState(
+                energy_reserve=self._metabolism.body_state.energy_reserve,
+                max_energy=self._metabolism.body_state.max_energy,
+                structural_integrity=(
+                    homeostasis.integrity
+                    if homeostasis is not None
+                    else source_state.structural_integrity
+                ),
+                temperature=source_state.temperature,
+                fatigue=source_state.fatigue,
+                growth_progress=source_state.growth_progress,
+                senescence=source_state.senescence,
+                age_ticks=max(tick_count, source_state.age_ticks),
+                vital_state=(
+                    physiology_snapshot.state
+                    if physiology_snapshot is not None
+                    else source_state.vital_state
+                ),
+                transitions=(
+                    physiology_snapshot.transitions
+                    if physiology_snapshot is not None
+                    else source_state.transitions
+                ),
+                death_tick=(
+                    physiology_snapshot.death_tick
+                    if physiology_snapshot is not None
+                    else source_state.death_tick
+                ),
+            )
+        self._living_body_state = living_body_state
+        self._metabolism.bind_body_state(self._living_body_state)
+
+        if homeostasis is not None:
+            if homeostasis.integrity != self._living_body_state.structural_integrity:
+                raise ValueError("homeostasis contradicts living body integrity")
+            self._homeostasis = HomeostaticController(
+                integrity=self._living_body_state.structural_integrity,
+                activity_scale=homeostasis.activity_scale,
+                plasticity_enabled=homeostasis.plasticity_enabled,
+                config=self._physiology_config,
+                body_state=self._living_body_state,
+            )
+        else:
+            self._homeostasis = HomeostaticController(
+                config=self._physiology_config,
+                body_state=self._living_body_state,
+            )
+
+        if physiology is not None:
+            snapshot = physiology.snapshot()
+            if (
+                snapshot.state is not self._living_body_state.vital_state
+                or snapshot.transitions != self._living_body_state.transitions
+                or snapshot.death_tick != self._living_body_state.death_tick
+            ):
+                raise ValueError("physiology contradicts living body vital state")
+        self._physiology = PhysiologyController(body_state=self._living_body_state)
+        self._innate_reactivity = InnateReactivity()
+        self._reactive_memory = ReactiveMemory()
+        # One-tick causal trace only. A restart deliberately breaks this trace;
+        # established reactive associations are checkpointed separately.
+        self._ontogeny = OntogenyController(
+            config=self._physiology_config,
+            body_state=self._living_body_state,
+        )
+        self._habitat = habitat
+        self._resource_habitats = dict(resource_habitats or {})
+        if len(self._resource_habitats) > 16 or any(
+            not isinstance(resource_id, str)
+            or not resource_id
+            or len(resource_id) > 64
+            or not isinstance(resource, SharedHabitat)
+            for resource_id, resource in self._resource_habitats.items()
+        ):
+            raise ValueError("resource_habitats must contain bounded opaque habitat IDs")
+        self._social_habitat = social_habitat
+        self._social_ledger = social_ledger if social_ledger is not None else RelationLedger()
+        self._social_resource_ledger = (
+            social_resource_ledger
+            if social_resource_ledger is not None
+            else ResourceEvidenceLedger()
+        )
+        self._communication_channel = communication_channel
+        self._exchange_guard = (
+            exchange_guard if exchange_guard is not None else ExchangeReplayGuard()
+        )
+        self._exchange_sequence = exchange_sequence
+        self._social_habitat_released = False
+        self._habitat_released = False
+        if self._habitat is not None and not self._habitat.has_allocation(self._organism_id):
+            self._habitat.admit(self._organism_id)
+        for resource in self._resource_habitats.values():
+            if not resource.has_allocation(self._organism_id) and not resource.admit(
+                self._organism_id
+            ):
+                raise ValueError("resource habitat cannot register runtime")
+        self._self_model = self_model if self_model is not None else SelfModel()
+        if body_schema is not None:
+            self._body_schema = body_schema
+        else:
+            salt_input = f"organism-body:{mutation_seed}:{self._organism_id}".encode()
+            schema_salt = hashlib.sha256(salt_input).hexdigest()[:32]
+            self._body_schema = BodySchemaEngine(id_salt=schema_salt)
+        # The runtime may use BodySchema's private checkpoint surface internally.
+        # Derive the cognitive-token namespace once; it is stable through
+        # checkpoint restore but never appears in export_representation().
+        private_body_schema = self._body_schema.export(current_tick=self._tick_count)
+        self._cognitive_self_namespace_key = derive_cognitive_self_namespace(
+            private_body_schema["id_salt"]
+        )
+        if inheritance_package is not None:
+            if genome is not None and genome != inheritance_package.genome:
+                raise ValueError("genome conflicts with inheritance_package")
+            if generation not in (0, inheritance_package.generation):
+                raise ValueError("generation conflicts with inheritance_package")
+            if parent_ids and parent_ids != inheritance_package.parent_ids:
+                raise ValueError("parent_ids conflict with inheritance_package")
+            genome = inheritance_package.genome
+            generation = inheritance_package.generation
+            self._generation = generation
+            parent_ids = inheritance_package.parent_ids
+            if germline_state is not None:
+                raise ValueError("germline_state cannot override inheritance_package marks")
+            germline_state = GermlineState.from_genome(
+                genome,
+                inherited_marks=inheritance_package.epigenetic_marks,
+                acquired_capture_enabled=(
+                    epigenetic_protocol is not None
+                    and epigenetic_protocol.enabled
+                    and epigenetic_protocol.acquired_capture_enabled
+                ),
+            )
+        if any(not isinstance(parent_id, str) or not parent_id for parent_id in parent_ids):
+            raise ValueError("parent_ids must contain non-empty strings")
+        if len(set(parent_ids)) != len(parent_ids):
+            raise ValueError("parent_ids must be unique")
+        self._parent_ids = tuple(parent_ids)
+        self._epigenetic_protocol = epigenetic_protocol or EpigeneticProtocol()
+        self._genome = genome
+        if genome is None and germline_state is not None:
+            raise ValueError("germline_state requires Genome v2")
+        if genome is not None and germline_state is None:
+            germline_state = GermlineState.from_genome(
+                genome,
+                acquired_capture_enabled=(
+                    self._epigenetic_protocol.enabled
+                    and self._epigenetic_protocol.acquired_capture_enabled
+                ),
+            )
+        self._germline_state = germline_state
+        self._gene_expression_state = (
+            gene_expression_state
+            if gene_expression_state is not None
+            else (
+                GeneExpressionState.from_genome(genome, germline=self._germline_state)
+                if genome is not None
+                else None
+            )
+        )
+        self._expression_regulator = expression_regulator or ExpressionRegulator()
+        if isinstance(mutation_seed, bool) or not isinstance(mutation_seed, int):
+            raise ValueError("mutation_seed must be an integer")
+        if (
+            not isinstance(epigenetic_decay, (int, float))
+            or isinstance(epigenetic_decay, bool)
+            or not math.isfinite(float(epigenetic_decay))
+            or not 0.0 <= epigenetic_decay <= 1.0
+        ):
+            raise ValueError("epigenetic_decay must be within [0, 1]")
+        if (
+            len(epigenetic_priors) > 16
+            or any(not isinstance(item, EpigeneticPrior) for item in epigenetic_priors)
+            or len({item.key for item in epigenetic_priors}) != len(epigenetic_priors)
+            or any(item.key not in self._SUPPORTED_EPIGENETIC_KEYS for item in epigenetic_priors)
+        ):
+            raise ValueError("epigenetic_priors exceed bounded capacity")
+        self._mutation_seed = mutation_seed
+        self._epigenetic_priors = tuple(epigenetic_priors)
+        self._epigenetic_decay = float(epigenetic_decay)
+        self._kernel_limits = kernel_limits if kernel_limits is not None else KernelLimits()
+        self._memory_consolidator = (
+            memory_consolidator
+            if memory_consolidator is not None
+            else MemoryConsolidator(kernel_limits=self._kernel_limits)
+        )
+        self._reacclimation_remaining = 0  # matches CognitiveBridge's own §16a semantics
+        self._cognitive_bridge: CognitiveBridge | None = cognitive_bridge
+        if self._cognitive_bridge is None and genome is not None and cognitive_graph is not None:
+            self._cognitive_bridge = CognitiveBridge(
+                graph=cognitive_graph,
+                genome=genome,
+                kernel_limits=self._kernel_limits,
+                expression_state=self._gene_expression_state,
+            )
+        if self._cognitive_bridge is not None:
+            if self._gene_expression_state is not None:
+                self._cognitive_bridge.set_expression_state(self._gene_expression_state)
+            self._cognitive_bridge.bind_contention_identity(self._organism_id)
+        self._actuation_enabled = bool(actuation_enabled)
+        if self._actuation_enabled and actuator_constitution is None:
+            raise ValueError(
+                "actuation_enabled requires an explicit body-owned actuator_constitution"
+            )
+        if self._actuation_enabled and actuator_constitution is not None:
+            if not self._living_body_state.structure_states:
+                self._living_body_state.structure_states = {
+                    slot.slot_id: BodyStructureState(
+                        structure_id=slot.slot_id,
+                        integrity=self._living_body_state.structural_integrity,
+                    )
+                    for slot in actuator_constitution.slots
+                }
+        if (
+            isinstance(motor_selection_threshold, bool)
+            or not isinstance(motor_selection_threshold, (int, float))
+            or not 0.0 <= float(motor_selection_threshold) <= 1.0
+        ):
+            raise ValueError("motor_selection_threshold must be within [0, 1]")
+        selection_threshold = float(motor_selection_threshold)
+        self._action_domain = ActionDomain(
+            organism_id=self._organism_id,
+            enabled=self._actuation_enabled,
+            surface=actuator_constitution,
+            selection_threshold=selection_threshold,
+            actuator_evidence=actuator_evidence,
+            competence_development=competence_development,
+            actuator_system=actuator_system,
+            acquisition=agency_acquisition,
+            executive_mode=executive_mode,
+            intention_policy=intention_policy,
+            competence_gate=self._competence_gate,
+        )
+        if factorized_effects:
+            self.enable_factorized_effects()
+        self._executive_admission_policy = executive_admission_policy or ExecutiveAdmissionPolicy(
+            readout_threshold=selection_threshold
+        )
+        self._regulation_domain = RegulationDomain()
+        self._development_domain = DevelopmentDomain()
+        self._physiology_domain = PhysiologyDomain()
+        self._perception_domain = PerceptionDomain()
+        self._cognition_domain = CognitionDomain()
+        if (
+            generative_cognition is not None
+            and generative_cognition.organism_id != self._organism_id
+        ):
+            raise ValueError("generative cognition belongs to another organism")
+        self._generative_cognition = (
+            generative_cognition
+            if generative_cognition is not None
+            else ResidentGenerativeCognition(organism_id=self._organism_id)
+        )
+        self._generative_cognition.register_model(
+            CompetenceEffectGenerativeAdapter(
+                model_id="competence-effect",
+                predictor=lambda competence_id, context_id: (
+                    self._action_domain.predict_competence_effect(
+                        competence_id=competence_id,
+                        context_id=context_id,
+                    )
+                ),
+            )
+        )
+        self._memory_domain = MemoryDomain()
+        self._epistemic_domain = EpistemicDomain()
+        self._embodiment_domain = EmbodimentDomain()
+        self._pending_embodied_work = 0.0
+        self._narrative_journal: list[dict[str, Any]] = []
+
+    # Compatibility views expose the single ActionDomain state; they do not
+    # create a second authority.
+    @property
+    def _active_action_commitment(self):
+        return self._action_domain.active_commitment
+
+    @_active_action_commitment.setter
+    def _active_action_commitment(self, value):
+        self._action_domain.active_commitment = value
+        # A restored live commitment keeps being traced to its end (Causal
+        # Provenance v1: same events as the uninterrupted organism).
+        self._action_domain._traced_commitment = (
+            value if value is not None and value.active else None
+        )
+
+    @property
+    def _last_motor_command(self):
+        return self._action_domain.last_motor_command
+
+    @_last_motor_command.setter
+    def _last_motor_command(self, value):
+        self._action_domain.last_motor_command = value
+
+    @property
+    def _last_actuation(self):
+        return self._action_domain.last_actuation
+
+    @_last_actuation.setter
+    def _last_actuation(self, value):
+        self._action_domain.last_actuation = value
+
+    @property
+    def _last_executed_primitive_id(self):
+        return self._action_domain.last_executed_controller_seed_id
+
+    @_last_executed_primitive_id.setter
+    def _last_executed_primitive_id(self, value):
+        self._action_domain.last_executed_controller_seed_id = value
+
+    @property
+    def _composition_engine(self):
+        return self._action_domain.composition_engine
+
+    @_composition_engine.setter
+    def _composition_engine(self, value):
+        self._action_domain.composition_engine = value
+
+    @property
+    def _pending_motor_observation(self):
+        return self._action_domain.pending_motor_observation
+
+    @_pending_motor_observation.setter
+    def _pending_motor_observation(self, value):
+        self._action_domain.pending_motor_observation = tuple(value)
+
+    @property
+    def _pending_homeostatic_action_credit(self):
+        return self._regulation_domain.pending_homeostatic_action_credit
+
+    @_pending_homeostatic_action_credit.setter
+    def _pending_homeostatic_action_credit(self, value):
+        self._regulation_domain.pending_homeostatic_action_credit = list(value)
+
+    @property
+    def _last_runtime_vital_state(self):
+        return self._lifecycle_domain.state.last_vital_state
+
+    @_last_runtime_vital_state.setter
+    def _last_runtime_vital_state(self, value):
+        self._lifecycle_domain.state.last_vital_state = value
+
+    @property
+    def _last_runtime_development_phase(self):
+        return self._lifecycle_domain.state.last_development_phase
+
+    @_last_runtime_development_phase.setter
+    def _last_runtime_development_phase(self, value):
+        self._lifecycle_domain.state.last_development_phase = value
+
+    @property
+    def _first_sense_emitted(self):
+        return self._lifecycle_domain.state.first_sense_emitted
+
+    @_first_sense_emitted.setter
+    def _first_sense_emitted(self, value):
+        self._lifecycle_domain.state.first_sense_emitted = bool(value)
+
+    @property
+    def _first_concept_emitted(self):
+        return self._lifecycle_domain.state.first_concept_emitted
+
+    @_first_concept_emitted.setter
+    def _first_concept_emitted(self, value):
+        self._lifecycle_domain.state.first_concept_emitted = bool(value)
+
+    @property
+    def _first_prediction_emitted(self):
+        return self._lifecycle_domain.state.first_prediction_emitted
+
+    @_first_prediction_emitted.setter
+    def _first_prediction_emitted(self, value):
+        self._lifecycle_domain.state.first_prediction_emitted = bool(value)
+
+    @property
+    def gene_expression_state(self) -> GeneExpressionState | None:
+        return self._gene_expression_state
+
+    @property
+    def germline_state(self) -> GermlineState | None:
+        return self._germline_state
+
+    @property
+    def parent_ids(self) -> tuple[str, ...]:
+        return self._parent_ids
+
+    @property
+    def reacclimation_remaining(self) -> int:
+        """Ticks remaining in the organism-owned post-restore reacclimation gate."""
+        return int(self._reacclimation_remaining)
+
+    @property
+    def actuation_enabled(self) -> bool:
+        return self._actuation_enabled
+
+    def bind_action_embodiment(
+        self,
+        embodiment_id: str,
+        *,
+        body_id: str | None = None,
+        embodiment_tick: int | None = None,
+        new_episode: bool,
+    ) -> None:
+        """Bind physical action authority to one canonical EmbodimentEpisode.
+
+        Restoring the same episode preserves already revalidated current-body
+        bindings.  Beginning a genuinely new episode invalidates every active
+        commitment and withdraws all previous execution bindings.
+        """
+        if not isinstance(embodiment_id, str) or not embodiment_id:
+            raise ValueError("embodiment_id must be non-empty")
+        self._embodiment_domain.bind(
+            embodiment_id=embodiment_id,
+            body_id=body_id,
+            embodiment_tick=embodiment_tick,
+            new_episode=new_episode,
+        )
+        if not self._actuation_enabled:
+            return
+        surface = self._action_domain.surface
+        if surface is None:
+            raise RuntimeError("cannot bind embodiment without actuator surface")
+
+        if new_episode:
+            self._action_domain.begin_embodiment(
+                surface=surface,
+                embodiment_id=embodiment_id,
+                tick=self._tick_count,
+            )
+            return
+
+        current = self._action_domain.embodiment_id
+        if current is not None and current != embodiment_id:
+            raise RuntimeError("restored action authority belongs to another embodiment")
+        self._action_domain.embodiment_id = embodiment_id
+        commitment = self._action_domain.active_commitment
+        if commitment is not None and commitment.active and commitment.embodiment_id is None:
+            # Explicit migration of a pre-Embodiment-id commitment.  This is
+            # only legal when the surrounding physical episode itself was
+            # restored rather than replaced.
+            commitment.embodiment_id = embodiment_id
+
+    @property
+    def last_motor_intent(self) -> MotorIntent | None:
+        return self._action_domain.last_motor_intent
+
+    @property
+    def last_actuation(self) -> Actuation | None:
+        return self._last_actuation
+
+    @property
+    def last_motor_intents(self) -> tuple[MotorIntent, ...]:
+        return self._action_domain.last_motor_intents
+
+    @property
+    def last_actuations(self) -> tuple[Actuation, ...]:
+        return self._action_domain.last_actuations
+
+    @property
+    def actuator_constitution(self) -> ActuatorConstitution | None:
+        return self._action_domain.surface
+
+    @property
+    def actuator_evidence_model(self) -> ActuatorEvidenceModel | None:
+        return self._action_domain.actuator_evidence
+
+    @property
+    def active_motor_repertoire(self) -> tuple[str, ...]:
+        if self._action_domain.actuator_evidence is None:
+            return ()
+        return self._action_domain.actuator_evidence.active_repertoire
+
+    @property
+    def competence_development(self) -> CompetenceDevelopmentEngine | None:
+        return self._action_domain.competence_development
+
+    @property
+    def sensorimotor_snapshot(self) -> SensorimotorSnapshot | None:
+        if self._action_domain.competence_development is None:
+            return None
+        return self._action_domain.competence_development.snapshot()
+
+    @property
+    def sensorimotor_exclusive_actuator_groups(
+        self,
+    ) -> tuple[tuple[str, ...], ...]:
+        if self._action_domain.competence_development is None:
+            return ()
+        return self._action_domain.competence_development.exclusive_actuator_groups
+
+    @property
+    def available_motor_competence_ids(self) -> tuple[str, ...]:
+        """Opaque ids of currently evidence-supported motor competences."""
+        engine = self._action_domain.competence_development
+        if engine is None:
+            return ()
+        return engine.available_cognitive_primitive_ids()
+
+    @property
+    def sensorimotor_competence_candidates(self) -> tuple[dict[str, object], ...]:
+        """Passive candidate view; legacy sequence objects never cross this boundary."""
+        if self._action_domain.competence_development is None:
+            return ()
+        return tuple(
+            {
+                "candidate_id": item.primitive_id,
+                "embodiment_fingerprint": item.embodiment_fingerprint,
+                "sequence": [
+                    [[actuator_id, level] for actuator_id, level in pattern]
+                    for pattern in item.sequence
+                ],
+                "samples": item.samples,
+                "effect_mean": item.effect_mean,
+                "effect_variance": item.effect_variance,
+                "controllability": item.controllability,
+                "directional_consistency": item.directional_consistency,
+                "maturity": item.maturity.value,
+                "established": item.established,
+            }
+            for item in self._action_domain.competence_development.primitives
+        )
+
+    @property
+    def sensorimotor_competence_episodes(self) -> tuple[dict[str, object], ...]:
+        """Latest evidence episodes projected into v2 competence terminology."""
+        if self._action_domain.competence_development is None:
+            return ()
+        return tuple(
+            {
+                "candidate_id": episode.primitive_id,
+                "start_tick": episode.start_tick,
+                "end_tick": episode.end_tick,
+                "source": episode.source,
+                "evidence_blocks": episode.evidence_blocks,
+                "sample_index": episode.sample_index,
+                "materialized": episode.materialized,
+                "established": episode.competence,
+            }
+            for episode in self._action_domain.competence_development.last_primitive_episodes
+        )
+
+    @property
+    def sensorimotor_v2_snapshot(self) -> SensorimotorV2Snapshot | None:
+        return self._action_domain.snapshot(
+            body_schema_sensorimotor_relations=(
+                self._body_schema.sensorimotor_dependency_evidence_count
+            ),
+            tick=self._tick_count,
+        )
+
+    @property
+    def agency_observation(self) -> dict[str, Any]:
+        """Passive outward view of agency acquisition and executive state."""
+        return self._action_domain.observation_view(tick=self._tick_count)
+
+    @property
+    def motor_competences(self) -> tuple[MotorCompetence, ...]:
+        """Canonical learned competence view used outside the legacy learner."""
+        return self._action_domain.competence_library.items
+
+    @property
+    def effect_representations(self):
+        return self._action_domain.effect_space.effects
+
+    @property
+    def action_dimensions(self):
+        return self._action_domain.action_dimensions.items
+
+    @property
+    def action_dimension_registry(self):
+        """Read-only canonical registry access for passive evaluator projections."""
+        return self._action_domain.action_dimensions
+
+    @property
+    def causal_evidence(self):
+        return self._action_domain.causal_evidence.evidence
+
+    @property
+    def actuator_causal_states(self) -> tuple[ActuatorCandidateState, ...]:
+        """Evaluator-only read view of learned actuator/effect evidence."""
+        if self._action_domain.actuator_evidence is None:
+            return ()
+        return self._action_domain.actuator_evidence.states
+
+    def _motor_percept_snapshot(
+        self,
+        percepts: tuple[Percept, ...],
+    ) -> dict[str, float]:
+        return self._action_domain.motor_percept_snapshot(
+            percepts,
+            sensory_system=self._sensory_system,
+        )
+
+    def _sensorimotor_body_snapshot(
+        self,
+        percepts: tuple[Percept, ...],
+    ) -> dict[str, float]:
+        return self._action_domain.sensorimotor_body_snapshot(
+            percepts,
+            sensory_system=self._sensory_system,
+        )
+
+    def measurement_snapshot(self) -> dict[str, Any]:
+        """Wave 0 measurement coherence (Cross-Domain Revision Coherence v1
+        §2.1): read-only; no decision reads it."""
+        tracker = self._generative_cognition.consolidator.tracker
+        sterile = tracker.sterile_reactivations
+        capacity = self._action_domain.capacity_snapshots()
+        capacity["generative_representations"] = tracker.pressure.snapshot(
+            len(tracker.representation_refs)
+        )
+        return {
+            "competence_availability": self._action_domain.availability_counts(),
+            "binding_status": {
+                status: sum(
+                    1
+                    for binding in self._action_domain.execution_bindings.items
+                    if binding.status.value == status
+                )
+                for status in ("valid", "stale", "invalidated")
+            },
+            "capacity": capacity,
+            "generative": {
+                "sterile_reactivations": sum(sterile.values()),
+                "max_sterile_per_representation": max(sterile.values(), default=0),
+            },
+            "passive_evidence": self._action_domain.passive_evidence_counts(),
+        }
+
+    @property
+    def provenance(self) -> ProvenanceLog:
+        """The organism's causal provenance log (read/subscribe only, §6)."""
+        return self._action_domain.acquisition.provenance
+
+    def enable_factorized_effects(self) -> None:
+        """Factorized Effect Representation v1 §14: footprint-grounded
+        competences together with causal probing.  Both are persisted, so a
+        restored organism keeps the mode; enabling it on an existing organism
+        keeps everything it learned."""
+        self._action_domain.acquisition.footprint_effects = True
+        engine = self._action_domain._competence_development
+        if engine is not None and engine.probing_share == 0.0:
+            engine.set_probing_share(FACTORIZED_PROBING_SHARE)
+
+    def _action_services(self) -> ActionServices:
+        return ActionServices(
+            sensory_system=self._sensory_system,
+            homeostasis=self._homeostasis,
+            innate_reactivity=self._innate_reactivity,
+            reactive_memory=self._reactive_memory,
+            body_schema=self._body_schema,
+            cognitive_bridge=self._cognitive_bridge,
+            gene_expression_state=self._gene_expression_state,
+            choose_acquired_action=self._choose_acquired_action,
+            schedule_homeostatic_action_credit=(
+                lambda **kwargs: self._regulation_domain.schedule_homeostatic_action_credit(
+                    cognitive_bridge=self._cognitive_bridge,
+                    **kwargs,
+                )
+            ),
+        )
+
+    def _generative_affordances(
+        self,
+        *,
+        resolver: AffordanceResolver,
+        context_ref: str,
+    ) -> tuple[tuple[ActionAffordance, GenerativeAnticipation], ...]:
+        """§73: imagined effects -> affordances that could probably produce them.
+
+        Anticipations only select among competences the organism already
+        acquired; they never reach EffectSpace or the causal ledger.
+        """
+        pairs: list[tuple[ActionAffordance, GenerativeAnticipation]] = []
+        for effect_id, hypothesis_refs in self._generative_cognition.anticipated_effects():
+            anticipation = GenerativeAnticipation(
+                effect_id=effect_id, hypothesis_refs=hypothesis_refs
+            )
+            for affordance in resolver.for_effect(
+                effect_id=effect_id,
+                context_ref=context_ref,
+                embodiment_id=self._action_domain.embodiment_id,
+            ):
+                pairs.append((affordance, anticipation))
+        return tuple(pairs)
+
+    def _executive_epistemic_value(self, competence_id: str) -> float | None:
+        value = self._generative_cognition.epistemic_value_for(competence_id)
+        return None if value is None else value.comparison_score
+
+    def _executive_homeostatic_relevance(self, competence_id: str) -> float:
+        """Current need times learned relief of this competence in this situation."""
+        reactive = self._action_domain.last_reactive_state
+        if reactive is None:
+            return 0.0
+        relief = max(
+            (
+                association.relief_mean
+                for association in self._reactive_memory.associations()
+                if association.primitive_id == competence_id
+                and association.signature == reactive.signature
+                and association.reliable
+            ),
+            default=0.0,
+        )
+        return max(0.0, min(1.0, self._homeostasis.deviation() * max(0.0, relief) * 4.0))
+
+    def _choose_acquired_action(
+        self,
+        *,
+        cognition: "CognitiveBridgeResult",
+        percepts: "tuple[Percept, ...]",
+        affordances: tuple[ActionAffordance, ...],
+        resolver: AffordanceResolver,
+        context_ref: str,
+        signal_references: dict[str, str],
+        tick: int,
+    ) -> ProspectiveDecision | None:
+        """Executive admission of one afforded competence (§47-§53, §73-§74).
+
+        The base runtime has no private predictive model, so admission is the
+        model-free ProspectiveAgency gate: represented (readout or generative
+        anticipation) + afforded + epistemically or homeostatically relevant.
+        Model-enabled runtimes refine this with counterfactual deliberation.
+        The hook never executes a controller or emits a MotorCommand.
+        """
+        return admit_afforded_action(
+            affordances=affordances,
+            primitive_readouts=cognition.readouts_for_family("primitive"),
+            generative_affordances=self._generative_affordances(
+                resolver=resolver, context_ref=context_ref
+            ),
+            epistemic_value=self._executive_epistemic_value,
+            homeostatic_relevance=self._executive_homeostatic_relevance,
+            policy=self._executive_admission_policy,
+            executive_history=self._action_domain.executive_modulation,
+        )
+
+    def _motor_step(
+        self,
+        cognition: CognitiveBridgeResult | None,
+        percepts: tuple[Percept, ...],
+        *,
+        tick: int | None = None,
+        context: TickContext | None = None,
+        signal_references: dict[str, str] | None = None,
+    ) -> None:
+        if context is None:
+            if tick is None:
+                raise ValueError("motor step requires TickContext or tick")
+            context = TickContext(
+                symbiont_id=self._organism_id,
+                symbiont_tick=int(tick),
+                embodiment_id=self._action_domain.embodiment_id,
+            )
+        elif tick is not None and int(tick) != context.symbiont_tick:
+            raise ValueError("motor step tick contradicts TickContext")
+        self._action_domain.step(
+            cognition,
+            percepts,
+            context=context,
+            signal_references=signal_references,
+            services=self._action_services(),
+        )
+
+    @property
+    def last_action_source(self) -> str:
+        """Passive provenance of the current organism-owned action commitment."""
+        return self._action_domain.last_action_source
+
+    @property
+    def narrative_journal(self) -> tuple[dict[str, Any], ...]:
+        return tuple(self._narrative_journal)
+
+    @property
+    def organism_id(self) -> str:
+        return self._organism_id
+
+    def _charge_metabolism(self, kind: str, amount: float) -> None:
+        """Charge declared work, reducing activity while physiologically dormant."""
+        factor = (
+            self._physiology_config.dormant_metabolic_factor
+            if self._physiology.state is VitalState.DORMANT
+            else 1.0
+        )
+        self._metabolism.charge(kind, amount * factor)
+
+    @property
+    def min_samples(self) -> int:
+        return self._min_samples
+
+    @property
+    def conflict_z(self) -> float:
+        return self._conflict_z
+
+    def effective_configuration(self) -> dict[str, Any]:
+        from dataclasses import asdict
+
+        config: dict[str, Any] = {
+            "organism_id": self._organism_id,
+            "attention_budget": self._attention_budget,
+            "investigate_ticks": self._investigate_ticks,
+            "conflict_z": self._conflict_z,
+            "min_samples": self._min_samples,
+            "profile_version": self._profile_version,
+            "discover_senses": self._discover_senses,
+            "bootstrap_semantic_senses": self._bootstrap_semantic_senses,
+            "sensory_plasticity": self._sensory_system.plasticity_enabled,
+            "sensory_constitution": self._sensory_system.constitution(),
+            "explicit_metabolism": self._explicit_metabolism,
+            "auto_promote_predictors": self._auto_promote_predictors,
+            "generation": self._generation,
+            "parent_ids": list(self._parent_ids),
+            "epigenetic_protocol": asdict(self._epigenetic_protocol),
+            "social_exchange_quantum": self._social_exchange_quantum,
+            "social_exchange_cost": self._social_exchange_cost,
+            "resting_requested": self._resting_requested,
+            "interoception_enabled": self._interoception_enabled,
+            "interoception_mode": self._interoception_mode,
+            "host_sense_source": self._host_sense_source,
+            "competence_min_support": self._competence_gate.min_support,
+            "competence_min_consistency": self._competence_gate.min_consistency,
+            "retention_price_baseline": self._retention_prices[0],
+            "retention_price_node": self._retention_prices[1],
+            "dormancy_retention_factor": self._retention_prices[2],
+            "mutation_seed": self._mutation_seed,
+            "epigenetic_decay": self._epigenetic_decay,
+            "actuation_enabled": self._actuation_enabled,
+            "motor_selection_threshold": (
+                self._action_domain.selection_threshold if self._actuation_enabled else None
+            ),
+            "physiology": asdict(self._physiology_config),
+        }
+        if self._epigenetic_priors:
+            config["epigenetic_priors"] = [
+                {"key": prior.key, "value": prior.value} for prior in self._epigenetic_priors
+            ]
+        if self._genome is not None:
+            config["genome"] = {
+                "genome_id": self._genome.genome_id,
+                "schema_version": self._genome.schema_version,
+                "kernel_compatibility": self._genome.kernel_compatibility,
+                "development": {
+                    "initial_concepts": self._genome.development.initial_concepts,
+                    "soft_node_budget": self._genome.development.soft_node_budget,
+                    "soft_edge_budget": self._genome.development.soft_edge_budget,
+                    "consolidation_interval_ticks": self._genome.development.consolidation_interval_ticks,
+                    "sense_node_budget": self._genome.development.sense_node_budget,
+                    "sense_retention_ticks": self._genome.development.sense_retention_ticks,
+                },
+                "structure": {
+                    "grow_threshold": self._genome.structure.grow_threshold,
+                    "prune_threshold": self._genome.structure.prune_threshold,
+                    "minimum_support": self._genome.structure.minimum_support,
+                    "tentative_lifetime_ticks": self._genome.structure.tentative_lifetime_ticks,
+                },
+                "plasticity": {
+                    "learning_rate": {
+                        "initial": self._genome.plasticity.learning_rate.initial,
+                        "min": self._genome.plasticity.learning_rate.minimum,
+                        "max": self._genome.plasticity.learning_rate.maximum,
+                    },
+                    "eligibility_decay": self._genome.plasticity.eligibility_decay,
+                },
+            }
+        if self._kernel_limits is not None:
+            config["kernel_limits"] = asdict(self._kernel_limits)
+        return config
+
+    @property
+    def physiology_config(self) -> PhysiologyConfig:
+        return self._physiology_config
+
+    def runtime_fingerprint(
+        self,
+        *,
+        software_version: str | None = None,
+        build_identity: str | None = None,
+    ) -> str:
+        """Derive a canonical configuration fingerprint for this organism runtime."""
+        from symbiont.core.foundation.fingerprint import generate_runtime_fingerprint_from_runtime
+
+        return generate_runtime_fingerprint_from_runtime(
+            self,
+            software_version=software_version,
+            build_identity=build_identity,
+        )
+
+    @property
+    def tick_count(self) -> int:
+        return self._tick_count
+
+    @property
+    def acclimation(self) -> HostAcclimation:
+        return self._acclimation
+
+    @property
+    def rhythm_model(self) -> RhythmModel:
+        return self._rhythm_model
+
+    @property
+    def adaptive_senses(self) -> AdaptiveSenseModel:
+        return self._adaptive_senses
+
+    @property
+    def sensory_system(self) -> SensorySystem:
+        return self._sensory_system
+
+    @property
+    def self_model(self) -> SelfModel:
+        return self._self_model
+
+    @property
+    def body_schema(self) -> BodySchemaEngine:
+        return self._body_schema
+
+    @property
+    def generative_cognition(self) -> ResidentGenerativeCognition:
+        """Resident bounded generative-cognition state."""
+        return self._generative_cognition
+
+    @property
+    def sensorimotor_effect_model(self) -> CompetenceEffectModel:
+        """Current embodiment's abstract competence -> effect model."""
+        return self._action_domain.effect_model
+
+    @property
+    def causal_evidence_ledger(self) -> CausalEvidenceLedger:
+        """Current embodiment factual sensorimotor evidence ledger."""
+        return self._action_domain.causal_evidence
+
+    @property
+    def controllability_model(self) -> ControllabilityModel:
+        return self._action_domain.controllability_model
+
+    @property
+    def agency_model(self) -> AgencyModel:
+        return self._action_domain.agency_model
+
+    @property
+    def competence_library(self) -> CompetenceLibrary:
+        return self._action_domain.competence_library
+
+    @property
+    def competence_execution_bindings(self) -> CompetenceExecutionBindingRegistry:
+        return self._action_domain.execution_bindings
+
+    def _current_surface_fingerprint(self) -> str | None:
+        return (
+            self._action_domain.surface.contract_fingerprint
+            if self._action_domain.surface is not None
+            else None
+        )
+
+    def competence_executable_now(self, competence: MotorCompetence) -> bool:
+        """The canonical executability (Revision Coherence v1 §3.1)."""
+        return self._action_domain.competence_is_executable(competence)
+
+    @property
+    def evidence_ledger(self) -> EvidenceRevisionLedger:
+        return self._evidence_ledger
+
+    @property
+    def genome(self) -> Genome | None:
+        return self._genome
+
+    @property
+    def epigenetic_priors(self) -> tuple[EpigeneticPrior, ...]:
+        """Coarse, non-semantic developmental biases; never lifetime knowledge."""
+        return self._epigenetic_priors
+
+    @property
+    def generation(self) -> int:
+        return self._generation
+
+    def inheritance_package(self) -> InheritancePackage:
+        """Build an explicit Genome v2 package for resident offspring."""
+        if self._genome is None or self._germline_state is None:
+            raise ValueError("Genome v2 is required to create an inheritance package")
+        transmitted: list[EpigeneticMark] = []
+        if self._epigenetic_protocol.enabled:
+            marks = {
+                **self._germline_state.inherited_marks,
+                **self._germline_state.acquired_marks,
+            }
+            for _, mark in sorted(marks.items()):
+                decayed = mark.decay(self._epigenetic_protocol.decay)
+                if decayed is not None:
+                    transmitted.append(decayed)
+        return InheritancePackage(
+            genome=self._genome,
+            epigenetic_marks=tuple(transmitted),
+            parent_ids=(self._organism_id,),
+            generation=self._generation + 1,
+        )
+
+    @property
+    def social_habitat(self) -> SocialHabitat | None:
+        """Return the explicitly authorized social boundary, if attached."""
+        return self._social_habitat
+
+    @property
+    def social_ledger(self) -> RelationLedger:
+        """Local, organism-owned aggregate memory of social outcomes."""
+        return self._social_ledger
+
+    @property
+    def social_resource_ledger(self) -> ResourceEvidenceLedger:
+        """Local evidence about opaque resource availability."""
+        return self._social_resource_ledger
+
+    @property
+    def degradation_queue(self) -> DegradationQueue:
+        """Bounded organism-owned retention queue for aging low-value state."""
+        return self._degradation
+
+    def join_social_habitat(self, habitat: SocialHabitat) -> bool:
+        """Join an explicitly supplied bounded social habitat.
+
+        Joining is an organism-side action: the habitat remains the authority
+        for admission and capacity, and no peer is discovered implicitly.
+        """
+        if self._physiology.state is VitalState.DEAD:
+            raise OrganismDeadError("dead organisms cannot join a social habitat")
+        if self._social_habitat is not None and self._social_habitat is not habitat:
+            raise ValueError("a different social habitat is already attached")
+        if self._social_habitat is habitat and self._organism_id in habitat.members:
+            return True
+        if not habitat.admit(self._organism_id):
+            return False
+        self._social_habitat = habitat
+        self._social_habitat_released = False
+        return True
+
+    def observe_social_presence(self) -> tuple[SocialPresence, ...]:
+        """Read bounded opaque presence from the explicitly attached habitat."""
+        if self._physiology.state is VitalState.DEAD:
+            raise OrganismDeadError("dead organisms cannot observe social presence")
+        if self._social_habitat is None:
+            raise ValueError("no social habitat is attached")
+        return self._social_habitat.observe_presence(self._organism_id)
+
+    def select_social_opportunity(self) -> SocialPresence | None:
+        """Select one local opportunity for cognition to consider.
+
+        This is deliberately not an interaction: no resource is moved and no
+        peer is scheduled. Selection uses only the organism's own bounded
+        relation observations, preferring a fresh/unknown channel so that the
+        runtime can decide what evidence to seek next.
+        """
+        candidates = tuple(item for item in self.observe_social_presence() if item.available)
+        if not candidates:
+            return None
+        by_target: dict[str, tuple[SocialRelation, ...]] = {}
+        for relation in self._social_ledger.relations:
+            if relation.source_id == self._organism_id:
+                by_target.setdefault(relation.target_id, ())
+                by_target[relation.target_id] += (relation,)
+
+        def priority(item: SocialPresence) -> tuple[float, str]:
+            relations = by_target.get(item.target_id, ())
+            if not relations:
+                # Unknown channels receive an exploration bonus.  This is a
+                # local information-seeking capability, not an evaluator
+                # supplied preference or a social label.
+                return (-0.25, item.target_id)
+            expected_net = max(
+                (relation.support - relation.harm)
+                * min(1.0, relation.observations / 8.0)
+                * relation.reliability(self._tick_count)
+                + 0.25 / (1.0 + relation.observations)
+                for relation in relations
+            )
+            # Positive evidence makes a channel worth revisiting; accumulated
+            # harm lowers its priority without making it unreachable, allowing
+            # later evidence to revise the relation.
+            return (-expected_net, item.target_id)
+
+        return min(candidates, key=priority)
+
+    def request_social_exchange(
+        self, target_id: str, resource: str, amount: float
+    ) -> InteractionOutcome:
+        """Issue one explicit social exchange request.
+
+        The runtime never schedules peers or chooses a social objective; the
+        caller supplies the target and bounded habitat mediates the result.
+        """
+        if self._physiology.state is VitalState.DEAD:
+            raise OrganismDeadError("dead organisms cannot interact")
+        if self._social_habitat is None:
+            raise ValueError("no social habitat is attached")
+        outcome = self._social_habitat.exchange(self._organism_id, target_id, resource, amount)
+        self._charge_metabolism("cognition", self._social_exchange_cost)
+        self._social_ledger.observe(
+            self._organism_id,
+            target_id,
+            benefit=outcome.granted,
+            reciprocal=outcome.relation.reciprocal_observations > 0,
+            tick=self._tick_count,
+            channel=resource,
+        )
+        self._social_resource_ledger.observe(
+            resource, requested=amount, granted=outcome.granted, tick=self._tick_count
+        )
+        return outcome
+
+    def autonomous_social_step(self) -> InteractionOutcome | None:
+        """Take one bounded social opportunity using only local evidence.
+
+        The runtime chooses the target from opaque presence and its own
+        relation ledger, and chooses the first bounded resource token exposed
+        by the authorized habitat.  No caller supplies a peer, role, label or
+        social objective; an unavailable opportunity simply yields ``None``.
+        """
+        if self._physiology.state is VitalState.DEAD:
+            raise OrganismDeadError("dead organisms cannot interact")
+        if self._social_habitat is None:
+            raise ValueError("no social habitat is attached")
+        opportunity = self.select_social_opportunity()
+        resources = self._social_habitat.resource_tokens
+        if opportunity is None or not resources:
+            return None
+        resource = self._social_resource_ledger.choose(resources, current_tick=self._tick_count)
+        if resource is None:
+            return None
+        return self.request_social_exchange(
+            opportunity.target_id, resource, self._social_exchange_quantum
+        )
+
+    def propose_social_competition(self) -> SocialCompetitionRequest | None:
+        """Propose a finite-resource contest from local negative evidence.
+
+        The proposal does not execute or target a peer. The authorized
+        habitat adjudicates a batch of proposals, allowing simultaneous
+        requests to contend without a social planner choosing winners.
+        """
+        if self._physiology.state is VitalState.DEAD:
+            raise OrganismDeadError("dead organisms cannot compete")
+        if self._social_habitat is None:
+            raise ValueError("no social habitat is attached")
+        opportunities = tuple(item for item in self.observe_social_presence() if item.available)
+        negative = tuple(
+            item
+            for item in self._social_ledger.relations
+            if item.source_id == self._organism_id
+            and item.valence is RelationValence.NEGATIVE
+            and any(item.target_id == opportunity.target_id for opportunity in opportunities)
+        )
+        resources = self._social_habitat.resource_tokens
+        if not negative or not resources:
+            return None
+        relation = max(
+            negative,
+            key=lambda item: (
+                item.harm * item.freshness(self._tick_count),
+                item.observations,
+                item.target_id,
+                item.channel,
+            ),
+        )
+        resource = (
+            relation.channel
+            if relation.channel in resources
+            else self._social_resource_ledger.choose(resources, current_tick=self._tick_count)
+        )
+        if resource is None:
+            return None
+        return SocialCompetitionRequest(self._organism_id, resource, self._social_exchange_quantum)
+
+    def suspend_social_interaction(self, target_id: str) -> None:
+        """Suspend this runtime's future requests to one admitted peer."""
+        if self._physiology.state is VitalState.DEAD:
+            raise OrganismDeadError("dead organisms cannot suspend social interactions")
+        if self._social_habitat is None:
+            raise ValueError("no social habitat is attached")
+        self._social_habitat.suspend(self._organism_id, target_id)
+
+    def reject_social_interaction(self, target_id: str) -> None:
+        """Refuse a future request and retain that refusal as local evidence."""
+        if self._physiology.state is VitalState.DEAD:
+            raise OrganismDeadError("dead organisms cannot reject social interactions")
+        if self._social_habitat is None:
+            raise ValueError("no social habitat is attached")
+        self._social_habitat.reject(self._organism_id, target_id)
+        self._social_ledger.observe(
+            self._organism_id, target_id, rejected=True, tick=self._tick_count
+        )
+
+    def resume_social_interaction(self, target_id: str) -> bool:
+        """Resume this runtime's suspended channel to one admitted peer."""
+        if self._physiology.state is VitalState.DEAD:
+            raise OrganismDeadError("dead organisms cannot resume social interactions")
+        if self._social_habitat is None:
+            raise ValueError("no social habitat is attached")
+        return self._social_habitat.resume(self._organism_id, target_id)
+
+    def request_social_competition(
+        self, requests: list[tuple[str, str, float]]
+    ) -> tuple[InteractionOutcome, ...]:
+        """Submit an explicit finite-resource competition request batch."""
+        if self._physiology.state is VitalState.DEAD:
+            raise OrganismDeadError("dead organisms cannot interact")
+        if self._social_habitat is None:
+            raise ValueError("no social habitat is attached")
+        if any(source_id != self._organism_id for source_id, _, _ in requests):
+            raise ValueError("competition requests must originate from this runtime")
+        outcomes = self._social_habitat.compete(requests)
+        self._charge_metabolism("cognition", self._social_exchange_cost * len(requests))
+        requested = {(source, resource): amount for source, resource, amount in requests}
+        for outcome in outcomes:
+            loss = max(
+                0.0,
+                requested.get((outcome.source_id, outcome.resource), outcome.granted)
+                - outcome.granted,
+            )
+            # The habitat relation records which competing peer was observed;
+            # retain that target rather than collapsing scarcity onto the
+            # habitat token in the runtime's local memory.
+            self._social_ledger.observe(
+                outcome.source_id,
+                outcome.relation.target_id,
+                cost=loss,
+                tick=self._tick_count,
+                channel=outcome.resource,
+            )
+            requested_amount = requested.get((outcome.source_id, outcome.resource), outcome.granted)
+            if requested_amount > 0.0:
+                self._social_resource_ledger.observe(
+                    outcome.resource,
+                    requested=requested_amount,
+                    granted=outcome.granted,
+                    tick=self._tick_count,
+                )
+        return outcomes
+
+    @property
+    def ontogeny(self) -> OntogenyController:
+        return self._ontogeny
+
+    @property
+    def reproductively_ready(self) -> bool:
+        """Physical readiness derived only from canonical body state."""
+        return self._ontogeny.reproductively_ready()
+
+    @property
+    def cognitive_bridge(self) -> CognitiveBridge | None:
+        return self._cognitive_bridge
+
+    @property
+    def shadow_predictions(self) -> tuple[ShadowPrediction, ...]:
+        """Expose bounded shadow evidence without exposing evaluator state."""
+        if self._cognitive_bridge is None:
+            return ()
+        return self._cognitive_bridge.shadow_predictions
+
+    def promote_shadow_prediction(self, source_id: str, target_id: str) -> bool:
+        """Register one validated shadow predictor for structural contention."""
+        if self._physiology.state is VitalState.DEAD:
+            raise OrganismDeadError("dead organisms cannot promote predictions")
+        if self._cognitive_bridge is None:
+            return False
+        # Some callers drive the bridge directly (for example a scientific
+        # study) rather than through ``Runtime.tick``. Use the bridge clock
+        # when it is ahead so structural proposals receive the correct
+        # eligibility tick instead of silently being stamped at zero.
+        bridge_tick = getattr(self._cognitive_bridge, "_tick", self._tick_count)
+        return self._cognitive_bridge.promote_shadow_prediction(
+            source_id, target_id, tick=max(self._tick_count, bridge_tick)
+        )
+
+    @property
+    def memory_consolidator(self) -> MemoryConsolidator:
+        return self._memory_consolidator
+
+    @property
+    def signal_knowledge(self) -> SignalKnowledgeEngine:
+        return self._signal_knowledge
+
+    @property
+    def metabolism(self) -> MetabolicLedger:
+        return self._metabolism
+
+    @property
+    def living_body_state(self) -> LivingBodyState:
+        return self._living_body_state
+
+    def register_embodied_work(self, amount: float) -> None:
+        """Queue a scalar physical-work cost for the next physiology tick.
+
+        The apparatus may report measured physical work, but it may not choose
+        an internal resource compartment or attach anatomical/action semantics.
+        The queued scalar is charged as maintenance after normal replenishment,
+        so it contributes to the next canonical metabolic/physiology snapshot.
+        """
+        if (
+            isinstance(amount, bool)
+            or not isinstance(amount, (int, float))
+            or not math.isfinite(float(amount))
+            or amount < 0.0
+        ):
+            raise ValueError("embodied work must be finite and non-negative")
+        accumulated = self._pending_embodied_work + float(amount)
+        if not math.isfinite(accumulated):
+            raise ValueError("embodied work accumulation overflowed")
+        self._pending_embodied_work = accumulated
+
+    def absorb_metabolic_energy(self, amount: float) -> float:
+        """Absorb anonymous physical energy into the one conserved body pool."""
+        if self._physiology.state is VitalState.DEAD:
+            raise OrganismDeadError("dead organisms cannot absorb metabolic energy")
+        if (
+            isinstance(amount, bool)
+            or not isinstance(amount, (int, float))
+            or not math.isfinite(amount)
+        ):
+            raise ValueError("absorbed metabolic energy must be finite")
+        amount = float(amount)
+        if amount < 0.0:
+            raise ValueError("absorbed metabolic energy must be non-negative")
+        return self._metabolism.intake_untyped(amount)
+
+    def request_resource_intake(
+        self, amount: float, *, kind: str = "maintenance", resource_id: str | None = None
+    ) -> float:
+        """Acquire bounded resource from the attached shared habitat.
+
+        Habitat scarcity is authoritative; only the granted amount enters the
+        organism's metabolic reserve. This is an explicit local request, not an
+        automatic replenishment or evaluator intervention.
+        """
+        if self._physiology.state is VitalState.DEAD:
+            raise OrganismDeadError("dead organisms cannot acquire resources")
+        habitat = (
+            self._resource_habitats.get(resource_id) if resource_id is not None else self._habitat
+        )
+        if habitat is None:
+            raise ValueError("no shared habitat is attached")
+        if (
+            kind not in {"observation", "cognition", "persistence", "maintenance"}
+            or isinstance(amount, bool)
+            or not isinstance(amount, (int, float))
+            or not math.isfinite(amount)
+            or amount <= 0.0
+        ):
+            raise ValueError("invalid resource intake")
+        # Physical body headroom is authoritative. The requested accounting
+        # kind may receive bookkeeping credit, but it cannot gate or create
+        # physical energy.
+        available = max(
+            0.0,
+            self._living_body_state.max_energy - self._living_body_state.energy_reserve,
+        )
+        accepted_request = min(float(amount), available)
+        if accepted_request <= 0.0:
+            return 0.0
+        granted = habitat.consume(self._organism_id, accepted_request)
+        return self._metabolism.intake(kind, granted)
+
+    def _most_depleted_metabolic_kind(self) -> str:
+        """Choose the locally scarcest metabolic compartment for intake."""
+        snapshot = self._metabolism.snapshot()
+        return min(
+            snapshot.capacity,
+            key=lambda kind: snapshot.reserve[kind] / max(snapshot.capacity[kind], 1e-12),
+        )
+
+    @property
+    def assimilator(self) -> InformationAssimilator:
+        return self._assimilator
+
+    @property
+    def homeostasis(self) -> HomeostaticController:
+        return self._homeostasis
+
+    @property
+    def resting_requested(self) -> bool:
+        return self._resting_requested
+
+    @property
+    def homeostatic_deviation(self) -> float:
+        """Passive scalar disequilibrium for observability, never evaluator control."""
+        return self._homeostasis.deviation()
+
+    @property
+    def pending_homeostatic_credit_count(self) -> int:
+        """Number of live delayed action-credit traces."""
+        return len(self._pending_homeostatic_action_credit)
+
+    def request_rest(self) -> None:
+        """Enter a bounded rest request; reserves are not replenished."""
+        if self._physiology.state is VitalState.DEAD:
+            raise OrganismDeadError("dead organisms cannot request rest")
+        self._resting_requested = True
+
+    def resume_activity(self) -> None:
+        """Clear a rest request without creating resources or integrity."""
+        if self._physiology.state is VitalState.DEAD:
+            raise OrganismDeadError("dead organisms cannot resume activity")
+        self._resting_requested = False
+
+    def apply_environmental_damage(self, amount: float) -> float:
+        """Apply a bounded physical perturbation from the supplied habitat.
+
+        This is deliberately not a controller or evaluator command: it only
+        changes local integrity. Subsequent repair is constitutive body
+        homeostasis and must pay its maintenance cost.
+        """
+        if self._physiology.state is VitalState.DEAD:
+            raise OrganismDeadError("dead organisms cannot receive damage")
+        if (
+            isinstance(amount, bool)
+            or not isinstance(amount, (int, float))
+            or not math.isfinite(float(amount))
+            or not 0.0 < amount <= 0.25
+        ):
+            raise ValueError("environmental damage must be within (0, 0.25]")
+        before = self._homeostasis.integrity
+        self._homeostasis.integrity = max(0.0, before - float(amount))
+        return before - self._homeostasis.integrity
+
+    def _sampling_selector(self, manifest: HostManifest) -> tuple[str, ...] | None:
+        if not self._discover_senses:
+            return None
+        plan = self._adaptive_senses.sampling_plan(
+            capability.capability_id for capability in manifest.available
+        )
+        requested = set(plan.requested_ids)
+        if self._bootstrap_semantic_senses:
+            requested.update(
+                capability_id
+                for capability_id in DEFAULT_PERCEPT_NAMES
+                if manifest.supports(capability_id)
+            )
+        return tuple(sorted(requested))
+
+    def tick(
+        self,
+        *,
+        context: TickContext | None = None,
+        include_observability: bool = True,
+    ) -> RuntimeTickResult:
+        if self._physiology.state is VitalState.DEAD:
+            raise OrganismDeadError("organism is irreversibly dead")
+        expected_tick = self._tick_count + 1
+        if context is None:
+            context = self._embodiment_domain.context(
+                symbiont_id=self._organism_id,
+                symbiont_tick=expected_tick,
+                fallback_embodiment_id=self._action_domain.embodiment_id,
+            )
+        else:
+            if context.symbiont_id != self._organism_id:
+                raise ValueError("tick context belongs to another Symbiont")
+            if context.symbiont_tick != expected_tick:
+                raise ValueError("tick context symbiont time is not the next organism tick")
+        self._embodiment_domain.validate_context(context)
+        if (
+            self._action_domain.embodiment_id is not None
+            and context.embodiment_id != self._action_domain.embodiment_id
+        ):
+            raise ValueError("tick context belongs to another action EmbodimentEpisode")
+        tick_start = time.monotonic()
+        self._reacclimation_remaining = self._embodiment_domain.advance_reacclimation(
+            self._reacclimation_remaining
+        )
+        physiology_preflight = self._physiology_domain.preflight(
+            services=PhysiologyPreflightServices(
+                metabolism=self._metabolism,
+                homeostasis=self._homeostasis,
+                living_body_state=self._living_body_state,
+                degradation=self._degradation,
+                interoception_provider=self._interoception_provider,
+            )
+        )
+        degradation_excreted = physiology_preflight.degradation_excreted
+        plasticity_gate = (
+            physiology_preflight.plasticity_enabled and self._cognitive_plasticity_enabled
+        )
+
+        perception = self._perception_domain.step(
+            services=PerceptionServices(
+                lifecycle=self._lifecycle,
+                adaptive_senses=self._adaptive_senses,
+                self_model=self._self_model,
+                signal_identity=self._signal_identity,
+                signal_knowledge=self._signal_knowledge,
+                sensory_system=self._sensory_system,
+                acclimation=self._acclimation,
+                rhythm_model=self._rhythm_model,
+                drift_baselines=self._drift_baselines,
+                assimilator=self._assimilator,
+                resource_habitats=self._resource_habitats,
+                interoception_provider=self._interoception_provider,
+                reading_providers=self._reading_providers,
+                charge_metabolism=self._charge_metabolism,
+            ),
+            context=context,
+            discover_senses=self._discover_senses,
+            bootstrap_semantic_senses=self._bootstrap_semantic_senses,
+            attention_budget=self._attention_budget,
+            sampling_selector=self._sampling_selector,
+            pending_proprioception=(
+                self._action_domain.pending_proprioception if self._actuation_enabled else {}
+            ),
+        )
+        percepts = perception.percepts
+        drift_observations = perception.drift_observations
+        allocations = perception.allocations
+        if perception.pending_proprioception_consumed:
+            self._action_domain.pending_proprioception = {}
+
+        action_services = self._action_services()
+        # T1-T3: close the previous ActionAttempt, learn causally, settle the
+        # commitment and reconcile the active ActionIntent -- all before the
+        # cognition of this tick, which must already see the outcome (§76).
+        action_observation = self._action_domain.observe_consequences(
+            percepts,
+            context=context,
+            signal_references=perception.signal_references,
+            services=action_services,
+        )
+        transition = self._action_domain.last_transition
+        if (
+            transition is not None
+            and transition.competence_id is not None
+            and transition.observed_effect_id is not None
+        ):
+            # Only the Body's real consequence reconciles imagined outcomes.
+            self._generative_cognition.note_factual_outcome(
+                action_id=transition.competence_id,
+                outcome_tokens=(transition.observed_effect_id,),
+                evidence_refs=(f"causal.{transition.transition_id}",),
+                model_ids=("competence-effect",),
+            )
+
+        action_projection = self._action_domain.prepare_cognition(
+            percepts,
+            context=context,
+            sensory_system=self._sensory_system,
+        )
+        cognition_step = self._cognition_domain.step(
+            services=CognitionServices(
+                cognitive_bridge=self._cognitive_bridge,
+                sensory_system=self._sensory_system,
+                self_model=self._self_model,
+                charge_metabolism=self._charge_metabolism,
+                generative_cognition=self._generative_cognition,
+                generative_mode=(
+                    GenerativeMode.OFFLINE if self._resting_requested else GenerativeMode.ONLINE
+                ),
+            ),
+            context=context,
+            perception=perception,
+            action_projection=action_projection,
+            plasticity_enabled=plasticity_gate,
+            auto_promote_predictors=(
+                self._auto_promote_predictors and self._predictor_promotion_enabled
+            ),
+            reacclimation_remaining=self._reacclimation_remaining,
+            cognitive_self_namespace_key=self._cognitive_self_namespace_key,
+            include_observability=include_observability,
+        )
+        cognition_result = cognition_step.cognition
+        self._memory_domain.observe(
+            services=MemoryServices(
+                consolidator=self._memory_consolidator,
+                self_model=self._self_model,
+            ),
+            context=context,
+            perception=perception,
+            cognition=cognition_step,
+            reacclimation_remaining=self._reacclimation_remaining,
+        )
+
+        # T5-T11: affordances, executive deliberation, arbitration, control,
+        # execution and the next ActionAttempt.
+        action_result = self._action_domain.act(
+            cognition_result,
+            percepts,
+            action_observation,
+            context=context,
+            signal_references=perception.signal_references,
+            services=action_services,
+        )
+
+        epistemic = self._epistemic_domain.investigate(
+            services=EpistemicServices(
+                self_model=self._self_model,
+                evidence_ledger=self._evidence_ledger,
+                acclimation=self._acclimation,
+                reading_providers=self._reading_providers,
+                sampling_clock=self._lifecycle.clock,
+            ),
+            context=context,
+            perception=perception,
+            investigate_ticks=self._investigate_ticks,
+            include_observability=include_observability,
+        )
+        embodiment_step = self._embodiment_domain.observe(
+            services=EmbodimentServices(
+                body_schema=self._body_schema,
+                sensory_system=self._sensory_system,
+                self_model=self._self_model,
+                signal_identity=self._signal_identity,
+            ),
+            context=context,
+            cognition=cognition_step,
+            include_observability=include_observability,
+        )
+        sensory_phenotype_view = embodiment_step.sensory_phenotype
+        # Cognitive/information-assimilation "success" (incorporation utility,
+        # prediction accuracy) is not a physical resource and must never
+        # manufacture metabolic reserve on its own: only externally acquired
+        # resource (habitat consumption via ``request_resource_intake``,
+        # explicit ``intake`` from an actual transfer, etc.) may grow
+        # reserve. Assimilation cost is still charged elsewhere
+        # (``_charge_metabolism`` above) regardless of ``_explicit_metabolism``.
+
+        baseline_price, node_price, dormancy_factor = self._retention_prices
+        retained_units = self._memory_domain.retained_units(
+            drift_baseline_count=len(self._drift_baselines),
+            cognitive_node_count=cognition_step.retained_node_count,
+            baseline_price=baseline_price,
+            node_price=node_price,
+            dormant=self._physiology.state is VitalState.DORMANT,
+            dormancy_factor=dormancy_factor,
+        )
+        embodied_work = self._pending_embodied_work
+        self._pending_embodied_work = 0.0
+        physiology_step = self._physiology_domain.advance(
+            services=PhysiologyServices(
+                metabolism=self._metabolism,
+                homeostasis=self._homeostasis,
+                ontogeny=self._ontogeny,
+                physiology=self._physiology,
+                developmental_tracker=self._developmental_tracker,
+                living_body_state=self._living_body_state,
+                degradation=self._degradation,
+                sensory_system=self._sensory_system,
+                adaptive_senses=self._adaptive_senses,
+                cognitive_bridge=self._cognitive_bridge,
+            ),
+            retained_memory_units=retained_units,
+            embodied_work=embodied_work,
+            resting_requested=self._resting_requested,
+            degradation_excreted=degradation_excreted,
+        )
+        metabolism_snapshot = physiology_step.metabolism
+        homeostatic_snapshot = physiology_step.homeostasis
+        physiology_snapshot = physiology_step.physiology
+        ontogeny_snapshot = physiology_step.ontogeny
+        development_snapshot = physiology_step.development
+        self._resting_requested = physiology_step.resting_requested
+        resting_for_tick = physiology_step.resting_for_tick
+        self._regulation_domain.resolve_homeostatic_action_credit(
+            services=RegulationServices(
+                cognitive_bridge=self._cognitive_bridge,
+                homeostasis=self._homeostasis,
+                living_body_state=self._living_body_state,
+            ),
+            tick=context.symbiont_tick,
+        )
+        release = self._lifecycle_domain.release_on_death(
+            organism_id=self._organism_id,
+            physiology_snapshot=physiology_snapshot,
+            habitat=self._habitat,
+            habitat_released=self._habitat_released,
+            resource_habitats=self._resource_habitats,
+            social_habitat=self._social_habitat,
+            social_habitat_released=self._social_habitat_released,
+        )
+        self._habitat_released = release.habitat_released
+        self._social_habitat_released = release.social_habitat_released
+        self._lifecycle_domain.update_interoception_metrics(
+            provider=self._interoception_provider,
+            tick_start=tick_start,
+            cognition_result=cognition_result,
+            living_body_state=self._living_body_state,
+            homeostasis=self._homeostasis,
+            degradation=self._degradation,
+            metabolism_snapshot=metabolism_snapshot,
+        )
+        runtime_events = self._lifecycle_domain.events(
+            homeostatic_snapshot=homeostatic_snapshot,
+            physiology_snapshot=physiology_snapshot,
+            development_snapshot=development_snapshot,
+            cognition_result=cognition_result,
+            percepts=percepts,
+            knowledge_view=perception.knowledge_view,
+            drift_observations=drift_observations,
+            action_executed=bool(action_result is not None and action_result.executed),
+        )
+
+        # Evidence from tick t regulates the operating phenotype for t+1.
+        action_development = self._action_domain.development_projection()
+        self._gene_expression_state = self._development_domain.update_gene_expression(
+            genome=self._genome,
+            expression_state=self._gene_expression_state,
+            expression_regulator=self._expression_regulator,
+            cognitive_bridge=self._cognitive_bridge,
+            cognition=cognition_result,
+            drift_observations=drift_observations,
+            metabolic_pressure=metabolism_snapshot.pressure.value,
+            actuator_count=action_development.actuator_count,
+            active_actuator_count=(action_development.active_actuator_count),
+        )
+        if self._genome is not None and self._germline_state is not None:
+            expression = self._gene_expression_state
+            self._germline_state.capture_acquired_variation(
+                {
+                    "plasticity.learning_rate.baseline": expression.effective_learning_rate,
+                    "plasticity.structural_plasticity.baseline": (
+                        expression.effective_structural_plasticity
+                    ),
+                    "structure.growth_threshold.baseline": expression.effective_growth_threshold,
+                    "structure.pruning_threshold.baseline": (
+                        expression.effective_pruning_threshold
+                    ),
+                    "sensorimotor.spontaneous_activity_baseline": expression.exploration_drive,
+                },
+                genome=self._genome,
+                protocol=self._epigenetic_protocol,
+            )
+
+        self._tick_count = context.symbiont_tick
+        self._embodiment_domain.complete_context(context)
+        self._physiology_domain.advance_body_age(self._living_body_state)
+        self._lifecycle_domain.record_journal(
+            self._narrative_journal,
+            tick=self._tick_count,
+            physiology_snapshot=physiology_snapshot,
+            metabolism_snapshot=metabolism_snapshot,
+            resting_for_tick=resting_for_tick,
+            allocations=allocations,
+            investigated_capability=epistemic.investigated_capability,
+            drift_observations=drift_observations,
+            dissent=epistemic.dissent,
+            assimilation_count=len(perception.assimilation),
+            narrative=epistemic.journal_narrative,
+        )
+        self._epigenetic_priors = self._development_domain.decay_epigenetic_priors(
+            self._epigenetic_priors,
+            decay=self._epigenetic_decay,
+        )
+        return RuntimeTickResult(
+            tick=self._tick_count,
+            snapshot=perception.snapshot,
+            percepts=percepts,
+            drift_observations=drift_observations,
+            allocations=allocations,
+            investigated_capability=epistemic.investigated_capability,
+            evidence_gathered=epistemic.evidence_gathered,
+            dissent=epistemic.dissent,
+            narrative=epistemic.narrative,
+            sampling_plan=perception.sampling_plan,
+            perceptual_allocations=perception.perceptual_allocations,
+            cognition=cognition_result,
+            generative=cognition_step.generative,
+            signal_knowledge=perception.knowledge_view,
+            knowledge_events=self._signal_knowledge.drain_events(),
+            signal_references=perception.signal_references,
+            metabolism=metabolism_snapshot,
+            assimilation=perception.assimilation,
+            homeostasis=homeostatic_snapshot,
+            physiology=physiology_snapshot,
+            ontogeny=ontogeny_snapshot,
+            degradation_excreted=degradation_excreted,
+            retained_items=len(self._degradation.items),
+            action_result=action_result,
+            development=development_snapshot,
+            sensory_phenotype=sensory_phenotype_view,
+            runtime_events=runtime_events,
+            motor_intent=self._action_domain.last_motor_intent,
+            actuation=self._last_actuation,
+            motor_intents=self._action_domain.last_motor_intents,
+            actuations=self._action_domain.last_actuations,
+            action_commitment=self._active_action_commitment,
+            motor_command=self._last_motor_command,
+            sensorimotor_transition=self._action_domain.last_transition,
+            sensorimotor_v2=self.sensorimotor_v2_snapshot,
+            gene_expression=(
+                self._gene_expression_state.as_dict()
+                if self._gene_expression_state is not None
+                else None
+            ),
+        )
+
+    def run(self, ticks: int) -> tuple[RuntimeTickResult, ...]:
+        if ticks < 1:
+            raise ValueError("ticks must be at least 1")
+        return tuple(self.tick() for _ in range(ticks))
+
+    def _build_checkpoint_payload(self) -> dict[str, Any]:
+        payload = export_checkpoint(
+            acclimation=self._acclimation,
+            rhythm_model=self._rhythm_model,
+            drift_baselines=self._drift_baselines,
+            saved_at_tick=self._tick_count,
+            include_replay=self._persist_replay_state,
+        )
+        payload["organism_id"] = self._organism_id
+        payload["effective_config"] = self.effective_configuration()
+        payload["sensory_development"] = self._adaptive_senses.export(
+            include_replay=self._persist_replay_state
+        )
+        payload["sensory_system"] = self._sensory_system.checkpoint(
+            include_replay=self._persist_replay_state
+        )
+        payload["self_model"] = self._self_model.export(current_tick=self._tick_count)
+        payload["body_schema"] = self._body_schema.export(current_tick=self._tick_count)
+        payload["evidence_ledger"] = self._evidence_ledger.export_checkpoint()
+        payload["genome"] = export_genome_checkpoint(self._genome)
+        payload["gene_expression"] = (
+            self._gene_expression_state.as_dict()
+            if self._gene_expression_state is not None
+            else None
+        )
+        payload["germline_state"] = (
+            export_germline(self._germline_state) if self._germline_state is not None else None
+        )
+        payload["parent_ids"] = list(self._parent_ids)
+        payload["epigenetic_protocol"] = asdict(self._epigenetic_protocol)
+        payload["mutation_seed"] = self._mutation_seed
+        payload["epigenetic_priors"] = [
+            {"key": prior.key, "value": prior.value} for prior in self._epigenetic_priors
+        ]
+        payload["epigenetic_decay"] = self._epigenetic_decay
+        payload["cognitive_bridge"] = (
+            self._cognitive_bridge.export_checkpoint()
+            if self._cognitive_bridge is not None
+            else None
+        )
+        if self._actuation_enabled:
+            if self._action_domain.surface is None:
+                raise CheckpointError("actuation enabled without actuator constitution")
+            constitution_payload = {
+                "contract_fingerprint": (self._action_domain.surface.contract_fingerprint),
+                "slots": [
+                    {
+                        "slot_id": slot.slot_id,
+                        "actuator_id": slot.actuator_id,
+                        "command_min": slot.command_min,
+                        "command_max": slot.command_max,
+                        "neutral": slot.neutral,
+                        "available": slot.available,
+                    }
+                    for slot in self._action_domain.surface.slots
+                ],
+            }
+            action_state = self._action_domain.checkpoint_state()
+            payload["actuation"] = {
+                "enabled": True,
+                "constitution": constitution_payload,
+                "action_domain": action_state,
+                "pending_motor_observation": action_state.get("pending_motor_observation", []),
+                "pending_proprioception": action_state.get("pending_proprioception", {}),
+            }
+        elif self._action_domain.surface is not None:
+            # A disabled runtime may still carry the body-owned actuator
+            # surface.  It is causal input to phenotype regulation even when
+            # no motor command can be emitted, so checkpoint it as well.
+            payload["actuation"] = {
+                "enabled": False,
+                "constitution": {
+                    "contract_fingerprint": self._action_domain.surface.contract_fingerprint,
+                    "slots": [
+                        {
+                            "slot_id": slot.slot_id,
+                            "actuator_id": slot.actuator_id,
+                            "command_min": slot.command_min,
+                            "command_max": slot.command_max,
+                            "neutral": slot.neutral,
+                            "available": slot.available,
+                        }
+                        for slot in self._action_domain.surface.slots
+                    ],
+                },
+            }
+        else:
+            payload["actuation"] = {"enabled": False}
+        # §82.4: only the live executive intention; terminal history is trace data.
+        payload["executive_intention"] = self._action_domain.intention.checkpoint()
+        payload["memory"] = self._memory_consolidator.export_checkpoint()
+        payload["generative_cognition"] = self._generative_cognition.checkpoint()
+        knowledge_payload = self._signal_knowledge.checkpoint()
+        knowledge_size = len(
+            json.dumps(
+                knowledge_payload, sort_keys=True, separators=(",", ":"), allow_nan=False
+            ).encode("utf-8")
+        )
+        if knowledge_size > MAX_KNOWLEDGE_CHECKPOINT_BYTES:
+            raise CheckpointError("signal knowledge checkpoint exceeds 256 KiB")
+        payload["signal_knowledge"] = knowledge_payload
+        payload["signal_identity_key"] = self._signal_identity.key.hex()
+        payload["metabolism"] = self._metabolism.checkpoint()
+        payload["assimilation"] = self._assimilator.checkpoint()
+        payload["living_body"] = self._living_body_state.checkpoint()
+        payload["homeostasis"] = self._homeostasis.checkpoint()
+        payload["innate_reactivity"] = {
+            "schema_version": 1,
+            "reactivity": self._innate_reactivity.checkpoint(),
+            "memory": self._reactive_memory.checkpoint(),
+        }
+        payload["physiology"] = self._physiology.checkpoint()
+        payload["social_ledger"] = self._social_ledger.checkpoint()
+        payload["social_resource_ledger"] = self._social_resource_ledger.checkpoint()
+        payload["exchange_guard"] = self._exchange_guard.checkpoint()
+        payload["exchange_sequence"] = self._exchange_sequence
+        payload["generation"] = self._generation
+        payload["social_exchange_quantum"] = self._social_exchange_quantum
+        payload["social_exchange_cost"] = self._social_exchange_cost
+        payload["resting_requested"] = self._resting_requested
+        payload["pending_embodied_work"] = self._pending_embodied_work
+        payload["degradation"] = self._degradation.checkpoint()
+        payload["narrative_journal"] = list(self._narrative_journal[-50:])
+        payload["development"] = self._developmental_tracker.checkpoint()
+        payload["last_runtime_vital_state"] = self._last_runtime_vital_state
+        payload["last_runtime_development_phase"] = self._last_runtime_development_phase
+        payload["first_life_history_events"] = {
+            "sense": self._first_sense_emitted,
+            "concept": self._first_concept_emitted,
+            "prediction": self._first_prediction_emitted,
+        }
+
+        from ... import __version__ as _symbiont_version
+
+        genome_data = payload.get("genome")
+        payload["constitution_fingerprint"] = {
+            "schema_version": 1,
+            # A genome-less organism still has a constitution: the hash of null.
+            "genome_hash": _canonical_hash(cast(dict[str, Any], genome_data)),
+        }
+        session_controls = self.session_controls()
+        restored_controls = self._restored_session_controls
+        payload["runtime_provenance"] = {
+            "software_version": _symbiont_version,
+            "checkpoint_schema_version": CHECKPOINT_SCHEMA_VERSION,
+            "session_controls": session_controls,
+            # A continuation whose effective controls differ from the ones it
+            # was restored with is a changed condition, not restart equivalence.
+            "changed_since_restore": (
+                []
+                if restored_controls is None
+                else sorted(
+                    name
+                    for name, value in session_controls.items()
+                    if name in restored_controls and restored_controls[name] != value
+                )
+            ),
+        }
+        return payload
+
+    def session_controls(self) -> dict[str, Any]:
+        """Effective runtime-only configuration that shapes future learning.
+
+        Apparatus configuration, not organism state: recorded as provenance,
+        excluded from state identity and reapplied by ``from_checkpoint``.
+        """
+        return {
+            "cognitive_plasticity_enabled": self._cognitive_plasticity_enabled,
+            "predictor_promotion_enabled": self._predictor_promotion_enabled,
+            "persist_replay_state": self._persist_replay_state,
+            "kernel_limits": asdict(self._kernel_limits),
+            "executive_admission_policy": asdict(self._executive_admission_policy),
+            "expression_regulator": type(self._expression_regulator).__qualname__,
+        }
+
+    def set_cognitive_plasticity_enabled(self, enabled: bool) -> None:
+        """Enable or disable cognitive plasticity for this runtime session."""
+        self._cognitive_plasticity_enabled = bool(enabled)
+
+    def set_predictor_promotion_enabled(self, enabled: bool) -> None:
+        """Enable or disable predictor/structure promotion for this runtime session."""
+        self._predictor_promotion_enabled = bool(enabled)
+
+    def state_hash(self) -> str:
+        """Content hash of current organism state (spec: save/load neutrality).
+
+        Excludes ``checkpoint_lineage`` (which records save *events*, not
+        state) and ``runtime_provenance`` (which records what code produced
+        the save, not what the organism is). A read-only query: unlike
+        ``checkpoint()``, it never advances ``checkpoint_lineage``.
+        """
+        return _state_hash_of(self._build_checkpoint_payload())
+
+    @property
+    def communication_channel(self) -> ConsentBoundChannel | None:
+        return self._communication_channel
+
+    def attach_communication_channel(self, channel: ConsentBoundChannel) -> None:
+        self._communication_channel = channel
+
+    def receive_communication(self, message: SignedMessage) -> bool:
+        """Accept one signed envelope at the transport level.
+
+        Returns whether the envelope was authentic and not a replay. Its claims
+        are not ingested: an organism runtime owns no core social ledger
+        (ARCH-1, Option A). Social claims between modeled organisms travel
+        through the modeled ledger (``receive_social_claim``), which keeps their
+        ancestry; this legacy envelope format cannot carry it.
+        """
+        if not self._communication_channel:
+            return False
+        if not self._communication_channel.verify(message):
+            return False
+        if self._physiology.state is VitalState.DEAD:
+            return False
+        envelope = ExchangeEnvelope(message.sender, message.sequence, message.payload)
+        return self._exchange_guard.accept(envelope)
+
+    def checkpoint(self, *, advance_lineage: bool = True) -> dict[str, Any]:
+        """Serialize organism state.
+
+        ``advance_lineage=False`` is for observer reads (telemetry snapshots,
+        identity probes): the payload is identical, but it is not recorded
+        as a save event, so observation density cannot change later
+        checkpoints (ADR-0010 Gate I).
+        """
+        payload = self._build_checkpoint_payload()
+        state_hash = _state_hash_of(payload)
+        payload["checkpoint_lineage"] = {
+            "checkpoint_id": state_hash,
+            "parent_checkpoint_hash": self._last_checkpoint_hash,
+            "identity_scope": IDENTITY_SCOPE,
+            "schema_version": CHECKPOINT_SCHEMA_VERSION,
+            "continuation_condition_hash": continuation_condition_hash(
+                payload["runtime_provenance"]["session_controls"]
+            ),
+            **deepcopy(self._lineage_history),
+        }
+        if advance_lineage:
+            self._last_checkpoint_hash = state_hash
+        return payload
+
+    def save(self, path: str | Path) -> None:
+        payload = self.checkpoint()
+        encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        if len(encoded) > self._kernel_limits.max_plastic_checkpoint_bytes:
+            raise CheckpointError(
+                "checkpoint exceeds kernel_limits.max_plastic_checkpoint_bytes "
+                f"({len(encoded)} > {self._kernel_limits.max_plastic_checkpoint_bytes})"
+            )
+        save_checkpoint_atomic(payload, path)
+
+    @classmethod
+    def from_checkpoint(
+        cls,
+        payload: dict[str, Any],
+        *,
+        cognitive_plasticity_enabled: bool | None = None,
+        predictor_promotion_enabled: bool | None = None,
+        **kwargs: Any,
+    ) -> Self:
+        """Restore state and recorded controls, applying explicit controls as new conditions."""
+        for name, value in (
+            ("cognitive_plasticity_enabled", cognitive_plasticity_enabled),
+            ("predictor_promotion_enabled", predictor_promotion_enabled),
+        ):
+            if value is not None and not isinstance(value, bool):
+                raise CheckpointError(f"{name} override must be boolean or None")
+        actuator_constitution_override = kwargs.pop(
+            "actuator_constitution_override",
+            None,
+        )
+        if actuator_constitution_override is not None and not isinstance(
+            actuator_constitution_override, ActuatorSurface
+        ):
+            raise CheckpointError("actuator_constitution_override must be an ActuatorSurface")
+        # Identity is verified on the payload exactly as it was loaded: the
+        # stored identifier describes that representation, not a migrated one.
+        verify_checkpoint_identity(payload)
+        require_current_schema_fields(payload, layer=cls._CONTINUITY_LAYER)
+        normalized = normalize_checkpoint(payload)
+        effective = normalized.get("effective_config", {})
+        min_samples = int(kwargs.get("min_samples", effective.get("min_samples", 5)))
+        acclimation, rhythm_model, drift_baselines = import_checkpoint(
+            normalized,
+            acclimation=HostAcclimation(min_samples=min_samples),
+            rhythm_model=RhythmModel(min_samples=min_samples),
+        )
+        adaptive_senses = AdaptiveSenseModel.restore(normalized.get("sensory_development"))
+        raw_sensory_system = normalized.get("sensory_system")
+        explicit_sensory_override = (
+            kwargs["sensory_plasticity"] if "sensory_plasticity" in kwargs else None
+        )
+        if explicit_sensory_override is not None and not isinstance(
+            explicit_sensory_override, bool
+        ):
+            raise CheckpointError("sensory_plasticity override must be boolean")
+        effective_sensory_plasticity = effective.get("sensory_plasticity", False)
+        if not isinstance(effective_sensory_plasticity, bool):
+            raise CheckpointError("invalid sensory_plasticity in effective_config")
+        try:
+            sensory_system = SensorySystem.restore(
+                raw_sensory_system,
+                plasticity_enabled=(
+                    explicit_sensory_override
+                    if explicit_sensory_override is not None
+                    else (None if raw_sensory_system is not None else effective_sensory_plasticity)
+                ),
+            )
+        except ValueError as exc:
+            raise CheckpointError(f"invalid sensory system checkpoint: {exc}") from exc
+        if (
+            raw_sensory_system is not None
+            and explicit_sensory_override is None
+            and sensory_system.plasticity_enabled != effective_sensory_plasticity
+        ):
+            raise CheckpointError(
+                "sensory constitution contradicts effective_config.sensory_plasticity"
+            )
+        allowed_sense_ids = set(adaptive_senses.developed_percept_names())
+        if kwargs.get("bootstrap_semantic_senses", True):
+            allowed_sense_ids.update(DEFAULT_PERCEPT_NAMES)
+        # Self-model entries are established local state, including internal
+        # senses that are not host-discovered percepts.  They must remain
+        # restorable; silently dropping them changes the organism after a
+        # checkpoint and breaks deterministic replay.
+        raw_self_model = normalized.get("self_model")
+        if raw_self_model is not None:
+            if not isinstance(raw_self_model, dict):
+                raise CheckpointError("invalid self-model checkpoint")
+            allowed_sense_ids.update(raw_self_model)
+        self_model = SelfModel.restore(
+            raw_self_model,
+            allowed_sense_ids=allowed_sense_ids,
+            current_tick=normalized.get("saved_at_tick") or 0,
+        )
+        body_schema = BodySchemaEngine.restore(
+            normalized.get("body_schema"),
+            current_tick=normalized.get("saved_at_tick") or 0,
+        )
+        conflict_z = float(kwargs.get("conflict_z", effective.get("conflict_z", 2.0)))
+        evidence_ledger = EvidenceRevisionLedger.restore_checkpoint(
+            normalized.get("evidence_ledger"),
+            conflict_z=conflict_z,
+            allowed_capability_ids=acclimation.known_capabilities,
+        )
+        from ... import __version__ as _symbiont_version
+
+        recorded_controls = _recorded_session_controls(normalized)
+        if recorded_controls is not None:
+            # Reapply launcher-owned configuration the previous session ran
+            # with, unless this launcher states a different value explicitly.
+            if kwargs.get("kernel_limits") is None and "kernel_limits" in recorded_controls:
+                kwargs["kernel_limits"] = recorded_controls["kernel_limits"]
+            if (
+                kwargs.get("executive_admission_policy") is None
+                and "executive_admission_policy" in recorded_controls
+            ):
+                kwargs["executive_admission_policy"] = recorded_controls[
+                    "executive_admission_policy"
+                ]
+            if (
+                kwargs.get("persist_replay_state") is None
+                and "persist_replay_state" in recorded_controls
+            ):
+                kwargs["persist_replay_state"] = recorded_controls["persist_replay_state"]
+        kernel_limits = kwargs.get("kernel_limits") or KernelLimits()
+        genome = restore_genome_checkpoint(
+            normalized.get("genome"),
+            kernel_limits=kernel_limits,
+            running_version=_parse_running_version(_symbiont_version),
+        )
+
+        raw_protocol = normalized.get("epigenetic_protocol")
+        if not isinstance(raw_protocol, dict):
+            raise CheckpointError("invalid epigenetic protocol checkpoint")
+        try:
+            epigenetic_protocol = EpigeneticProtocol(**raw_protocol)
+        except (TypeError, ValueError) as exc:
+            raise CheckpointError(f"invalid epigenetic protocol checkpoint: {exc}") from exc
+        raw_parent_ids = normalized.get("parent_ids")
+        if (
+            not isinstance(raw_parent_ids, list)
+            or any(not isinstance(parent_id, str) or not parent_id for parent_id in raw_parent_ids)
+            or len(set(raw_parent_ids)) != len(raw_parent_ids)
+        ):
+            raise CheckpointError("invalid parent_ids checkpoint")
+        parent_ids = tuple(raw_parent_ids)
+        germline_state = None
+        raw_germline = normalized.get("germline_state")
+        if genome is None:
+            if raw_germline is not None:
+                raise CheckpointError("germline checkpoint requires Genome v2")
+        elif raw_germline is None:
+            raise CheckpointError("Genome v2 checkpoint is missing germline_state")
+        elif not isinstance(raw_germline, dict):
+            raise CheckpointError("invalid germline checkpoint")
+        else:
+            try:
+                germline_state = restore_germline(raw_germline, genome)
+            except (TypeError, ValueError) as exc:
+                raise CheckpointError(f"invalid germline checkpoint: {exc}") from exc
+
+        gene_expression_state = None
+        raw_expression = normalized.get("gene_expression")
+        if genome is not None:
+            if raw_expression is None:
+                if germline_state is None:
+                    raise CheckpointError("Genome v2 checkpoint is missing germline_state")
+                gene_expression_state = GeneExpressionState.from_genome(
+                    genome, germline=germline_state
+                )
+            else:
+                if not isinstance(raw_expression, dict):
+                    raise CheckpointError("invalid gene expression checkpoint")
+                try:
+                    from ...genetics.expression import restore_expression_state
+
+                    gene_expression_state = restore_expression_state(
+                        raw_expression,
+                        genome,
+                    )
+                except ValueError as exc:
+                    raise CheckpointError(f"invalid gene expression checkpoint: {exc}") from exc
+        raw_priors = normalized.get("epigenetic_priors")
+        if raw_priors is None:
+            raw_priors = []
+        if not isinstance(raw_priors, list) or len(raw_priors) > 16:
+            raise CheckpointError("invalid epigenetic priors checkpoint")
+        try:
+            epigenetic_priors = tuple(
+                EpigeneticPrior(str(item["key"]), float(item["value"])) for item in raw_priors
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise CheckpointError("invalid epigenetic priors checkpoint") from exc
+        cognitive_bridge = None
+        if genome is not None:
+            cognitive_bridge = CognitiveBridge.restore(
+                normalized.get("cognitive_bridge"),
+                genome=genome,
+                kernel_limits=kernel_limits,
+            )
+        memory_consolidator = MemoryConsolidator.restore_checkpoint(
+            normalized.get("memory"), kernel_limits=kernel_limits
+        )
+        actuation_enabled = False
+        actuator_constitution = None
+        actuator_evidence = None
+        motor_selection_threshold = 0.1
+        competence_development = None
+        pending_motor_observation = ()
+        pending_proprioception: dict[str, float] = {}
+        raw_actuation = normalized.get("actuation")
+        if raw_actuation is not None:
+            if not isinstance(raw_actuation, dict):
+                raise CheckpointError("invalid actuation checkpoint")
+            enabled = raw_actuation.get("enabled", False)
+            if not isinstance(enabled, bool):
+                raise CheckpointError("actuation.enabled must be boolean")
+            actuation_enabled = enabled
+            raw_mode = raw_actuation.get("exploration_mode")
+            if raw_mode == "structured_probe":
+                raise CheckpointError("checkpoint carries removed scheduled motor probing state")
+            # Legacy spontaneous/exploration mode is read only for migration;
+            # Sensorimotor v2 has no runtime motor mode.
+            if enabled:
+                raw_constitution = raw_actuation.get("constitution")
+                if not isinstance(raw_constitution, dict):
+                    raise CheckpointError("actuation constitution is missing")
+                raw_slots = raw_constitution.get("slots")
+                if not isinstance(raw_slots, list):
+                    raise CheckpointError("actuation constitution slots must be a list")
+                try:
+                    channels = tuple(
+                        ActuatorChannel(
+                            slot_id=str(item["slot_id"]),
+                            actuator_id=str(item["actuator_id"]),
+                            command_min=float(item.get("command_min", 0.0)),
+                            command_max=float(item.get("command_max", 1.0)),
+                            neutral=float(item.get("neutral", 0.0)),
+                            available=bool(item.get("available", True)),
+                        )
+                        for item in raw_slots
+                    )
+                except (KeyError, TypeError, ValueError) as exc:
+                    raise CheckpointError(
+                        f"invalid body-owned actuator constitution: {exc}"
+                    ) from exc
+                stored_fingerprint = raw_constitution.get("contract_fingerprint")
+                if not isinstance(stored_fingerprint, str) or not stored_fingerprint:
+                    raise CheckpointError("actuator contract fingerprint is missing or invalid")
+                restored_constitution = ActuatorSurface(
+                    channels=channels,
+                    contract_fingerprint=stored_fingerprint,
+                )
+                if actuator_constitution_override is not None:
+                    if restored_constitution.channels != actuator_constitution_override.channels:
+                        raise CheckpointError(
+                            "actuator constitution override changes legal channels"
+                        )
+                    actuator_constitution = actuator_constitution_override
+                    if (
+                        restored_constitution.contract_fingerprint
+                        != actuator_constitution.contract_fingerprint
+                    ):
+                        raise CheckpointError(
+                            "actuator constitution override changes contract fingerprint"
+                        )
+                else:
+                    actuator_constitution = restored_constitution
+                raw_action_domain = raw_actuation.get("action_domain")
+                if not isinstance(raw_action_domain, dict):
+                    raise CheckpointError(
+                        "current-schema enabled actuation is missing canonical action_domain"
+                    )
+                if raw_action_domain.get("schema_version") != 1:
+                    raise CheckpointError("invalid canonical action_domain checkpoint")
+                raw_evidence_state = raw_action_domain.get("actuator_evidence")
+                raw_selection_threshold = raw_action_domain.get("selection_threshold", 0.1)
+                raw_sensorimotor = raw_action_domain.get("competence_development")
+                if not isinstance(raw_sensorimotor, dict):
+                    raise CheckpointError(
+                        "canonical action domain is missing competence_development"
+                    )
+                raw_pending = raw_action_domain.get("pending_motor_observation")
+                raw_proprio = raw_action_domain.get("pending_proprioception", {})
+                if not isinstance(raw_evidence_state, dict):
+                    raise CheckpointError("action domain actuator evidence is missing")
+                try:
+                    actuator_evidence = restore_actuation_state(
+                        raw_evidence_state,
+                        actuator_constitution,
+                        organism_id=str(normalized.get("organism_id") or ""),
+                    )
+                except (KeyError, TypeError, ValueError) as exc:
+                    raise CheckpointError(f"invalid actuator evidence checkpoint: {exc}") from exc
+                if (
+                    isinstance(raw_selection_threshold, bool)
+                    or not isinstance(raw_selection_threshold, (int, float))
+                    or not 0.0 <= float(raw_selection_threshold) <= 1.0
+                ):
+                    raise CheckpointError("invalid motor selection threshold")
+                motor_selection_threshold = float(raw_selection_threshold)
+                if raw_sensorimotor is not None:
+                    if not isinstance(raw_sensorimotor, dict):
+                        raise CheckpointError("invalid canonical sensorimotor state")
+                    try:
+                        competence_development = CompetenceDevelopmentEngine.restore(
+                            raw_sensorimotor,
+                            actuator_ids=actuator_constitution.actuator_ids,
+                            organism_id=str(normalized.get("organism_id") or ""),
+                            embodiment_fingerprint=actuator_constitution.contract_fingerprint,
+                        )
+                    except (TypeError, ValueError, KeyError) as exc:
+                        raise CheckpointError(f"invalid sensorimotor checkpoint: {exc}") from exc
+                if raw_pending is not None:
+                    if isinstance(raw_pending, dict):
+                        raw_pending_items = [raw_pending]
+                    elif isinstance(raw_pending, list):
+                        raw_pending_items = raw_pending
+                    else:
+                        raise CheckpointError("invalid pending motor observation")
+                    if len(raw_pending_items) > len(actuator_constitution.actuator_ids):
+                        raise CheckpointError("too many pending motor observations")
+                    restored_pending = []
+                    for item in raw_pending_items:
+                        if not isinstance(item, dict):
+                            raise CheckpointError("invalid pending motor observation item")
+                        actuator_id = item.get("actuator_id")
+                        activation = item.get("activation")
+                        if actuator_id not in set(actuator_constitution.actuator_ids):
+                            raise CheckpointError(
+                                "pending motor observation references unknown actuator"
+                            )
+                        if (
+                            isinstance(activation, bool)
+                            or not isinstance(activation, (int, float))
+                            or not math.isfinite(float(activation))
+                            or not 0.0 <= float(activation) <= 1.0
+                        ):
+                            raise CheckpointError("invalid pending motor activation")
+                        if "baseline" in item:
+                            raise CheckpointError(
+                                "raw motor percept baselines must not be persisted"
+                            )
+                        restored_pending.append((str(actuator_id), float(activation), None))
+                    pending_motor_observation = tuple(restored_pending)
+                max_proprioception = 3 * len(actuator_constitution.actuator_ids)
+                if not isinstance(raw_proprio, dict) or len(raw_proprio) > max_proprioception:
+                    raise CheckpointError("invalid pending proprioception")
+                for key, value in raw_proprio.items():
+                    if (
+                        not isinstance(key, str)
+                        or not key
+                        or isinstance(value, bool)
+                        or not isinstance(value, (int, float))
+                        or not math.isfinite(float(value))
+                    ):
+                        raise CheckpointError("invalid pending proprioception")
+                    pending_proprioception[key] = float(value)
+            elif isinstance(raw_actuation.get("constitution"), dict):
+                # Preserve a disabled runtime's body surface.  The surface is
+                # not executable in this mode, but its actuator count remains
+                # causal to developmental regulation.
+                raw_constitution = raw_actuation["constitution"]
+                raw_slots = raw_constitution.get("slots")
+                if not isinstance(raw_slots, list):
+                    raise CheckpointError("actuator constitution slots must be a list")
+                try:
+                    channels = tuple(
+                        ActuatorChannel(
+                            slot_id=str(item["slot_id"]),
+                            actuator_id=str(item["actuator_id"]),
+                            command_min=float(item.get("command_min", 0.0)),
+                            command_max=float(item.get("command_max", 1.0)),
+                            neutral=float(item.get("neutral", 0.0)),
+                            available=bool(item.get("available", True)),
+                        )
+                        for item in raw_slots
+                    )
+                    actuator_constitution = ActuatorSurface(
+                        channels=channels,
+                        contract_fingerprint=str(raw_constitution["contract_fingerprint"]),
+                    )
+                except (KeyError, TypeError, ValueError) as exc:
+                    raise CheckpointError("invalid disabled actuator constitution") from exc
+        resolved_physiology_config = kwargs.get("physiology_config")
+        if resolved_physiology_config is None:
+            if "physiology" in effective:
+                raw_phys = effective["physiology"]
+                if not isinstance(raw_phys, dict):
+                    raise CheckpointError("invalid physiology config in checkpoint: must be a dict")
+                try:
+                    resolved_physiology_config = PhysiologyConfig(**raw_phys)
+                except Exception as exc:
+                    raise CheckpointError(
+                        f"invalid physiology config in checkpoint: {exc}"
+                    ) from exc
+            else:
+                raw_deg = normalized.get("degradation")
+                if (
+                    isinstance(raw_deg, dict)
+                    and "aging_ticks" in raw_deg
+                    and "waste_ticks" in raw_deg
+                ):
+                    from dataclasses import replace
+
+                    try:
+                        resolved_physiology_config = replace(
+                            DEFAULT_PHYSIOLOGY_CONFIG,
+                            aging_ticks=int(raw_deg["aging_ticks"]),
+                            waste_ticks=int(raw_deg["waste_ticks"]),
+                        )
+                    except Exception as exc:
+                        raise CheckpointError(
+                            f"failed to migrate degradation ticks into physiology config: {exc}"
+                        ) from exc
+                else:
+                    resolved_physiology_config = DEFAULT_PHYSIOLOGY_CONFIG
+
+        signal_knowledge = (
+            SignalKnowledgeEngine.from_checkpoint(
+                validate_checkpoint(normalized.get("signal_knowledge"))
+            )
+            if normalized.get("signal_knowledge")
+            else SignalKnowledgeEngine()
+        )
+        metabolism = (
+            MetabolicLedger.from_checkpoint(
+                normalized["metabolism"], physiology_config=resolved_physiology_config
+            )
+            if normalized.get("metabolism")
+            else MetabolicLedger(
+                tick=normalized.get("saved_at_tick") or 0,
+                physiology_config=resolved_physiology_config,
+            )
+        )
+        assimilator = (
+            InformationAssimilator.from_checkpoint(normalized["assimilation"])
+            if normalized.get("assimilation")
+            else InformationAssimilator()
+        )
+        raw_living_body = normalized.get("living_body")
+        if raw_living_body is None:
+            raise CheckpointError("Living Body L5 requires canonical living_body checkpoint state")
+        try:
+            living_body_state = LivingBodyState.from_checkpoint(raw_living_body)
+        except (KeyError, TypeError, ValueError) as exc:
+            raise CheckpointError(f"invalid living body checkpoint: {exc}") from exc
+
+        metabolism.bind_body_state(living_body_state)
+
+        homeostasis = (
+            HomeostaticController.from_checkpoint(
+                normalized["homeostasis"],
+                config=resolved_physiology_config,
+                body_state=living_body_state,
+            )
+            if normalized.get("homeostasis")
+            else HomeostaticController(
+                config=resolved_physiology_config,
+                body_state=living_body_state,
+            )
+        )
+        physiology = (
+            PhysiologyController.from_checkpoint(
+                normalized["physiology"],
+                body_state=living_body_state,
+            )
+            if normalized.get("physiology")
+            else PhysiologyController(body_state=living_body_state)
+        )
+        social_ledger = (
+            RelationLedger.from_checkpoint(normalized["social_ledger"])
+            if normalized.get("social_ledger")
+            else RelationLedger()
+        )
+        social_resource_ledger = (
+            ResourceEvidenceLedger.from_checkpoint(normalized["social_resource_ledger"])
+            if normalized.get("social_resource_ledger")
+            else ResourceEvidenceLedger()
+        )
+        # Anti-replay and outbound sequencing are acquired communication state:
+        # a restored organism must keep rejecting envelopes it already accepted
+        # and must not reuse sequence numbers it already emitted.
+        try:
+            exchange_guard = ExchangeReplayGuard.restore(normalized.get("exchange_guard", {}))
+        except ValueError as exc:
+            raise CheckpointError(f"invalid exchange guard checkpoint: {exc}") from exc
+        exchange_sequence = normalized.get("exchange_sequence", 0)
+        if (
+            isinstance(exchange_sequence, bool)
+            or not isinstance(exchange_sequence, int)
+            or exchange_sequence < 0
+        ):
+            raise CheckpointError("invalid exchange_sequence checkpoint")
+        degradation_queue = (
+            DegradationQueue.from_checkpoint(normalized["degradation"])
+            if normalized.get("degradation")
+            else DegradationQueue()
+        )
+        developmental_tracker = (
+            DevelopmentalTracker.from_checkpoint(normalized["development"])
+            if normalized.get("development")
+            else DevelopmentalTracker()
+        )
+        if physiology.state is VitalState.DEAD:
+            raise CheckpointError("dead organism checkpoints cannot be restored")
+        raw_identity_key = normalized.get("signal_identity_key")
+        signal_identity = (
+            SignalIdentity(bytes.fromhex(raw_identity_key))
+            if isinstance(raw_identity_key, str)
+            else None
+        )
+        constructor_kwargs = dict(kwargs)
+        constructor_kwargs.pop("generation", None)
+        constructor_kwargs.pop("social_exchange_quantum", None)
+        constructor_kwargs.pop("social_exchange_cost", None)
+        constructor_kwargs.pop("social_resource_ledger", None)
+        constructor_kwargs.pop("resting_requested", None)
+        constructor_kwargs.pop("degradation_queue", None)
+        constructor_kwargs.pop("sensory_system", None)
+        constructor_kwargs.pop("sensory_plasticity", None)
+        constructor_kwargs.pop("actuation_enabled", None)
+        constructor_kwargs.pop("actuator_constitution", None)
+        constructor_kwargs.pop("actuator_evidence", None)
+        constructor_kwargs.pop("motor_selection_threshold", None)
+        constructor_kwargs.pop("actuator_system", None)
+        constructor_kwargs.pop("competence_development", None)
+        constructor_kwargs.pop("generative_cognition", None)
+        effective = normalized.get("effective_config", {})
+        for name in (
+            "attention_budget",
+            "investigate_ticks",
+            "competence_min_support",
+            "competence_min_consistency",
+            "retention_price_baseline",
+            "retention_price_node",
+            "dormancy_retention_factor",
+            "conflict_z",
+            "min_samples",
+        ):
+            if name not in constructor_kwargs and name in effective:
+                constructor_kwargs[name] = effective[name]
+        # Sense options and the profile the organism was born with (ADR-0062).
+        constructor_kwargs.update(restored_sense_options(normalized, constructor_kwargs))
+        if "min_samples" not in constructor_kwargs:
+            constructor_kwargs["min_samples"] = min_samples
+        if "conflict_z" not in constructor_kwargs:
+            constructor_kwargs["conflict_z"] = conflict_z
+        constructor_kwargs.pop("explicit_metabolism", None)
+        constructor_kwargs.pop("auto_promote_predictors", None)
+        constructor_kwargs.pop("exchange_guard", None)
+        constructor_kwargs.pop("exchange_sequence", None)
+        raw_generative = normalized.get("generative_cognition")
+        try:
+            generative_cognition = (
+                ResidentGenerativeCognition.from_checkpoint(
+                    raw_generative,
+                    organism_id=str(normalized.get("organism_id") or ""),
+                )
+                if raw_generative is not None
+                else None
+            )
+        except ValueError as exc:
+            raise CheckpointError(f"invalid generative cognition checkpoint: {exc}") from exc
+
+        runtime = cls(
+            **constructor_kwargs,
+            acclimation=acclimation,
+            rhythm_model=rhythm_model,
+            drift_baselines=drift_baselines,
+            adaptive_senses=adaptive_senses,
+            sensory_system=sensory_system,
+            sensory_plasticity=sensory_system.plasticity_enabled,
+            self_model=self_model,
+            body_schema=body_schema,
+            evidence_ledger=evidence_ledger,
+            genome=genome,
+            mutation_seed=int(normalized.get("mutation_seed", 0)),
+            epigenetic_priors=epigenetic_priors,
+            epigenetic_decay=float(normalized.get("epigenetic_decay", 0.05)),
+            cognitive_bridge=cognitive_bridge,
+            gene_expression_state=gene_expression_state,
+            germline_state=germline_state,
+            epigenetic_protocol=epigenetic_protocol,
+            parent_ids=parent_ids,
+            memory_consolidator=memory_consolidator,
+            tick_count=max(
+                int(normalized.get("saved_at_tick") or 0),
+                int(getattr(signal_knowledge, "_last_tick", 0) or 0),
+            ),
+            organism_id=normalized.get("organism_id"),
+            signal_knowledge=signal_knowledge,
+            signal_identity=signal_identity,
+            metabolism=metabolism,
+            assimilator=assimilator,
+            homeostasis=homeostasis,
+            physiology=physiology,
+            living_body_state=living_body_state,
+            physiology_config=resolved_physiology_config,
+            social_ledger=social_ledger,
+            social_resource_ledger=social_resource_ledger,
+            exchange_guard=exchange_guard,
+            exchange_sequence=exchange_sequence,
+            explicit_metabolism=bool(
+                kwargs.get("explicit_metabolism", effective.get("explicit_metabolism", False))
+            ),
+            auto_promote_predictors=bool(
+                kwargs.get(
+                    "auto_promote_predictors", effective.get("auto_promote_predictors", False)
+                )
+            ),
+            generation=int(
+                normalized.get(
+                    "generation", normalized.get("effective_config", {}).get("generation", 0)
+                )
+            ),
+            social_exchange_quantum=float(
+                normalized.get(
+                    "social_exchange_quantum",
+                    normalized.get("effective_config", {}).get("social_exchange_quantum", 0.1),
+                )
+            ),
+            social_exchange_cost=float(
+                normalized.get(
+                    "social_exchange_cost",
+                    normalized.get("effective_config", {}).get("social_exchange_cost", 0.01),
+                )
+            ),
+            resting_requested=bool(
+                normalized.get(
+                    "resting_requested",
+                    normalized.get("effective_config", {}).get("resting_requested", False),
+                )
+            ),
+            degradation_queue=degradation_queue,
+            developmental_tracker=developmental_tracker,
+            actuation_enabled=actuation_enabled,
+            actuator_constitution=actuator_constitution,
+            actuator_evidence=actuator_evidence,
+            motor_selection_threshold=motor_selection_threshold,
+            competence_development=competence_development,
+            generative_cognition=generative_cognition,
+        )
+        runtime._pending_motor_observation = pending_motor_observation
+        runtime._action_domain.pending_proprioception = pending_proprioception
+        if isinstance(raw_actuation, dict):
+            raw_action_domain = raw_actuation.get("action_domain")
+            if isinstance(raw_action_domain, dict):
+                raw_commitment = raw_action_domain.get("active_commitment")
+            else:
+                raw_commitment = raw_actuation.get("action_commitment")
+            if isinstance(raw_commitment, dict):
+                current_surface = (
+                    runtime._action_domain.surface.contract_fingerprint
+                    if runtime._action_domain.surface is not None
+                    else None
+                )
+                restored_commitment = ActionCommitment.restore(
+                    raw_commitment,
+                )
+                if restored_commitment.compatible_with(current_surface):
+                    runtime._active_action_commitment = restored_commitment
+                else:
+                    restored_commitment.terminate(
+                        tick=runtime._tick_count,
+                        status=CommitmentStatus.INCOMPATIBLE,
+                        reason="surface_contract_changed",
+                    )
+                    runtime._active_action_commitment = restored_commitment
+            raw_v2 = (
+                raw_action_domain.get("sensorimotor_v2")
+                if isinstance(raw_action_domain, dict)
+                else raw_actuation.get("sensorimotor_v2")
+            )
+            if isinstance(raw_v2, dict):
+                try:
+                    runtime._action_domain.restore_v2(
+                        raw_v2,
+                        body_schema=runtime._body_schema,
+                    )
+                except (TypeError, ValueError, KeyError) as exc:
+                    raise CheckpointError(f"invalid sensorimotor v2 checkpoint: {exc}") from exc
+
+        raw_intention = normalized.get("executive_intention")
+        if raw_intention is not None and not isinstance(raw_intention, dict):
+            raise CheckpointError("invalid executive intention checkpoint")
+        try:
+            runtime._action_domain.restore_intention(raw_intention, tick=runtime._tick_count)
+        except (TypeError, ValueError, KeyError) as exc:
+            raise CheckpointError(f"invalid executive intention checkpoint: {exc}") from exc
+
+        raw_reactivity = normalized.get("innate_reactivity")
+        if raw_reactivity is not None:
+            if not isinstance(raw_reactivity, dict) or raw_reactivity.get("schema_version") != 1:
+                raise CheckpointError("invalid innate reactivity checkpoint")
+            try:
+                runtime._innate_reactivity = InnateReactivity.restore(
+                    raw_reactivity.get("reactivity")
+                )
+                runtime._reactive_memory = ReactiveMemory.restore(raw_reactivity.get("memory"))
+            except (TypeError, ValueError, KeyError) as exc:
+                raise CheckpointError(f"invalid innate reactivity checkpoint: {exc}") from exc
+        raw_last_primitive = None
+        if isinstance(raw_actuation, dict):
+            raw_action_domain = raw_actuation.get("action_domain")
+            if isinstance(raw_action_domain, dict):
+                raw_last_primitive = raw_action_domain.get("last_executed_controller_seed_id")
+            else:
+                raw_last_primitive = raw_actuation.get("last_executed_primitive_id")
+        if raw_last_primitive is not None and not isinstance(raw_last_primitive, str):
+            raise CheckpointError("invalid last executed primitive id")
+        runtime._last_executed_primitive_id = raw_last_primitive
+        raw_pending_primitive_context = (
+            raw_actuation.get("pending_primitive_choice_context")
+            if isinstance(raw_actuation, dict)
+            else None
+        )
+        if raw_pending_primitive_context is not None:
+            raise CheckpointError(
+                "checkpoint carries removed primitive verification state; "
+                "start from a current checkpoint or fresh embodiment"
+            )
+        raw_embodied_work = normalized.get("pending_embodied_work", 0.0)
+        if (
+            isinstance(raw_embodied_work, bool)
+            or not isinstance(raw_embodied_work, (int, float))
+            or not math.isfinite(float(raw_embodied_work))
+            or float(raw_embodied_work) < 0.0
+        ):
+            raise CheckpointError("invalid pending_embodied_work checkpoint")
+        runtime._pending_embodied_work = float(raw_embodied_work)
+        runtime._reacclimation_remaining = kernel_limits.reacclimation_ticks
+        runtime._narrative_journal = list(normalized.get("narrative_journal", []))
+        raw_last_state = normalized.get("last_runtime_vital_state")
+        raw_last_phase = normalized.get("last_runtime_development_phase")
+        if raw_last_state is not None and (
+            not isinstance(raw_last_state, str) or len(raw_last_state) > 32
+        ):
+            raise ValueError("invalid last runtime vital state")
+        if raw_last_phase is not None and (
+            not isinstance(raw_last_phase, str) or len(raw_last_phase) > 32
+        ):
+            raise ValueError("invalid last runtime development phase")
+        runtime._last_runtime_vital_state = raw_last_state
+        runtime._last_runtime_development_phase = raw_last_phase
+        raw_first_events = normalized.get("first_life_history_events", {})
+        if not isinstance(raw_first_events, dict) or any(
+            not isinstance(raw_first_events.get(key, False), bool)
+            for key in ("sense", "concept", "prediction")
+        ):
+            raise ValueError("invalid first life-history event state")
+        runtime._first_sense_emitted = raw_first_events.get("sense", False)
+        runtime._first_concept_emitted = raw_first_events.get("concept", False)
+        runtime._first_prediction_emitted = raw_first_events.get("prediction", False)
+
+        # Authorized transforms and an unverified legacy ancestor are facts
+        # about this organism's history: every later save keeps them.
+        runtime._lineage_history = lineage_history(normalized)
+        raw_lineage = normalized.get("checkpoint_lineage")
+        if raw_lineage is not None:
+            if not isinstance(raw_lineage, dict) or not isinstance(
+                raw_lineage.get("checkpoint_id"), str
+            ):
+                raise CheckpointError("invalid checkpoint_lineage")
+            # The restored organism's next save chains from the checkpoint
+            # it was just loaded from. A payload with no lineage block
+            # predates this tracking — it honestly starts a new root rather
+            # than inventing a history it never recorded.
+            runtime._last_checkpoint_hash = raw_lineage["checkpoint_id"]
+        if recorded_controls is not None:
+            recorded_regulator = recorded_controls.get("expression_regulator")
+            current_regulator = runtime.session_controls()["expression_regulator"]
+            if recorded_regulator is not None and recorded_regulator != current_regulator:
+                raise CheckpointError(
+                    "checkpoint expression_regulator differs from the active continuation"
+                )
+            if cognitive_plasticity_enabled is not None:
+                runtime.set_cognitive_plasticity_enabled(cognitive_plasticity_enabled)
+            elif "cognitive_plasticity_enabled" in recorded_controls:
+                runtime.set_cognitive_plasticity_enabled(
+                    recorded_controls["cognitive_plasticity_enabled"]
+                )
+            if predictor_promotion_enabled is not None:
+                runtime.set_predictor_promotion_enabled(predictor_promotion_enabled)
+            elif "predictor_promotion_enabled" in recorded_controls:
+                runtime.set_predictor_promotion_enabled(
+                    recorded_controls["predictor_promotion_enabled"]
+                )
+            recorded_snapshot = normalized["runtime_provenance"]["session_controls"]
+            runtime._restored_session_controls = deepcopy(recorded_snapshot)
+        return runtime
+
+    @classmethod
+    def load_required(cls, path: str | Path, **kwargs: Any) -> "OrganismRuntime":
+        """Restore a required continuation, failing if its checkpoint is absent."""
+        payload = load_checkpoint_file(path)
+        if payload is None:
+            raise FileNotFoundError(f"required organism checkpoint does not exist: {path}")
+        return cls.from_checkpoint(payload, **kwargs)
+
+    @classmethod
+    def load_or_create_for_first_boot(cls, path: str | Path, **kwargs: Any) -> "OrganismRuntime":
+        """Create only for an explicitly permitted first boot; otherwise restore."""
+        payload = load_checkpoint_file(path)
+        if payload is None:
+            return cls(**kwargs)
+        return cls.from_checkpoint(payload, **kwargs)

@@ -12,6 +12,13 @@ language: en
 ---
 # Physics3D A7 Stability Gate v1
 
+> **Apparatus affected (2026-10-04).** [ADR-0066](../../adr/ADR-0066-mujoco-physics-engine-and-engine-independent-vision.md)
+> replaces PyBullet at the substrate cut
+> ([Simulation Substrate Cut v1](../core/simulation-substrate-cut-v1.md), §8).
+> This gate is specified against PyBullet 3.2.7. Whether it runs before the
+> cut, is re-specified after it, or is closed as not assessable is an open
+> owner decision.
+
 **Lifecycle:** proposed protocol; not frozen. No campaign has been authorized or
 run under this document.
 

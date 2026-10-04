@@ -1,0 +1,91 @@
+"""Host telemetry is not the organism: replacing or removing it changes nothing intrinsic."""
+
+from __future__ import annotations
+
+import pytest
+
+from symbiont.core.orchestration.runtime import OrganismRuntime
+from symbiont.core.organism_profile import CANONICAL
+from symbiont.host.sources import HostSenseSources
+from symbiont.sensory.interoception import InteroceptionProvider
+
+from .fake_telemetry import EXTREME, FakeTelemetry
+
+TICKS = 40
+
+
+def _intrinsic(telemetry: object | None, mode: str) -> dict[str, object]:
+    runtime = OrganismRuntime(
+        organism_id="intrinsic-probe",
+        bootstrap_semantic_senses=False,
+        discover_senses=True,
+        interoception_mode=mode,
+        host_sense_sources=HostSenseSources(process_telemetry=telemetry, availability="available"),
+    )
+    for _ in range(TICKS):
+        runtime.tick()
+    provider = runtime._interoception_provider
+    organism_capabilities = tuple(
+        capability
+        for capability in provider.discover()
+        if InteroceptionProvider.organism_facing(capability.capability_id)
+    )
+    return {
+        # The full organism-state identity is stronger than comparing a few
+        # physiological projections: passive host instrumentation must not
+        # perturb any persisted subject state.
+        "state_hash": runtime.state_hash(),
+        "body": runtime.living_body_state,
+        "metabolism": runtime._metabolism.snapshot(),
+        "integrity": runtime._homeostasis.integrity,
+        "readings": {
+            reading.capability_id: reading.value
+            for reading in provider.sample(organism_capabilities)
+        },
+        "action_pressure": provider.local_action_pressure(),
+    }
+
+
+@pytest.mark.parametrize("mode", ["enabled", "sham"])
+def test_replacing_host_telemetry_leaves_intrinsic_state_unchanged(mode: str) -> None:
+    present = _intrinsic(FakeTelemetry(), mode)
+    assert len(present["readings"]) == len(InteroceptionProvider.ORGANISM_CAPABILITY_IDS)
+    assert _intrinsic(FakeTelemetry(**EXTREME), mode) == present
+
+
+@pytest.mark.parametrize("mode", ["enabled", "sham"])
+def test_removing_host_telemetry_leaves_intrinsic_state_unchanged(mode: str) -> None:
+    assert _intrinsic(None, mode) == _intrinsic(FakeTelemetry(), mode)
+
+
+def test_without_host_telemetry_the_organism_publishes_only_its_own_channels() -> None:
+    runtime = OrganismRuntime(
+        bootstrap_semantic_senses=False,
+        discover_senses=True,
+        interoception_mode="enabled",
+        host_sense_sources=HostSenseSources(availability="available"),
+    )
+    assert {
+        capability.capability_id
+        for capability in runtime._lifecycle._discovery.discover().capabilities
+    } == set(InteroceptionProvider.ORGANISM_CAPABILITY_IDS)
+
+
+def test_canonical_profile_v1_is_invariant_to_unperceived_host_telemetry() -> None:
+    """Profile v1 has no interoception, so process instrumentation is not sensed."""
+
+    def run(telemetry: object | None) -> str:
+        runtime = OrganismRuntime(
+            organism_id="canonical-instrumentation-probe",
+            **CANONICAL.runtime_kwargs(),
+            host_sense_sources=HostSenseSources(
+                process_telemetry=telemetry,
+                availability="available",
+            ),
+        )
+        for _ in range(TICKS):
+            runtime.tick()
+        assert runtime._interoception_provider is None
+        return runtime.state_hash()
+
+    assert run(None) == run(FakeTelemetry(**EXTREME))

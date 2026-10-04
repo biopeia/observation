@@ -1,0 +1,253 @@
+"""Longitudinal Integrity v1 §9: runtime-only configuration is recorded and reapplied."""
+
+from __future__ import annotations
+
+import json
+from dataclasses import replace
+
+import pytest
+
+from symbiont.agency.prospective import ExecutiveAdmissionPolicy
+from symbiont.cognition.limits import KernelLimits
+from symbiont.core.orchestration.runtime import OrganismRuntime
+from symbiont.genetics.expression import ExpressionRegulator
+from symbiont.host.checkpoint import CheckpointError, continuation_condition_hash
+from symbiont.modeling.private_runtime import PrivateModelOrganismRuntime
+
+RUNTIME_KWARGS = dict(bootstrap_semantic_senses=True, discover_senses=False, min_samples=1)
+
+
+def _saved(runtime: OrganismRuntime) -> dict:
+    return json.loads(json.dumps(runtime.checkpoint()))
+
+
+def _controls(payload: dict) -> dict:
+    return payload["runtime_provenance"]["session_controls"]
+
+
+class _AlternateExpressionRegulator(ExpressionRegulator):
+    pass
+
+
+def test_restore_rejects_unavailable_expression_regulator_condition() -> None:
+    runtime = OrganismRuntime(
+        **RUNTIME_KWARGS, expression_regulator=_AlternateExpressionRegulator()
+    )
+    saved = _saved(runtime)
+
+    with pytest.raises(CheckpointError, match="expression_regulator differs"):
+        OrganismRuntime.from_checkpoint(saved, **RUNTIME_KWARGS)
+
+    restored = OrganismRuntime.from_checkpoint(
+        saved,
+        **RUNTIME_KWARGS,
+        expression_regulator=_AlternateExpressionRegulator(),
+    )
+    assert isinstance(restored._expression_regulator, _AlternateExpressionRegulator)
+
+
+@pytest.mark.parametrize("runtime_type", [OrganismRuntime, PrivateModelOrganismRuntime])
+def test_disabled_learning_switches_survive_restart(runtime_type) -> None:
+    runtime = runtime_type(**RUNTIME_KWARGS)
+    runtime.tick()
+    runtime.set_cognitive_plasticity_enabled(False)
+    runtime.set_predictor_promotion_enabled(False)
+    saved = _saved(runtime)
+    assert _controls(saved)["cognitive_plasticity_enabled"] is False
+    assert _controls(saved)["predictor_promotion_enabled"] is False
+
+    restored = runtime_type.from_checkpoint(saved, **RUNTIME_KWARGS)
+
+    assert restored._cognitive_plasticity_enabled is False
+    assert restored._predictor_promotion_enabled is False
+    assert _saved(restored)["runtime_provenance"] == saved["runtime_provenance"]
+
+
+def test_recorded_controls_do_not_change_state_identity() -> None:
+    runtime = OrganismRuntime(**RUNTIME_KWARGS)
+    runtime.tick()
+    before = runtime.state_hash()
+    before_condition = _saved(runtime)["checkpoint_lineage"]["continuation_condition_hash"]
+    runtime.set_cognitive_plasticity_enabled(False)
+
+    assert runtime.state_hash() == before
+    after_condition = _saved(runtime)["checkpoint_lineage"]["continuation_condition_hash"]
+    assert after_condition != before_condition
+
+
+def test_launcher_supplied_limits_and_policy_are_reapplied() -> None:
+    limits = replace(KernelLimits(), reacclimation_ticks=KernelLimits().reacclimation_ticks + 3)
+    policy = ExecutiveAdmissionPolicy(readout_threshold=0.3, minimum_relevance=0.4)
+    runtime = OrganismRuntime(
+        **RUNTIME_KWARGS,
+        kernel_limits=limits,
+        executive_admission_policy=policy,
+        persist_replay_state=False,
+    )
+    runtime.tick()
+
+    restored = OrganismRuntime.from_checkpoint(_saved(runtime), **RUNTIME_KWARGS)
+
+    assert restored._kernel_limits == limits
+    assert restored._executive_admission_policy == policy
+    assert restored._persist_replay_state is False
+    assert _saved(restored)["runtime_provenance"]["changed_since_restore"] == []
+
+
+def test_explicit_non_learning_condition_overrides_are_recorded() -> None:
+    saved = _saved(OrganismRuntime(**RUNTIME_KWARGS))
+    limits = replace(KernelLimits(), reacclimation_ticks=KernelLimits().reacclimation_ticks + 7)
+    policy = ExecutiveAdmissionPolicy(readout_threshold=0.5)
+
+    restored = OrganismRuntime.from_checkpoint(
+        saved,
+        **RUNTIME_KWARGS,
+        kernel_limits=limits,
+        executive_admission_policy=policy,
+        persist_replay_state=False,
+    )
+
+    assert restored._kernel_limits == limits
+    assert restored._executive_admission_policy == policy
+    assert restored._persist_replay_state is False
+    assert _saved(restored)["runtime_provenance"]["changed_since_restore"] == [
+        "executive_admission_policy",
+        "kernel_limits",
+        "persist_replay_state",
+    ]
+
+
+def test_a_different_continuation_is_recorded_as_a_changed_condition() -> None:
+    runtime = OrganismRuntime(**RUNTIME_KWARGS)
+    runtime.tick()
+    saved = _saved(runtime)
+
+    restored = OrganismRuntime.from_checkpoint(
+        saved,
+        **RUNTIME_KWARGS,
+        executive_admission_policy=ExecutiveAdmissionPolicy(readout_threshold=0.5),
+    )
+    restored.set_predictor_promotion_enabled(False)
+
+    assert _saved(restored)["runtime_provenance"]["changed_since_restore"] == [
+        "executive_admission_policy",
+        "predictor_promotion_enabled",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("control", "recorded", "override"),
+    [
+        ("cognitive_plasticity_enabled", True, False),
+        ("predictor_promotion_enabled", True, False),
+    ],
+)
+@pytest.mark.parametrize("runtime_type", [OrganismRuntime, PrivateModelOrganismRuntime])
+def test_explicit_learning_control_override_is_applied_and_recorded(
+    control: str, recorded: bool, override: bool, runtime_type
+) -> None:
+    runtime = runtime_type(**RUNTIME_KWARGS)
+    getattr(runtime, f"set_{control}")(recorded)
+    saved = _saved(runtime)
+
+    restored = runtime_type.from_checkpoint(
+        saved, **RUNTIME_KWARGS, **{control: override}
+    )
+
+    assert getattr(restored, f"_{control}") is override
+    assert _saved(restored)["runtime_provenance"]["changed_since_restore"] == [control]
+
+
+@pytest.mark.parametrize("control", ["cognitive_plasticity_enabled", "predictor_promotion_enabled"])
+def test_explicit_learning_control_override_must_be_boolean(control: str) -> None:
+    saved = _saved(OrganismRuntime(**RUNTIME_KWARGS))
+
+    with pytest.raises(CheckpointError, match=f"{control} override must be boolean"):
+        OrganismRuntime.from_checkpoint(saved, **RUNTIME_KWARGS, **{control: "false"})
+
+
+def test_checkpoint_without_recorded_controls_fails_closed() -> None:
+    runtime = OrganismRuntime(**RUNTIME_KWARGS)
+    runtime.tick()
+    saved = _saved(runtime)
+    del saved["runtime_provenance"]["session_controls"]
+    del saved["runtime_provenance"]["changed_since_restore"]
+
+    with pytest.raises(CheckpointError, match="missing required field 'session_controls'"):
+        OrganismRuntime.from_checkpoint(saved, **RUNTIME_KWARGS)
+
+
+def test_current_schema_checkpoint_without_identity_or_provenance_fails_closed() -> None:
+    saved = _saved(OrganismRuntime(**RUNTIME_KWARGS))
+    del saved["checkpoint_lineage"]
+    del saved["runtime_provenance"]
+
+    with pytest.raises(CheckpointError, match="missing required checkpoint_lineage"):
+        OrganismRuntime.from_checkpoint(saved, **RUNTIME_KWARGS)
+
+
+@pytest.mark.parametrize(
+    "control",
+    [
+        "cognitive_plasticity_enabled",
+        "predictor_promotion_enabled",
+        "persist_replay_state",
+        "kernel_limits",
+        "executive_admission_policy",
+        "expression_regulator",
+    ],
+)
+def test_checkpoint_with_incomplete_rehashed_controls_fails_closed(control: str) -> None:
+    runtime = OrganismRuntime(**RUNTIME_KWARGS)
+    saved = _saved(runtime)
+    controls = saved["runtime_provenance"]["session_controls"]
+    del controls[control]
+    saved["checkpoint_lineage"]["continuation_condition_hash"] = (
+        continuation_condition_hash(controls)
+    )
+
+    with pytest.raises(CheckpointError, match="invalid session_controls provenance"):
+        OrganismRuntime.from_checkpoint(saved, **RUNTIME_KWARGS)
+
+
+def test_checkpoint_with_unknown_rehashed_control_fails_closed() -> None:
+    runtime = OrganismRuntime(**RUNTIME_KWARGS)
+    saved = _saved(runtime)
+    controls = saved["runtime_provenance"]["session_controls"]
+    controls["unrecognized_control"] = True
+    saved["checkpoint_lineage"]["continuation_condition_hash"] = (
+        continuation_condition_hash(controls)
+    )
+
+    with pytest.raises(CheckpointError, match="unexpected: unrecognized_control"):
+        OrganismRuntime.from_checkpoint(saved, **RUNTIME_KWARGS)
+
+
+def test_changed_continuation_controls_fail_identity_verification() -> None:
+    runtime = OrganismRuntime(**RUNTIME_KWARGS)
+    saved = _saved(runtime)
+    saved["runtime_provenance"]["session_controls"]["cognitive_plasticity_enabled"] = False
+
+    with pytest.raises(CheckpointError, match="continuation conditions"):
+        OrganismRuntime.from_checkpoint(saved, **RUNTIME_KWARGS)
+
+
+@pytest.mark.parametrize(
+    "controls",
+    [
+        [],
+        {"cognitive_plasticity_enabled": "no"},
+        {"predictor_promotion_enabled": 0},
+        {"persist_replay_state": "yes"},
+        {"kernel_limits": {"not_a_limit": 1}},
+        {"executive_admission_policy": {"readout_threshold": 7.0}},
+    ],
+)
+def test_malformed_recorded_controls_are_rejected(controls: object) -> None:
+    runtime = OrganismRuntime(**RUNTIME_KWARGS)
+    runtime.tick()
+    saved = _saved(runtime)
+    saved["runtime_provenance"]["session_controls"] = controls
+
+    with pytest.raises(CheckpointError):
+        OrganismRuntime.from_checkpoint(saved, **RUNTIME_KWARGS)

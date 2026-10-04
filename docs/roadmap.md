@@ -45,7 +45,7 @@ valid only within the exact scope in which they were obtained.
 The 2026-10-02 longitudinal audit identified integrity and governance debt that
 must be tracked independently from new capability work. The canonical findings
 record is
-[research/audits/current/2026-10-02-longitudinal-integrity-audit.md](../research/audits/current/2026-10-02-longitudinal-integrity-audit.md).
+[research/audits/current/2026-10-02-longitudinal-integrity-audit.md](../lab/research/audits/current/2026-10-02-longitudinal-integrity-audit.md).
 
 ### LI-1 — Longitudinal integrity
 
@@ -77,6 +77,28 @@ future-state equivalence after restart, retrospective identity verification for
 pre-schema-11 checkpoints, useful transfer, adaptive advantage, or scientific
 value of retained state. Apparatus-owned embodiment history remains protected by
 the portable bundle rather than checkpoint identity.
+
+### COG-1 — Cognitive epistemic ownership and evidence lineage
+
+**Status:** PLANNED — bounded source-and-test audit complete; owner approval and
+contract follow-up remain open under OI-18.
+
+**Priority:** P1 engineering integrity. This is not a scientific capability
+milestone and authorizes no experiments.
+
+**Governing design:**
+[Epistemic Ownership and Claim Levels v1](design/core/epistemic-ownership-and-claim-levels-v1.md).
+**Execution tracking:** [OI-18](../migration/open-issues.md#oi-18-cognitive-epistemic-ownership-and-evidence-lineage).
+
+Follow the OI-18 sequence: enforce canonical evidence-reference resolution for
+generative factual reconciliation; complete source/revision/retraction
+contracts for graph, predictor, sensorimotor, and competence evidence; specify
+episodic/replay and social/grounding provenance boundaries. Keep cognitive
+owners separate unless a later contract audit demonstrates equivalent
+semantics and consumers. Prediction quality, replay utility, ancestry benefit,
+and generative causal contribution remain separate evidence questions governed
+by their approved scientific records; this roadmap item does not authorize
+them.
 
 ### ARCH-1 — Canonical social epistemology ownership
 
@@ -130,7 +152,7 @@ A second audit on 2026-10-02, taken at `main@2ac4296d` after the longitudinal
 remediation, found that the remaining risk is no longer loss of state but more
 than one operational definition of what belongs to the organism. Its findings
 record is
-[research/audits/current/2026-10-02-current-state-architecture-audit.md](../research/audits/current/2026-10-02-current-state-architecture-audit.md),
+[research/audits/current/2026-10-02-current-state-architecture-audit.md](../lab/research/audits/current/2026-10-02-current-state-architecture-audit.md),
 which also carries the resolution record per finding.
 
 ### LC-1 — Lifecycle continuity contract
@@ -183,7 +205,7 @@ legacy environments and the reserved meaning of "World" are owner decisions. The
 World programme stays maintenance-only.
 
 W03 was closed by the owner on 2026-10-02
-([w03-closure.md](../research/studies/ecology/w03-closure.md)) and no longer
+([w03-closure.md](../lab/research/studies/ecology/w03-closure.md)) and no longer
 constrains the legacy population path; that path is now held only by test code
 and one viewer script.
 

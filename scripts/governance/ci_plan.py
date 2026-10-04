@@ -143,9 +143,13 @@ def build_plan(base: str, head: str) -> CIPlan:
             _matches_prefix(
                 path,
                 (
-                    "src/symbiont/host/",
-                    "tests/unit/host/",
-                    "src/symbiont_lab/physics3d/",
+                    "symbiont/src/symbiont/host/",
+                    "symbiont/tests/unit/host/",
+                    "lab/src/lab/physics3d/",
+                    "embodiment/src/embodiment/",
+                    "lab/src/lab/integration/",
+                    "modality/src/modality/",
+                    "environment/src/environment/physics3d/",
                 ),
             )
             for path in paths
@@ -157,9 +161,15 @@ def build_plan(base: str, head: str) -> CIPlan:
             _matches_prefix(
                 path,
                 (
-                    "src/symbiont_lab/physics3d/",
-                    "tests/unit/lab/physics3d/",
-                    "tests/integration/test_physics3d",
+                    "lab/src/lab/physics3d/",
+                    "embodiment/src/embodiment/",
+                    "lab/src/lab/integration/",
+                    "modality/src/modality/",
+                    "environment/src/environment/physics3d/",
+                    "lab/tests/unit/lab/physics3d/",
+                    "embodiment/tests/",
+                    "modality/tests/",
+                    "lab/tests/integration/test_physics3d",
                 ),
             )
             for path in paths
@@ -171,11 +181,12 @@ def build_plan(base: str, head: str) -> CIPlan:
             _matches_prefix(
                 path,
                 (
-                    "src/symbiont_lab/modeling/",
-                    "tests/unit/modeling/",
-                    "tests/unit/lab/modeling/",
-                    "tests/integration/test_private_model",
-                    "tests/integration/test_training_ancestry",
+                    "lab/src/lab/modeling/",
+                    "symbiont/tests/unit/modeling/",
+                    "lab/tests/unit/modeling/",
+                    "lab/tests/unit/lab/modeling/",
+                    "lab/tests/integration/test_private_model",
+                    "lab/tests/integration/test_training_ancestry",
                 ),
             )
             for path in paths
@@ -188,11 +199,15 @@ def build_plan(base: str, head: str) -> CIPlan:
             _matches_prefix(
                 path,
                 (
-                    "src/symbiont/",
-                    "src/symbiont_lab/physics3d/",
-                    "src/symbiont_lab/modeling/",
-                    "observatory/",
-                    "src/symbiont_lab/workbench/",
+                    "symbiont/src/symbiont/",
+                    "lab/src/lab/physics3d/",
+                    "embodiment/src/embodiment/",
+                    "lab/src/lab/integration/",
+                    "modality/src/modality/",
+                    "environment/src/environment/physics3d/",
+                    "lab/src/lab/modeling/",
+                    "lab/src/lab/observatory/",
+                    "lab/src/lab/workbench/",
                 ),
             )
             for path in paths

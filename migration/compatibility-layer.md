@@ -1,0 +1,56 @@
+# Compatibility layer
+
+This is a migration-era record, not a statement that the loader still accepts
+the checkpoint schema that was current when this document was first written.
+The current runtime accepts schema 14 only; schemas 1–13 are archival-only and
+are rejected without outer-schema migration.
+
+**There is none.** The owner asked for no legacy and no compatibility shims
+while the migration was in progress, so the plan in `INSTRUCTIONS.md` §10
+(temporary re-exports from old paths) was not applied.
+
+What was done instead:
+
+- Every importer was rewritten to the new path by
+  `migration/tools/move_module.py` and `migration/tools/rewrite_dotted.py`.
+  No module forwards an old import path to a new one.
+- The 65 pre-existing aliases and facades were retired the same way
+  (`migration/alias-map.json`).
+- The old layout is recoverable from the source repository
+  (`/home/alessbarb/workspace/repos/incubating/symbiont-lab`, untouched) and from
+  commit `593c2a02`, which this repository's history contains.
+
+## What keeps old data usable
+
+The migration itself changed no persisted format (verified through commit
+`2632ff40e`; see the validation report). Since then:
+
+- at this migration snapshot, organism checkpoints had moved to schema 12 by
+  the owner's decision, with no migration from schema 11. This historical
+  policy was later superseded by strict schema-14 restore;
+- inline genome payloads were converted from schema 1 to schema 2 and verified
+  to load to the same genome (same genome hash and genotype hash) before the
+  schema-1 migration was removed;
+- no persisted format stores a Python module path, so the package renames do
+  not affect saved state.
+
+## One ordering dependency kept on purpose
+
+`symbiont/src/symbiont/__init__.py` imports `symbiont.core` after defining
+`__version__`. It is not a compatibility shim: it preserves the import order
+the organism had before (the removed `symbiont.simulation` import used to
+trigger it), which a pre-existing import cycle depends on. See OI-6.
+
+## Consequences of having no shim
+
+- Data written in removed formats no longer loads: organism checkpoints of
+  schema 1–13, genomes of schema 1, checkpoints carrying a `HeritableGenome`
+  payload, and Physics3D telemetry v3/v4. No outer-checkpoint schema migration
+  is available. This includes anything of those ages under `.symbiont/` in the
+  source repository. Physics3D telemetry v4.1 is unaffected.
+- External code or notebooks that import `symbiont_lab`, `symbiont_world`,
+  `observatory` or the old `symbiont.core.<name>` aliases must be updated.
+- Experiment runner scripts inside completed experiments
+  (`lab/experiments/world/genesis-v1/run_*.py`, `view_world.py`) still import
+  the old names. They were left unmodified as evidence and do not run against
+  this tree (OI-9).

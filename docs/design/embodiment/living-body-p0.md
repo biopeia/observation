@@ -294,6 +294,11 @@ Evaluator metrics may measure this loop but never enter it.
 
 ## Implementation order
 
+> **Checkpoint note (2026-10-04):** the schema-migration step below is retained
+> as historical plan context. Current organism restore accepts schema 14 only;
+> older outer checkpoint schemas are archival and are not migrated into live
+> organisms. Do not treat this section as a migration implementation contract.
+
 ### L0 — stop adding top-down intelligence
 
 Until Living Body passes its gate, defer:

@@ -81,8 +81,10 @@ language: en
   Embodiment-specific inference restarts from naive. Not the same contract as
   re-embodiment.
 - **Unverified legacy origin:** Lineage marker carried by every save of an
-  organism whose history includes a checkpoint accepted without a verifiable
-  identity (schema 10 and earlier).
+  current-schema organism whose verified lineage records an earlier checkpoint
+  accepted by a historical loader without a verifiable identity. The current
+  loader rejects older checkpoint schemas; this marker does not mean they can
+  still be restored.
 - **World:** The external side of the organism boundary, as a category. It has
   one constitutional implementation, the **World kernel** (`symbiont_world`),
   reached through the **World adapter** (`symbiont_lab.world`). A **World run**

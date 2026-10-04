@@ -12,7 +12,14 @@ language: en
 ---
 # Implementation Plan — Longitudinal Re-embodiment v1
 
-Status: **implementation-ready**.
+Status: **historical plan; not an active checkpoint-migration contract**.
+
+> **Current restore boundary (2026-10-04):** the outer organism loader accepts
+> schema 14 only and rejects older outer checkpoint schemas without migration.
+> The migration steps below record the original plan; they cannot be used to
+> restore schemas 1–13. A separately authorized historical-data conversion is
+> a different operation and must follow the current lifecycle and continuity
+> contracts; it is not runtime checkpoint restore.
 
 This document translates the longitudinal specs into concrete code changes.
 
@@ -173,8 +180,9 @@ Important:
 
 Those runs remain scientifically contaminated.
 
-The migration only allows continuing the checkpoint with correct semantics in a
-new body.
+That migration was never retained as an outer-checkpoint restore path. Current
+restore rejects these older schemas; any future archival conversion would be a
+separately authorized offline operation, not continuation of a live organism.
 
 ---
 
@@ -350,9 +358,9 @@ Model staleness must be evidence/validation-driven.
 Create/update:
 
 ```text
-tests/unit/core/test_temporal_domains.py
-tests/unit/core/test_ontogeny.py
-tests/unit/core/test_physiology.py
+symbiont/tests/unit/core/test_temporal_domains.py
+symbiont/tests/unit/core/test_ontogeny.py
+symbiont/tests/unit/core/test_physiology.py
 ```
 
 Cases:
@@ -366,8 +374,8 @@ Cases:
 ### Physics3D
 
 ```text
-tests/unit/lab/physics3d/test_reembodiment.py
-tests/integration/test_physics3d_existing_reuse.py
+lab/tests/unit/lab/physics3d/test_reembodiment.py
+lab/tests/integration/test_physics3d_existing_reuse.py
 tests/integration/test_physics3d_temporal_domains.py
 ```
 

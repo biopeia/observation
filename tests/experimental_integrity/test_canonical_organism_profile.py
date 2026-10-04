@@ -12,18 +12,27 @@ import ast
 import inspect
 from pathlib import Path
 
-from symbiont.core.domains.intention import IntentionPolicy
+import pytest
+from tests.layout import source_files
+
+from lab.integration.organism import create_canonical_organism, restore_canonical_organism
 from symbiont.core.orchestration.runtime import OrganismRuntime
 from symbiont.core.organism_profile import (
     CANONICAL,
     GOVERNED_OPTIONS,
-    HISTORICAL_V0,
     PROFILES,
-    SYMBOL_SEED_SHARED,
     symbol_seed_for,
 )
+from symbiont.host.checkpoint import CheckpointError
 from symbiont.modeling.runtime import ModeledOrganismRuntime
-from tests.checkpoints import edited
+
+
+def _stamp(payload):
+    """Declare a hand-made change so restore reaches the validator under test."""
+    from symbiont.host.checkpoint import stamp_checkpoint_identity
+
+    return stamp_checkpoint_identity(payload, transform="test-edit")
+
 
 ROOT = Path(__file__).resolve().parents[2]
 REGISTER = ROOT / "docs" / "design" / "core" / "canonical-organism-profile-v1.md"
@@ -33,20 +42,24 @@ REGISTER = ROOT / "docs" / "design" / "core" / "canonical-organism-profile-v1.md
 # intervention a protocol declares, never a launcher default.
 DECLARED_DEVIATIONS: dict[str, set[str]] = {
     # Protocol ablation blocks (experiment.toml) select factorized effects as an arm.
-    "src/symbiont_lab/experiments/runner.py": {"factorized_effects"},
+    "lab/src/lab/experiments/runner.py": {"factorized_effects"},
     # Physics3D CLI flags used to run declared arms of the factorized-effects and
     # ancestry protocols; off unless a protocol passes them.
-    "src/symbiont_lab/physics3d/cli.py": {"ancestry_training", "factorized_effects"},
+    "lab/src/lab/physics3d/cli.py": {"ancestry_training", "factorized_effects"},
     # The causal-equivalence harness scenario that exercises factorized state.
-    "src/symbiont_lab/physics3d/equivalence.py": {"factorized_effects"},
+    "lab/src/lab/physics3d/equivalence.py": {"factorized_effects"},
 }
 # Plumbing that forwards a caller's or a parent's own configuration unchanged,
 # and views that only report a configuration.
 FORWARDERS = {
-    "src/symbiont/core/orchestration/runtime.py",
-    "src/symbiont/core/organism_profile.py",
-    "src/symbiont_lab/reproduction/runtime.py",
-    "src/symbiont_lab/world/cli_view.py",
+    "symbiont/src/symbiont/core/orchestration/runtime.py",
+    "symbiont/src/symbiont/core/organism_profile.py",
+    # the organism's own resolution of the sense options from the profile
+    "symbiont/src/symbiont/core/orchestration/sense_requirements.py",
+    # resolves the governed options from the profile and forwards them unchanged
+    "lab/src/lab/integration/organism/canonical.py",
+    "lab/src/lab/reproduction/runtime.py",
+    "lab/src/lab/world/cli_view.py",
 }
 
 
@@ -71,7 +84,7 @@ def _explicit_options(path: Path) -> set[str]:
 
 def _scan() -> dict[str, set[str]]:
     found: dict[str, set[str]] = {}
-    for path in sorted((ROOT / "src").rglob("*.py")):
+    for path in source_files():
         relative = path.relative_to(ROOT).as_posix()
         if "/studies/" in relative or relative in FORWARDERS:
             continue
@@ -82,15 +95,15 @@ def _scan() -> dict[str, set[str]]:
 
 
 def test_bare_organisms_are_born_with_the_canonical_profile() -> None:
-    runtime = OrganismRuntime()
+    runtime = create_canonical_organism()
     assert runtime._profile_version == CANONICAL.version
     assert runtime._discover_senses is CANONICAL.discover_senses
     assert runtime._bootstrap_semantic_senses is CANONICAL.bootstrap_semantic_senses
     assert runtime.sensory_system.plasticity_enabled is CANONICAL.sensory_plasticity
     assert runtime._auto_promote_predictors is CANONICAL.auto_promote_predictors
     assert runtime._interoception_mode == CANONICAL.interoception_mode
-    modeled = ModeledOrganismRuntime(organism_id="profile-probe")
-    assert modeled._symbol_policy.seed == symbol_seed_for(CANONICAL, "profile-probe")
+    modeled = create_canonical_organism(ModeledOrganismRuntime, organism_id="profile-probe")
+    assert modeled._symbol_policy.seed == symbol_seed_for("profile-probe")
     # Governed constructor options have no value of their own.
     parameters = inspect.signature(OrganismRuntime.__init__).parameters
     for option in GOVERNED_OPTIONS & set(parameters):
@@ -98,26 +111,19 @@ def test_bare_organisms_are_born_with_the_canonical_profile() -> None:
 
 
 def test_restored_organisms_keep_the_profile_they_were_born_with() -> None:
-    historical = OrganismRuntime(profile=HISTORICAL_V0)
-    restored = OrganismRuntime.from_checkpoint(historical.checkpoint())
-    assert restored._profile_version == HISTORICAL_V0.version
+    born = create_canonical_organism(bootstrap_semantic_senses=True)
+    restored = restore_canonical_organism(born.checkpoint())
+    assert restored._profile_version == CANONICAL.version
     assert restored._bootstrap_semantic_senses is True
-    # A checkpoint written before profiles existed carries no profile_version.
-    legacy = historical.checkpoint()
-    del legacy["effective_config"]["profile_version"]
-    restored_legacy = OrganismRuntime.from_checkpoint(edited(legacy))
-    assert restored_legacy._profile_version == HISTORICAL_V0.version
+    # No backward compatibility: a checkpoint that names no profile is rejected.
+    unversioned = born.checkpoint()
+    del unversioned["effective_config"]["profile_version"]
+    with pytest.raises(CheckpointError):
+        restore_canonical_organism(_stamp(unversioned))
 
 
-def test_historical_profile_matches_the_old_constructor_defaults() -> None:
-    assert HISTORICAL_V0.intention_policy() == IntentionPolicy()
-    assert HISTORICAL_V0.symbol_seed_policy == SYMBOL_SEED_SHARED
-    assert symbol_seed_for(HISTORICAL_V0, "any") == 0
-
-
-def test_canonical_profile_is_a_registered_version() -> None:
-    assert PROFILES[CANONICAL.version] is CANONICAL
-    assert PROFILES[HISTORICAL_V0.version] is HISTORICAL_V0
+def test_canonical_profile_is_the_only_registered_version() -> None:
+    assert PROFILES == {CANONICAL.version: CANONICAL}
 
 
 def test_no_launcher_deviates_without_declaring_it() -> None:

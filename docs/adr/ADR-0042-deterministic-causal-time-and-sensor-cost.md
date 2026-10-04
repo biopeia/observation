@@ -4,6 +4,12 @@
 
 Accepted by the owner on 2026-09-28. This ADR blocks EW-D.
 
+> **Checkpoint-policy note (2026-10-04):** §4 records the migration performed
+> at the time of this decision; it is not the current outer-checkpoint restore
+> policy. The current organism loader accepts schema 14 only and rejects older
+> outer schemas without migration. This historical schema-9-to-10 change must
+> not be read as present-day backward compatibility.
+
 ## Context
 
 Two paths let host speed and the OS clock write into organism state:

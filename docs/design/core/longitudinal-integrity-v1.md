@@ -386,20 +386,27 @@ Those runs remain scientifically limited for claims depending on those effects.
 
 ## 14. Test matrix
 
+The matrix below records the original gate design. The implemented outer
+checkpoint policy is stricter: schema 14 is the only live-restorable outer
+schema, and schemas 1–13 are rejected without migration. The historical
+compatibility cases below are archival evidence for the earlier migration
+policy; they are not current restore acceptance criteria. Migrations owned by
+an inner subsystem do not make an older outer checkpoint restorable.
+
 ### Unit
 
 - state hash recomputation and mismatch rejection;
 - current-schema required-field rejection;
-- migration-only absence accepted only for old schemas;
+- exact current outer-schema acceptance and rejection of every older outer
+  schema;
 - exchange guard restore;
 - exchange sequence restore;
 - continuity-class register validation.
 
 ### Compatibility
 
-- every supported historical schema migrates deterministically;
-- a modern payload with the same missing field fails where its historical
-  predecessor legitimately migrates;
+- historical schema fixtures remain readable as archival evidence, but are not
+  accepted as live organisms by the current outer-checkpoint loader;
 - legacy temporal contamination retains explicit provenance.
 
 ### Integration
@@ -494,18 +501,18 @@ scientific acceptance.
 
 | Gate item | Implementation | Evidence |
 | --- | --- | --- |
-| 1. Lineage identity verified or fail closed | `host/checkpoint.py`: `checkpoint_state_hash`, `verify_checkpoint_identity`, `stamp_checkpoint_identity`; schema 11 | `tests/unit/host/test_strict_restore.py`, `tests/compatibility/migrations/test_host_checkpoint_v10_identity_migration.py` |
-| 2. No silent fresh subsystem on current-schema loss | `host/checkpoint.py`: `require_current_schema_fields` | `tests/unit/host/test_strict_restore.py` |
-| 3. Every field has a continuity class | `host/continuity.py` | `tests/unit/host/test_continuity_register.py` |
-| 4. Active social epistemic knowledge round-trips or lives in its canonical owner | ARCH-1 Option A: the core ledger is removed from the organism runtime; the modeled ledger is the single owner, persisted and inside checkpoint identity | `tests/integration/test_restart_equivalence.py`, `tests/integration/test_communication_restart.py`, `tests/unit/host/test_continuity_register.py` |
-| 5. Exchange replay protection and sequence survive | `core/social/exchange.py`: `ExchangeReplayGuard.restore`; runtime restore | `tests/integration/test_communication_restart.py` |
-| 6. Runtime-only configuration recorded and reapplied | `runtime_provenance.session_controls`, `changed_since_restore` | `tests/integration/test_restart_configuration.py` |
-| 7. Checkpoint and bundle semantics documented and tested | `docs/glossary.md`, `docs/symbiont/11-persistence-provenance-and-reembodiment.md` | `tests/unit/lab/physics3d/test_persistence.py` |
-| 8. Cold restart equivalence with developed cognition | — | `tests/integration/test_restart_equivalence.py` |
-| 9. Re-embodiment continuity, Body authority withdrawn | transforms re-identify their output | `tests/integration/test_reembodiment_continuity.py` |
-| 10. Temporal contamination stays bounded | `physics3d/reembodiment.py`: `migrate_temporal_domains` | `tests/unit/lab/physics3d/test_reembodiment.py` |
+| 1. Lineage identity verified or fail closed | `host/checkpoint.py`: `checkpoint_state_hash`, `verify_checkpoint_identity`, `stamp_checkpoint_identity`; organism-state identity introduced at schema 11, current loader requires schema 14 | `symbiont/tests/unit/host/test_strict_restore.py`, `symbiont/tests/unit/host/test_checkpoint.py` |
+| 2. No silent fresh subsystem on current-schema loss | `host/checkpoint.py`: `require_current_schema_fields` | `symbiont/tests/unit/host/test_strict_restore.py` |
+| 3. Every field has a continuity class | `host/continuity.py` | `lab/tests/unit/host/test_continuity_register.py` |
+| 4. Active social epistemic knowledge round-trips or lives in its canonical owner | ARCH-1 Option A: the core ledger is removed from the organism runtime; the modeled ledger is the single owner, persisted and inside checkpoint identity | `symbiont/tests/integration/test_restart_equivalence.py`, `symbiont/tests/integration/test_communication_restart.py`, `lab/tests/unit/host/test_continuity_register.py` |
+| 5. Exchange replay protection and sequence survive | `core/social/exchange.py`: `ExchangeReplayGuard.restore`; runtime restore | `symbiont/tests/integration/test_communication_restart.py` |
+| 6. Runtime-only configuration recorded and reapplied | `runtime_provenance.session_controls`, `changed_since_restore` | `symbiont/tests/integration/test_restart_configuration.py` |
+| 7. Checkpoint and bundle semantics documented and tested | `docs/glossary.md`, `symbiont/docs/11-persistence-provenance-and-reembodiment.md` | `lab/tests/unit/lab/physics3d/test_persistence.py` |
+| 8. Cold restart equivalence with developed cognition | — | `symbiont/tests/integration/test_restart_equivalence.py` |
+| 9. Re-embodiment continuity, Body authority withdrawn | transforms re-identify their output | `lab/tests/integration/test_reembodiment_continuity.py` |
+| 10. Temporal contamination stays bounded | `physics3d/reembodiment.py`: `migrate_temporal_domains` | `lab/tests/unit/lab/physics3d/test_reembodiment.py` |
 
-Experimental-integrity tier: `tests/experimental_integrity/test_longitudinal_integrity.py`.
+Experimental-integrity tier: `symbiont/tests/experimental_integrity/test_longitudinal_integrity.py`.
 
 ### Decisions taken during implementation
 
@@ -518,15 +525,15 @@ Experimental-integrity tier: `tests/experimental_integrity/test_longitudinal_int
 - **Authorized transforms.** Re-embodiment, temporal decontamination and
   canonical-cognition adoption re-identify the state they produce, chaining to
   the identifier they replace and naming the transform.
-- **Which checkpoints are "current" (§5).** Strictness follows the schema the
-  saving runtime declared, recorded in both the lineage block and
-  `runtime_provenance` and carried unchanged through transforms. A transform
-  gives a schema-10 checkpoint a verifiable identity but never makes it a
-  current one: it still lacks the fields only schema 11 writes and keeps its
-  migration defaults. Real schema-10 payloads are kept under
-  `tests/compatibility/checkpoint_v10/` and exercised through every transform.
+- **Which checkpoints are "current" (§5).** The current loader accepts only
+  schema 14. Schema 11 introduced organism-state identity; schema 12 added a
+  separate continuation-condition hash. Schema 13 adds persisted expression
+  birth baselines. Schemas 1–12 are rejected rather than
+  migrated. Schema-10 fixtures remain archival/compatibility evidence only and
+  do not establish current runtime restore support.
 - **Runtime configuration (§9).** Recorded as provenance rather than organism
-  state, so it does not enter state identity.
+  state, so it does not enter organism-state identity. Schema 12 separately
+  hashes continuation conditions to detect their loss or alteration.
 
 ### What gate item 8 does and does not establish
 

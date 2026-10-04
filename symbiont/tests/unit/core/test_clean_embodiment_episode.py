@@ -1,0 +1,269 @@
+from __future__ import annotations
+
+import pytest
+
+from symbiont.actuation.competence import CompetenceEvidence, MotorCompetence
+from symbiont.core.cognition.host_self_model import RecencyClass
+from symbiont.core.embodiment import EmbodimentState
+from symbiont.core.embodiment.body import create_standard_body
+from symbiont.core.orchestration.individual import create_individual
+
+
+def test_clean_individual_session_and_episode_share_identity() -> None:
+    ind = create_individual(
+        "sym.clean",
+        "body.clean",
+        num_receptors=2,
+        num_effectors=2,
+    )
+    assert ind.embodiment_id == ind.session.embodiment_id
+    assert ind.embodiment.body_id == ind.body_id
+    assert ind.embodiment.symbiont_id == ind.symbiont_id
+    assert ind.embodiment.epoch == 1
+    assert ind.embodiment_tick == 0
+
+
+def test_clean_individual_has_three_explicit_temporal_domains() -> None:
+    ind = create_individual(
+        "sym.time",
+        "body.time",
+        num_receptors=2,
+        num_effectors=1,
+        started_at=40,
+    )
+    assert ind.current_tick == 40
+    assert ind.symbiont.total_ticks == 0
+    assert ind.body.age_ticks == 0
+    assert ind.embodiment_tick == 0
+
+    ind.step()
+    assert ind.current_tick == 41
+    assert ind.symbiont.total_ticks == 1
+    assert ind.body.age_ticks == 1
+    assert ind.embodiment_tick == 1
+
+    # Equal numerical increments do not imply shared ownership or derivation.
+    ind.body.physiology.age_ticks = 17
+    assert ind.embodiment_tick == 1
+    assert ind.symbiont.total_ticks == 1
+
+
+def test_transplant_closes_archives_and_replaces_embodiment_only() -> None:
+    ind = create_individual(
+        "sym.traveler",
+        "body.a",
+        num_receptors=2,
+        num_effectors=2,
+    )
+    ind.symbiont.body_schema.observe_self_model(
+        {
+            "opaque.sensor.a": {
+                "cost_class": 3,
+                "health_class": 12,
+                "confidence_class": 10,
+                "maturity_class": 6,
+                "recency_class": RecencyClass.CURRENT.value,
+            }
+        },
+        tick=ind.symbiont.total_ticks,
+    )
+    ind.symbiont.body_schema.observe_cognition(
+        {
+            "schema_version": 1,
+            "channels": [
+                {
+                    "channel_id": "channel.cognition." + "a" * 32,
+                    "activity_class": 10,
+                }
+            ],
+        },
+        tick=ind.symbiont.total_ticks,
+    )
+    ind.symbiont.body_schema.observe_agency_boundary(
+        observed_channels={"opaque.self", "opaque.external"},
+        self_caused_channels={"opaque.self"},
+        somatic_correlated_channels=set(),
+        prediction_error=0.1,
+    )
+    ind.symbiont.body_schema.observe_agentic_sensorimotor_evidence(
+        causal_source_ref="dimension.opaque",
+        effect_id="effect.body.a",
+        feature_refs=("feature.opaque",),
+        controllability_confidence=0.8,
+        agency_confidence=0.7,
+        tick=ind.symbiont.total_ticks,
+    )
+    for _ in range(12):
+        ind.step()
+    closed_schema = ind.symbiont.body_schema.export(current_tick=ind.symbiont.total_ticks)
+
+    old_episode = ind.embodiment
+    old_session = ind.session
+    old_id = ind.embodiment_id
+    old_total_ticks = ind.symbiont.total_ticks
+    old_relation_count = ind.symbiont.sensorimotor_model.relation_count
+
+    new_body = create_standard_body(
+        "body.b",
+        num_receptors=3,
+        num_effectors=3,
+    )
+    ind.transplant_to(new_body)
+
+    assert old_episode.state is EmbodimentState.CLOSED
+    assert not old_session.is_active
+    assert ind.symbiont_id == "sym.traveler"
+    assert ind.symbiont.total_ticks == old_total_ticks
+    assert ind.body_id == "body.b"
+    assert ind.embodiment_id != old_id
+    assert ind.session.embodiment_id == ind.embodiment_id
+    assert ind.embodiment.epoch == old_episode.epoch + 1
+    assert ind.embodiment_tick == 0
+
+    # Old-body factual state is archived but has no current authority.
+    archived = ind.embodiment_archive.for_body("body.a")
+    assert archived is not None
+    assert archived.last_embodiment_id == old_id
+    assert archived.body_schema_prior is not None
+    assert archived.body_schema_prior["parts"] == closed_schema["parts"]
+    assert archived.body_schema_prior["cognitive_learning"] == closed_schema["cognitive_learning"]
+    assert archived.body_schema_prior["boundary_evidence"] == closed_schema["boundary_evidence"]
+    assert archived.body_schema_prior["sensorimotor_view"] == closed_schema["sensorimotor_view"]
+    assert closed_schema["sensorimotor_view"]["agentic_features"]
+    current_schema = ind.symbiont.body_schema.export(current_tick=ind.symbiont.total_ticks)
+    assert current_schema["state"] == "undeveloped"
+    assert current_schema["parts"] == []
+    assert current_schema["cognitive_learning"]["channel_support"] == []
+    assert current_schema["cognitive_learning"]["regions"] == []
+    assert current_schema["boundary_evidence"]["self_caused_channels"] == []
+    assert current_schema["boundary_evidence"]["external_channels"] == []
+    assert current_schema["sensorimotor_view"]["support"] == []
+    assert current_schema["sensorimotor_view"]["agentic_features"] == []
+    assert ind.symbiont.sensorimotor_model.relation_count == 0
+    assert ind.symbiont.causal_evidence.evidence == ()
+    assert ind.symbiont.agency_model.estimates == ()
+    assert ind.symbiont.body_schema.boundary_confidence == 0.0
+    assert len(ind.embodiment_archive.summaries) == 1
+    assert old_relation_count >= 0
+
+
+def test_clean_body_death_closes_episode_and_prevents_further_steps() -> None:
+    ind = create_individual(
+        "sym.mortal",
+        "body.mortal",
+        num_receptors=1,
+        num_effectors=1,
+    )
+    # Force a physically tiny reserve so the next basal tick ends the Body.
+    ind.body.physiology.energy_reserve = min(
+        ind.body.basal_metabolic_rate / 2.0,
+        ind.body.physiology.max_energy,
+    )
+
+    record = ind.step()
+    assert not record.body_viable
+    assert ind.embodiment.state is EmbodimentState.CLOSED
+    assert not ind.session.is_active
+    assert ind.embodiment_archive.for_body("body.mortal") is not None
+
+    with pytest.raises(RuntimeError, match="active embodiment"):
+        ind.step()
+
+
+def test_suspended_clean_episode_cannot_execute_physics_or_cognition() -> None:
+    ind = create_individual("sym.pause", "body.pause")
+    ind.embodiment.suspend()
+    sym_tick = ind.symbiont.total_ticks
+    body_tick = ind.body.age_ticks
+    embodiment_tick = ind.embodiment_tick
+
+    with pytest.raises(RuntimeError, match="active embodiment"):
+        ind.step()
+
+    assert ind.symbiont.total_ticks == sym_tick
+    assert ind.body.age_ticks == body_tick
+    assert ind.embodiment_tick == embodiment_tick
+
+
+def test_clean_transplant_keeps_general_competence_but_drops_execution_authority() -> None:
+    ind = create_individual(
+        "sym.transfer",
+        "body.transfer.a",
+        num_receptors=2,
+        num_effectors=2,
+    )
+    competence = MotorCompetence(
+        competence_id="competence.transfer",
+        controller_id="controller.transfer",
+        effect_id="effect.body.a",
+        evidence=CompetenceEvidence(
+            controller_seed_ref="controller.transfer",
+            support=8,
+            failures=0,
+            reproducibility=0.9,
+            controllability=0.8,
+            directional_consistency=0.9,
+        ),
+        controller_strategy_ref="controller.transfer",
+    )
+    ind.symbiont.competence_library.add(competence)
+    old_surface = ind.embodiment.contract.actuator_surface.contract_fingerprint
+    ind.symbiont.competence_execution_bindings.bind_from_evidence(
+        competence_id=competence.competence_id,
+        surface_fingerprint=old_surface,
+        effect_id="effect.body.a",
+        evidence_refs=("evidence.body.a",),
+        reliability=0.9,
+        controllability=0.8,
+        tick=1,
+    )
+    assert ind.symbiont.competence_execution_bindings.is_executable(
+        competence,
+        surface_fingerprint=old_surface,
+    )
+
+    ind.transplant_to(
+        create_standard_body(
+            "body.transfer.b",
+            num_receptors=3,
+            num_effectors=3,
+        )
+    )
+
+    retained = ind.symbiont.competence_library.get("competence.transfer")
+    assert retained is competence
+    assert retained.effect_id is None
+    assert ind.symbiont.competence_execution_bindings.get("competence.transfer") is None
+    assert ind.embodiment.execution_bindings is ind.symbiont.competence_execution_bindings
+
+
+def test_clean_return_to_same_body_gets_same_body_hypothesis_prior() -> None:
+    ind = create_individual(
+        "sym.return",
+        "body.return.a",
+        num_receptors=2,
+        num_effectors=2,
+    )
+    original_body = ind.body
+    original_episode_id = ind.embodiment_id
+    for _ in range(4):
+        ind.step()
+
+    ind.transplant_to(
+        create_standard_body(
+            "body.return.b",
+            num_receptors=3,
+            num_effectors=3,
+        )
+    )
+    assert ind.embodiment.prior.relation in {"novel", "same-contract"}
+
+    ind.transplant_to(original_body)
+
+    assert ind.body_id == "body.return.a"
+    assert ind.embodiment.prior.relation == "same-body"
+    assert ind.embodiment.prior.source_body_id == "body.return.a"
+    assert ind.embodiment.prior.source_embodiment_id == original_episode_id
+    assert ind.embodiment.prior.checkpoint()["authority"] == "hypothesis_only"
+    assert ind.symbiont.body_schema.boundary_confidence == 0.0
+    assert ind.symbiont.competence_execution_bindings.items == ()

@@ -12,6 +12,12 @@ language: en
 ---
 # Physics3D Telemetry v4.1 — Typed Temporal Streams
 
+> **Retirement scheduled (2026-10-04).** [ADR-0067](../../adr/ADR-0067-revisioned-state-sections-and-passive-observation.md)
+> retires this format at the substrate cut
+> ([Simulation Substrate Cut v1](../core/simulation-substrate-cut-v1.md)). It
+> remains the canonical writer until the cut lands; post-cut code will not
+> read it.
+
 Status: canonical writer for new Physics3D runs. Revision 4 is active; v4.0 remains readable and available for rollback/compatibility.
 
 ## Purpose

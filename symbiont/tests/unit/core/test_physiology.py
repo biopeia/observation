@@ -1,0 +1,298 @@
+import pytest
+
+from symbiont.core.embodiment.metabolism import MetabolicSnapshot, ResourcePressure
+from symbiont.core.embodiment.physiology import PhysiologyController, VitalState
+
+
+def snap(p):
+    return MetabolicSnapshot(1, {"x": 1}, {"x": -1}, {}, p)
+
+
+def test_unrecoverable_pressure_causes_irreversible_death():
+    c = PhysiologyController()
+    assert c.advance(snap(ResourcePressure.UNRECOVERABLE), tick=4).state is VitalState.DEAD
+    assert c.advance(snap(ResourcePressure.NORMAL), tick=5).state is VitalState.DEAD
+
+
+def test_runtime_refuses_execution_after_death() -> None:
+    from symbiont.core.orchestration.runtime import OrganismDeadError, OrganismRuntime
+
+    runtime = OrganismRuntime(physiology=PhysiologyController(state=VitalState.DEAD, death_tick=1))
+    try:
+        runtime.tick()
+    except OrganismDeadError:
+        pass
+    else:
+        raise AssertionError("dead organism must not execute another tick")
+
+
+def test_runtime_explicit_metabolism_disables_automatic_replenishment() -> None:
+    from symbiont.core.orchestration.runtime import OrganismRuntime
+
+    runtime = OrganismRuntime(explicit_metabolism=True)
+    assert all(value == 0.0 for value in runtime.metabolism.checkpoint()["replenishment"].values())
+    assert runtime.effective_configuration()["explicit_metabolism"] is True
+
+
+def test_environmental_damage_is_bounded_and_repairs_only_when_affordable() -> None:
+    from symbiont.core.embodiment.metabolism import MetabolicLedger
+    from symbiont.core.orchestration.runtime import OrganismRuntime
+
+    metabolism = MetabolicLedger(
+        replenishment={
+            kind: 0.0 for kind in ("observation", "cognition", "persistence", "maintenance")
+        }
+    )
+    runtime = OrganismRuntime(
+        metabolism=metabolism,
+        explicit_metabolism=True,
+        bootstrap_semantic_senses=False,
+        discover_senses=False,
+    )
+    metabolism.charge("maintenance", 1.0)
+    assert runtime.apply_environmental_damage(0.2) == pytest.approx(0.2)
+    assert runtime.homeostasis.integrity == pytest.approx(0.8)
+
+    runtime.tick()
+    assert runtime.homeostasis.integrity == pytest.approx(0.8)
+
+    metabolism.intake("maintenance", 0.2)
+    runtime.tick()
+    assert runtime.homeostasis.integrity > 0.8
+
+    with pytest.raises(ValueError):
+        runtime.apply_environmental_damage(0.26)
+
+
+def test_dormant_runtime_scales_declared_activity_costs() -> None:
+    from symbiont.core.embodiment.metabolism import MetabolicLedger
+    from symbiont.core.embodiment.physiology import LivingBodyState
+    from symbiont.core.orchestration.runtime import OrganismRuntime
+
+    state = LivingBodyState(vital_state=VitalState.DORMANT)
+    metabolism = MetabolicLedger(
+        replenishment={
+            kind: 0.0 for kind in ("observation", "cognition", "persistence", "maintenance")
+        },
+        body_state=state,
+    )
+    runtime = OrganismRuntime(
+        living_body_state=state,
+        metabolism=metabolism,
+        physiology=PhysiologyController(body_state=state),
+    )
+    result = runtime.tick()
+    assert result.metabolism.spent["observation"] <= 0.25
+
+
+def test_physical_ontogeny_controls_reproductive_readiness() -> None:
+    from symbiont.core.orchestration.runtime import OrganismRuntime
+
+    runtime = OrganismRuntime(
+        bootstrap_semantic_senses=False,
+        discover_senses=False,
+    )
+    assert not runtime.reproductively_ready
+
+    runtime.living_body_state.growth_progress = 1.0
+    assert runtime.reproductively_ready
+
+    runtime.living_body_state.structural_integrity = 0.5
+    assert not runtime.reproductively_ready
+
+
+def test_runtime_rest_request_is_checkpointed_without_free_replenishment() -> None:
+    from symbiont.core.embodiment.metabolism import MetabolicLedger
+    from symbiont.core.orchestration.runtime import OrganismRuntime
+
+    metabolism = MetabolicLedger(
+        replenishment={
+            kind: 0.0 for kind in ("observation", "cognition", "persistence", "maintenance")
+        }
+    )
+    runtime = OrganismRuntime(
+        metabolism=metabolism,
+        explicit_metabolism=True,
+        bootstrap_semantic_senses=False,
+        discover_senses=False,
+    )
+    for kind in ("observation", "cognition", "persistence", "maintenance"):
+        metabolism.charge(kind, 0.85)
+    runtime.request_rest()
+    restored = OrganismRuntime.from_checkpoint(
+        runtime.checkpoint(), bootstrap_semantic_senses=False, discover_senses=False
+    )
+    assert restored.resting_requested
+    before = restored.metabolism.snapshot().reserve["maintenance"]
+    result = restored.tick()
+    assert result.physiology is not None and result.physiology.state.value == "dormant"
+    assert restored.metabolism.snapshot().reserve["maintenance"] == before
+    restored.resume_activity()
+    assert not restored.resting_requested
+
+
+def test_runtime_homeostasis_and_viability_share_one_living_body_state() -> None:
+    from symbiont.core.embodiment.homeostasis import HomeostaticController
+    from symbiont.core.embodiment.physiology import LivingBodyState, PhysiologyController
+    from symbiont.core.orchestration.runtime import OrganismRuntime
+
+    state = LivingBodyState(structural_integrity=0.75)
+    runtime = OrganismRuntime(
+        living_body_state=state,
+        homeostasis=HomeostaticController(
+            integrity=0.75,
+            body_state=state,
+        ),
+        physiology=PhysiologyController(body_state=state),
+        bootstrap_semantic_senses=False,
+        discover_senses=False,
+    )
+
+    assert runtime.living_body_state is state
+    assert runtime.homeostasis.body_state is state
+    assert runtime._physiology.body_state is state
+
+    runtime.apply_environmental_damage(0.10)
+
+    assert state.structural_integrity == pytest.approx(0.65)
+    assert runtime.homeostasis.integrity == pytest.approx(0.65)
+
+
+def test_runtime_checkpoint_roundtrip_preserves_one_shared_living_body_state() -> None:
+    from symbiont.core.orchestration.runtime import OrganismRuntime
+
+    runtime = OrganismRuntime(
+        bootstrap_semantic_senses=False,
+        discover_senses=False,
+    )
+    runtime.apply_environmental_damage(0.2)
+    payload = runtime.checkpoint()
+
+    assert payload["living_body"]["structural_integrity"] == pytest.approx(0.8)
+
+    restored = OrganismRuntime.from_checkpoint(
+        payload,
+        bootstrap_semantic_senses=False,
+        discover_senses=False,
+    )
+
+    assert restored.homeostasis.body_state is restored.living_body_state
+    assert restored._physiology.body_state is restored.living_body_state
+    assert restored.living_body_state.structural_integrity == pytest.approx(0.8)
+
+
+def test_living_body_death_is_shared_and_irreversible() -> None:
+    from symbiont.core.embodiment.physiology import LivingBodyState, PhysiologyController
+
+    state = LivingBodyState()
+    controller = PhysiologyController(body_state=state)
+
+    controller.advance(snap(ResourcePressure.UNRECOVERABLE), tick=7)
+
+    assert state.vital_state is VitalState.DEAD
+    assert state.death_tick == 7
+    assert (
+        controller.advance(
+            snap(ResourcePressure.NORMAL),
+            tick=8,
+        ).state
+        is VitalState.DEAD
+    )
+
+
+def test_runtime_metabolism_uses_same_living_body_state() -> None:
+    from symbiont.core.orchestration.runtime import OrganismRuntime
+
+    runtime = OrganismRuntime(
+        bootstrap_semantic_senses=False,
+        discover_senses=False,
+    )
+
+    assert runtime.metabolism.body_state is runtime.living_body_state
+    before = runtime.living_body_state.metabolic_reserve["maintenance"]
+
+    runtime.metabolism.charge("maintenance", 0.2)
+
+    assert runtime.living_body_state.metabolic_reserve["maintenance"] == pytest.approx(before - 0.2)
+    assert runtime.metabolism.snapshot().reserve["maintenance"] == pytest.approx(before - 0.2)
+
+
+def test_runtime_checkpoint_has_one_authoritative_metabolic_reserve() -> None:
+    from symbiont.core.orchestration.runtime import OrganismRuntime
+
+    runtime = OrganismRuntime(
+        bootstrap_semantic_senses=False,
+        discover_senses=False,
+    )
+    runtime.metabolism.charge("cognition", 0.125)
+
+    payload = runtime.checkpoint()
+
+    assert payload["living_body"]["metabolic_reserve"] == payload["metabolism"]["reserve"]
+
+    restored = OrganismRuntime.from_checkpoint(
+        payload,
+        bootstrap_semantic_senses=False,
+        discover_senses=False,
+    )
+
+    assert restored.metabolism.body_state is restored.living_body_state
+    assert restored.living_body_state.metabolic_reserve == restored.metabolism.snapshot().reserve
+
+
+def test_runtime_repairs_damage_constitutively_during_tick() -> None:
+    from symbiont.core.embodiment.metabolism import MetabolicLedger
+    from symbiont.core.orchestration.runtime import OrganismRuntime
+
+    metabolism = MetabolicLedger(
+        replenishment={
+            kind: 0.0 for kind in ("observation", "cognition", "persistence", "maintenance")
+        }
+    )
+    runtime = OrganismRuntime(
+        metabolism=metabolism,
+        explicit_metabolism=True,
+        bootstrap_semantic_senses=False,
+        discover_senses=False,
+    )
+    runtime.apply_environmental_damage(0.2)
+    damaged = runtime.living_body_state.structural_integrity
+
+    runtime.tick()
+
+    assert runtime.living_body_state.structural_integrity > damaged
+    assert runtime.living_body_state.structural_integrity <= 1.0
+
+
+def test_dead_runtime_cannot_gain_physical_energy() -> None:
+    from symbiont.core.embodiment.physiology import LivingBodyState, VitalState
+    from symbiont.core.orchestration.runtime import OrganismDeadError, OrganismRuntime
+
+    state = LivingBodyState(
+        energy_reserve=0.0,
+        max_energy=2.0,
+        vital_state=VitalState.DEAD,
+        death_tick=1,
+    )
+    runtime = OrganismRuntime(
+        living_body_state=state,
+        bootstrap_semantic_senses=False,
+        discover_senses=False,
+    )
+
+    with pytest.raises(OrganismDeadError):
+        runtime.absorb_metabolic_energy(1.0)
+    assert state.energy_reserve == pytest.approx(0.0)
+
+
+def test_no_external_source_cannot_raise_physical_energy_over_many_cycles() -> None:
+    from symbiont.core.embodiment.metabolism import MetabolicLedger
+
+    ledger = MetabolicLedger()
+    ledger.charge("cognition", 0.25)
+    start = ledger.body_state.energy_reserve
+
+    for _ in range(32):
+        ledger.advance()
+
+    assert ledger.body_state.energy_reserve == pytest.approx(start)

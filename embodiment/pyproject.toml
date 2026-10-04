@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "embodiment"
+version = "0.90.0"
+description = "Embodiment domain: couplings between the organism and a concrete form of existence"
+requires-python = ">=3.12"
+dependencies = []
+
+[project.optional-dependencies]
+# embodiment.physics3d drives PyBullet bodies directly.
+physics3d = ["pybullet>=3.2.7,<4"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["embodiment*"]

@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "environment"
+version = "0.90.0"
+description = "Environment domain: world state, laws, ground truth and observable signals"
+requires-python = ">=3.12"
+dependencies = []
+
+[project.optional-dependencies]
+# environment.physics3d builds and moves PyBullet fixtures.
+physics3d = ["pybullet>=3.2.7,<4"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["environment*"]

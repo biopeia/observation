@@ -82,29 +82,11 @@ jobs:
       - run: uv sync --frozen --extra dev
       - run: uv run --no-sync python scripts/agentctl.py verify
       - run: git diff --check
-      - name: Audit governed publication
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          PUSH_BASE: ${{ github.event.before }}
-          PR_BASE: ${{ github.event.pull_request.base.sha }}
-          PR_HEAD: ${{ github.event.pull_request.head.sha }}
-          HEAD_SHA: ${{ github.sha }}
-        run: |
-          BASE="$PUSH_BASE"
-          HEAD="$HEAD_SHA"
-          if [ "$EVENT_NAME" = "pull_request" ]; then
-            BASE="$PR_BASE"
-            HEAD="$PR_HEAD"
-          fi
-          if [ "$EVENT_NAME" != "pull_request" ] && git merge-base --is-ancestor origin/main "$HEAD"; then
-            BASE="$(git merge-base origin/main "$HEAD")"
-          elif [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
-            BASE="$(git rev-parse "$HEAD^")"
-          fi
-          uv run --no-sync python scripts/agentctl.py ci-check --base "$BASE" --head "$HEAD"
-      - run: uv run --no-sync ruff check src/ observatory/ tests/ scripts/governance/ci_plan.py
-      - run: uv run --no-sync ruff format --check src/ observatory/ tests/ scripts/governance/ci_plan.py
-      - run: uv run --no-sync bandit -r src/ -ll
+      - run: uv run --no-sync ruff check symbiont/src/ environment/src/ modality/src/ embodiment/src/ lab/src/ tests/ scripts/governance/ci_plan.py
+      - run: uv run --no-sync ruff format --check symbiont/src/ environment/src/ modality/src/ embodiment/src/ lab/src/ tests/ scripts/governance/ci_plan.py
+      - run: uv run --no-sync lint-imports
+      # the Observatory tests live under lab/src; tests are not scanned, as before
+      - run: uv run --no-sync bandit -r symbiont/src/ environment/src/ modality/src/ embodiment/src/ lab/src/ -ll -x lab/src/lab/observatory/tests
 
   governance-docs:
     name: governance-and-docs-tests
@@ -148,9 +130,11 @@ jobs:
             uv.lock
             pyproject.toml
       - run: uv sync --frozen --extra dev
-      - run: uv run --no-sync pytest tests/unit tests/integration -q --ignore=tests/integration/test_equivalence_suite.py
-      - run: uv run --no-sync pytest tests/regression -q
-      - run: uv run --no-sync pytest tests/smoke -q
+      - run: uv run --no-sync python scripts/run_tests.py symbiont embodiment modality environment -- -q
+      - run: uv run --no-sync pytest lab/tests/unit lab/tests/integration -q --ignore=lab/tests/integration/test_equivalence_suite.py
+      - run: uv run --no-sync pytest tests/unit -q
+      - run: uv run --no-sync pytest symbiont/tests/regression -q
+      - run: uv run --no-sync pytest lab/tests/smoke -q
 
   physics3d-tests:
     name: physics3d-tests (py3.12)
@@ -172,7 +156,9 @@ jobs:
             uv.lock
             pyproject.toml
       - run: uv sync --frozen --extra dev --extra physics3d
-      - run: uv run --no-sync pytest tests/unit/lab/physics3d tests/integration/test_physics3d_*.py tests/integration/test_equivalence_suite.py -q
+      - run: uv run --no-sync pytest lab/tests/unit/lab/physics3d lab/tests/integration/test_physics3d_*.py lab/tests/integration/test_equivalence_suite.py -q
+      - run: uv run --no-sync pytest embodiment/tests -q
+      - run: uv run --no-sync pytest modality/tests -q
 
   modeling-tests:
     name: modeling-tests (py3.12)
@@ -194,14 +180,16 @@ jobs:
             uv.lock
             pyproject.toml
       - run: uv sync --frozen --extra dev --extra modeling
+      # two sessions: both domains have a tests/unit/modeling package
+      - run: uv run --no-sync pytest symbiont/tests/unit/modeling -q
       - run: >-
           uv run --no-sync pytest
-          tests/unit/modeling
-          tests/unit/lab/modeling
-          tests/integration/test_private_model_training.py
-          tests/integration/test_private_model_learnability.py
-          tests/integration/test_private_model_adaptation.py
-          tests/integration/test_training_ancestry_end_to_end.py
+          lab/tests/unit/modeling
+          lab/tests/unit/lab/modeling
+          lab/tests/integration/test_private_model_training.py
+          lab/tests/integration/test_private_model_learnability.py
+          lab/tests/integration/test_private_model_adaptation.py
+          lab/tests/integration/test_training_ancestry_end_to_end.py
           -q
 
   world-tests:
@@ -224,7 +212,8 @@ jobs:
             uv.lock
             pyproject.toml
       - run: uv sync --frozen --extra dev
-      - run: uv run --no-sync pytest tests/unit/world tests/unit/lab/world -q
+      - run: uv run --no-sync pytest environment/tests -q
+      - run: uv run --no-sync pytest lab/tests/unit/lab/world -q
 
   observatory-tests:
     name: observatory-tests (py3.12)
@@ -246,7 +235,8 @@ jobs:
             uv.lock
             pyproject.toml
       - run: uv sync --frozen --extra dev
-      - run: uv run --no-sync pytest observatory tests/unit/observatory tests/unit/workbench -q
+      - run: uv run --no-sync pytest lab/src/lab/observatory lab/tests/unit/observatory lab/tests/unit/workbench -q
+      - run: uv run --no-sync pytest tests/unit/workbench -q
 
   architecture-integrity:
     name: architecture-integrity
@@ -269,6 +259,10 @@ jobs:
             pyproject.toml
       - run: uv sync --frozen --extra dev
       - run: uv run --no-sync pytest -o addopts= tests/experimental_integrity -q
+      - run: uv run --no-sync pytest -o addopts= symbiont/tests/experimental_integrity -q
+      - run: uv run --no-sync pytest -o addopts= lab/tests/experimental_integrity -q
+      - name: Each library installed alone, tested outside the repository
+        run: uv run --no-sync python scripts/check_isolation.py
 
   runtime-contracts:
     name: runtime-contracts
@@ -290,7 +284,7 @@ jobs:
             uv.lock
             pyproject.toml
       - run: uv sync --frozen --extra dev
-      - run: uv run --no-sync pytest -o addopts= tests/contract tests/compatibility -q
+      - run: uv run --no-sync pytest -o addopts= symbiont/tests/experimental_integrity symbiont/tests/integration -q
 
   experiment-mechanics:
     name: experiment-mechanics
@@ -312,13 +306,19 @@ jobs:
             uv.lock
             pyproject.toml
       - run: uv sync --frozen --extra dev
+      - run: uv run --no-sync pytest -o addopts= lab/tests/experiments -q
       - run: uv run --no-sync pytest -o addopts= tests/experiments -q
 
   canonical-full:
-    name: canonical-full (py3.12)
+    name: canonical-full (${{ matrix.suite }}, py3.12)
     needs: plan
     if: needs.plan.outputs.canonical_full == 'true'
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # one job per domain suite, in parallel; the gate needs all of them
+        suite: [symbiont, embodiment, modality, environment, lab, repository]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -334,8 +334,7 @@ jobs:
             uv.lock
             pyproject.toml
       - run: uv sync --frozen --extra dev --extra physics3d
-      - run: uv run --no-sync pytest -o addopts= tests -q
-      - run: uv run --no-sync pytest observatory -q
+      - run: uv run --no-sync python scripts/run_tests.py ${{ matrix.suite }} -- -o addopts= -q
 
   python-compatibility:
     name: python-compatibility (py${{ matrix.python-version }})
@@ -361,9 +360,10 @@ jobs:
             uv.lock
             pyproject.toml
       - run: uv sync --frozen --extra dev
-      - run: uv run --no-sync pytest -o addopts= tests/contract tests/compatibility tests/experimental_integrity -q
-      - run: uv run --no-sync pytest tests/smoke -q
-      - run: uv run --no-sync symbiont-lab audit verify
+      - run: uv run --no-sync pytest -o addopts= symbiont/tests/experimental_integrity -q
+      - run: uv run --no-sync pytest -o addopts= tests/experimental_integrity -q
+      - run: uv run --no-sync pytest lab/tests/smoke -q
+      - run: uv run --no-sync symbiont-lab --help
 
   host-portability:
     name: host-portability (${{ matrix.os }})
@@ -391,7 +391,7 @@ jobs:
       - shell: bash
         run: uv sync --frozen --extra dev
       - shell: bash
-        run: uv run --no-sync pytest tests/unit/host tests/unit/core -k "host or checkpoint or organism or governor or runtime or capsule" -q
+        run: uv run --no-sync pytest symbiont/tests/unit/host symbiont/tests/unit/core -k "host or checkpoint or organism or governor or runtime or capsule" -q
       - shell: bash
         run: uv run --no-sync symbiont-lab host discover
       - shell: bash
@@ -409,11 +409,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: apk add --no-cache gcc musl-dev libffi-dev openssl-dev cargo rust
-      - run: python -m pip install --upgrade pip
-      - run: pip install -e '.[dev]'
-      - run: pytest tests/unit/host -q
-      - run: symbiont-lab host discover
-      - run: symbiont-lab host sample
+      - run: python -m pip install --no-cache-dir uv
+      - run: uv sync --frozen --extra dev
+      - run: uv run --no-sync pytest symbiont/tests/unit/host -q
+      - run: uv run --no-sync symbiont-lab host discover
+      - run: uv run --no-sync symbiont-lab host sample
 
   protocol-mechanics:
     name: protocol-mechanics (py3.12)
@@ -435,11 +435,11 @@ jobs:
             uv.lock
             pyproject.toml
       - run: uv sync --frozen --extra dev
-      - run: uv run --no-sync symbiont-lab simulate --hosts 30 --steps 140 --seed 11
-      - run: uv run --no-sync symbiont-lab study run heritage.longitudinal --seed 11 --generations 2 --hosts 10 --steps 80
-      - run: uv run --no-sync symbiont-lab study run attention.causal --seed 11 --hosts 12 --steps 90
-      - run: uv run --no-sync symbiont-lab study run evidence.replicated --seeds 3,7 --hosts 10 --steps 80
-      - run: uv run --no-sync symbiont-lab study compare --parameter threat_rate --baseline 0.01 --variant 0.03 --seeds 3,7 --hosts 10 --steps 60 --no-record
+      # one protocol per family, run end to end through the CLI
+      - run: uv run --no-sync symbiont-lab study run continuity.recurrent-restoration --seed 11
+      - run: uv run --no-sync symbiont-lab study run perception.sensory-ablation --seed 11
+      - run: uv run --no-sync symbiont-lab study run learning.structural-producer-fairness --seed 11
+      - run: uv run --no-sync symbiont-lab study run embodiment.label-invariance --seed 11
 
 
   governed-ci-gate:

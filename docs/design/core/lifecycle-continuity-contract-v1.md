@@ -20,7 +20,7 @@ language: en
 
 [Longitudinal Integrity v1](longitudinal-integrity-v1.md) established that state
 survives. The
-[current-state audit](../../../research/audits/current/2026-10-02-current-state-architecture-audit.md)
+[current-state audit](../../../lab/research/audits/current/2026-10-02-current-state-architecture-audit.md)
 found that what "survives" means is still decided in more than one place: two
 re-embodiment semantics, two restore semantics, and a restart that is not an
 uninterrupted run.
@@ -53,14 +53,77 @@ treatment in `src/symbiont/host/continuity.py::REGISTER`.
 | --- | --- | --- | --- |
 | Belongs to the Symbiont and may never be erased | `MUST_PRESERVE` with `Reembodiment.PRESERVED` | restored exactly | carried exactly |
 | Belongs to the Body and is replaced | `MUST_PRESERVE` with `Reembodiment.REPLACED` | restored exactly (same Body) | taken from the fresh Body |
+| Aggregate has individually classified retained and body-bound subfields | its nested policy plus `Reembodiment.MIXED` | restored exactly (same Body) | each subfield follows its registered nested policy |
 | Belongs to the Embodiment and is closed | `APPARATUS_FIELDS` (`embodiment_episode`) | restored | closed and archived; a new episode starts |
 | Kept as historical knowledge without authority over the current Body | `MUST_INVALIDATE_AUTHORITY` with `Reembodiment.INVALIDATED` | restored | knowledge carried, execution bindings and in-flight commitment withdrawn |
 | May be recomputed | `MAY_RECOMPUTE` | rebuilt from preserved state | rebuilt |
 | Must be reset or invalidated | `MUST_RESET` | never crosses the process boundary | not applicable |
 | Apparatus configuration | `MUST_REAPPLY_CONFIG` | recorded in provenance and reapplied | reapplied |
 
-`tests/unit/host/test_continuity_register.py` fails when a runtime attribute or
+`lab/tests/unit/host/test_continuity_register.py` fails when a runtime attribute or
 checkpoint field is unclassified.
+
+### 3.1 BodySchema is episode-scoped evidence, not current-body authority
+
+`body_schema` is a bounded learned representation (sensory-part, cognitive-region,
+dependency, sensorimotor, and body-boundary evidence). The checkpoint does not
+tag each item with a body/episode provenance class. At canonical re-embodiment,
+the complete prior BodySchema is copied into the closed episode archive and its
+learned entries are removed from the active schema. The stable opaque identity
+salt remains; it does not carry learned claims. Its register entry is therefore
+`Reembodiment.MIXED`: the aggregate field is neither wholly preserved nor wholly
+replaced, and consumers must consult its nested policies. The new Body's active schema
+starts undeveloped and is rebuilt only through ordinary observations after the
+transition. Historical archive records and epoch summaries describe the closed
+episode; they are not restored as current BodySchema or injected into current
+body facts.
+
+The current representation is episode-scoped as a whole; the engine does not
+store per-item Body or episode provenance. That is safe only while all active
+entries are reset at a Body transition and archives remain non-authoritative.
+The audited consumers are:
+
+| Consumer | Use | Boundary |
+|---|---|---|
+| `core.domains.embodiment` | Updates sensory and cognitive structure from the current sensory phenotype, self-model, and bounded cognition observations | Writes the active engine only |
+| `core.domains.action` and `actuation.acquisition` | Add agency-boundary and sensorimotor evidence from current action/effect observations | Write the active engine; execution bindings remain a separate authority |
+| `core.orchestration.individual` and `core.embodiment.episode` | Feed active-schema confidence into the embodiment adaptation summary and close the episode with schema/confidence and Body/episode identity | Affects the adaptation record, not action authorization or physical Body facts; snapshot does not feed schema into a new episode |
+| `core.embodiment.transition` | Copies the closing schema into the episode archive, then resets learned entries in the active schema | Archive is historical; new active state starts empty |
+| `core.embodiment.memory` | Stores a prior schema in a historical hypothesis package | `EmbodimentPrior` declares `hypothesis_only`; no production runtime consumer was found in this checkout |
+| Runtime summaries, Lab adaptation summaries, telemetry, and Observatory projections | Report or analyze the active schema | Observer/adaptation bookkeeping; not an execution-authority source |
+
+After re-embodiment, active consumers start from the empty new-Body schema until
+it is rebuilt from new observations. Each action-domain boundary observation
+considers only agency estimates updated after the current episode began. Current
+physical facts come from the new Body's sensors and physiology. Execution
+authority is separately withdrawn by the action-domain transition. Since items
+within one active schema still have no individual provenance, future designs
+that retain or merge entries across episodes must add provenance or preserve
+this whole-schema reset rule.
+
+### 3.2 Body-bound edges inside longitudinal developmental history
+
+The `DevelopmentalTracker` accumulates lifetime counters and bounded
+developmental summaries across Bodies. Its `previous_stressed` bit is
+different: it compares adjacent observations and therefore belongs to the
+current Body's physiological episode. Canonical re-embodiment preserves the
+tracker's cumulative history but resets this edge bit before the first
+observation of the new Body. Otherwise, that Body's first active observation
+could be counted as recovery from stress experienced only by the closed Body.
+
+This nested exception is declared in `REGISTER` as
+`_developmental_tracker.development.previous_stressed` → `REPLACED`; the
+remaining `development` checkpoint state is preserved. The transition and
+register contract are tested by
+`lab/tests/unit/lab/physics3d/test_reembodiment.py::test_reembodiment_does_not_count_new_body_activation_as_old_body_recovery`
+and `lab/tests/unit/host/test_continuity_register.py::test_developmental_tracker_resets_only_body_bound_stress_edge`.
+
+Evidence scope: `lab/tests/integration/test_reembodiment_continuity.py` verifies
+that the archived prior BodySchema is exact, the active schema is undeveloped
+after restore, current-episode boundary evidence uses Body B signal identities,
+and execution bindings are not valid after restore. This is a mechanical
+separation result, not evidence that BodySchema improves adaptation. Historical
+schema entries remain archived data and have no current-body authority.
 
 ## 4. Lifecycle operations
 
@@ -70,9 +133,9 @@ checkpoint field is unclassified.
 | Restart | `<Runtime>.from_checkpoint(payload)` on the same Body | The same organism with the state that was saved | An uninterrupted run (§5) |
 | Historical restore | `OrganismRuntime.from_checkpoint(payload)` | Reproduces the individual exactly as saved, including the absence of cognition in a cognition-less checkpoint | An upgrade |
 | Owner-facing restore | `restore_resident_with_canonical_cognition(payload, runtime_class=...)` | Historical restore plus the `canonical-cognition-adoption` transform when genome and graph are absent | A neutral restore: it can produce a different organism from the same checkpoint (§6) |
-| Canonical re-embodiment | `symbiont_lab.physics3d.reembodiment.prepare_fresh_embodiment_checkpoint` | The Symbiont moved into a fresh Body; knowledge carried, authority withdrawn | A reset of cognition |
+| Canonical re-embodiment | `symbiont.core.embodiment.transition.prepare_fresh_embodiment_checkpoint` | The Symbiont moved into a fresh Body; knowledge carried, authority withdrawn | A reset of cognition |
 | Reduced-seed transplant | `Individual.transplant_to` → `CleanEmbodimentSeed.begin_new_embodiment` | The clean-embodiment apparatus: identity, time, genotype and expression kept; embodiment-specific inference restarted from naive | Canonical re-embodiment (§7) |
-| Temporal decontamination | `symbiont_lab.physics3d.reembodiment.migrate_temporal_domains` | Corrects a contaminated clock coordinate and records it | A reconstruction of the physiology already produced under that clock |
+| Temporal decontamination | `symbiont.core.embodiment.transition.migrate_temporal_domains` | Corrects a contaminated clock coordinate and records it | A reconstruction of the physiology already produced under that clock |
 
 Every operation that changes organism state without the organism living through
 it is an authorized transform. It re-identifies the checkpoint and names itself
@@ -95,7 +158,7 @@ restart = same organism
         + reacclimation
 ```
 
-`tests/integration/test_restart_equivalence.py` fixes the set of fields that may
+`symbiont/tests/integration/test_restart_equivalence.py` fixes the set of fields that may
 differ from an uninterrupted run and asserts that exactly one transition is
 absent. A claim of restart equivalence stronger than this is not supported.
 
@@ -106,9 +169,10 @@ Two facts about an organism's past are not properties of one save:
 - `checkpoint_lineage.transforms` — the authorized transforms it has been
   through;
 - `checkpoint_lineage.unverified_legacy_origin` — some ancestor checkpoint was
-  accepted without a verifiable identity. Schema 10 and earlier recorded an
-  identifier that covered only base-runtime fields and was never checked; such a
-  checkpoint is still accepted, deliberately, as a compatibility boundary.
+  accepted without a verifiable identity. Older schemas recorded identifiers
+  with weaker or unverified coverage; the current schema-14 runtime rejects
+  those checkpoint formats rather than treating the lineage marker as
+  permission to restore them.
 
 Both are carried into every later save (`lineage_history` in
 `src/symbiont/host/checkpoint.py`, restored into the runtime and written back by
@@ -121,49 +185,30 @@ Consequences:
 - "every checkpoint has a verified identity" is false; "every checkpoint saved by
   a current runtime has a verified identity, and says whether its history starts
   at an unverified one" is true;
-- an experiment that needs historical reproduction must use the historical
-  restore, and can check afterwards that `transforms` does not contain
-  `canonical-cognition-adoption`;
+- an experiment that needs historical reproduction must preserve the archival
+  payload and its provenance; no historical runtime restore is supported by the
+  current loader;
 - owner-facing launchers share one adoption path for every runtime layer, so the
   CLI and the resident launcher cannot adopt differently.
 
-Tests: `tests/unit/core/test_canonical_birth.py`,
+Tests: `symbiont/tests/unit/core/test_canonical_birth.py`,
 `tests/compatibility/checkpoint_v10/`.
 
-### 6.1 Legacy admission policy (owner, 2026-10-02; issue #276)
+### 6.1 Historical checkpoint policy
 
-1. **Admission.** Checkpoints saved by schema 10 and earlier remain restorable.
-   No retirement date is set.
-2. **Marking.** Every later save of such an organism carries
-   `unverified_legacy_origin`; it cannot be shed by saving, transforming or
-   re-embodying.
-3. **Refusal where origin matters.** `require_verified_origin(payload)` fails
-   closed. The governed launcher applies it to scientific inputs:
-   `agentctl run start` refuses `confirmation` and `held-out` scopes when the
-   snapshot organism has an unverified origin, and also when its origin cannot
-   be determined. Only an explicit verified origin passes.
-4. **Evidence.** A snapshot manifest records `unverified_legacy_origin`, and the
-   run receipt (`execution.json`, `scientific_input.snapshot`) carries it, so any
-   result can be traced to a verified or an unverified subject.
-5. **No indefinite admission by accident.** `LEGACY_ADMISSION_REVIEW_AT_SCHEMA`
-   (currently 13) names the checkpoint schema at which this policy must be
-   decided again. A test fails when the schema reaches it, until the legacy path
-   is retired or the review version is deliberately moved.
+The earlier schema-10 admission decision predates the current exact-schema
+loader and is not the live restore contract. The current runtime accepts only
+schema 14; schemas 1–13 are rejected without migration. No automatic
+migration path is retained. Historical files and fixtures may remain readable
+as archival data, but archival readability is not runtime-format compatibility
+and neither establishes state continuity nor authorizes conversion into a live
+organism. Any future conversion needs an explicit, separately governed process
+that preserves origin limitations in the resulting lineage.
 
-Retirement, when decided, is an explicit import step: a one-time migration that
-produces a current-schema checkpoint still marked `unverified_legacy_origin`,
-after which direct restore of schema 10 can be removed. It is not designed
-further here because nothing has been retired.
-
-Inventory at the time of the decision (this workstation, repository state
-directories and `~/.local/state/symbiont`): one real organism of schema 10,
-`org-2df92a9d8fda` (saved at tick 16366), with its bundle and five retained
-checkpoints. The fixtures under `tests/compatibility/checkpoint_v10/` are real
-schema-10 payloads kept for the compatibility tests.
-
-Tests: `tests/unit/host/test_legacy_admission_policy.py`,
-`tests/unit/lab/experiments/test_snapshot_origin.py`,
-`tests/unit/test_checkout_isolation.py::test_run_start_requires_a_verified_origin_for_confirmatory_scopes`.
+The historic inventory and tests below describe the former admission policy;
+they do not demonstrate that those payloads can currently be restored. Recheck
+those documents and compatibility tests before claiming a historical organism
+is runnable.
 
 ## 7. Two transplant semantics
 
@@ -173,7 +218,7 @@ Canonical re-embodiment and the reduced seed's transplant answer the question
 | State | Canonical re-embodiment (`OrganismRuntime`) | Reduced seed (`CleanEmbodimentSeed`) |
 | --- | --- | --- |
 | Identity, organism time, genome, expression | preserved | preserved |
-| BodySchema | preserved | reset to naive |
+| BodySchema | archived per closed episode; active schema reset (identity salt retained) | reset to naive |
 | Sensorimotor dynamics, effects, causal evidence, controllability, agency | preserved as knowledge | reset to naive |
 | Competences | preserved | preserved, effect grounding cleared |
 | Execution bindings, surface, in-flight commitment | invalidated | reset |
@@ -183,7 +228,7 @@ The reduced seed is the apparatus of the clean-embodiment studies
 (`symbiont_lab.studies.embodiment`). Its semantics are declared per attribute in
 `REDUCED_SEED_REGISTER`; every attribute where it discards or ungrounds something
 canonical re-embodiment keeps is marked `diverges`.
-`tests/unit/host/test_reduced_seed_register.py` checks that the register covers
+`symbiont/tests/unit/host/test_reduced_seed_register.py` checks that the register covers
 every attribute of the class, that the declared divergences are exactly the real
 ones, and that a transplant treats each attribute as declared.
 
@@ -244,12 +289,12 @@ canonical re-embodiment: `symbiont_lab.physics3d.{runtime, reembodiment}`.
 
 | Rule | Register | Test |
 | --- | --- | --- |
-| Every runtime attribute is classified | `REGISTER` | `tests/unit/host/test_continuity_register.py` |
-| Current-schema checkpoints fail closed | `required_checkpoint_fields` | `tests/unit/host/test_strict_restore.py` |
-| Whole lifecycle per register entry: state → checkpoint → restore → checkpoint → re-embodiment → restore → checkpoint | `REGISTER` | `tests/integration/test_reembodiment_continuity.py::test_the_whole_lifecycle_holds_per_register_entry` |
-| Restart differs from an uninterrupted run only on the declared surface | — | `tests/integration/test_restart_equivalence.py` |
-| Transforms and unverified legacy origin are durable | `lineage_history` | `tests/unit/core/test_canonical_birth.py` |
-| Reduced-seed transplant contract and its divergences | `REDUCED_SEED_REGISTER` | `tests/unit/host/test_reduced_seed_register.py` |
+| Every runtime attribute is classified | `REGISTER` | `lab/tests/unit/host/test_continuity_register.py` |
+| Current-schema checkpoints fail closed | `required_checkpoint_fields` | `symbiont/tests/unit/host/test_strict_restore.py` |
+| Whole lifecycle per register entry: state → checkpoint → restore → checkpoint → re-embodiment → restore → checkpoint | `REGISTER` | `lab/tests/integration/test_reembodiment_continuity.py::test_the_whole_lifecycle_holds_per_register_entry` |
+| Restart differs from an uninterrupted run only on the declared surface | — | `symbiont/tests/integration/test_restart_equivalence.py` |
+| Transforms and unverified legacy origin are durable | `lineage_history` | `symbiont/tests/unit/core/test_canonical_birth.py` |
+| Reduced-seed transplant contract and its divergences | `REDUCED_SEED_REGISTER` | `symbiont/tests/unit/host/test_reduced_seed_register.py` |
 
 ## 10. Claims this contract does not make
 
