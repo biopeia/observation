@@ -86,6 +86,30 @@ def test_nested_checkpoint_envelope_fields_are_inventoried() -> None:
         )
 
 
+def test_continuation_controls_have_matching_register_owners() -> None:
+    provenance = next(
+        entry for entry in ENVELOPE_FIELDS if entry.checkpoint_field == "runtime_provenance"
+    )
+    controls = {
+        path.split(".", maxsplit=2)[1]
+        for path in provenance.nested_checkpoint_fields
+        if path.startswith("session_controls.")
+    }
+    registered = {
+        entry.attribute.removeprefix("_")
+        for entry in REGISTER
+        if entry.checkpoint_field == "runtime_provenance"
+    }
+
+    assert controls == registered
+    assert all(
+        entry.continuity is ContinuityClass.MUST_REAPPLY_CONFIG
+        and not entry.in_state_identity
+        for entry in REGISTER
+        if entry.checkpoint_field == "runtime_provenance"
+    )
+
+
 def test_state_identity_flag_matches_the_hashed_payload() -> None:
     runtime = _runtime(LAYERS[-1])
     hashed = set(runtime._build_checkpoint_payload()) - {"runtime_provenance"}
