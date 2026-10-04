@@ -31,7 +31,9 @@ def render(base: str, head: str) -> str:
         disposition = "FROZEN evidence must not be modified in place."
 
     lanes = ", ".join(f"`{lane}`" for lane in plan.selected_lanes) or "none"
-    reasons = "\n".join(f"- {reason}" for reason in plan.reasons) or "- no elevated authority reason"
+    reasons = (
+        "\n".join(f"- {reason}" for reason in plan.reasons) or "- no elevated authority reason"
+    )
     paths = "\n".join(f"- `{path}`" for path in plan.changed_paths[:25])
     if len(plan.changed_paths) > 25:
         paths += f"\n- … {len(plan.changed_paths) - 25} more"
@@ -49,7 +51,7 @@ def render(base: str, head: str) -> str:
 {reasons}
 
 ### Changed surfaces
-{paths or '- none'}
+{paths or "- none"}
 
 Authority and technical impact are deliberately independent: review requirements come from the authority class; test lanes come from the versioned impact matrix.
 {END}"""
