@@ -367,6 +367,9 @@ class AdaptiveSenseModel:
         self._probe_cursor = probe_cursor
         self._states: dict[str, SenseState] = {}
         self._relations: dict[tuple[str, str], SensoryRelation] = {}
+        # Eviction candidates of one tick, ordered once; derived, never saved.
+        self._eviction_order: list[tuple[int, str, str]] = []
+        self._eviction_order_tick = -1
         self._hypotheses = HypothesisTracker()
         self._previous_values: dict[str, float] = {}
         self._last_plan = SamplingPlan((), (), 0, 0)
@@ -486,20 +489,31 @@ class AdaptiveSenseModel:
         return relation
 
     def _evict_relation(self) -> bool:
+        """Drop the least recently seen relation not seen this tick.
+
+        Many relations are evicted per tick.  The candidates of a tick are
+        ordered once; within the tick that set only shrinks (a relation that
+        is touched or created now is no longer a candidate), so later
+        evictions pop from the same order and skip entries that left it.
+        """
         tick = self._tick
-        oldest = None
-        oldest_key = None
-        for relation in self._relations.values():
-            if relation.last_seen_tick < tick:
-                k = (relation.last_seen_tick, relation.capability_a, relation.capability_b)
-                if oldest_key is None or k < oldest_key:
-                    oldest = relation
-                    oldest_key = k
-        if oldest is None:
-            return False
-        del self._relations[(oldest.capability_a, oldest.capability_b)]
-        self._relation_changes += 1
-        return True
+        if self._eviction_order_tick != tick:
+            self._eviction_order = [
+                (relation.last_seen_tick, relation.capability_a, relation.capability_b)
+                for relation in self._relations.values()
+                if relation.last_seen_tick < tick
+            ]
+            heapq.heapify(self._eviction_order)
+            self._eviction_order_tick = tick
+        while self._eviction_order:
+            last_seen, capability_a, capability_b = heapq.heappop(self._eviction_order)
+            relation = self._relations.get((capability_a, capability_b))
+            if relation is None or relation.last_seen_tick != last_seen:
+                continue
+            del self._relations[(capability_a, capability_b)]
+            self._relation_changes += 1
+            return True
+        return False
 
     def observe(self, readings: Iterable[SensorReading]) -> None:
         self._tick += 1
