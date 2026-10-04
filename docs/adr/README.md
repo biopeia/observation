@@ -38,6 +38,7 @@ mindmap
       ADR-0029 Poda de colinealidad sensorial
       ADR-0031 Estabilidad Oja y cotas sinápticas
       ADR-0037 Autoridad de la realidad
+      ADR-0068 Autoridad factual y evento único
     Genoma & Reproducción
       ADR-0019 Genoma v2 y línea germinal
       ADR-0033 Reproducción endógena por estrés
@@ -112,6 +113,7 @@ mindmap
 | **[ADR-0029](ADR-0029-collinearity-pruning-and-sensory-manifold-selection.md)** | Collinearity Pruning and Sensory Manifold Selection | Aceptado | Poda de canales redundantes con correlación de Pearson $\lvert r_{xy} \rvert \ge 0.97$ preservando el presupuesto finito de atención para dimensiones independientes. |
 | **[ADR-0031](ADR-0031-synaptic-normalization-and-plasticity-stability-via-ojas-rule.md)** | Synaptic Normalization and Plasticity Stability via Oja's Rule | Aceptado | Normalización intrínseca de pesos plásticos mediante la regla de Oja y saturación cerrada en $[-2.0, 2.0]$ para evitar divergencia numérica. |
 | **[ADR-0037](ADR-0037-reality-authority-and-epistemic-demarcation-of-imagination.md)** | Reality Authority and Epistemic Demarcation of Imagination | Aceptado | Axioma de autoridad de la realidad: la imaginación puede proponer estados pero jamás declarar verdad factual empírica. |
+| **[ADR-0068](ADR-0068-factual-authority-and-single-experienced-event.md)** | Factual Authority and the Single Experienced Event | Accepted | Ningún subsistema cognitivo fabrica autoridad factual; una consecuencia ocurrida una vez tiene una identidad única (`SensorimotorTransition`) que cada aprendiz interpreta desde su propia epistemología. |
 
 ### 5. Genoma & Reproducción
 

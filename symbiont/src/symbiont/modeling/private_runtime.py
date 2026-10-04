@@ -48,6 +48,8 @@ class _PrivateFrame:
     development: str | None
     homeostatic_deviation: float
     episodic_projection: EpisodicProjection
+    # Cognitive Cycle v1 §5.1: the motor-caused fact this frame observed.
+    factual_ref: str | None = None
 
 
 class PrivateModelOrganismRuntime(ModeledOrganismRuntime):
@@ -71,14 +73,20 @@ class PrivateModelOrganismRuntime(ModeledOrganismRuntime):
         *,
         capture_private_experience: bool = True,
         enable_prospective_agency: bool = True,
+        shared_fact_identity: bool = False,
         **kwargs,
     ) -> None:
         if not isinstance(capture_private_experience, bool):
             raise ValueError("capture_private_experience must be boolean")
         if not isinstance(enable_prospective_agency, bool):
             raise ValueError("enable_prospective_agency must be boolean")
+        if not isinstance(shared_fact_identity, bool):
+            raise ValueError("shared_fact_identity must be boolean")
         self._capture_private_experience = capture_private_experience
         self._enable_prospective_agency = enable_prospective_agency
+        # Cognitive Cycle v1 W1: off until its retention/corpus comparison is
+        # reviewed -- it changes record hashes and generative source diversity.
+        self._shared_fact_identity = shared_fact_identity
         self._pending_private_frame: _PrivateFrame | None = None
         super().__init__(**kwargs)
         self.generative_cognition.register_model(
@@ -392,6 +400,9 @@ class PrivateModelOrganismRuntime(ModeledOrganismRuntime):
             vital=vital,
             development=development,
         )
+        # The transition closed during this tick is the consequence of the
+        # command issued in the previous frame: one fact, cited by its own id.
+        transition = self._action_domain.last_transition if self._shared_fact_identity else None
         return _PrivateFrame(
             tick=result.tick,
             context_tokens=tuple(context[:512]),
@@ -404,6 +415,7 @@ class PrivateModelOrganismRuntime(ModeledOrganismRuntime):
             development=development,
             homeostatic_deviation=float(self._homeostasis.deviation()),
             episodic_projection=episodic_projection,
+            factual_ref=(f"causal.{transition.transition_id}" if transition is not None else None),
         )
 
     @staticmethod
@@ -456,7 +468,10 @@ class PrivateModelOrganismRuntime(ModeledOrganismRuntime):
         current: _PrivateFrame,
     ) -> ExperienceRecord:
         outcomes = self._temporal_outcomes(previous, current)
-        evidence = tuple(dict.fromkeys((*previous.evidence_refs, *current.evidence_refs)))[:16]
+        fact = (current.factual_ref,) if current.factual_ref is not None else ()
+        evidence = tuple(dict.fromkeys((*fact, *previous.evidence_refs, *current.evidence_refs)))[
+            :16
+        ]
         digest = hashlib.sha256(
             (
                 f"{self.organism_id}:{previous.tick}:{current.tick}:"
@@ -847,7 +862,13 @@ class PrivateModelOrganismRuntime(ModeledOrganismRuntime):
                     self.generative_cognition.note_factual_outcome(
                         action_id=episode.action_token.removeprefix("action."),
                         outcome_tokens=episode.outcome_tokens,
-                        evidence_refs=episode.evidence_refs,
+                        # One event is one factual source, not one per signal
+                        # reference (Cognitive Cycle v1 F2).
+                        evidence_refs=(
+                            (current.factual_ref,)
+                            if current.factual_ref is not None
+                            else episode.evidence_refs
+                        ),
                         model_ids=("private-slm",),
                     )
                 self._schedule_observed_outcome_value_credit(
@@ -888,6 +909,9 @@ class PrivateModelOrganismRuntime(ModeledOrganismRuntime):
         config = dict(payload.get("private_model_config", {}))
         config["capture_private_experience"] = self._capture_private_experience
         config["enable_prospective_agency"] = self._enable_prospective_agency
+        if self._shared_fact_identity:
+            # Written only when enabled: a default checkpoint stays byte-identical.
+            config["shared_fact_identity"] = True
         payload["private_model_config"] = config
 
         # WARN(no-cross-restart-bridging): Persist agency state (OutcomeValueLedger only; pending traces are NOT
@@ -914,6 +938,11 @@ class PrivateModelOrganismRuntime(ModeledOrganismRuntime):
             if not isinstance(value, bool):
                 raise ValueError("invalid prospective agency checkpoint flag")
             constructor["enable_prospective_agency"] = value
+        if "shared_fact_identity" not in constructor:
+            value = raw_config.get("shared_fact_identity", False)
+            if not isinstance(value, bool):
+                raise ValueError("invalid shared fact identity checkpoint flag")
+            constructor["shared_fact_identity"] = value
         runtime = super().from_checkpoint(payload, **constructor)
         # WARN: Never bridge t -> t+1 across a restart. The first post-restore tick
         # establishes a new independent frame.
