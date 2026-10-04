@@ -107,7 +107,7 @@ benefit or causal-intervention evidence was reviewed for this inventory.
 
 | Mechanism | Current level | Evidence boundary |
 |---|---|---|
-| CognitiveGraph / cognitive bridge | E1 — durable | Checkpoint round-trip and production readout paths exist; no test in this audit isolates a graph-state change and its resulting action. |
+| CognitiveGraph / cognitive bridge | E2 — consumed | `CognitiveBridge.tick()` produces a primitive-family readout from an active graph path; `OrganismRuntime._choose_acquired_action()` passes that readout to `admit_afforded_action()`. `symbiont/tests/unit/core/test_actuation_cognition_p1.py::test_cognitive_graph_readout_changes_executive_admission` holds one affordance fixed and shows an inactive graph readout yields no decision while an active graph readout admits the competence. This establishes a tested consumer dependency, not improved outcomes or causal utility (E3/E4). |
 | SignalKnowledge | E1 — durable | Persists and is surfaced to runtime/observer events; no organism decision consumer was found. |
 | EvidenceRevisionLedger | E1 — durable | Persists and participates in investigation-time baseline revision; an isolated downstream decision consequence was not demonstrated. |
 | Predictive learning / predictor credit | E1 — durable | Predictor updates and sensory utility wiring exist; a differential production decision test isolating predictor state was not established. |

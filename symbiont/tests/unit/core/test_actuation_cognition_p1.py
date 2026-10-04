@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+from symbiont.agency.affordance import ActionAffordance, affordance_id_for
+from symbiont.agency.intention import AdmissionRoute
 from symbiont.cognition.graph import CognitiveGraph, PlasticEdge, PlasticNode
 from symbiont.cognition.limits import KernelLimits
 from symbiont.cognition.types import EdgeKind, NodeKind
 from symbiont.core.cognition.bridge import CognitiveBridge
+from symbiont.core.orchestration.runtime import OrganismRuntime
 
 
 def _genome():
@@ -218,6 +221,92 @@ def test_verified_motor_primitive_gets_its_own_readout_family():
     )
     assert "primitive.test" in result.readouts_for_family("primitive")
     assert "readout_primitive:primitive.test" not in result.readouts_for_family("core")
+
+
+def test_cognitive_graph_readout_changes_executive_admission():
+    """Trace graph-produced activation through the runtime's executive consumer."""
+    graph = CognitiveGraph(
+        nodes=(
+            PlasticNode(node_id="sense_a", kind=NodeKind.SENSE),
+            PlasticNode(node_id="concept_a", kind=NodeKind.CONCEPT),
+            PlasticNode(
+                node_id="readout_primitive:primitive.test", kind=NodeKind.READOUT
+            ),
+        ),
+        edges=(
+            PlasticEdge(
+                source_id="sense_a",
+                target_id="concept_a",
+                kind=EdgeKind.EXCITATORY,
+                weight=0.8,
+                plasticity=0.5,
+                delay_ticks=0,
+            ),
+            PlasticEdge(
+                source_id="concept_a",
+                target_id="readout_primitive:primitive.test",
+                kind=EdgeKind.EXCITATORY,
+                weight=0.8,
+                plasticity=0.5,
+                delay_ticks=1,
+                support=4,
+            ),
+        ),
+        kernel_limits=KernelLimits(),
+    )
+    bridge = CognitiveBridge(
+        graph=graph,
+        genome=_genome(),
+        kernel_limits=KernelLimits(),
+        develop_senses=True,
+    )
+    inactive = bridge.tick(
+        {"sense_a": 2.0}, tick=1, active_primitive_ids=("primitive.test",)
+    )
+    active = bridge.tick(
+        {"sense_a": 3.0}, tick=2, active_primitive_ids=("primitive.test",)
+    )
+    affordance = ActionAffordance(
+        affordance_id=affordance_id_for(
+            competence_id="primitive.test",
+            anticipated_effect_id="effect.test",
+            context_ref="context.test",
+            embodiment_id=None,
+        ),
+        competence_id="primitive.test",
+        anticipated_effect_id="effect.test",
+        context_ref="context.test",
+        embodiment_id=None,
+        prediction_confidence=0.5,
+        controllability=0.6,
+        executability_confidence=0.8,
+        prediction_ref="prediction.test",
+        evidence_refs=("causal.test",),
+    )
+
+    class NoGenerativeAffordances:
+        @staticmethod
+        def for_effect(**_kwargs):
+            return ()
+
+    runtime = OrganismRuntime()
+    choose = lambda cognition: runtime._choose_acquired_action(
+        cognition=cognition,
+        percepts=(),
+        affordances=(affordance,),
+        resolver=NoGenerativeAffordances(),
+        context_ref="context.test",
+        signal_references={},
+        tick=2,
+    )
+
+    assert inactive.readouts_for_family("primitive")["primitive.test"] == 0.0
+    assert "primitive.test" in active.readouts_for_family("primitive")
+    assert choose(inactive) is None
+    decision = choose(active)
+    assert decision is not None
+    assert decision.admission is AdmissionRoute.COGNITIVE
+    assert decision.competence_id == "primitive.test"
 
 
 def test_primitive_association_can_grow_without_becoming_core_route():
