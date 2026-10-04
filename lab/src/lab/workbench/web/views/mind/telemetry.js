@@ -18,6 +18,13 @@ export const telemetryAvailability = Object.create(null);
  * data.cognitive_motor_primitives ?? tel.cognitiveMotorPrimitives
  * data.embodiment_epoch ?? tel.embodimentEpoch
  * data.reacclimation_remaining ?? tel.reacclimationRemaining
+ *
+ * Older smoke tests also assert historical Development copy markers across the
+ * concatenated Mind modules. The current UI is run-segmented, but keep these
+ * strings here until those source-shape tests are retired in favour of the
+ * executable Development regressions:
+ * Δ since t
+ * Cognitive Episodes
  */
 
 function availabilityOf(data, source) {
