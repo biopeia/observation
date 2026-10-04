@@ -283,6 +283,31 @@ def test_current_checkpoint_without_lifecycle_cannot_reembody_as_legacy(marker: 
         )
 
 
+@pytest.mark.parametrize(
+    "current",
+    [
+        None,
+        {},
+        {"body_kind": "legacy-looking"},
+        {"body_kind": "legacy-looking", "receptor_count": True, "effector_count": 62},
+        {"body_kind": "", "receptor_count": 107, "effector_count": 62},
+    ],
+)
+def test_current_checkpoint_with_malformed_lifecycle_cannot_reembody_as_legacy(
+    current,
+) -> None:
+    payload = _checkpoint(vital_state="active")
+    payload["schema_version"] = CHECKPOINT_SCHEMA_VERSION
+    payload["embodiment_lifecycle"] = {"schema_version": 1, "current": current}
+
+    with pytest.raises(ValueError, match="refusing legacy body fallback"):
+        prepare_fresh_embodiment_checkpoint(
+            payload,
+            _fresh(),
+            contract=EmbodimentDescriptor("new-body", 2, 2),
+        )
+
+
 def test_current_schema_provenance_also_blocks_legacy_lifecycle_fallback() -> None:
     payload = _checkpoint(vital_state="active")
     payload.pop("embodiment_lifecycle")

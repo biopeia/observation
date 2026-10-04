@@ -23,6 +23,7 @@ from symbiont.cognition.limits import KernelLimits
 from symbiont.core.embodiment.transition import (
     EmbodimentDescriptor,
     prepare_fresh_embodiment_checkpoint,
+    update_lifecycle_for_checkpoint,
 )
 from symbiont.core.social import SocialHabitat
 from symbiont.core.social.interactions import EcologicalResourcePool
@@ -177,9 +178,7 @@ class _Case:
             ),
             tick=DEVELOPMENT_TICKS - 2,
         )
-        developed.observe_sequence_outcome(
-            ("outcome.sequence",), tick=DEVELOPMENT_TICKS - 1
-        )
+        developed.observe_sequence_outcome(("outcome.sequence",), tick=DEVELOPMENT_TICKS - 1)
         domain = developed._action_domain
         self.body_a_fingerprint = body_a.surface.contract_fingerprint
         self.valid_bindings_in_a = sum(
@@ -196,6 +195,11 @@ class _Case:
         self.symbol_grounding = _json(developed.symbol_grounding_ledger.checkpoint())
         self.sequence_grounding = _json(developed.sequence_grounding_ledger.checkpoint())
         self.previous = _json(developed.checkpoint())
+        self.previous = update_lifecycle_for_checkpoint(
+            self.previous,
+            contract=EmbodimentDescriptor("causal-body-a", 4, 4),
+            state="active",
+        )
         del developed
 
         # Reuse Body A's opaque receptor IDs in a distinct, differently sized
@@ -281,12 +285,16 @@ def test_body_a_development_is_not_trivial(case: _Case) -> None:
 
 
 def test_symbiont_owned_state_is_preserved_exactly(case: _Case) -> None:
-    preserved = {
-        field
-        for entry in REGISTER
-        if entry.reembodiment is Reembodiment.PRESERVED
-        for field in entry.checkpoint_fields
-    } - SAVE_METADATA - {"body_schema"}
+    preserved = (
+        {
+            field
+            for entry in REGISTER
+            if entry.reembodiment is Reembodiment.PRESERVED
+            for field in entry.checkpoint_fields
+        }
+        - SAVE_METADATA
+        - {"body_schema"}
+    )
 
     changed = {
         field
@@ -378,8 +386,9 @@ def test_knowledge_survives_as_knowledge_without_authority(case: _Case) -> None:
     assert current_schema["boundary_evidence"] != prior_boundary
     assert restored.body_schema.state == "undeveloped"
     assert restored.body_schema.part_count == 0
-    assert case.transformed["embodiment_lifecycle"]["history"][0]["body_schema"] == (
-        case.previous["body_schema"]
+    assert (
+        case.transformed["embodiment_lifecycle"]["history"][0]["body_schema"]
+        == (case.previous["body_schema"])
     )
     assert current_schema["id_salt"] == prior_schema["id_salt"]
     assert prior_boundary["self_caused_channels"]
@@ -393,9 +402,9 @@ def test_knowledge_survives_as_knowledge_without_authority(case: _Case) -> None:
     restored_checkpoint = restored.checkpoint()
     assert restored_checkpoint["sensory_system"] == case.transformed["sensory_system"]
     assert restored_checkpoint["sensory_development"] == case.transformed["sensory_development"]
-    assert restored_checkpoint["training_ancestry"]["vocabularies"][
-        case.active_model_id
-    ] == list(case.child_vocabulary)
+    assert restored_checkpoint["training_ancestry"]["vocabularies"][case.active_model_id] == list(
+        case.child_vocabulary
+    )
     assert restored.social_evidence_ledger.claims == case.own_social_claims
     assert _json(restored.social_ledger.checkpoint()) == case.social_relations
     assert _json(restored.symbol_grounding_ledger.checkpoint()) == case.symbol_grounding
@@ -428,8 +437,7 @@ def test_experience_continues_in_body_b_without_erasing_body_a_knowledge(
 
     assert restored.tick_count == DEVELOPMENT_TICKS + 50
     current_body_signals = {
-        restored._signal_identity.signal_id(capability_id)
-        for capability_id in body_b.receptor_ids
+        restored._signal_identity.signal_id(capability_id) for capability_id in body_b.receptor_ids
     }
     assert set(restored.body_schema.self_caused_channels) <= current_body_signals
     assert len(restored.experience_ledger.records) > len(case.experience_in_a)
@@ -477,6 +485,11 @@ def test_the_whole_lifecycle_holds_per_register_entry(case: _Case) -> None:
         interoception_mode="absent",
     )
     resaved = _json(restarted.checkpoint())
+    resaved = update_lifecycle_for_checkpoint(
+        resaved,
+        contract=EmbodimentDescriptor("causal-body-a", 4, 4),
+        state="active",
+    )
 
     # Restore followed by save is lossless for every field the register owns.
     assert {

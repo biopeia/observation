@@ -466,6 +466,22 @@ def prepare_fresh_embodiment_checkpoint(
     has_current_lifecycle = (
         isinstance(raw_lifecycle, Mapping)
         and raw_lifecycle.get("schema_version") == _SCHEMA_VERSION
+        and isinstance(raw_lifecycle.get("current"), Mapping)
+    )
+    current_contract = raw_lifecycle.get("current") if has_current_lifecycle else None
+    has_current_lifecycle = (
+        has_current_lifecycle
+        and isinstance(current_contract, Mapping)
+        and (
+            isinstance(current_contract.get("body_kind"), str)
+            and bool(current_contract.get("body_kind"))
+            and all(
+                isinstance(current_contract.get(field), int)
+                and not isinstance(current_contract.get(field), bool)
+                and current_contract[field] >= 0
+                for field in ("receptor_count", "effector_count", "started_tick")
+            )
+        )
     )
     if _declares_current_checkpoint_schema(previous) and not has_current_lifecycle:
         raise ValueError(
