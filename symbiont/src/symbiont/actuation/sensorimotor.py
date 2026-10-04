@@ -472,6 +472,9 @@ class CompetenceDevelopmentEngine:
         self._passive_effect_stat = _RunningStat()
         self._passive_direction_stats: dict[str, _RunningStat] = {}
         self._primitive_direction_stats: dict[MotorSequence, dict[str, _RunningStat]] = {}
+        # Directional consistency per sequence, valid until that sequence's
+        # direction statistics change; derived, never checkpointed.
+        self._direction_consistency_cache: dict[MotorSequence, float] = {}
         self._last_episode_end_tick: dict[MotorSequence, int] = {}
         self._primitives: dict[str, MotorPrimitive] = {}
         self._primitive_id_by_sequence: dict[MotorSequence, str] = {}
@@ -1099,6 +1102,7 @@ class CompetenceDevelopmentEngine:
             passive_mean = passive_stat.mean if passive_stat is not None else 0.0
             residual_delta = delta - passive_mean
             direction_stats.setdefault(signal_id, _RunningStat()).observe(residual_delta)
+        self._direction_consistency_cache.pop(sequence, None)
         self._last_episode_end_tick[sequence] = end_tick
 
         if len(self._primitive_stats) > _MAX_PRIMITIVE_STATS:
@@ -1122,6 +1126,7 @@ class CompetenceDevelopmentEngine:
                 for key, value in self._primitive_direction_stats.items()
                 if key in retained_sequences
             }
+            self._direction_consistency_cache.clear()
             for lifecycle in (
                 self._primitive_first_sample_tick,
                 self._primitive_last_sample_tick,
@@ -1368,9 +1373,12 @@ class CompetenceDevelopmentEngine:
     def snapshot(self) -> SensorimotorSnapshot:
         candidate_metrics: list[tuple[int, float, float, float]] = []
         for sequence, stat in self._primitive_stats.items():
-            direction = self._directional_consistency(
-                self._primitive_direction_stats.get(sequence, {})
-            )
+            direction = self._direction_consistency_cache.get(sequence)
+            if direction is None:
+                direction = self._directional_consistency(
+                    self._primitive_direction_stats.get(sequence, {})
+                )
+                self._direction_consistency_cache[sequence] = direction
             reproducibility = 1.0 / (1.0 + 25.0 * stat.variance)
             controllability = max(0.0, stat.mean) * reproducibility * direction
             candidate_metrics.append(
@@ -1790,6 +1798,7 @@ class CompetenceDevelopmentEngine:
                         for signal_id, raw_signal_stat in raw_signals.items()
                         if isinstance(raw_signal_stat, Mapping)
                     }
+                    learner._direction_consistency_cache.pop(sequence, None)
 
         raw_horizons = payload["horizon_counts"]
         if isinstance(raw_horizons, Mapping):
