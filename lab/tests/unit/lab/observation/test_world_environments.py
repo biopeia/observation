@@ -107,6 +107,52 @@ def test_runtime_restores_environment_without_putting_world_in_organism():
         restored.close()
 
 
+@pytest.mark.parametrize(
+    "field",
+    [
+        "lab_world",
+        "body_id",
+        "locomotion_resource",
+        "locomotion_evaluator",
+        "body_interoception",
+        "origin_xy",
+    ],
+)
+def test_runtime_rejects_physical_checkpoint_missing_current_contract_field(field: str):
+    from lab.physics3d.runtime import PyBulletEmbodimentRuntime
+
+    physical_state = {
+        "lab_world": {"name": "flat-v1"},
+        "body_id": "body.current",
+        "locomotion_resource": {},
+        "locomotion_evaluator": {},
+        "body_interoception": {},
+        "origin_xy": [0.0, 0.0],
+    }
+    physical_state.pop(field)
+
+    with pytest.raises(RuntimeError, match="physical checkpoint is missing"):
+        PyBulletEmbodimentRuntime(gui=False, physical_state=physical_state)
+
+
+def test_runtime_rejects_current_restore_without_embodiment_episode():
+    from lab.physics3d.runtime import PyBulletEmbodimentRuntime
+
+    physical_state = {
+        "lab_world": {"name": "flat-v1"},
+        "body_id": "body.current",
+        "locomotion_resource": {},
+        "locomotion_evaluator": {},
+        "body_interoception": {},
+        "origin_xy": [0.0, 0.0],
+    }
+
+    with pytest.raises(RuntimeError, match="missing embodiment_episode"):
+        PyBulletEmbodimentRuntime(
+            gui=False, physical_state=physical_state, runtime_checkpoint={}
+        )
+
+
 def test_home_launch_keeps_environment_in_laboratory_run(tmp_path):
     from lab.app.physics3d.runs import Physics3DRunStore
 

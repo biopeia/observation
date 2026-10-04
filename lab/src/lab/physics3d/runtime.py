@@ -7,8 +7,6 @@ experience and SLM state remain inside the canonical organism runtime.
 
 from __future__ import annotations
 
-import hashlib
-import json
 import math
 import secrets
 import time
@@ -243,6 +241,25 @@ class PyBulletEmbodimentRuntime:
         organism_id: str | None = None,
         kernel_limits: KernelLimits | None = None,
     ) -> None:
+        if physical_state is not None:
+            if not isinstance(physical_state.get("lab_world"), Mapping):
+                raise RuntimeError("physical checkpoint is missing its lab_world contract")
+            body_id = physical_state.get("body_id")
+            if not isinstance(body_id, str) or not body_id:
+                raise RuntimeError("physical checkpoint is missing its body_id")
+            if not isinstance(physical_state.get("locomotion_resource"), Mapping):
+                raise RuntimeError("physical checkpoint is missing locomotion_resource")
+            if not isinstance(physical_state.get("locomotion_evaluator"), Mapping):
+                raise RuntimeError("physical checkpoint is missing locomotion_evaluator")
+            if not isinstance(physical_state.get("body_interoception"), Mapping):
+                raise RuntimeError("physical checkpoint is missing body_interoception")
+            if not isinstance(physical_state.get("origin_xy"), list):
+                raise RuntimeError("physical checkpoint is missing origin_xy")
+            if (
+                runtime_checkpoint is not None
+                and not isinstance(runtime_checkpoint.get("embodiment_episode"), Mapping)
+            ):
+                raise RuntimeError("current Physics3D checkpoint is missing embodiment_episode")
         try:
             import pybullet as p
         except ImportError as exc:
@@ -250,10 +267,9 @@ class PyBulletEmbodimentRuntime:
                 "PyBullet is optional. Install with: pip install 'symbiont-lab[physics3d]'"
             ) from exc
 
-        # Validate before allocating a physics client. Historical poses used flat-v1.
+        # Physical checkpoints are current-format records, not an invitation to
+        # guess the world in which their coordinates were produced.
         saved_world = physical_state.get("lab_world") if physical_state is not None else None
-        if physical_state is not None and saved_world is None:
-            saved_world = resolve_environment("flat-v1", None)
         self.environment_recipe = resolve_environment(environment, saved_world)
         self.p = p
         self.time_step = float(time_step)
@@ -318,49 +334,13 @@ class PyBulletEmbodimentRuntime:
         else:
             self._settle_new_body()
 
-        # Physical Body identity belongs to the Body checkpoint, not to the
-        # Symbiont. Legacy body files may borrow the associated Episode id once
-        # during migration; the next physical save persists it here.
-        raw_physical_body_id = (
-            physical_state.get("body_id") if isinstance(physical_state, Mapping) else None
-        )
-        if isinstance(raw_physical_body_id, str) and raw_physical_body_id:
-            self._physical_body_id = raw_physical_body_id
+        # Physical body identity is part of every current physical checkpoint.
+        if physical_state is None:
+            self._physical_body_id = f"body.{secrets.token_hex(12)}"
         else:
-            raw_episode = (
-                runtime_checkpoint.get("embodiment_episode")
-                if isinstance(runtime_checkpoint, Mapping)
-                else None
-            )
-            episode_body_id = (
-                raw_episode.get("body_id") if isinstance(raw_episode, Mapping) else None
-            )
-            if physical_state is not None and isinstance(episode_body_id, str) and episode_body_id:
-                self._physical_body_id = episode_body_id
-            elif physical_state is not None:
-                migration_material = {
-                    key: value
-                    for key, value in physical_state.items()
-                    if key
-                    not in {
-                        "symbiont_ticks",
-                        "locomotion_resource",
-                        "locomotion_evaluator",
-                        "contact_count",
-                        "ground_contact_count",
-                        "self_contact_count",
-                        "resource_contact_count",
-                    }
-                }
-                encoded = json.dumps(
-                    migration_material,
-                    sort_keys=True,
-                    separators=(",", ":"),
-                    allow_nan=False,
-                ).encode("utf-8")
-                self._physical_body_id = "body.legacy." + hashlib.sha256(encoded).hexdigest()[:24]
-            else:
-                self._physical_body_id = f"body.{secrets.token_hex(12)}"
+            raw_physical_body_id = physical_state.get("body_id")
+            assert isinstance(raw_physical_body_id, str) and raw_physical_body_id
+            self._physical_body_id = raw_physical_body_id
 
         resource_state = None
         if isinstance(physical_state, Mapping):
@@ -758,29 +738,12 @@ class PyBulletEmbodimentRuntime:
                 controllability_model=self.organism.controllability_model,
                 agency_model=self.organism.agency_model,
                 execution_bindings=self.organism.competence_execution_bindings,
-                allow_contract_schema_migration=True,
                 current_tick=self.tick_count,
             )
             if self._embodiment_episode.state is EmbodimentState.SUSPENDED:
                 self._embodiment_episode.resume()
         else:
             logical_body_id = self._physical_body_id
-            if (
-                runtime_checkpoint is not None
-                and not self._reembodied
-                and physical_state is not None
-            ):
-                migration_material = (
-                    f"{self.organism_id}|{logical_body_id}|{episode_epoch}|"
-                    f"{episode_started_tick}|"
-                    f"{self._core_embodiment_contract.contract_fingerprint}"
-                )
-                migration_embodiment_id = (
-                    "embodiment."
-                    + hashlib.sha256(migration_material.encode("utf-8")).hexdigest()[:24]
-                )
-            else:
-                migration_embodiment_id = None
             prior = self._embodiment_archive.prior_for(
                 body_id=logical_body_id,
                 contract_fingerprint=(self._core_embodiment_contract.contract_fingerprint),
@@ -791,7 +754,6 @@ class PyBulletEmbodimentRuntime:
                 epoch=episode_epoch,
                 start_symbiont_tick=episode_started_tick,
                 contract=self._core_embodiment_contract,
-                embodiment_id=migration_embodiment_id,
                 prior=prior,
             )
             # Canonical inference services are shared, never duplicated.
