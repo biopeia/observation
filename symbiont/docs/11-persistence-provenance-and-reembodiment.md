@@ -30,14 +30,12 @@ new identifier chains from the one it replaced and names the transform, so an
 intended change is recorded rather than being indistinguishable from
 corruption.
 
-A current-schema checkpoint can carry a lineage whose earlier origin was
-accepted without a verifiable identity by a historical loader. That fact is
-recorded as `checkpoint_lineage.unverified_legacy_origin` and carried forward;
-it does not make an old-schema checkpoint restorable today. Historical files
-remain archival evidence unless a separately governed conversion process is
-authorized. The list of authorized transforms an organism has been through
-(`checkpoint_lineage.transforms`) is carried forward the same way instead of
-existing only on the transformed payload.
+Checkpoint schema 14 is the only accepted runtime format. Older files are not
+upgraded, imported, or converted into live organisms; they may be retained as
+historical research artifacts, but are not runtime inputs. The list of
+authorized transforms an organism has been through
+(`checkpoint_lineage.transforms`) is carried forward instead of existing only
+on the transformed payload.
 
 Bundle integrity is a separate contract: the bundle manifest proves the packaged bytes match, the checkpoint identity proves the accepted organism state matches its recorded save.
 
@@ -53,12 +51,11 @@ Every runtime field has exactly one continuity class, recorded with its owner, c
 
 ## Restore
 
-Restore must recreate mechanism-specific state while validating schema and
-compatibility. Older outer checkpoint schemas are rejected rather than
-migrated. A checkpoint in the current schema that lacks a required field is
-rejected: loss must not silently become a healthy empty subsystem. Mechanism-
-specific sub-schema migrations are separate and apply only within the accepted
-current outer schema.
+Restore must recreate mechanism-specific state while validating the exact
+schema. Older outer checkpoint schemas are rejected, not migrated. A schema-14
+checkpoint that lacks a required field is rejected: loss must not silently
+become a healthy empty subsystem. Current mechanism schemas are exact-version
+contracts; they do not provide backward-compatible sub-schema migration.
 
 Runtime-only switches that shape future learning — cognitive plasticity, predictor promotion, kernel limits, the executive admission policy — are not organism state. Their effective values are recorded in `runtime_provenance.session_controls` and reapplied on restore; a continuation that runs with different values is recorded as a changed condition, not as restart equivalence.
 
@@ -98,7 +95,7 @@ This is mechanical continuity. It says nothing about whether the retained knowle
 
 The reduced seed used by the clean-embodiment studies (`symbiont.core.orchestration.clean_embodiment_seed.CleanEmbodimentSeed`, moved between Bodies by `Individual.transplant_to`) follows a different contract for the remaining acquisition state: it keeps identity, organism time, genotype and expression, restarts sensorimotor dynamics, causal evidence, controllability and agency from naive, and keeps competences without their effect grounding. BodySchema active state is reset by both contracts, though only canonical re-embodiment archives the full prior representation. The difference is declared per attribute in `REDUCED_SEED_REGISTER` and checked by its test. A result obtained with one semantics does not transfer to the other. The full table of lifecycle operations is in [Lifecycle Continuity Contract v1](../../docs/design/core/lifecycle-continuity-contract-v1.md).
 
-Historical runs whose Body age was taken from the global tick can have that clock coordinate corrected when the legacy state makes it unambiguous. The correction is recorded, and it never claims to undo the senescence, wear or energy consequences already produced under the contaminated clock.
+Historical runs whose Body age was taken from the global tick document a known clock-coordinate contamination. That historical evidence does not create a runtime migration path or imply that senescence, wear, or energy consequences can be reversed.
 
 ### Principal sources
 

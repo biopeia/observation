@@ -97,18 +97,18 @@ allowed to alter gene expression or enter resident inheritance packages.
 Acquired-mark capture and transmission require an explicit enabled
 `EpigeneticProtocol`; the default protocol transmits no marks. A captured mark
 must persist for the configured capture window and is generation-decayed when
-transmitted. `EpigeneticPrior` is legacy inert state: it MUST NOT influence
-expression or be described as inherited epigenetic state, and no conversion
-to Genome v2 marks is permitted.
+transmitted. `EpigeneticPrior` is not part of the current epigenetic contract:
+it MUST NOT influence expression, enter inheritance packages, or be described
+as inherited epigenetic state. No conversion to Genome v2 marks is permitted.
 
 This integration defines a testable mechanism from expression deviation to
 captured mark to offspring birth expression. It does not establish that the
 mechanism improves adaptation, represents an empirically validated biological
 process, or causes a beneficial transgenerational outcome.
 
-The legacy `EpigeneticPrior` channel remains for compatibility until a
-separate checkpoint/API policy authorizes removal. Future code must name which
-channel it uses and must not silently bridge them.
+The runtime and public API MUST NOT retain an `EpigeneticPrior` channel as a
+compatibility path. Checkpoint schema 14 and current Genome v2 contracts are
+the sole supported format; no implicit conversion or fallback is permitted.
 
 ## Follow-up implementation matrix
 

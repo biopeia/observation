@@ -8,7 +8,7 @@ If the same Symbiont is moved from one anthropomorphic body to a crawler, the or
 
 ## Physical body
 
-In Physics3D the body is represented by PyBullet state plus an apparatus implementation. Body descriptors define the available receptor and effector sets. The runtime separately stores physical body identity and can reconstruct legacy identity from physical state when migrating older checkpoints.
+In Physics3D the body is represented by PyBullet state plus an apparatus implementation. Body descriptors define the available receptor and effector sets. The runtime stores physical body identity explicitly; it does not infer identity from physical state or migrate older checkpoint formats.
 
 The body can be affected without cognition. Gravity, collision, joint limits, surface contact and environmental forces are physical dynamics. The laboratory can inspect them even when no corresponding internal representation exists.
 

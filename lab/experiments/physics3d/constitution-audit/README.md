@@ -101,17 +101,17 @@ absolute     = positive + negative
 net          = positive - negative
 ```
 
-The legacy field `mechanical_work_joules` remains as a compatibility scalar
-for metabolic accounting and is explicitly the **absolute commanded actuator
-work/effort**, not net mechanical work. New telemetry exports all four
-components.
+The `mechanical_work_joules` field is the **absolute commanded actuator
+work/effort** used for metabolic accounting, not net mechanical work. The
+telemetry contract exports all four components.
 
 Passive postural/end-range torque is a body property and is intentionally not
 counted as commanded actuator work.
 
 ## Sensorimotor interpretation
 
-Physics3D motor development uses sensorimotor schema v10. v9 checkpoints are accepted only for one-time migration onto a validated current body.
+Physics3D motor development uses sensorimotor schema v10. Restore requires
+schema v10 exactly; older learned schemas are rejected and are not migrated.
 
 Its important invariants are:
 
