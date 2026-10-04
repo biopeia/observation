@@ -1,11 +1,34 @@
 import { tel } from './state.js';
 
+/**
+ * Epistemic availability for complete telemetry projections.
+ *
+ * Values stay type-stable in `tel`; this parallel map preserves whether a
+ * `null` was explicitly observed or whether the producer omitted the field.
+ */
+export const telemetryAvailability = Object.create(null);
+
+function availabilityOf(data, source) {
+  if (!Object.hasOwn(data, source)) return 'not_observed';
+  const value = data[source];
+  if (value === null) return 'observed_null';
+  if (Array.isArray(value) && value.length === 0) return 'observed_empty';
+  return 'observed';
+}
+
 function assignComplete(data, fields) {
   for (const [target, source] of fields) {
     // Each body/cognition/vitals event is a complete projection for that
     // channel at one tick. Missing therefore means "not observed now", not
     // "repeat the last observation". Preserve explicit false/0/null exactly.
+    telemetryAvailability[target] = availabilityOf(data, source);
     tel[target] = Object.hasOwn(data, source) ? data[source] : null;
+  }
+}
+
+export function resetTelemetryAvailability() {
+  for (const key of Object.keys(telemetryAvailability)) {
+    delete telemetryAvailability[key];
   }
 }
 
