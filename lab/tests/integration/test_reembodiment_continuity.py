@@ -154,7 +154,12 @@ def _competence_ids(runtime: PrivateModelOrganismRuntime) -> set[str]:
     [
         (CORE, OrganismRuntime, "_sensory_system", "sensory_system"),
         (MODELED, ModeledOrganismRuntime, "_social_evidence_ledger", "social_evidence_ledger"),
-        (PRIVATE_MODEL, PrivateModelOrganismRuntime, "_capture_private_experience", "private_model_config"),
+        (
+            PRIVATE_MODEL,
+            PrivateModelOrganismRuntime,
+            "_capture_private_experience",
+            "private_model_config",
+        ),
     ],
 )
 def test_each_runtime_layer_restores_its_registered_owner_and_transforms_it(
@@ -169,9 +174,7 @@ def test_each_runtime_layer_restores_its_registered_owner_and_transforms_it(
     This focused probe separately makes each runtime layer accountable for at
     least one register field, without duplicating that acquired-state fixture.
     """
-    entry = next(
-        item for item in REGISTER if item.layer == layer and item.attribute == attribute
-    )
+    entry = next(item for item in REGISTER if item.layer == layer and item.attribute == attribute)
     assert entry.checkpoint_field == checkpoint_field
 
     runtime_options: dict[str, Any] = {}
@@ -614,9 +617,7 @@ def test_knowledge_survives_as_knowledge_without_authority(case: _Case) -> None:
     current_action = case.transformed["actuation"]["action_domain"]
     assert covered_fields("actuation") | {"action_domain"} == set(case.transformed["actuation"])
     assert covered_fields("action_domain") == set(current_action)
-    assert covered_fields("action_domain.sensorimotor_v2") == set(
-        current_action["sensorimotor_v2"]
-    )
+    assert covered_fields("action_domain.sensorimotor_v2") == set(current_action["sensorimotor_v2"])
     assert covered_fields("executive_intention") == set(case.transformed["executive_intention"])
     prior_v2 = case.previous["actuation"]["action_domain"]["sensorimotor_v2"]
     fresh_v2 = case.fresh["actuation"]["action_domain"]["sensorimotor_v2"]
@@ -649,16 +650,15 @@ def test_knowledge_survives_as_knowledge_without_authority(case: _Case) -> None:
         "last_runtime_vital_state": Reembodiment.REPLACED,
         "last_runtime_development_phase": Reembodiment.PRESERVED,
     }
-    assert {
-        path for path, _policy in lifecycle_entry.nested_reembodiment
-    } == {
+    assert {path for path, _policy in lifecycle_entry.nested_reembodiment} == {
         f"first_life_history_events.{event}"
         for event in case.transformed["first_life_history_events"]
     } | {"last_runtime_vital_state", "last_runtime_development_phase"}
     assert case.transformed["last_runtime_vital_state"] == "active"
-    assert case.transformed["last_runtime_development_phase"] == case.previous[
-        "last_runtime_development_phase"
-    ]
+    assert (
+        case.transformed["last_runtime_development_phase"]
+        == case.previous["last_runtime_development_phase"]
+    )
     development_entry = next(
         entry for entry in REGISTER if entry.attribute == "_developmental_tracker"
     )
@@ -746,9 +746,7 @@ def test_preserved_bridge_readouts_cannot_authorize_old_body_after_restore_ticks
 
     action_entry = next(item for item in REGISTER if item.attribute == "_action_domain")
     assert (
-        dict(action_entry.nested_reembodiment)[
-            "action_domain.sensorimotor_v2.execution_bindings"
-        ]
+        dict(action_entry.nested_reembodiment)["action_domain.sensorimotor_v2.execution_bindings"]
         is Reembodiment.INVALIDATED
     )
 
@@ -824,9 +822,7 @@ def test_registered_nested_reembodiment_paths_resolve_in_checkpoint(case: _Case)
     for entry in REGISTER:
         for path, _policy in entry.nested_reembodiment:
             candidates = {
-                path
-                if path == root or path.startswith(f"{root}.")
-                else f"{root}.{path}"
+                path if path == root or path.startswith(f"{root}.") else f"{root}.{path}"
                 for root in entry.nested_checkpoint_fields
             }
             assert sum(_has_path(case.transformed, candidate) for candidate in candidates) == 1, (
@@ -870,12 +866,12 @@ def test_nested_continuity_policies_cover_every_checkpoint_field(case: _Case) ->
             covered: set[str] = set()
             for path in policies:
                 candidates = [
-                    path
-                    if path == other or path.startswith(f"{other}.")
-                    else f"{other}.{path}"
+                    path if path == other or path.startswith(f"{other}.") else f"{other}.{path}"
                     for other in entry.nested_checkpoint_fields
                 ]
-                resolved = [candidate for candidate in candidates if _has_path(case.transformed, candidate)]
+                resolved = [
+                    candidate for candidate in candidates if _has_path(case.transformed, candidate)
+                ]
                 assert len(resolved) == 1, (entry.attribute, path, candidates)
                 candidate = resolved[0]
                 if candidate == root or candidate.startswith(f"{root}."):
@@ -887,12 +883,12 @@ def test_nested_reembodiment_policies_match_transformed_values(case: _Case) -> N
     for entry in REGISTER:
         for path, policy in entry.nested_reembodiment:
             candidates = [
-                path
-                if path == root or path.startswith(f"{root}.")
-                else f"{root}.{path}"
+                path if path == root or path.startswith(f"{root}.") else f"{root}.{path}"
                 for root in entry.nested_checkpoint_fields
             ]
-            resolved = [candidate for candidate in candidates if _has_path(case.transformed, candidate)]
+            resolved = [
+                candidate for candidate in candidates if _has_path(case.transformed, candidate)
+            ]
             assert len(resolved) == 1, (entry.attribute, path, candidates)
             resolved_path = resolved[0]
             actual = _value_at(case.transformed, resolved_path)
@@ -902,7 +898,9 @@ def test_nested_reembodiment_policies_match_transformed_values(case: _Case) -> N
             elif policy is Reembodiment.REPLACED:
                 if resolved_path == "last_runtime_vital_state":
                     assert actual == case.fresh["living_body"]["vital_state"]
-                elif resolved_path == "actuation.action_domain.sensorimotor_v2.binding_invalidation":
+                elif (
+                    resolved_path == "actuation.action_domain.sensorimotor_v2.binding_invalidation"
+                ):
                     assert actual == "reembodiment"
                 else:
                     assert actual == _value_at(case.fresh, resolved_path), (entry.attribute, path)

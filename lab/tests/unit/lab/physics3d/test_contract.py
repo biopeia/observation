@@ -1,29 +1,29 @@
 import inspect
+import re
 import sys
 
 import pytest
 
 from embodiment.physics3d.humanoid import (
-    BODY_KIND,
-    BODY_MATERIAL,
-    BODY_STATE_SCHEMA_VERSION,
-    GROUND_MATERIAL,
     JOINT_AXES,
     JOINT_LIMITS,
     JOINT_SPECS,
-    MECHANICAL_LIMIT_GUARD,
     MOTOR_DOF,
     PHYSICAL_RECEPTOR_COUNT,
     TOTAL_RECEPTOR_COUNT,
     HumanoidPhysics,
-    SurfaceMaterial,
     apply_surface_material,
     build_anthropomorphic_urdf,
     effector_contract_ids,
     interoceptive_receptor_contract_ids,
     mechanical_joint_limits,
-    physical_receptor_contract_ids,
     receptor_contract_ids,
+)
+from embodiment.physics3d.mechanics import (
+    BODY_MATERIAL,
+    GROUND_MATERIAL,
+    MECHANICAL_LIMIT_GUARD,
+    SurfaceMaterial,
 )
 from lab.integration.physics3d.apparatus import (
     OpaqueBodyInteroception,
@@ -107,10 +107,11 @@ def test_mechanical_guard_band_never_expands_anatomical_range():
         assert spec.lower < lower < upper < spec.upper
 
 
-def test_v3_body_loader_does_not_use_soft_limit_multibody_path():
-    source = inspect.getsource(HumanoidPhysics._create_body)
-    assert "loadURDF" in source
-    assert "createMultiBody" not in source
+def _humanoid() -> HumanoidPhysics:
+    pytest.importorskip("mujoco")
+    from embodiment.physics3d.scene import PhysicsScene
+
+    return HumanoidPhysics(PhysicsScene(timestep=1.0 / 240.0))
 
 
 def test_effector_contract_rejects_non_positive_motor_count():
@@ -119,11 +120,13 @@ def test_effector_contract_rejects_non_positive_motor_count():
 
 
 def test_physics3d_optional_dependency_is_lazy():
+    import embodiment.physics3d.scene as scene
     import lab.physics3d.runtime as runtime
 
-    source = inspect.getsource(runtime)
-    assert "import pybullet as p" in source
-    assert "PyBullet is optional" in source
+    # The engine is imported where a scene is built, never at module import.
+    for module in (scene, runtime):
+        assert not re.search(r"^(import|from) mujoco", inspect.getsource(module), re.M)
+    assert "MuJoCo is optional" in inspect.getsource(runtime)
 
 
 def test_physics3d_cognition_accepts_experiment_local_limits():
@@ -183,54 +186,25 @@ def test_physics3d_opts_into_autonomous_validated_predictor_promotion():
     assert "auto_promote_predictors" not in inspect.getsource(runtime)
 
 
-def test_humanoid_self_collision_excludes_direct_and_structural_neighbours():
-    humanoid = HumanoidPhysics.__new__(HumanoidPhysics)
-    humanoid._direct_pairs = {(-1, 0), (0, 1), (1, 2), (2, 3)}
-    humanoid._structural_collision_exclusions = {(-1, 2), (2, 4)}
+def test_humanoid_excludes_collision_between_structural_neighbours():
+    from embodiment.physics3d.humanoid import ANTHROPOMORPHIC_SPEC
 
-    assert humanoid._directly_connected_link_pairs() == {(-1, 0), (0, 1), (1, 2), (2, 3)}
-    excluded = humanoid._self_collision_exclusions()
-    assert (-1, 2) in excluded
-    assert (2, 4) in excluded
-    assert (0, 2) not in excluded
-    assert (-1, 4) not in excluded
+    humanoid = _humanoid()
+    model = humanoid.scene.model
+    body = {
+        name: humanoid._body_id_by_link[index]
+        for name, index in humanoid._link_index_by_name.items()
+    }
+    excluded = {
+        frozenset((int(signature) >> 16, int(signature) & 0xFFFF))
+        for signature in model.exclude_signature
+    }
 
-
-def test_humanoid_configures_all_self_collision_pairs_explicitly():
-    class FakeBullet:
-        def __init__(self):
-            self.calls = []
-
-        def setCollisionFilterPair(
-            self,
-            body_a,
-            body_b,
-            link_a,
-            link_b,
-            *,
-            enableCollision,
-            physicsClientId,
-        ):
-            self.calls.append((body_a, body_b, link_a, link_b, enableCollision, physicsClientId))
-
-    fake = FakeBullet()
-    humanoid = HumanoidPhysics.__new__(HumanoidPhysics)
-    humanoid.p = fake
-    humanoid.client_id = 7
-    humanoid.body_id = 99
-    humanoid._direct_pairs = {(-1, 0), (0, 1), (1, 2)}
-    humanoid._structural_collision_exclusions = {(-1, 2), (2, 4)}
-
-    humanoid._configure_self_collisions()
-
-    assert len(fake.calls) == 496  # C(32, 2)
-    disabled = [call for call in fake.calls if call[4] == 0]
-    enabled = [call for call in fake.calls if call[4] == 1]
-    assert len(disabled) == 5
-    assert len(enabled) == 491
-    assert any(call[2:5] == (-1, 2, 0) for call in fake.calls)
-    assert any(call[2:5] == (2, 4, 0) for call in fake.calls)
-    assert any(call[2:5] == (0, 2, 1) for call in fake.calls)
+    assert ANTHROPOMORPHIC_SPEC.structural_neighbour_names
+    assert excluded == {
+        frozenset((body[left], body[right]))
+        for left, right in ANTHROPOMORPHIC_SPEC.structural_neighbour_names
+    }
 
 
 def test_new_physics3d_subjects_do_not_reuse_one_fixed_organism_identity():
@@ -249,14 +223,13 @@ def test_unified_viewer_mode_keeps_pybullet_native_gui_disabled():
     assert "UnifiedViewerProcess" in source
 
 
-def test_passive_camera_render_does_not_enter_organism_contract():
+def test_runtime_has_no_engine_renderer():
     import lab.physics3d.runtime as runtime
 
-    source = inspect.getsource(runtime.PyBulletEmbodimentRuntime.render_camera_frame)
-    assert "getCameraImage" in source
-    assert "organism.tick" not in source
-    assert "signal_knowledge" not in source
-    assert "experience_ledger" not in source
+    # ADR-0066: nothing renders through the engine; vision casts its own rays
+    # and presentation draws exported poses.
+    assert not hasattr(runtime.Physics3DEmbodimentRuntime, "render_camera_frame")
+    assert "Renderer" not in inspect.getsource(runtime)
 
 
 def test_unified_viewer_rendering_is_not_in_canonical_runtime_loop():
@@ -271,38 +244,6 @@ def test_every_motor_joint_has_one_bounded_mechanical_limit():
     assert set(JOINT_LIMITS) == set(range(MOTOR_DOF))
     for limit in JOINT_LIMITS.values():
         assert limit.lower < limit.upper
-
-
-def test_humanoid_configures_joint_velocity_ceilings_in_bullet():
-    class FakeBullet:
-        def __init__(self):
-            self.calls = []
-
-        def changeDynamics(self, body_id, link_index, **kwargs):
-            self.calls.append((body_id, link_index, kwargs))
-
-    fake = FakeBullet()
-    humanoid = HumanoidPhysics.__new__(HumanoidPhysics)
-    humanoid.p = fake
-    humanoid.body_id = 77
-    humanoid.client_id = 9
-    humanoid.motor_joint_indices = tuple(range(MOTOR_DOF))
-
-    humanoid._configure_joint_dynamics()
-
-    assert len(fake.calls) == MOTOR_DOF
-    assert {call[1] for call in fake.calls} == set(range(MOTOR_DOF))
-    for _body_id, link_index, kwargs in fake.calls:
-        assert kwargs["maxJointVelocity"] > 0.0
-        assert kwargs["physicsClientId"] == 9
-        assert kwargs["maxJointVelocity"] == pytest.approx(
-            __import__(
-                "embodiment.physics3d.humanoid",
-                fromlist=["JOINT_SPECS"],
-            )
-            .JOINT_SPECS[link_index]
-            .max_velocity
-        )
 
 
 def test_surface_material_propagates_contact_physics_explicitly(monkeypatch):
@@ -344,53 +285,27 @@ def test_surface_material_propagates_contact_physics_explicitly(monkeypatch):
     }
 
 
-def test_humanoid_restore_rejects_untyped_vectors_before_pybullet_calls():
-    humanoid = HumanoidPhysics.__new__(HumanoidPhysics)
-    humanoid.p = object()
-    humanoid.body_id = 11
-    humanoid.client_id = 3
+def test_humanoid_restore_rejects_malformed_engine_state_without_touching_the_body():
+    humanoid = _humanoid()
+    state = humanoid.export_physical_state()
 
-    with pytest.raises(ValueError, match="base_position must be a list or tuple"):
+    with pytest.raises(ValueError, match="body state has no engine state"):
+        humanoid.restore_physical_state({**state, "engine_state": None})
+    with pytest.raises(ValueError, match="qpos must contain"):
+        humanoid.restore_physical_state(
+            {**state, "engine_state": {**state["engine_state"], "qpos": object()}}
+        )
+    with pytest.raises(ValueError, match="qvel must contain numeric values"):
         humanoid.restore_physical_state(
             {
-                "schema_version": BODY_STATE_SCHEMA_VERSION,
-                "body_kind": BODY_KIND,
-                "base_position": object(),
+                **state,
+                "engine_state": {
+                    **state["engine_state"],
+                    "qvel": [None] * len(state["engine_state"]["qvel"]),
+                },
             }
         )
-
-
-def test_humanoid_restore_rejects_invalid_joint_records():
-    class FakeBullet:
-        def __init__(self):
-            self.calls = []
-
-        def resetBasePositionAndOrientation(self, *args, **kwargs):
-            self.calls.append("resetBasePositionAndOrientation")
-
-        def resetBaseVelocity(self, *args, **kwargs):
-            self.calls.append("resetBaseVelocity")
-
-    humanoid = HumanoidPhysics.__new__(HumanoidPhysics)
-    fake = FakeBullet()
-    humanoid.p = fake
-    humanoid.body_id = 11
-    humanoid.client_id = 3
-    humanoid.motor_joint_indices = tuple(sorted(JOINT_LIMITS))
-
-    with pytest.raises(ValueError, match="each joint state must be a mapping"):
-        humanoid.restore_physical_state(
-            {
-                "schema_version": BODY_STATE_SCHEMA_VERSION,
-                "body_kind": BODY_KIND,
-                "base_position": [0.0, 0.0, 1.0],
-                "base_orientation": [0.0, 0.0, 0.0, 1.0],
-                "linear_velocity": [0.0, 0.0, 0.0],
-                "angular_velocity": [0.0, 0.0, 0.0],
-                "joints": [None],
-            }
-        )
-    assert fake.calls == []
+    assert humanoid.export_physical_state() == state
 
 
 def test_body_and_ground_have_nonzero_friction_without_semantic_specialization():
@@ -411,24 +326,18 @@ def test_runtime_module_source_compiles():
     compile(source, runtime.__file__, "exec")
 
 
-def test_runtime_imports_canonical_solver_configuration():
-    import lab.physics3d.runtime as runtime
-
-    assert runtime.configure_physics_solver is not None
-
-
 def test_runtime_reapplies_motor_command_each_physics_substep():
     import lab.physics3d.runtime as runtime
 
-    source = inspect.getsource(runtime.PyBulletEmbodimentRuntime.step)
+    source = inspect.getsource(runtime.Physics3DEmbodimentRuntime.step)
     assert "self.apparatus.prepare_physics_substep()" in source
-    assert source.index("prepare_physics_substep()") < source.index("stepSimulation(")
+    assert source.index("prepare_physics_substep()") < source.index("self.scene.step()")
 
 
 def test_physics3d_locomotion_constitution_uses_explicit_metabolism():
     import lab.physics3d.runtime as runtime
 
-    source = inspect.getsource(runtime.PyBulletEmbodimentRuntime.__init__)
+    source = inspect.getsource(runtime.Physics3DEmbodimentRuntime.__init__)
     assert "explicit_metabolism=True" in source
     assert "replenishment={kind: 0.0 for kind in metabolic_capacity}" in source
     from symbiont.core.organism_profile import CANONICAL
@@ -520,34 +429,10 @@ def test_l3_interoception_mapping_is_label_invariant_under_permutation():
 
 
 def test_l3_local_contact_loads_are_independent_physical_channels():
-    class FakeBullet:
-        def getJointState(self, *_args, **_kwargs):
-            return (0.0, 0.0, 0.0, 0.0)
-
-        def getBasePositionAndOrientation(self, *_args, **_kwargs):
-            return ((0.0, 0.0, 1.0), (0.0, 0.0, 0.0, 1.0))
-
-        def getBaseVelocity(self, *_args, **_kwargs):
-            return ((0.0, 0.0, 0.0), (0.0, 0.0, 0.0))
-
-        def getContactPoints(self, *_args, **_kwargs):
-            quiet = [0.0] * 10
-            left = [0.0] * 10
-            right = [0.0] * 10
-            quiet[3], quiet[9] = -1, 0.0
-            left[3], left[9] = 5, 24.0
-            right[3], right[9] = 11, 72.0
-            return (tuple(quiet), tuple(left), tuple(right))
-
-    body = HumanoidPhysics.__new__(HumanoidPhysics)
-    body.p = FakeBullet()
-    body.client_id = 1
-    body.body_id = 2
-    body.motor_joint_indices = tuple(sorted(JOINT_LIMITS))
-    body.receptor_ids = physical_receptor_contract_ids()
-    body._contact_links = (-1, 5, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23)
-    body._external_field_signal = 0.0
-    body._sensor_values = {}
+    body = _humanoid()
+    _base, left, right = body._contact_links[:3]
+    peak = dict.fromkeys(body._contact_links, 0.0) | {left: 24.0, right: 72.0}
+    body._contact_loads = lambda: ({left, right}, peak, 2)
 
     values = body.sample_receptors()
 
@@ -585,18 +470,18 @@ def test_l3_checkpoint_preserves_only_opaque_ordinal_mapping():
 def test_resource_ground_truth_is_evaluator_only():
     import lab.physics3d.runtime as runtime
 
-    source = inspect.getsource(runtime.PyBulletEmbodimentRuntime.step)
+    source = inspect.getsource(runtime.Physics3DEmbodimentRuntime.step)
     assert "resource_distance" in source
     assert "set_opaque_environment_state" in source
     assert "resource_distance=" not in inspect.getsource(
-        runtime.PyBulletEmbodimentRuntime.checkpoint
+        runtime.Physics3DEmbodimentRuntime.checkpoint
     )
 
 
 def test_physics3d_applies_all_concurrent_actuations_in_one_tick():
     from types import SimpleNamespace
 
-    from lab.physics3d.runtime import PyBulletEmbodimentRuntime
+    from lab.physics3d.runtime import Physics3DEmbodimentRuntime
     from symbiont.actuation.types import Actuation
 
     applied = {}
@@ -605,7 +490,7 @@ def test_physics3d_applies_all_concurrent_actuations_in_one_tick():
         def apply_effectors(self, physical):
             applied.update(physical)
 
-    runtime = PyBulletEmbodimentRuntime.__new__(PyBulletEmbodimentRuntime)
+    runtime = Physics3DEmbodimentRuntime.__new__(Physics3DEmbodimentRuntime)
     runtime.apparatus = Apparatus()
     runtime._actuator_to_effector = {
         "a": "motor.0",
@@ -635,7 +520,7 @@ def test_physics3d_external_physical_actuation_override_is_bounded_and_complete(
 
     import pytest
 
-    from lab.physics3d.runtime import PyBulletEmbodimentRuntime
+    from lab.physics3d.runtime import Physics3DEmbodimentRuntime
 
     applied = {}
 
@@ -645,7 +530,7 @@ def test_physics3d_external_physical_actuation_override_is_bounded_and_complete(
         def apply_effectors(self, physical):
             applied.update(physical)
 
-    runtime = PyBulletEmbodimentRuntime.__new__(PyBulletEmbodimentRuntime)
+    runtime = Physics3DEmbodimentRuntime.__new__(Physics3DEmbodimentRuntime)
     runtime.apparatus = Apparatus()
     runtime._actuator_to_effector = {}
     runtime.organism = SimpleNamespace(last_actuations=())
@@ -666,7 +551,7 @@ def test_physics3d_resume_projects_solver_penetration_but_direct_restore_stays_s
     import lab.physics3d.runtime as runtime
     from embodiment.physics3d.humanoid import HumanoidPhysics
 
-    source = inspect.getsource(runtime.PyBulletEmbodimentRuntime.__init__)
+    source = inspect.getsource(runtime.Physics3DEmbodimentRuntime.__init__)
     assert "strict_anatomical_limits=False" in source
 
     signature = inspect.signature(HumanoidPhysics.restore_physical_state)
@@ -677,7 +562,7 @@ def test_physics3d_newborns_use_mode_free_sensorimotor_constitution():
     import lab.integration.physics3d.apparatus as apparatus
     import lab.physics3d.runtime as runtime
 
-    runtime_source = inspect.getsource(runtime.PyBulletEmbodimentRuntime.__init__)
+    runtime_source = inspect.getsource(runtime.Physics3DEmbodimentRuntime.__init__)
     exclusion_source = inspect.getsource(apparatus.actuator_exclusion_groups)
 
     assert "motor_exploration_mode" not in runtime_source
@@ -758,50 +643,29 @@ def test_v5_hard_limited_body_exposes_multiple_rotational_axes():
 def test_physics3d_l4_uses_one_physical_energy_pool_for_all_metabolism() -> None:
     import lab.physics3d.runtime as runtime
 
-    source = inspect.getsource(runtime.PyBulletEmbodimentRuntime.__init__)
+    source = inspect.getsource(runtime.Physics3DEmbodimentRuntime.__init__)
     assert "physical_energy_capacity = sum(metabolic_capacity.values())" in source
     assert "living_body_state=living_body_state" in source
-    source = inspect.getsource(runtime.PyBulletEmbodimentRuntime.__init__)
+    source = inspect.getsource(runtime.Physics3DEmbodimentRuntime.__init__)
     assert "genome_symbiont_physics3d_v9" not in source
 
 
-def _body_state_with_joint_position(joint_ordinal: int, position: float) -> dict:
-    return {
-        "schema_version": BODY_STATE_SCHEMA_VERSION,
-        "body_kind": BODY_KIND,
-        "base_position": [0.0, 0.0, 1.0],
-        "base_orientation": [0.0, 0.0, 0.0, 1.0],
-        "linear_velocity": [0.0, 0.0, 0.0],
-        "angular_velocity": [0.0, 0.0, 0.0],
-        "joints": [
-            {
-                "joint_index": ordinal,
-                "position": (
-                    float(position)
-                    if ordinal == joint_ordinal
-                    else float(sum(mechanical_joint_limits(JOINT_SPECS[ordinal])) / 2.0)
-                ),
-                "velocity": 0.0,
-            }
-            for ordinal in range(MOTOR_DOF)
-        ],
-    }
+def _body_state_with_joint_position(
+    humanoid: HumanoidPhysics, joint_ordinal: int, position: float
+) -> dict:
+    state = humanoid.export_physical_state()
+    # Engine coordinates: seven for the free base, then one per joint.
+    state["engine_state"]["qpos"][7 + joint_ordinal] = float(position)
+    return state
 
 
 def test_canonical_body_restore_still_rejects_large_anatomical_excursion():
-    humanoid = HumanoidPhysics.__new__(HumanoidPhysics)
-    humanoid.p = object()
-    humanoid.body_id = 11
-    humanoid.client_id = 3
-    humanoid.motor_joint_indices = tuple(range(MOTOR_DOF))
-    humanoid._joint_ordinal_by_index = {index: index for index in range(MOTOR_DOF)}
-
+    humanoid = _humanoid()
     shoulder = next(
         index for index, spec in enumerate(JOINT_SPECS) if spec.name == "right_shoulder_pitch"
     )
     payload = _body_state_with_joint_position(
-        shoulder,
-        JOINT_SPECS[shoulder].upper + 0.25,
+        humanoid, shoulder, JOINT_SPECS[shoulder].upper + 0.25
     )
 
     with pytest.raises(
@@ -812,52 +676,18 @@ def test_canonical_body_restore_still_rejects_large_anatomical_excursion():
 
 
 def test_visual_body_restore_projects_large_solver_excursion_without_mutating_source():
-    class FakeBullet:
-        def __init__(self):
-            self.joints = {}
-
-        def resetBasePositionAndOrientation(self, *args, **kwargs):
-            pass
-
-        def resetBaseVelocity(self, *args, **kwargs):
-            pass
-
-        def resetJointState(
-            self,
-            body_id,
-            joint_index,
-            *,
-            targetValue,
-            targetVelocity,
-            physicsClientId,
-        ):
-            self.joints[int(joint_index)] = (
-                float(targetValue),
-                float(targetVelocity),
-            )
-
-    humanoid = HumanoidPhysics.__new__(HumanoidPhysics)
-    fake = FakeBullet()
-    humanoid.p = fake
-    humanoid.body_id = 11
-    humanoid.client_id = 3
-    humanoid.motor_joint_indices = tuple(range(MOTOR_DOF))
-    humanoid._joint_ordinal_by_index = {index: index for index in range(MOTOR_DOF)}
-
+    humanoid = _humanoid()
     shoulder = next(
         index for index, spec in enumerate(JOINT_SPECS) if spec.name == "right_shoulder_pitch"
     )
     raw_position = JOINT_SPECS[shoulder].upper + 0.25
-    payload = _body_state_with_joint_position(shoulder, raw_position)
+    payload = _body_state_with_joint_position(humanoid, shoulder, raw_position)
 
-    humanoid.restore_physical_state(
-        payload,
-        strict_anatomical_limits=False,
-    )
+    humanoid.restore_physical_state(payload, strict_anatomical_limits=False)
 
     _lower, mechanical_upper = mechanical_joint_limits(JOINT_SPECS[shoulder])
-    assert fake.joints[shoulder][0] == pytest.approx(mechanical_upper)
-    assert payload["joints"][shoulder]["position"] == pytest.approx(raw_position)
+    assert humanoid.joint_states()[shoulder][0] == pytest.approx(mechanical_upper)
+    assert payload["engine_state"]["qpos"][7 + shoulder] == pytest.approx(raw_position)
 
 
 def test_monitor_uses_visual_only_non_strict_body_projection():
@@ -894,49 +724,25 @@ def test_passive_postural_tone_is_body_owned_and_bounded():
 
 
 def test_passive_tone_is_elastic_and_damping_is_separate() -> None:
-    from embodiment.physics3d.humanoid import (
-        _neutral_rest_position,
-        _passive_damping_force,
-        _passive_postural_tone,
-    )
+    from embodiment.physics3d.humanoid import _neutral_rest_position, _passive_postural_tone
 
-    spec = next(item for item in JOINT_SPECS if item.name == "left_forearm_roll")
+    ordinal, spec = next(
+        item for item in enumerate(JOINT_SPECS) if item[1].name == "left_forearm_roll"
+    )
     rest = _neutral_rest_position(spec)
 
-    assert _passive_postural_tone(
-        spec,
-        position=rest,
-        velocity=5.0,
-    ) == pytest.approx(0.0)
-    assert _passive_damping_force(
-        spec,
-        velocity=0.0,
-    ) == pytest.approx(0.0)
-    assert (
-        _passive_damping_force(
-            spec,
-            velocity=5.0,
-        )
-        > 0.0
-    )
-
-
-def test_physics_substep_installs_damping_before_active_torque() -> None:
-    import inspect
-
-    from embodiment.physics3d.humanoid import HumanoidPhysics
-
-    source = inspect.getsource(HumanoidPhysics.prepare_physics_substep)
-    velocity_at = source.index("self.p.VELOCITY_CONTROL")
-    torque_at = source.index("self.p.TORQUE_CONTROL")
-
-    assert velocity_at < torque_at
-    assert "targetVelocity=0.0" in source
-    assert "_passive_damping_force(" in source
+    assert _passive_postural_tone(spec, position=rest, velocity=5.0) == pytest.approx(0.0)
+    # Viscous damping is the engine's, per joint, not part of the tone torque.
+    humanoid = _humanoid()
+    damping = float(humanoid.scene.model.dof_damping[humanoid._joint_dof[ordinal]])
+    assert spec.passive_damping > 0.0
+    assert damping == pytest.approx(spec.passive_damping)
 
 
 def test_actuator_work_decomposition_keeps_absolute_effort_distinct_from_net():
-    from embodiment.physics3d.humanoid import ActuatorWork
+    from embodiment.physics3d.mechanics import (
+        ActuatorWork,
+    )
 
     work = ActuatorWork(
         positive_j=4.0,
@@ -951,38 +757,43 @@ def test_actuator_work_decomposition_keeps_absolute_effort_distinct_from_net():
 def test_runtime_physics_trace_initializes_joint_payload_before_append():
     import lab.physics3d.runtime as runtime
 
-    source = inspect.getsource(runtime.PyBulletEmbodimentRuntime._physics_trace_sample)
+    source = inspect.getsource(runtime.Physics3DEmbodimentRuntime._physics_trace_sample)
     assert "joints: list[dict[str, object]] = []" in source
     assert source.index("joints: list") < source.index("joints.append")
 
 
 def test_runtime_settling_fails_closed_instead_of_treating_timeout_as_success():
-    from lab.physics3d.runtime import PyBulletEmbodimentRuntime
+    from types import SimpleNamespace
 
-    class NeverSettlesBullet:
-        def stepSimulation(self, **_kwargs):
-            return None
+    from lab.physics3d.runtime import Physics3DEmbodimentRuntime
 
-        def getBaseVelocity(self, *_args, **_kwargs):
-            return ((1.0, 0.0, 0.0), (0.0, 0.5, 0.0))
-
-        def getJointStates(self, *_args, **_kwargs):
-            return ((0.0, 0.25, 0.0, 0.0),)
-
-    class Body:
-        body_id = 1
-        motor_joint_indices = (0,)
+    class NeverSettles:
+        observer_joint_specs = (SimpleNamespace(name="joint"),)
+        position = 0.0
 
         def apply_effectors(self, _values):
             return None
 
         def prepare_physics_substep(self):
-            return None
+            self.position += 1.0
 
-    runtime = PyBulletEmbodimentRuntime.__new__(PyBulletEmbodimentRuntime)
-    runtime.p = NeverSettlesBullet()
-    runtime.client_id = 7
-    runtime.apparatus = Body()
+        def joint_states(self):
+            return [(self.position, 0.25)]
+
+        def base_velocity(self):
+            return [1.0, 0.0, 0.0], [0.0, 0.5, 0.0]
+
+        def contact_details(self):
+            return []
+
+        def joint_torques(self):
+            return [0.0]
+
+    runtime = Physics3DEmbodimentRuntime.__new__(Physics3DEmbodimentRuntime)
+    runtime.scene = SimpleNamespace(
+        model=SimpleNamespace(opt=SimpleNamespace(timestep=1.0 / 240.0)), step=lambda: None
+    )
+    runtime.apparatus = NeverSettles()
 
     with pytest.raises(RuntimeError, match="failed passive settling"):
         runtime._settle_new_body(
@@ -1151,15 +962,8 @@ def test_actuator_work_metabolic_conversion_is_proportional_without_cap():
 def test_articulated_body_reports_signed_and_absolute_actuator_work():
     from embodiment.physics3d.articulated import ArticulatedPhysics
 
-    class Bullet:
-        def getJointStates(self, _body_id, indices, **_kwargs):
-            velocities = {0: 2.0, 1: -3.0}
-            return tuple((0.0, velocities[index], 0.0, 0.0) for index in indices)
-
     body = ArticulatedPhysics.__new__(ArticulatedPhysics)
-    body.p = Bullet()
-    body.client_id = 1
-    body.body_id = 2
+    body.joint_states = lambda: [(0.0, 2.0), (0.0, -3.0)]
     body._applied_torque_by_joint = {0: 4.0, 1: 5.0}
 
     work = body.actuator_work_step(0.5)

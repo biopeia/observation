@@ -131,11 +131,14 @@ def test_explicit_epigenetic_protocol_can_capture_only_regulable_loci():
         "development.soft_node_budget": float(genome.development.soft_node_budget + 32),
     }
     for _ in range(PERSISTENCE_TICKS - 1):
-        assert state.capture_acquired_variation(
-            current_expression,
-            genome=genome,
-            protocol=protocol,
-        ) == ()
+        assert (
+            state.capture_acquired_variation(
+                current_expression,
+                genome=genome,
+                protocol=protocol,
+            )
+            == ()
+        )
 
     captured = state.capture_acquired_variation(
         current_expression,

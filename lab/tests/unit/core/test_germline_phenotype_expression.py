@@ -44,12 +44,12 @@ def test_genome_learning_rate_is_actual_sensorimotor_phenotype():
     slow = CleanEmbodimentSeed(
         "sym-slow",
         genome=slow_genome,
-    germline=GermlineState.from_genome(slow_genome),
+        germline=GermlineState.from_genome(slow_genome),
     )
     fast = CleanEmbodimentSeed(
         "sym-fast",
         genome=fast_genome,
-    germline=GermlineState.from_genome(fast_genome),
+        germline=GermlineState.from_genome(fast_genome),
     )
 
     assert slow.learning_rate == pytest.approx(0.03)

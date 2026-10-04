@@ -19,7 +19,6 @@ from embodiment.physics3d.humanoid import (
     BODY_KIND,
     BODY_STATE_SCHEMA_VERSION,
     CONTACT_LINK_NAMES,
-    GROUND_MATERIAL,
     JOINT_SPECS,
     JOINT_TOPOLOGY,
     MOTOR_DOF,
@@ -29,6 +28,9 @@ from embodiment.physics3d.humanoid import (
     effector_contract_ids,
     interoceptive_receptor_contract_ids,
     receptor_contract_ids,
+)
+from embodiment.physics3d.mechanics import (
+    GROUND_MATERIAL,
 )
 from embodiment.physics3d.vision import (
     VISION_BODY_KIND,

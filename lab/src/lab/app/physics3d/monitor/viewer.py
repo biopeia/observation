@@ -19,10 +19,12 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from embodiment.physics3d.humanoid import (
-    CARRIER_MASS,
     JOINT_SPECS,
     JOINT_TOPOLOGY,
     SEGMENTS,
+)
+from embodiment.physics3d.mechanics import (
+    CARRIER_MASS,
 )
 from lab.app.physics3d.geometry import _convex_hull_2d, _point_in_polygon_2d
 from lab.app.physics3d.monitor.converters import (

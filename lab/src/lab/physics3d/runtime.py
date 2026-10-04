@@ -15,7 +15,6 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Mapping
 
-from embodiment.physics3d.humanoid import apply_surface_material, configure_physics_solver
 from environment.physics3d.environments import (
     build_environment,
     nursery_support_amount,
@@ -42,7 +41,7 @@ from lab.physics3d.observer_semantics import (
     motor_semantics,
     sensory_semantics,
 )
-from lab.physics3d.settling import settle_passive_body
+from lab.physics3d.settling import SETTLING_MAX_STEPS, settle_passive_body
 from symbiont.actuation.model import CausalSourceKind
 from symbiont.actuation.sensorimotor import CompetenceDevelopmentEngine
 from symbiont.cognition.generative import GenerativeMode
@@ -93,6 +92,9 @@ def metabolic_cost_from_actuator_work(
     if not math.isfinite(cost):
         raise ValueError("actuator work conversion overflowed")
     return cost
+
+
+WORLD_BODY_ID = 0  # the ground plane is a geom of MuJoCo's world body
 
 
 class PhysicsServerDisconnected(RuntimeError):
@@ -221,7 +223,7 @@ class Tick3D:
     contact_links: tuple[int, ...] = ()
 
 
-class PyBulletEmbodimentRuntime:
+class Physics3DEmbodimentRuntime:
     """One canonical organism runtime coupled to one physical PyBullet body."""
 
     def __init__(
@@ -297,17 +299,19 @@ class PyBulletEmbodimentRuntime:
                 ):
                     raise RuntimeError("current Physics3D checkpoint has invalid epoch summaries")
         try:
-            import pybullet as p
+            from embodiment.physics3d.scene import PhysicsScene
+
+            scene = PhysicsScene(timestep=float(time_step))
         except ImportError as exc:
             raise RuntimeError(
-                "PyBullet is optional. Install with: pip install 'symbiont-lab[physics3d]'"
+                "MuJoCo is optional. Install with: pip install 'symbiont-lab[physics3d]'"
             ) from exc
 
         # Physical checkpoints are current-format records, not an invitation to
         # guess the world in which their coordinates were produced.
         saved_world = physical_state.get("lab_world") if physical_state is not None else None
         self.environment_recipe = resolve_environment(environment, saved_world)
-        self.p = p
+        self.scene = scene
         self.time_step = float(time_step)
         if physics_substeps_per_tick < 1:
             raise ValueError("physics_substeps_per_tick must be >= 1")
@@ -326,39 +330,22 @@ class PyBulletEmbodimentRuntime:
         self.mechanical_work_cost_per_joule = float(mechanical_work_cost_per_joule)
         self.capture_physics_trace = bool(capture_physics_trace)
         self.body_descriptor = DEFAULT_BODY_REGISTRY.get(body_kind)
-        mode = p.GUI if gui else p.DIRECT
-        self.client_id = p.connect(mode)
-        if self.client_id < 0:
-            raise RuntimeError("failed to connect to PyBullet")
-
-        p.setGravity(0.0, 0.0, -9.81, physicsClientId=self.client_id)
-        p.setTimeStep(self.time_step, physicsClientId=self.client_id)
-        configure_physics_solver(self.client_id, self.time_step)
-
-        plane_shape = p.createCollisionShape(
-            p.GEOM_PLANE,
-            planeNormal=(0.0, 0.0, 1.0),
-            physicsClientId=self.client_id,
-        )
-        self.plane_id = p.createMultiBody(
-            baseMass=0.0,
-            baseCollisionShapeIndex=plane_shape,
-            physicsClientId=self.client_id,
-        )
-        apply_surface_material(
-            self.plane_id,
-            -1,
-            self.body_descriptor.ground_material,
-            client_id=self.client_id,
-        )
-
-        self.environment_bodies = build_environment(self.client_id, self.environment_recipe)
+        scene.add_ground(self.body_descriptor.ground_material)
+        self.environment_bodies = build_environment(scene, self.environment_recipe)
         self.last_organism_result = None
         # Lab provenance: cumulative protected-nursery energy supplied.
         self.nursery_support_total = 0.0
         # Seeds world-side stimulus parameters (e.g. nursery source motion).
         self.environment_seed = int(seed)
-        self.apparatus = self.body_descriptor.apparatus_factory(self.client_id)
+        self.apparatus = self.body_descriptor.apparatus_factory(scene)
+        resource_state = None
+        if isinstance(physical_state, Mapping):
+            raw_resource = physical_state.get("locomotion_resource")
+            if isinstance(raw_resource, Mapping):
+                resource_state = raw_resource
+        # Every part joins the scene before the body state is settled or
+        # restored: adding a part rebuilds the model.
+        self.resource = PhysicalResource.from_state(scene, resource_state)
         if physical_state is not None:
             # Resume may contain finite solver penetration beyond the declared
             # anatomical envelope. Project it back onto the current mechanical
@@ -378,19 +365,7 @@ class PyBulletEmbodimentRuntime:
             assert isinstance(raw_physical_body_id, str) and raw_physical_body_id
             self._physical_body_id = raw_physical_body_id
 
-        resource_state = None
-        if isinstance(physical_state, Mapping):
-            raw_resource = physical_state.get("locomotion_resource")
-            if isinstance(raw_resource, Mapping):
-                resource_state = raw_resource
-        self.resource = PhysicalResource.from_state(
-            self.client_id,
-            resource_state,
-        )
-        base_position, _ = p.getBasePositionAndOrientation(
-            self.apparatus.body_id,
-            physicsClientId=self.client_id,
-        )
+        base_position, _ = self.apparatus.base_pose()
         restored_origin = (
             physical_state.get("origin_xy") if isinstance(physical_state, Mapping) else None
         )
@@ -792,24 +767,17 @@ class PyBulletEmbodimentRuntime:
             for index, receptor_id in enumerate(self._reading_provider.receptor_ids)
         }
 
+        # Optional native engine window; observer-only.
+        self._window = None
         if gui:
-            p.resetDebugVisualizerCamera(
-                cameraDistance=3.1,
-                cameraYaw=38.0,
-                cameraPitch=-20.0,
-                cameraTargetPosition=(0.0, 0.0, 0.9),
-                physicsClientId=self.client_id,
-            )
-            p.configureDebugVisualizer(
-                p.COV_ENABLE_GUI,
-                0,
-                physicsClientId=self.client_id,
-            )
+            import mujoco.viewer
+
+            self._window = mujoco.viewer.launch_passive(scene.model, scene.data)
 
     def _settle_new_body(
         self,
         *,
-        max_steps: int = 1440,
+        max_steps: int = SETTLING_MAX_STEPS,
         stable_samples: int = 48,
         linear_threshold: float = 0.025,
         angular_threshold: float = 0.05,
@@ -817,8 +785,7 @@ class PyBulletEmbodimentRuntime:
     ) -> int:
         """Require passive mechanical equilibrium before organism tick 0."""
         result = settle_passive_body(
-            self.p,
-            self.client_id,
+            self.scene,
             self.apparatus,
             max_steps=max_steps,
             stable_samples=stable_samples,
@@ -977,12 +944,7 @@ class PyBulletEmbodimentRuntime:
             )
 
     def physics_connected(self) -> bool:
-        if self.client_id < 0:
-            return False
-        try:
-            return bool(self.p.isConnected(physicsClientId=self.client_id))
-        except Exception:
-            return False
+        return self.scene is not None
 
     def _physical_state_payload(
         self, physical_state: dict[str, object] | None = None
@@ -1234,7 +1196,7 @@ class PyBulletEmbodimentRuntime:
             mutations.append(
                 {
                     "kind": str(getattr(mutation, "kind", "")),
-                    "payload": PyBulletEmbodimentRuntime._telemetry_value(
+                    "payload": Physics3DEmbodimentRuntime._telemetry_value(
                         dict(getattr(mutation, "payload", {}) or {})
                     ),
                 }
@@ -1293,7 +1255,7 @@ class PyBulletEmbodimentRuntime:
         if generative is not None:
             # Organism-owned ephemeral generative state. This is observation
             # only; it never enters the CognitiveGraph or feeds back to runtime.
-            payload["generative"] = PyBulletEmbodimentRuntime._telemetry_value(generative)
+            payload["generative"] = Physics3DEmbodimentRuntime._telemetry_value(generative)
         if generative_lifecycle is not None:
             # Why the generative snapshot is, or is not, meaningful right now.
             payload["generative_status"] = dict(generative_lifecycle)
@@ -1316,83 +1278,29 @@ class PyBulletEmbodimentRuntime:
         }
 
     def _contact_counts(self) -> dict[str, int]:
-        contacts = self.p.getContactPoints(
-            bodyA=self.apparatus.body_id,
-            physicsClientId=self.client_id,
-        )
-        ground = 0
-        self_contacts = 0
-        resource = 0
+        contacts = self.apparatus.contact_details()
+        own = self.apparatus.body_ids
         resource_id = getattr(getattr(self, "resource", None), "body_id", None)
-        for item in contacts:
-            body_a = int(item[1])
-            body_b = int(item[2])
-            if body_a == self.apparatus.body_id and body_b == self.apparatus.body_id:
-                self_contacts += 1
-            if body_a == self.plane_id or body_b == self.plane_id:
-                ground += 1
-            if resource_id is not None and (
-                body_a == int(resource_id) or body_b == int(resource_id)
-            ):
-                resource += 1
         return {
-            "body": len(contacts),
-            "ground": ground,
-            "self": self_contacts,
-            "resource": resource,
+            # A contact between two of the organism's links is listed once per link.
+            "body": len(contacts) - sum(item["other_body_id"] in own for item in contacts) // 2,
+            "ground": sum(item["other_body_id"] == WORLD_BODY_ID for item in contacts),
+            "self": sum(item["other_body_id"] in own for item in contacts) // 2,
+            "resource": sum(item["other_body_id"] == resource_id for item in contacts),
         }
 
-    def _contact_payload(self) -> list[dict[str, object]]:
-        contacts = self.p.getContactPoints(
-            bodyA=self.apparatus.body_id,
-            physicsClientId=self.client_id,
-        )
-        payload: list[dict[str, object]] = []
-        for item in contacts:
-            payload.append(
-                {
-                    "body_a": int(item[1]),
-                    "body_b": int(item[2]),
-                    "link_a": int(item[3]),
-                    "link_b": int(item[4]),
-                    "position_a": [float(value) for value in item[5]],
-                    "position_b": [float(value) for value in item[6]],
-                    "normal_on_b": [float(value) for value in item[7]],
-                    "distance": float(item[8]),
-                    "normal_force": float(item[9]),
-                    "lateral_friction_1": float(item[10]) if len(item) > 10 else 0.0,
-                    "lateral_friction_2": float(item[12]) if len(item) > 12 else 0.0,
-                }
-            )
-        return payload
-
     def _physics_trace_sample(self, substep: int) -> dict[str, object]:
-        base_position, base_orientation = self.p.getBasePositionAndOrientation(
-            self.apparatus.body_id,
-            physicsClientId=self.client_id,
-        )
-        linear_velocity, angular_velocity = self.p.getBaseVelocity(
-            self.apparatus.body_id,
-            physicsClientId=self.client_id,
-        )
-        if hasattr(self.p, "getJointStates"):
-            raw_joint_states = self.p.getJointStates(
-                self.apparatus.body_id,
-                self.apparatus.motor_joint_indices,
-                physicsClientId=self.client_id,
-            )
-        else:
-            raw_joint_states = [
-                self.p.getJointState(self.apparatus.body_id, j, physicsClientId=self.client_id)
-                for j in self.apparatus.motor_joint_indices
-            ]
+        base_position, base_orientation = self.apparatus.base_pose()
+        linear_velocity, angular_velocity = self.apparatus.base_velocity()
         joints: list[dict[str, object]] = []
-        for joint_index, state in zip(self.apparatus.motor_joint_indices, raw_joint_states):
+        for joint_index, (position, velocity) in zip(
+            self.apparatus.motor_joint_indices, self.apparatus.joint_states()
+        ):
             joints.append(
                 {
                     "joint_index": int(joint_index),
-                    "position": float(state[0]),
-                    "velocity": float(state[1]),
+                    "position": position,
+                    "velocity": velocity,
                     "commanded_torque": float(
                         self.apparatus._applied_torque_by_joint.get(joint_index, 0.0)
                     ),
@@ -1400,12 +1308,12 @@ class PyBulletEmbodimentRuntime:
             )
         return {
             "substep": int(substep),
-            "base_position": [float(value) for value in base_position],
-            "base_orientation": [float(value) for value in base_orientation],
-            "linear_velocity": [float(value) for value in linear_velocity],
-            "angular_velocity": [float(value) for value in angular_velocity],
+            "base_position": base_position,
+            "base_orientation": base_orientation,
+            "linear_velocity": linear_velocity,
+            "angular_velocity": angular_velocity,
             "joints": joints,
-            "contacts": self._contact_payload(),
+            "contacts": self.apparatus.contact_details(),
         }
 
     def _apply_runtime_actuation(self, override: Mapping[str, float] | None = None) -> int:
@@ -1502,7 +1410,7 @@ class PyBulletEmbodimentRuntime:
         physical_actuation_override: Mapping[str, float] | None = None,
     ) -> Tick3D:
         if not self.physics_connected():
-            raise PhysicsServerDisconnected("PyBullet physics server was closed")
+            raise PhysicsServerDisconnected("the physics scene was closed")
 
         pre_physical_state = self.apparatus.export_physical_state()
         pre_position = tuple(float(value) for value in pre_physical_state["base_position"])
@@ -1514,9 +1422,8 @@ class PyBulletEmbodimentRuntime:
         # Kinematic nursery sources take their pose for the tick about to be
         # sensed; a pure function of the causal tick (ADR-0042).
         update_environment(
-            self.client_id,
+            self.scene,
             self.environment_recipe,
-            self.environment_bodies,
             self.tick_count + 1,
             self.environment_seed,
         )
@@ -1544,7 +1451,7 @@ class PyBulletEmbodimentRuntime:
         except Exception as exc:
             if not self.physics_connected():
                 raise PhysicsServerDisconnected(
-                    "PyBullet physics server was closed during actuation"
+                    "the physics scene was closed during actuation"
                 ) from exc
             raise
         # Hold the organism's motor command while the physical body evolves at
@@ -1563,7 +1470,7 @@ class PyBulletEmbodimentRuntime:
         try:
             for substep in range(self.physics_substeps_per_tick):
                 self.apparatus.prepare_physics_substep()
-                self.p.stepSimulation(physicsClientId=self.client_id)
+                self.scene.step()
                 if hasattr(self.apparatus, "actuator_work_step"):
                     work = self.apparatus.actuator_work_step(self.time_step)
                     positive_actuator_work_joules += float(work.positive_j)
@@ -1599,47 +1506,34 @@ class PyBulletEmbodimentRuntime:
                     if len(self._presentation_pose_frames) > 8:
                         del self._presentation_pose_frames[:-8]
 
-                current_position, _ = self.p.getBasePositionAndOrientation(
-                    self.apparatus.body_id,
-                    physicsClientId=self.client_id,
-                )
-                current_position = (
-                    float(current_position[0]),
-                    float(current_position[1]),
-                    float(current_position[2]),
-                )
+                current_position = tuple(self.apparatus.base_pose()[0])
                 dx = current_position[0] - previous_substep_position[0]
                 dy = current_position[1] - previous_substep_position[1]
                 dz = current_position[2] - previous_substep_position[2]
                 base_path_length += math.sqrt(dx * dx + dy * dy + dz * dz)
                 previous_substep_position = current_position
 
-                contacts_now = self.p.getContactPoints(
-                    bodyA=self.apparatus.body_id,
-                    physicsClientId=self.client_id,
-                )
-                for contact in contacts_now:
-                    normal_force = max(0.0, float(contact[9]))
+                resource_id = self.resource.body_id
+                for contact in self.apparatus.contact_details():
+                    normal_force = float(contact["normal_force"])
                     max_contact_force = max(max_contact_force, normal_force)
                     contact_normal_impulse += normal_force * self.time_step
-                    if not resource_contacted and (
-                        contact[2] == self.resource.body_id or contact[1] == self.resource.body_id
-                    ):
+                    if contact["other_body_id"] == resource_id:
                         resource_contacted = True
 
                 if self.capture_physics_trace:
                     physics_trace.append(self._physics_trace_sample(substep))
 
-                if (
-                    not resource_contacted
-                    and self.resource.distance_to(current_position) < 1.8
-                    and self.resource.touching(self.apparatus.body_id)
-                ):
-                    resource_contacted = True
+            # A step leaves link poses and contacts one substep behind the
+            # joint state.  Bring them up to date so sensing and checkpoints
+            # read the same state a restored body would.
+            self.scene.forward()
+            if self._window is not None:
+                self._window.sync()
         except Exception as exc:
             if not self.physics_connected():
                 raise PhysicsServerDisconnected(
-                    "PyBullet physics server was closed during integration"
+                    "the physics scene was closed during integration"
                 ) from exc
             raise
 
@@ -2107,7 +2001,7 @@ class PyBulletEmbodimentRuntime:
                     "base_path_length": float(base_path_length),
                     "max_contact_normal_force": float(max_contact_force),
                     "contact_normal_impulse": float(contact_normal_impulse),
-                    "final_contacts": self._contact_payload(),
+                    "final_contacts": self.apparatus.contact_details(),
                     "raw_substeps": physics_trace if self.capture_physics_trace else None,
                 },
                 "post": {
@@ -2449,63 +2343,6 @@ class PyBulletEmbodimentRuntime:
             contact_links=tuple(int(c) for c in self._last_physical_state.get("contact_links", ())),
         )
 
-    def render_camera_frame(
-        self,
-        *,
-        width: int = 900,
-        height: int = 600,
-        yaw: float = 38.0,
-        pitch: float = -20.0,
-        distance: float = 3.1,
-        target_z: float = 0.85,
-    ) -> bytes:
-        """Render passive RGB observation from the physical world.
-
-        This is evaluator-only. Camera state never enters cognition or body
-        sensing and therefore cannot affect the organism's learned world.
-        """
-        if not self.physics_connected():
-            raise PhysicsServerDisconnected("PyBullet physics server was closed")
-        if width < 160 or height < 120:
-            raise ValueError("camera frame must be at least 160x120")
-
-        import numpy as np
-
-        base_position, _ = self.p.getBasePositionAndOrientation(
-            self.apparatus.body_id,
-            physicsClientId=self.client_id,
-        )
-        target = (
-            float(base_position[0]),
-            float(base_position[1]),
-            float(target_z),
-        )
-        view = self.p.computeViewMatrixFromYawPitchRoll(
-            cameraTargetPosition=target,
-            distance=max(1.1, min(8.0, float(distance))),
-            yaw=float(yaw),
-            pitch=max(-85.0, min(35.0, float(pitch))),
-            roll=0.0,
-            upAxisIndex=2,
-        )
-        projection = self.p.computeProjectionMatrixFOV(
-            fov=55.0,
-            aspect=float(width) / float(height),
-            nearVal=0.05,
-            farVal=25.0,
-        )
-        image = self.p.getCameraImage(
-            width=int(width),
-            height=int(height),
-            viewMatrix=view,
-            projectionMatrix=projection,
-            renderer=self.p.ER_TINY_RENDERER,
-            flags=self.p.ER_NO_SEGMENTATION_MASK,
-            physicsClientId=self.client_id,
-        )
-        rgba = np.asarray(image[2], dtype=np.uint8).reshape(int(height), int(width), 4)
-        return rgba[:, :, :3].tobytes()
-
     def motor_activity(self) -> dict[str, float]:
         constitution = self.organism.actuator_constitution
         if constitution is None:
@@ -2521,23 +2358,16 @@ class PyBulletEmbodimentRuntime:
         return activity
 
     def close(self) -> None:
-        client_id = self.client_id
-        self.client_id = -1
-        if client_id < 0:
-            return
-        try:
-            if self.p.isConnected(physicsClientId=client_id):
-                self.p.disconnect(physicsClientId=client_id)
-        except Exception:
-            # Closing the native GUI can tear down the physics server before
-            # Python receives control. Shutdown must remain idempotent.
-            pass
+        window, self._window = getattr(self, "_window", None), None
+        if window is not None:
+            window.close()
+        self.scene = None
 
-    def __enter__(self) -> "PyBulletEmbodimentRuntime":
+    def __enter__(self) -> "Physics3DEmbodimentRuntime":
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:
         self.close()
 
 
-__all__ = ["PhysicsServerDisconnected", "PyBulletEmbodimentRuntime", "Tick3D"]
+__all__ = ["PhysicsServerDisconnected", "Physics3DEmbodimentRuntime", "Tick3D"]

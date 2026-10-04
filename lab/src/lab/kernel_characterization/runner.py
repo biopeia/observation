@@ -195,13 +195,13 @@ def _run_physics_seed(variant: KernelVariant, seed: int, phase_ticks: int | None
     normal opaque sensor surface; the variant is retained by the lab runner,
     never exposed through organism observations.
     """
-    from lab.physics3d.runtime import PyBulletEmbodimentRuntime
+    from lab.physics3d.runtime import Physics3DEmbodimentRuntime
 
     started = time.perf_counter()
     errors: list[float] = []
     organism_times: list[float] = []
     try:
-        with PyBulletEmbodimentRuntime(
+        with Physics3DEmbodimentRuntime(
             gui=False,
             seed=seed,
             kernel_limits=variant.limits(),

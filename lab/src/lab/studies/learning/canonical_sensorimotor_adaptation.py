@@ -13,7 +13,7 @@ from copy import deepcopy
 from dataclasses import asdict, dataclass
 from typing import Any, Iterable, Mapping
 
-from lab.physics3d.runtime import PyBulletEmbodimentRuntime
+from lab.physics3d.runtime import Physics3DEmbodimentRuntime
 from lab.studies.learning.canonical_sensorimotor_counterfactual import (
     _find_replay_checkpoint,
     _state_digest,
@@ -126,7 +126,7 @@ def _rollout(
     if damage:
         actuator_state = state["actuation"]["states"][target_actuator_id]
         actuator_state["health"] = 0.0
-    with PyBulletEmbodimentRuntime(
+    with Physics3DEmbodimentRuntime(
         gui=False,
         seed=seed,
         physics_substeps_per_tick=1,

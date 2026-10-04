@@ -75,3 +75,24 @@ def test_visual_apparatus_never_imports_observer_truth(module) -> None:
     forbidden = ("observation", "world_scene", "world_observation", "observer_semantics", "time")
     for module in modules:
         assert not any(part in module.split(".") for part in forbidden), module
+
+
+def test_vision_body_samples_its_scene_deterministically_within_bounds() -> None:
+    pytest.importorskip("mujoco")
+    from embodiment.physics3d.scene import PhysicsScene
+
+    def sample() -> dict[str, float]:
+        scene = PhysicsScene(timestep=1.0 / 240.0)
+        scene.add_ground()
+        body = ANTHROPOMORPHIC_V6_VISION.apparatus_factory(scene)
+        return dict(body.sample_receptors())
+
+    values = sample()
+    visual = [values[receptor] for receptor in visual_receptor_contract_ids()]
+    assert set(values) == set(vision_receptor_contract_ids()) - set(
+        ANTHROPOMORPHIC_V6_VISION.interoceptive_receptor_ids
+    )
+    assert all(0.0 <= value <= 1.0 for value in visual)
+    # Standing upright, the array sees both sky and ground.
+    assert len({round(value, 6) for value in visual}) > 1
+    assert sample() == values

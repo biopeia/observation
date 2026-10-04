@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 
 from lab.physics3d import cli, engine
-from lab.physics3d.runtime import PyBulletEmbodimentRuntime
+from lab.physics3d.runtime import Physics3DEmbodimentRuntime
 
 
 class _FakeSignalKnowledge:
@@ -88,27 +88,16 @@ def test_checkpoint_writes_body_with_its_own_completed_tick(monkeypatch, tmp_pat
     assert captured["symbiont_ticks"] == 321
 
 
-def test_runtime_close_is_idempotent_after_native_server_disconnect():
-    class FakeBullet:
-        def __init__(self):
-            self.disconnect_calls = 0
-
-        def isConnected(self, *, physicsClientId):
-            return 0
-
-        def disconnect(self, *, physicsClientId):
-            self.disconnect_calls += 1
-            raise AssertionError("disconnect must not be called for dead server")
-
-    runtime = PyBulletEmbodimentRuntime.__new__(PyBulletEmbodimentRuntime)
-    runtime.p = FakeBullet()
-    runtime.client_id = 7
+def test_runtime_close_is_idempotent_and_releases_the_scene():
+    runtime = Physics3DEmbodimentRuntime.__new__(Physics3DEmbodimentRuntime)
+    runtime.scene = object()
+    assert runtime.physics_connected() is True
 
     runtime.close()
     runtime.close()
 
-    assert runtime.client_id == -1
-    assert runtime.p.disconnect_calls == 0
+    assert runtime.scene is None
+    assert runtime.physics_connected() is False
 
 
 def test_new_subject_archives_existing_artifacts(tmp_path):
@@ -231,7 +220,7 @@ def test_resume_requires_matching_body_or_explicit_fresh_body(monkeypatch, tmp_p
     def unexpected_runtime(**kwargs):
         pytest.fail("must reject implicit reembodiment before creating runtime")
 
-    monkeypatch.setattr(engine, "PyBulletEmbodimentRuntime", unexpected_runtime)
+    monkeypatch.setattr(engine, "Physics3DEmbodimentRuntime", unexpected_runtime)
     with pytest.raises(RuntimeError, match="--fresh-body"):
         engine.run(symbiont_file=mind, body_file=body, telemetry_file=tmp_path / "telemetry")
     assert mind.read_bytes() == b"preserved mind"
@@ -264,7 +253,7 @@ def test_run_checkpoint_failure_reaches_caller_after_cleanup(
     if observer_fails:
         telemetry.flush.side_effect = OSError("observer flush failed")
         telemetry.close.side_effect = OSError("observer close failed")
-    monkeypatch.setattr(engine, "PyBulletEmbodimentRuntime", lambda **kwargs: runtime)
+    monkeypatch.setattr(engine, "Physics3DEmbodimentRuntime", lambda **kwargs: runtime)
     monkeypatch.setattr(engine, "AsyncTelemetryV41Writer", lambda *args, **kwargs: telemetry)
     monkeypatch.setattr(engine.ExecutionRates, "observation_due", lambda *args, **kwargs: False)
     writes = []
@@ -328,7 +317,7 @@ def test_explicit_reembodiment_and_coherent_resume_reach_runtime(
         assert kwargs["physical_state"] == (None if fresh_body else physical)
         raise ReachedRuntime
 
-    monkeypatch.setattr(engine, "PyBulletEmbodimentRuntime", capture_runtime)
+    monkeypatch.setattr(engine, "Physics3DEmbodimentRuntime", capture_runtime)
     with pytest.raises(ReachedRuntime):
         engine.run(
             symbiont_file=mind,
@@ -358,7 +347,7 @@ def test_observer_failure_preserves_tick_budget_checkpoint_and_cleanup(
     telemetry = Mock(root=tmp_path / "telemetry")
     if failed_operation != "measurement":
         getattr(telemetry, failed_operation).side_effect = OSError("observer unavailable")
-    monkeypatch.setattr(engine, "PyBulletEmbodimentRuntime", lambda **kwargs: runtime)
+    monkeypatch.setattr(engine, "Physics3DEmbodimentRuntime", lambda **kwargs: runtime)
     monkeypatch.setattr(engine, "AsyncTelemetryV41Writer", lambda *args, **kwargs: telemetry)
     monkeypatch.setattr(engine.ExecutionRates, "observation_due", lambda *args, **kwargs: True)
     save = Mock(return_value=None)
@@ -405,7 +394,7 @@ def test_all_resources_close_when_cleanup_fails(monkeypatch, tmp_path, checkpoin
     viewer.close.side_effect = OSError("viewer close failed")
     training = Mock()
     training.close.side_effect = OSError("training close failed")
-    monkeypatch.setattr(engine, "PyBulletEmbodimentRuntime", lambda **kwargs: runtime)
+    monkeypatch.setattr(engine, "Physics3DEmbodimentRuntime", lambda **kwargs: runtime)
     monkeypatch.setattr(engine, "AsyncTelemetryV41Writer", lambda *args, **kwargs: telemetry)
     monkeypatch.setattr(engine, "PrivateModelTrainingService", lambda **kwargs: training)
     save = Mock(side_effect=OSError("checkpoint failed") if checkpoint_fails else None)

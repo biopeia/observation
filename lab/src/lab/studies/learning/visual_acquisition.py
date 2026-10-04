@@ -209,9 +209,9 @@ def _guard_step(runtime: Any, guard: RunGuard, *, include_observability: bool) -
 
 
 def make_state_x(seed: int, *, environment: str = ENVIRONMENT) -> dict[str, Any]:
-    from lab.physics3d.runtime import PyBulletEmbodimentRuntime
+    from lab.physics3d.runtime import Physics3DEmbodimentRuntime
 
-    runtime = PyBulletEmbodimentRuntime(
+    runtime = Physics3DEmbodimentRuntime(
         gui=False, seed=seed, body_kind=BODY_KIND, environment=environment
     )
     guard = RunGuard(RunKind.ACQUISITION_VISION)
@@ -240,7 +240,7 @@ def run_arm(
     report_performance: bool,
     environment: str = ENVIRONMENT,
 ) -> dict[str, Any]:
-    from lab.physics3d.runtime import PyBulletEmbodimentRuntime
+    from lab.physics3d.runtime import Physics3DEmbodimentRuntime
 
     if arm not in ARMS:
         raise ValueError(f"unknown arm {arm}")
@@ -248,7 +248,7 @@ def run_arm(
     if not horizons or horizons[0] <= late_window:
         raise ValueError("every horizon must exceed the late window")
     visual_ids = _visual_receptor_ids()
-    runtime = PyBulletEmbodimentRuntime(
+    runtime = Physics3DEmbodimentRuntime(
         gui=False,
         seed=seed,
         body_kind=BODY_KIND,

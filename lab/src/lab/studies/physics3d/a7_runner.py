@@ -41,9 +41,9 @@ def actuation_for_tick(effector_ids: tuple[str, ...], tick: int) -> dict[str, fl
 
 
 def _runtime_factory(**kwargs: Any):
-    from lab.physics3d.runtime import PyBulletEmbodimentRuntime
+    from lab.physics3d.runtime import Physics3DEmbodimentRuntime
 
-    return PyBulletEmbodimentRuntime(**kwargs)
+    return Physics3DEmbodimentRuntime(**kwargs)
 
 
 def _git_revision() -> str:

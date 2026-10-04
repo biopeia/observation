@@ -1,53 +1,22 @@
 from __future__ import annotations
 
-import sys
-
 import pytest
 
 from embodiment.physics3d.humanoid import HumanoidPhysics
 from environment.physics3d.resource import PhysicalResource
 
 
-class FakeBullet:
-    GEOM_SPHERE = 2
+@pytest.fixture
+def scene():
+    pytest.importorskip("mujoco")
+    from embodiment.physics3d.scene import PhysicsScene
 
-    def __init__(self):
-        self.next_id = 1
-        self.contacts = []
-
-    def createCollisionShape(self, *args, **kwargs):
-        value = self.next_id
-        self.next_id += 1
-        return value
-
-    def createVisualShape(self, *args, **kwargs):
-        value = self.next_id
-        self.next_id += 1
-        return value
-
-    def createMultiBody(self, *args, **kwargs):
-        value = self.next_id
-        self.next_id += 1
-        return value
-
-    def changeDynamics(self, *args, **kwargs):
-        return None
-
-    def getContactPoints(self, **kwargs):
-        return tuple(self.contacts)
+    return PhysicsScene(timestep=1.0 / 240.0, gravity=(0.0, 0.0, 0.0))
 
 
-@pytest.fixture(autouse=True)
-def bullet(monkeypatch):
-    """The resource reaches its declared backend by import; give it a fake one."""
-    fake = FakeBullet()
-    monkeypatch.setitem(sys.modules, "pybullet", fake)
-    return fake
-
-
-def test_resource_field_is_local_scalar_and_extinguishes_when_depleted():
+def test_resource_field_is_local_scalar_and_extinguishes_when_depleted(scene):
     resource = PhysicalResource(
-        7,
+        scene,
         position=(2.0, 0.0, 0.0),
         radius=0.2,
         field_radius=4.0,
@@ -63,9 +32,9 @@ def test_resource_field_is_local_scalar_and_extinguishes_when_depleted():
     assert resource.field_at((2.0, 0.0, 0.0)) == 0.0
 
 
-def test_resource_debits_only_absorbed_material():
+def test_resource_debits_only_absorbed_material(scene):
     resource = PhysicalResource(
-        7,
+        scene,
         remaining=10.0,
         transfer_per_tick=2.0,
     )
@@ -75,12 +44,22 @@ def test_resource_debits_only_absorbed_material():
     assert resource.remaining == pytest.approx(9.6)
 
 
-def test_resource_contact_is_physical_not_semantic(bullet):
-    resource = PhysicalResource(7)
+def test_resource_contact_is_physical_not_semantic(scene):
+    resource = PhysicalResource(scene)
+    sphere = scene.mj.mjtGeom.mjGEOM_SPHERE
+    for name, x in (("overlapping", resource.position[0] + 0.1), ("distant", 0.0)):
+        body = scene.spec.worldbody.add_body(name=name, pos=[x, 0.0, resource.position[2]])
+        body.add_freejoint()
+        body.add_geom(type=sphere, size=[0.1, 0.0, 0.0])
+    scene.recompile()
+    overlapping = scene.name_to_id("body", "overlapping")
+    distant = scene.name_to_id("body", "distant")
 
-    assert resource.touching(99) is False
-    bullet.contacts.append(("opaque-contact",))
-    assert resource.touching(99) is True
+    assert resource.touching({distant}) is False
+    assert resource.touching({overlapping}) is True
+    assert resource.touching({overlapping, distant}) is True
+    resource.remaining = 0.0
+    assert resource.touching({overlapping}) is False
 
 
 def test_opaque_environment_state_accepts_only_bounded_scalars():
@@ -94,12 +73,12 @@ def test_opaque_environment_state_accepts_only_bounded_scalars():
         body.set_opaque_environment_state(external_field=1.1)
 
 
-def test_world_loss_equals_body_gain_for_accepted_physical_transfer():
+def test_world_loss_equals_body_gain_for_accepted_physical_transfer(scene):
     from symbiont.core.embodiment.metabolism import MetabolicLedger
     from symbiont.core.embodiment.physiology import LivingBodyState
 
     resource = PhysicalResource(
-        7,
+        scene,
         remaining=10.0,
         transfer_per_tick=2.0,
     )

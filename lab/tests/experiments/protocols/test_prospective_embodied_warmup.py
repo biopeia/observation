@@ -27,7 +27,7 @@ def test_first_warmup_tick_polls_training_for_the_subject(monkeypatch):
     runtime.step.return_value = tick
     training = MagicMock(training=False)
     training.maybe_schedule.return_value = False
-    monkeypatch.setattr(study, "PyBulletEmbodimentRuntime", lambda **kwargs: runtime)
+    monkeypatch.setattr(study, "Physics3DEmbodimentRuntime", lambda **kwargs: runtime)
     monkeypatch.setattr(study, "PrivateModelTrainingService", lambda **kwargs: training)
 
     result = study.run_prospective_embodied_trial(1, warmup_ticks=1, horizon_ticks=1)

@@ -19,7 +19,7 @@ from types import MethodType
 from typing import Any, Iterable
 
 from lab.physics3d.private_model_training import PrivateModelTrainingService
-from lab.physics3d.runtime import PyBulletEmbodimentRuntime
+from lab.physics3d.runtime import Physics3DEmbodimentRuntime
 
 _CONDITIONS = (
     "full",
@@ -122,7 +122,7 @@ def _value_entry_count(runtime) -> int:
     return int(agency.outcome_value_ledger.known_outcome_count)
 
 
-def _attach_existing_model(runtime: PyBulletEmbodimentRuntime, models_dir: Path) -> None:
+def _attach_existing_model(runtime: Physics3DEmbodimentRuntime, models_dir: Path) -> None:
     manager = PrivateModelTrainingService(
         models_dir=models_dir,
         train_interval=1_000_000,
@@ -139,11 +139,11 @@ def _attach_existing_model(runtime: PyBulletEmbodimentRuntime, models_dir: Path)
         manager.close()
 
 
-def _disable_counterfactual(runtime: PyBulletEmbodimentRuntime) -> None:
+def _disable_counterfactual(runtime: Physics3DEmbodimentRuntime) -> None:
     runtime.organism._prospective_agency = None
 
 
-def _shuffle_private_model_action_identity(runtime: PyBulletEmbodimentRuntime) -> bool:
+def _shuffle_private_model_action_identity(runtime: Physics3DEmbodimentRuntime) -> bool:
     action_ids = tuple(sorted(runtime.organism.available_motor_competence_ids))
     if len(action_ids) < 2:
         return False
@@ -165,7 +165,7 @@ def _shuffle_private_model_action_identity(runtime: PyBulletEmbodimentRuntime) -
     return True
 
 
-def _shuffle_outcome_value_identity(runtime: PyBulletEmbodimentRuntime) -> bool:
+def _shuffle_outcome_value_identity(runtime: Physics3DEmbodimentRuntime) -> bool:
     agency = getattr(runtime.organism, "_prospective_agency", None)
     if agency is None:
         return False
@@ -181,7 +181,7 @@ def _shuffle_outcome_value_identity(runtime: PyBulletEmbodimentRuntime) -> bool:
     return True
 
 
-def _freeze_outcome_value_learning(runtime: PyBulletEmbodimentRuntime) -> None:
+def _freeze_outcome_value_learning(runtime: Physics3DEmbodimentRuntime) -> None:
     runtime.organism._pending_outcome_value_credit = []
 
     def no_schedule(self, episode, *, baseline_deviation: float, tick: int) -> None:
@@ -194,7 +194,7 @@ def _freeze_outcome_value_learning(runtime: PyBulletEmbodimentRuntime) -> None:
 
 
 def _apply_condition(
-    runtime: PyBulletEmbodimentRuntime,
+    runtime: Physics3DEmbodimentRuntime,
     condition: str,
 ) -> bool:
     if condition == "full":
@@ -233,7 +233,7 @@ def _run_condition(
     start_displacement: float,
     start_progress: float,
 ) -> ProspectiveEmbodiedCondition:
-    with PyBulletEmbodimentRuntime(
+    with Physics3DEmbodimentRuntime(
         gui=False,
         seed=seed,
         runtime_checkpoint=deepcopy(runtime_checkpoint),
@@ -341,7 +341,7 @@ def run_prospective_embodied_trial(
         start_displacement = 0.0
         start_progress = 0.0
 
-        with PyBulletEmbodimentRuntime(
+        with Physics3DEmbodimentRuntime(
             gui=False,
             seed=seed,
             organism_id=f"symbiont:prospective-embodied:{seed}",

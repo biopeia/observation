@@ -7,148 +7,56 @@ from pathlib import Path
 from statistics import fmean
 from typing import Iterable, Mapping, Sequence
 
-from embodiment.physics3d.humanoid import (
-    GROUND_MATERIAL,
-    JOINT_SPECS,
-    HumanoidPhysics,
-    apply_surface_material,
-    configure_physics_solver,
-)
+from embodiment.physics3d.humanoid import JOINT_SPECS, HumanoidPhysics
 from lab.physics3d.settling import SettlingResult, settle_passive_body
 
 GRAVITY = 9.81
 DEFAULT_TIME_STEP = 1.0 / 240.0
+WORLD_BODY_ID = 0  # the ground plane is a geom of MuJoCo's world body
 
 
 def _connect_world(time_step: float = DEFAULT_TIME_STEP):
     try:
-        import pybullet as p
+        from embodiment.physics3d.scene import PhysicsScene
+
+        scene = PhysicsScene(timestep=time_step, gravity=(0.0, 0.0, -GRAVITY))
     except ImportError as exc:
         raise RuntimeError(
-            "PyBullet is required. Install with: pip install 'symbiont-lab[physics3d]'"
+            "MuJoCo is required. Install with: pip install 'symbiont-lab[physics3d]'"
         ) from exc
-
-    client_id = p.connect(p.DIRECT)
-    if client_id < 0:
-        raise RuntimeError("failed to connect to PyBullet")
-    p.setGravity(0.0, 0.0, -GRAVITY, physicsClientId=client_id)
-    p.setTimeStep(time_step, physicsClientId=client_id)
-    configure_physics_solver(client_id, time_step)
-
-    plane_shape = p.createCollisionShape(
-        p.GEOM_PLANE,
-        planeNormal=(0.0, 0.0, 1.0),
-        physicsClientId=client_id,
-    )
-    plane_id = p.createMultiBody(
-        baseMass=0.0,
-        baseCollisionShapeIndex=plane_shape,
-        physicsClientId=client_id,
-    )
-    apply_surface_material(
-        plane_id,
-        -1,
-        GROUND_MATERIAL,
-        client_id=client_id,
-    )
-    body = HumanoidPhysics(client_id)
-    return p, client_id, plane_id, body
+    scene.add_ground()
+    return scene, HumanoidPhysics(scene)
 
 
-def _total_mass(p, client_id: int, body: HumanoidPhysics) -> float:
-    total = float(p.getDynamicsInfo(body.body_id, -1, physicsClientId=client_id)[0])
-    for link_index in range(int(p.getNumJoints(body.body_id, physicsClientId=client_id))):
-        total += float(
-            p.getDynamicsInfo(
-                body.body_id,
-                link_index,
-                physicsClientId=client_id,
-            )[0]
-        )
-    return total
+def _total_mass(body: HumanoidPhysics) -> float:
+    return body.mass_distribution()[0]
 
 
-def _center_of_mass_height(p, client_id: int, body: HumanoidPhysics) -> float:
-    weighted_z = 0.0
-    total = 0.0
-
-    base_mass = float(p.getDynamicsInfo(body.body_id, -1, physicsClientId=client_id)[0])
-    base_pos, _ = p.getBasePositionAndOrientation(
-        body.body_id,
-        physicsClientId=client_id,
-    )
-    weighted_z += base_mass * float(base_pos[2])
-    total += base_mass
-
-    for link_index in range(int(p.getNumJoints(body.body_id, physicsClientId=client_id))):
-        mass = float(
-            p.getDynamicsInfo(
-                body.body_id,
-                link_index,
-                physicsClientId=client_id,
-            )[0]
-        )
-        if mass <= 0.0:
-            continue
-        state = p.getLinkState(
-            body.body_id,
-            link_index,
-            computeForwardKinematics=True,
-            physicsClientId=client_id,
-        )
-        weighted_z += mass * float(state[0][2])
-        total += mass
-
-    return weighted_z / max(total, 1e-12)
+def _center_of_mass_height(body: HumanoidPhysics) -> float:
+    return body.mass_distribution()[1][2]
 
 
-def _contact_metrics(
-    p,
-    client_id: int,
-    body_id: int,
-    plane_id: int,
-) -> tuple[float, float, int]:
-    contacts = p.getContactPoints(
-        bodyA=body_id,
-        bodyB=plane_id,
-        physicsClientId=client_id,
-    )
-    normal_force = sum(max(0.0, float(item[9])) for item in contacts)
-
-    closest = p.getClosestPoints(
-        bodyA=body_id,
-        bodyB=plane_id,
-        distance=0.05,
-        physicsClientId=client_id,
-    )
-    min_distance = min((float(item[8]) for item in closest), default=0.0)
-    penetration = max(0.0, -min_distance)
-    return normal_force, penetration, len(contacts)
+def _contact_metrics(body: HumanoidPhysics) -> tuple[float, float, int]:
+    """Ground reaction, deepest penetration and number of ground contacts."""
+    ground = [item for item in body.contact_details() if item["other_body_id"] == WORLD_BODY_ID]
+    normal_force = sum(float(item["normal_force"]) for item in ground)
+    penetration = max((max(0.0, -float(item["distance"])) for item in ground), default=0.0)
+    return normal_force, penetration, len(ground)
 
 
-def _settle(
-    p,
-    client_id: int,
-    body: HumanoidPhysics,
-    **kwargs,
-) -> SettlingResult:
-    return settle_passive_body(p, client_id, body, **kwargs)
+def _settle(scene, body: HumanoidPhysics, **kwargs) -> SettlingResult:
+    return settle_passive_body(scene, body, **kwargs)
 
 
 def _passive_characterization(
-    p,
-    client_id: int,
-    plane_id: int,
+    scene,
     body: HumanoidPhysics,
     *,
     steps: int = 480,
 ) -> dict[str, float | int]:
     body.apply_effectors({})
-    start_pos, _ = p.getBasePositionAndOrientation(
-        body.body_id,
-        physicsClientId=client_id,
-    )
-    start_com = _center_of_mass_height(p, client_id, body)
+    start_pos, _ = body.base_pose()
+    start_com = _center_of_mass_height(body)
 
     normal_forces: list[float] = []
     penetrations: list[float] = []
@@ -159,21 +67,13 @@ def _passive_characterization(
 
     for _ in range(steps):
         body.prepare_physics_substep()
-        p.stepSimulation(physicsClientId=client_id)
-        normal, penetration, contacts = _contact_metrics(
-            p,
-            client_id,
-            body.body_id,
-            plane_id,
-        )
+        scene.step()
+        normal, penetration, contacts = _contact_metrics(body)
         normal_forces.append(normal)
         penetrations.append(penetration)
         ground_contacts.append(contacts)
 
-        linear, angular = p.getBaseVelocity(
-            body.body_id,
-            physicsClientId=client_id,
-        )
+        linear, angular = body.base_velocity()
         max_linear_speed = max(
             max_linear_speed,
             math.sqrt(sum(float(value) ** 2 for value in linear)),
@@ -182,22 +82,15 @@ def _passive_characterization(
             max_angular_speed,
             math.sqrt(sum(float(value) ** 2 for value in angular)),
         )
-        states = p.getJointStates(
-            body.body_id,
-            body.motor_joint_indices,
-            physicsClientId=client_id,
-        )
+        states = body.joint_states()
         max_joint_speed = max(
             max_joint_speed,
             max((abs(float(state[1])) for state in states), default=0.0),
         )
 
-    end_pos, _ = p.getBasePositionAndOrientation(
-        body.body_id,
-        physicsClientId=client_id,
-    )
-    end_com = _center_of_mass_height(p, client_id, body)
-    total_mass = _total_mass(p, client_id, body)
+    end_pos, _ = body.base_pose()
+    end_com = _center_of_mass_height(body)
+    total_mass = _total_mass(body)
     expected_weight = total_mass * GRAVITY
     mean_reaction = fmean(normal_forces) if normal_forces else 0.0
 
@@ -262,117 +155,94 @@ def _run_motor_trial(
     time_step: float,
     mode: str,
 ) -> dict[str, object]:
-    p, client_id, plane_id, body = _connect_world(time_step)
-    try:
-        settle = _settle(p, client_id, body)
-        if not settle.converged:
-            return {
-                "mode": mode,
-                "selected_joint_indices": [int(value) for value in selected],
-                "settling": settle.as_dict(),
-                "valid": False,
-                "reason": "passive_settling_failed",
-            }
-
-        activations = {
-            body.motor_bindings[index].positive_port: float(amplitudes[index]) for index in selected
-        }
-        commanded_torque_capacity = sum(
-            JOINT_SPECS[index].max_motor_torque * float(amplitudes[index]) for index in selected
-        )
-
-        start_pos, _ = p.getBasePositionAndOrientation(
-            body.body_id,
-            physicsClientId=client_id,
-        )
-        previous = tuple(float(v) for v in start_pos)
-        base_path = 0.0
-        positive_work = 0.0
-        negative_work = 0.0
-        absolute_work = 0.0
-        net_work = 0.0
-        max_joint_speed = 0.0
-        max_penetration = 0.0
-        max_ground_reaction = 0.0
-        saturated_joint_substeps = 0
-        observed_joint_substeps = 0
-
-        body.apply_effectors(activations)
-        for _ in range(drive_steps):
-            body.prepare_physics_substep()
-            p.stepSimulation(physicsClientId=client_id)
-            work = body.actuator_work_step(time_step)
-            positive_work += work.positive_j
-            negative_work += work.negative_j
-            absolute_work += work.absolute_j
-            net_work += work.net_j
-
-            current, _ = p.getBasePositionAndOrientation(
-                body.body_id,
-                physicsClientId=client_id,
-            )
-            current_t = tuple(float(v) for v in current)
-            base_path += math.dist(previous, current_t)
-            previous = current_t
-
-            states = p.getJointStates(
-                body.body_id,
-                body.motor_joint_indices,
-                physicsClientId=client_id,
-            )
-            max_joint_speed = max(
-                max_joint_speed,
-                max((abs(float(state[1])) for state in states), default=0.0),
-            )
-            for index in selected:
-                speed = abs(float(states[index][1]))
-                limit = max(1e-12, float(JOINT_SPECS[index].max_velocity))
-                observed_joint_substeps += 1
-                saturated_joint_substeps += int(speed >= 0.98 * limit)
-
-            normal, penetration, _ = _contact_metrics(
-                p,
-                client_id,
-                body.body_id,
-                plane_id,
-            )
-            max_ground_reaction = max(max_ground_reaction, normal)
-            max_penetration = max(max_penetration, penetration)
-
-        end_pos, _ = p.getBasePositionAndOrientation(
-            body.body_id,
-            physicsClientId=client_id,
-        )
+    scene, body = _connect_world(time_step)
+    settle = _settle(scene, body)
+    if not settle.converged:
         return {
             "mode": mode,
-            "valid": True,
-            "active_dof": len(selected),
-            "active_directional_channels": len(selected),
             "selected_joint_indices": [int(value) for value in selected],
-            "amplitudes": {str(index): float(amplitudes[index]) for index in selected},
-            "commanded_torque_capacity_nm": commanded_torque_capacity,
-            "drive_steps": drive_steps,
             "settling": settle.as_dict(),
-            "positive_actuator_work_j": positive_work,
-            "negative_actuator_work_j": negative_work,
-            "absolute_actuator_work_j": absolute_work,
-            "net_actuator_work_j": net_work,
-            "base_path_m": base_path,
-            "net_base_displacement_m": math.dist(
-                tuple(float(v) for v in start_pos),
-                tuple(float(v) for v in end_pos),
-            ),
-            "max_joint_speed_rad_s": max_joint_speed,
-            "velocity_saturation_ratio": (
-                saturated_joint_substeps / observed_joint_substeps
-                if observed_joint_substeps
-                else 0.0
-            ),
-            "max_ground_reaction_n": max_ground_reaction,
-            "max_ground_penetration_m": max_penetration,
+            "valid": False,
+            "reason": "passive_settling_failed",
         }
-    finally:
-        p.disconnect(physicsClientId=client_id)
+
+    activations = {
+        body.motor_bindings[index].positive_port: float(amplitudes[index]) for index in selected
+    }
+    commanded_torque_capacity = sum(
+        JOINT_SPECS[index].max_motor_torque * float(amplitudes[index]) for index in selected
+    )
+
+    start_pos, _ = body.base_pose()
+    previous = tuple(float(v) for v in start_pos)
+    base_path = 0.0
+    positive_work = 0.0
+    negative_work = 0.0
+    absolute_work = 0.0
+    net_work = 0.0
+    max_joint_speed = 0.0
+    max_penetration = 0.0
+    max_ground_reaction = 0.0
+    saturated_joint_substeps = 0
+    observed_joint_substeps = 0
+
+    body.apply_effectors(activations)
+    for _ in range(drive_steps):
+        body.prepare_physics_substep()
+        scene.step()
+        work = body.actuator_work_step(time_step)
+        positive_work += work.positive_j
+        negative_work += work.negative_j
+        absolute_work += work.absolute_j
+        net_work += work.net_j
+
+        current, _ = body.base_pose()
+        current_t = tuple(float(v) for v in current)
+        base_path += math.dist(previous, current_t)
+        previous = current_t
+
+        states = body.joint_states()
+        max_joint_speed = max(
+            max_joint_speed,
+            max((abs(float(state[1])) for state in states), default=0.0),
+        )
+        for index in selected:
+            speed = abs(float(states[index][1]))
+            limit = max(1e-12, float(JOINT_SPECS[index].max_velocity))
+            observed_joint_substeps += 1
+            saturated_joint_substeps += int(speed >= 0.98 * limit)
+
+        normal, penetration, _ = _contact_metrics(body)
+        max_ground_reaction = max(max_ground_reaction, normal)
+        max_penetration = max(max_penetration, penetration)
+
+    end_pos, _ = body.base_pose()
+    return {
+        "mode": mode,
+        "valid": True,
+        "active_dof": len(selected),
+        "active_directional_channels": len(selected),
+        "selected_joint_indices": [int(value) for value in selected],
+        "amplitudes": {str(index): float(amplitudes[index]) for index in selected},
+        "commanded_torque_capacity_nm": commanded_torque_capacity,
+        "drive_steps": drive_steps,
+        "settling": settle.as_dict(),
+        "positive_actuator_work_j": positive_work,
+        "negative_actuator_work_j": negative_work,
+        "absolute_actuator_work_j": absolute_work,
+        "net_actuator_work_j": net_work,
+        "base_path_m": base_path,
+        "net_base_displacement_m": math.dist(
+            tuple(float(v) for v in start_pos),
+            tuple(float(v) for v in end_pos),
+        ),
+        "max_joint_speed_rad_s": max_joint_speed,
+        "velocity_saturation_ratio": (
+            saturated_joint_substeps / observed_joint_substeps if observed_joint_substeps else 0.0
+        ),
+        "max_ground_reaction_n": max_ground_reaction,
+        "max_ground_penetration_m": max_penetration,
+    }
 
 
 def _dimensionality_trials(
@@ -482,35 +352,24 @@ def run_constitution_audit(
     if dimensionality_repeats < 1:
         raise ValueError("dimensionality_repeats must be positive")
 
-    p, client_id, plane_id, body = _connect_world(time_step)
-    try:
-        total_mass = _total_mass(p, client_id, body)
-        settle = _settle(p, client_id, body)
-        passive = (
-            _passive_characterization(
-                p,
-                client_id,
-                plane_id,
-                body,
-                steps=passive_steps,
-            )
-            if settle.converged
-            else None
-        )
-        constitution = {
-            "gravity_m_s2": GRAVITY,
-            "physics_hz": 1.0 / time_step,
-            "time_step_s": time_step,
-            "motor_dof": len(body.motor_bindings),
-            "directional_effector_channels": len(body.effector_ids),
-            "mutually_exclusive_effector_groups": len(body.motor_bindings),
-            "total_mass_kg": total_mass,
-            "expected_weight_n": total_mass * GRAVITY,
-            "settling": settle.as_dict(),
-            "passive_postural_tone": True,
-        }
-    finally:
-        p.disconnect(physicsClientId=client_id)
+    scene, body = _connect_world(time_step)
+    total_mass = _total_mass(body)
+    settle = _settle(scene, body)
+    passive = (
+        _passive_characterization(scene, body, steps=passive_steps) if settle.converged else None
+    )
+    constitution = {
+        "gravity_m_s2": GRAVITY,
+        "physics_hz": 1.0 / time_step,
+        "time_step_s": time_step,
+        "motor_dof": len(body.motor_bindings),
+        "directional_effector_channels": len(body.effector_ids),
+        "mutually_exclusive_effector_groups": len(body.motor_bindings),
+        "total_mass_kg": total_mass,
+        "expected_weight_n": total_mass * GRAVITY,
+        "settling": settle.as_dict(),
+        "passive_postural_tone": True,
+    }
 
     dimensions = tuple(
         sorted({max(1, min(len(JOINT_SPECS), int(value))) for value in motor_dimensions})

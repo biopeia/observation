@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import Iterable
 
-from lab.physics3d.runtime import PyBulletEmbodimentRuntime
+from lab.physics3d.runtime import Physics3DEmbodimentRuntime
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,7 +80,7 @@ def _trial(seed: int, *, ticks: int) -> CognitiveEcologyEmbodimentTrial:
     last = None
 
     organism_id = f"symbiont:ecology-study:{seed}"
-    with PyBulletEmbodimentRuntime(
+    with Physics3DEmbodimentRuntime(
         gui=False,
         seed=seed,
         organism_id=organism_id,

@@ -30,7 +30,7 @@ from lab.physics3d.persistence import (
     save_symbiont_bundle,
 )
 from lab.physics3d.private_model_training import PrivateModelTrainingService
-from lab.physics3d.runtime import PhysicsServerDisconnected, PyBulletEmbodimentRuntime
+from lab.physics3d.runtime import Physics3DEmbodimentRuntime, PhysicsServerDisconnected
 from lab.physics3d.telemetry.v41 import AsyncTelemetryV41Writer
 from symbiont import __version__ as symbiont_version
 from symbiont.actuation.sensorimotor import SENSORIMOTOR_SCHEMA_VERSION
@@ -93,7 +93,7 @@ def _write_checkpoint_payloads(
 
 
 def _save_checkpoint(
-    runtime: PyBulletEmbodimentRuntime,
+    runtime: Physics3DEmbodimentRuntime,
     *,
     symbiont_file: Path,
     body_file: Path,
@@ -358,7 +358,7 @@ def run(
     # image into the unified evaluator window. The native PyBullet GUI remains
     # available only when the evaluator is explicitly disabled.
     _startup("restoring_runtime")
-    runtime = PyBulletEmbodimentRuntime(
+    runtime = Physics3DEmbodimentRuntime(
         gui=(not headless and not show_monitor),
         seed=seed,
         time_step=time_step,

@@ -10,8 +10,8 @@ requires-python = ">=3.12"
 dependencies = []
 
 [project.optional-dependencies]
-# modality.vision renders through PyBullet.
-vision = ["pybullet>=3.2.7,<4"]
+# modality.vision casts its rays with NumPy; it uses no physics engine.
+vision = ["numpy>=1.26"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

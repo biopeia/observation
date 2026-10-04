@@ -15,7 +15,7 @@ from copy import deepcopy
 from dataclasses import asdict, dataclass
 from typing import Any, Iterable, Mapping
 
-from lab.physics3d.runtime import PyBulletEmbodimentRuntime
+from lab.physics3d.runtime import Physics3DEmbodimentRuntime
 
 _SENSORY_DIVERGENCE_THRESHOLD = 1e-4
 _PHYSICAL_DIVERGENCE_THRESHOLD = 1e-5
@@ -95,7 +95,7 @@ def _find_replay_checkpoint(
     warmup_ticks: int,
     physics_substeps_per_tick: int,
 ) -> tuple[dict[str, Any], dict[str, object], str, str, str, int]:
-    with PyBulletEmbodimentRuntime(
+    with Physics3DEmbodimentRuntime(
         gui=False,
         seed=seed,
         physics_substeps_per_tick=physics_substeps_per_tick,
@@ -151,7 +151,7 @@ def _rollout(
     intervene: bool,
     physics_substeps_per_tick: int,
 ) -> tuple[list[dict[str, float]], list[tuple[float, float, float]], list[dict[str, object]]]:
-    with PyBulletEmbodimentRuntime(
+    with Physics3DEmbodimentRuntime(
         gui=False,
         seed=seed,
         physics_substeps_per_tick=physics_substeps_per_tick,

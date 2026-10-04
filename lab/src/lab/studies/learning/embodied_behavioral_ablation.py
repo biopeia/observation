@@ -4,7 +4,7 @@ from copy import deepcopy
 from dataclasses import asdict, dataclass
 from typing import Any, Iterable, Mapping
 
-from lab.physics3d.runtime import PyBulletEmbodimentRuntime
+from lab.physics3d.runtime import Physics3DEmbodimentRuntime
 
 _MOTOR_PREFIX = "readout_motor:"
 _PRIMITIVE_PREFIX = "readout_primitive:"
@@ -183,7 +183,7 @@ def _run_clone(
     start_displacement: float,
     start_progress: float,
 ) -> BehavioralAblationCondition:
-    with PyBulletEmbodimentRuntime(
+    with Physics3DEmbodimentRuntime(
         gui=False,
         seed=seed,
         runtime_checkpoint=runtime_checkpoint,
@@ -240,7 +240,7 @@ def _trial(
     checkpoint_displacement = 0.0
     checkpoint_progress = 0.0
 
-    with PyBulletEmbodimentRuntime(
+    with Physics3DEmbodimentRuntime(
         gui=False,
         seed=seed,
         organism_id=f"symbiont:behavioral-ablation:{seed}",

@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 
 from embodiment.physics3d.articulated import ArticulatedBodySpec, ArticulatedPhysics
-from embodiment.physics3d.humanoid import (
+from embodiment.physics3d.mechanics import (
     GROUND_MATERIAL,
     JointSpec,
     JointTopology,
@@ -81,7 +81,7 @@ CRAWLER_TOPOLOGY: tuple[JointTopology, ...] = (
 # mechanically contacting endpoints. This intentionally keeps motor DoF = 12.
 CRAWLER_SPEC = ArticulatedBodySpec(
     body_kind="crawler-v1",
-    state_schema_version=1,
+    state_schema_version=2,
     spawn_height=0.62,
     base_link_name="body",
     joint_specs=CRAWLER_JOINT_SPECS,
@@ -176,7 +176,7 @@ ASYMMETRIC_TOPOLOGY: tuple[JointTopology, ...] = (
 
 ASYMMETRIC_SPEC = ArticulatedBodySpec(
     body_kind="asymmetric-v1",
-    state_schema_version=1,
+    state_schema_version=2,
     spawn_height=1.02,
     base_link_name="pelvis",
     joint_specs=ASYMMETRIC_JOINT_SPECS,

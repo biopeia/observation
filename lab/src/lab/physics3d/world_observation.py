@@ -11,81 +11,81 @@ class PhysicsWorldObserver:
 
     def __init__(self) -> None:
         self.world_id = f"physics3d.{uuid4().hex}"
-        self._ids: dict[int, str] = {}
+        self._ids: dict[str, str] = {}
         self._next_id = 0
 
     def capture(self, runtime) -> dict:
-        p, client = runtime.p, runtime.client_id
-        body = runtime.apparatus.body_id
+        scene = runtime.scene
+        model, data = scene.model, scene.data
+        own = runtime.apparatus.body_ids
+        geoms_by_body: dict[int, list[int]] = {}
+        for geom in range(int(model.ngeom)):
+            geoms_by_body.setdefault(int(model.geom_bodyid[geom]), []).append(geom)
+        # Entities are keyed by engine body name, which survives a scene rebuild.
         native = {
-            p.getBodyUniqueId(i, physicsClientId=client)
-            for i in range(p.getNumBodies(physicsClientId=client))
+            body: scene.mj.mj_id2name(model, scene.mj.mjtObj.mjOBJ_BODY, body)
+            for body in geoms_by_body
+            if body not in own
         }
-        for removed in set(self._ids) - native:
+        for removed in set(self._ids) - set(native.values()):
             del self._ids[removed]
-        for uid in sorted(native):
-            if uid not in self._ids:
-                self._ids[uid] = f"entity.{self._next_id}"
+        for body in sorted(native):
+            if native[body] not in self._ids:
+                self._ids[native[body]] = f"entity.{self._next_id}"
                 self._next_id += 1
+        resource_body = runtime.resource.body_id
         entities = {}
-        shape_names = {
-            p.GEOM_PLANE: "plane",
-            p.GEOM_SPHERE: "sphere",
-            p.GEOM_BOX: "box",
-            p.GEOM_CYLINDER: "cylinder",
-            p.GEOM_CAPSULE: "capsule",
-        }
-        for uid in sorted(native - {body}):
-            for link in range(-1, p.getNumJoints(uid, physicsClientId=client)):
-                if link == -1:
-                    pos, orn = p.getBasePositionAndOrientation(uid, physicsClientId=client)
-                else:
-                    state = p.getLinkState(uid, link, physicsClientId=client)
-                    pos, orn = state[0], state[1]
-                shapes = []
-                for shape in p.getCollisionShapeData(uid, link, physicsClientId=client):
-                    shapes.append(
-                        {
-                            "kind": shape_names.get(shape[2], "unsupported"),
-                            "dimensions": list(shape[3]),
-                            "position": list(shape[5]),
-                            "orientation": list(shape[6]),
-                        }
-                    )
-                dynamics = p.getDynamicsInfo(uid, link, physicsClientId=client)
-                eid = self._ids[uid] if link == -1 else f"{self._ids[uid]}.link.{link}"
-                entity = {
-                    "id": eid,
-                    "position": list(pos),
-                    "orientation": list(orn),
-                    "shapes": shapes,
-                    "exists": True,
-                    "material": {
-                        "mass": dynamics[0],
-                        "lateral_friction": dynamics[1],
-                        "restitution": dynamics[5],
-                    },
-                    "provenance": "physics-collision-geometry",
-                }
-                if uid == runtime.resource.body_id:
-                    entity["field"] = {
-                        "radius": runtime.resource.field_radius,
-                        "active": runtime.resource.remaining > 0,
-                        "form": "isotropic-scalar",
+        for body in sorted(native):
+            shapes = []
+            for geom in geoms_by_body[body]:
+                kind = scene.mj.mjtGeom(int(model.geom_type[geom])).name.removeprefix("mjGEOM_")
+                size = [float(value) for value in model.geom_size[geom]]
+                w, x, y, z = (float(value) for value in model.geom_quat[geom])
+                shapes.append(
+                    {
+                        "kind": kind.lower(),
+                        # Full extents for a box, radius for a sphere,
+                        # (length, radius) for a cylinder or capsule.
+                        "dimensions": {
+                            "BOX": [2.0 * value for value in size],
+                            "SPHERE": [size[0]] * 3,
+                            "CYLINDER": [2.0 * size[1], size[0], 0.0],
+                            "CAPSULE": [2.0 * size[1], size[0], 0.0],
+                        }.get(kind, size),
+                        "position": [float(value) for value in model.geom_pos[geom]],
+                        "orientation": [x, y, z, w],
                     }
-                entities[eid] = entity
+                )
+            w, x, y, z = (float(value) for value in data.xquat[body])
+            eid = self._ids[native[body]]
+            entity = {
+                "id": eid,
+                "position": [float(value) for value in data.xpos[body]],
+                "orientation": [x, y, z, w],
+                "shapes": shapes,
+                "exists": True,
+                "material": {
+                    # A body the engine cannot move is reported massless, as fixed
+                    # world geometry always has been.
+                    "mass": float(model.body_mass[body]) if model.body_dofnum[body] else 0.0,
+                    "lateral_friction": float(model.geom_friction[geoms_by_body[body][0]][0]),
+                },
+                "provenance": "physics-collision-geometry",
+            }
+            if body == resource_body:
+                entity["field"] = {
+                    "radius": runtime.resource.field_radius,
+                    "active": runtime.resource.remaining > 0,
+                    "form": "isotropic-scalar",
+                }
+            entities[eid] = entity
         descriptor = runtime.body_descriptor
         specs = descriptor.observer_joint_specs
         regions = descriptor.observer_contact_region_names
         # Joint names and link attachments are apparatus facts, not cognitive names.
-        joint_links = {}
-
-        def decode(value):
-            return value.decode() if isinstance(value, bytes) else str(value)
-
-        for index in range(p.getNumJoints(body, physicsClientId=client)):
-            info = p.getJointInfo(body, index, physicsClientId=client)
-            joint_links[decode(info[1])] = decode(info[12])
+        joint_links = {
+            item.joint_name: item.child_link for item in descriptor.observer_joint_topology
+        }
         receptors = {}
         ordinal = 0
         for spec in specs:
@@ -106,7 +106,7 @@ class PhysicsWorldObserver:
         receptors[f"rec.{ordinal}"] = {
             "modality": "scalar_field",
             "link": None,
-            "source_entity_id": self._ids[runtime.resource.body_id],
+            "source_entity_id": self._ids[native[resource_body]],
             "source_attribution": "observer-only; no direction or object identity sensed",
         }
         ordinal += 1
@@ -114,30 +114,20 @@ class PhysicsWorldObserver:
             receptors[f"rec.{ordinal}"] = {"modality": "contact_load", "link": region}
             ordinal += 1
         contacts = []
-        raw = runtime.passive_physical_state()
-        link_names = {
-            int(item.get("link_index", -999)): item.get("link_name")
-            for item in raw.get("links", ())
-        }
-        # Link indexes are not exported by every apparatus, so read engine names.
-        for i in range(p.getNumJoints(body, physicsClientId=client)):
-            name = p.getJointInfo(body, i, physicsClientId=client)[12]
-            link_names[i] = name.decode() if isinstance(name, bytes) else str(name)
-        base_name = p.getBodyInfo(body, physicsClientId=client)[0]
-        link_names[-1] = base_name.decode() if isinstance(base_name, bytes) else str(base_name)
-        for i, item in enumerate(p.getContactPoints(bodyA=body, physicsClientId=client)):
-            counterpart = self._ids.get(item[2]) if item[2] != body else None
-            if counterpart and item[4] != -1:
-                counterpart += f".link.{item[4]}"
+        for i, item in enumerate(runtime.apparatus.contact_details()):
+            other = item["other_body_id"]
+            # A contact between two of the organism's links is listed once per link.
+            if other in own and item["link_name"] > str(item["other_link_name"]):
+                continue
             contacts.append(
                 {
                     "id": f"contact.{i}",
-                    "link": link_names.get(item[3]),
-                    "entity_id": counterpart,
-                    "self_contact": item[2] == body,
-                    "position": list(item[5]),
-                    "normal": list(item[7]),
-                    "normal_force": float(item[9]),
+                    "link": item["link_name"],
+                    "entity_id": self._ids.get(native.get(other)),
+                    "self_contact": other in own,
+                    "position": item["position"],
+                    "normal": item["normal"],
+                    "normal_force": item["normal_force"],
                     "phase": "post-action",
                 }
             )

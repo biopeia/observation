@@ -26,12 +26,17 @@ class SettlingResult:
         return asdict(self)
 
 
+# Ten simulated seconds at 240 Hz.  Under MuJoCo the unactuated humanoid folds
+# to the ground and comes to rest after about 1600 steps; the six-second
+# budget calibrated on the previous engine was too short for it.
+SETTLING_MAX_STEPS = 2400
+
+
 def settle_passive_body(
-    pybullet_module,
-    client_id: int,
+    scene,
     body,
     *,
-    max_steps: int = 1440,
+    max_steps: int = SETTLING_MAX_STEPS,
     stable_samples: int = 48,
     linear_threshold: float = 0.025,
     angular_threshold: float = 0.05,
@@ -48,136 +53,57 @@ def settle_passive_body(
         if not math.isfinite(float(value)) or float(value) < 0.0:
             raise ValueError(f"{name} must be finite and non-negative")
 
+    time_step = float(scene.model.opt.timestep)
     body.apply_effectors({})
     stable = 0
-    last_linear = 0.0
-    last_angular = 0.0
-    last_joint = 0.0
-    last_reported_joint = 0.0
-    peak_joint_index: int | None = None
-    peak_joint_name: str | None = None
-    peak_joint_position_rad: float | None = None
-    peak_joint_reported_velocity_rad_s: float | None = None
-    peak_joint_applied_torque_nm: float | None = None
-    peak_joint_contact_count = 0
-    peak_joint_contacts: tuple[str, ...] = ()
+    last_linear = last_angular = last_joint = 0.0
+    states = body.joint_states()
 
-    if hasattr(pybullet_module, "getPhysicsEngineParameters"):
-        parameters = pybullet_module.getPhysicsEngineParameters(
-            physicsClientId=client_id,
+    def result(*, converged: bool, steps: int) -> SettlingResult:
+        speeds = [abs(velocity) for _position, velocity in states]
+        peak = max(range(len(speeds)), key=speeds.__getitem__) if speeds else None
+        contacts = (
+            ()
+            if peak is None
+            else tuple(
+                sorted(
+                    f"body={item['other_body_id']},link={item['other_link_name'] or -1}"
+                    for item in body.contact_details()
+                    if item["link_index"] == peak
+                )
+            )
         )
-    else:
-        parameters = {}
-    time_step = float(parameters.get("fixedTimeStep", 1.0 / 240.0))
-    if not math.isfinite(time_step) or time_step <= 0.0:
-        raise RuntimeError("Physics3D settling requires a finite positive time step")
-
-    initial_states = pybullet_module.getJointStates(
-        body.body_id,
-        body.motor_joint_indices,
-        physicsClientId=client_id,
-    )
-    previous_positions = tuple(float(state[0]) for state in initial_states)
+        return SettlingResult(
+            converged=converged,
+            steps=steps,
+            stable_samples_required=stable_samples,
+            stable_samples_observed=stable,
+            residual_linear_speed_m_s=last_linear,
+            residual_angular_speed_rad_s=last_angular,
+            residual_joint_speed_rad_s=last_joint,
+            residual_joint_reported_speed_rad_s=max(speeds, default=0.0),
+            peak_joint_index=peak,
+            peak_joint_name=None if peak is None else body.observer_joint_specs[peak].name,
+            peak_joint_position_rad=None if peak is None else states[peak][0],
+            peak_joint_reported_velocity_rad_s=None if peak is None else states[peak][1],
+            peak_joint_applied_torque_nm=None if peak is None else body.joint_torques()[peak],
+            peak_joint_contact_count=len(contacts),
+            peak_joint_contacts=contacts,
+        )
 
     for step in range(1, max_steps + 1):
+        previous = states
         body.prepare_physics_substep()
-        pybullet_module.stepSimulation(physicsClientId=client_id)
-
-        linear_velocity, angular_velocity = pybullet_module.getBaseVelocity(
-            body.body_id,
-            physicsClientId=client_id,
+        scene.step()
+        linear_velocity, angular_velocity = body.base_velocity()
+        last_linear = math.sqrt(sum(value**2 for value in linear_velocity))
+        last_angular = math.sqrt(sum(value**2 for value in angular_velocity))
+        states = body.joint_states()
+        # Displacement over the step, not the engine's reported velocity.
+        last_joint = max(
+            (abs(now[0] - before[0]) / time_step for now, before in zip(states, previous)),
+            default=0.0,
         )
-        last_linear = math.sqrt(sum(float(value) ** 2 for value in linear_velocity))
-        last_angular = math.sqrt(sum(float(value) ** 2 for value in angular_velocity))
-        states = pybullet_module.getJointStates(
-            body.body_id,
-            body.motor_joint_indices,
-            physicsClientId=client_id,
-        )
-        positions = tuple(float(state[0]) for state in states)
-        reported_speeds = tuple(abs(float(state[1])) for state in states)
-        observed_speeds = tuple(
-            abs(position - previous) / time_step
-            for position, previous in zip(positions, previous_positions)
-        )
-        previous_positions = positions
-
-        last_joint = max(observed_speeds, default=0.0)
-        last_reported_joint = max(reported_speeds, default=0.0)
-        if reported_speeds:
-            peak_ordinal = max(
-                range(len(reported_speeds)),
-                key=reported_speeds.__getitem__,
-            )
-            peak_joint_index = int(body.motor_joint_indices[peak_ordinal])
-            peak_joint_position_rad = positions[peak_ordinal]
-            peak_joint_reported_velocity_rad_s = float(states[peak_ordinal][1])
-            try:
-                info = pybullet_module.getJointInfo(
-                    body.body_id,
-                    peak_joint_index,
-                    physicsClientId=client_id,
-                )
-                raw_name = info[1]
-                peak_joint_name = (
-                    raw_name.decode("utf-8") if isinstance(raw_name, bytes) else str(raw_name)
-                )
-            except Exception:
-                peak_joint_name = None
-
-            try:
-                joint_state = states[peak_ordinal]
-                joint_state[2] if len(joint_state) > 2 else None
-                peak_joint_applied_torque_nm = (
-                    float(joint_state[3])
-                    if len(joint_state) > 3 and isinstance(joint_state[3], (int, float))
-                    else None
-                )
-            except Exception:
-                peak_joint_applied_torque_nm = None
-
-            peak_joint_contact_count = 0
-            peak_joint_contacts = ()
-            if hasattr(pybullet_module, "getContactPoints"):
-                try:
-                    contacts = pybullet_module.getContactPoints(
-                        bodyA=body.body_id,
-                        physicsClientId=client_id,
-                    )
-                    contact_descriptions: list[str] = []
-                    for item in contacts:
-                        if len(item) <= 4:
-                            continue
-                        link_a = int(item[3])
-                        link_b = int(item[4])
-                        if link_a != peak_joint_index and link_b != peak_joint_index:
-                            continue
-                        body_a = int(item[1])
-                        body_b = int(item[2])
-                        other_body = body_b if body_a == body.body_id else body_a
-                        other_link = link_b if link_a == peak_joint_index else link_a
-                        other_name = str(other_link)
-                        if other_body == body.body_id and other_link >= 0:
-                            try:
-                                raw_other = pybullet_module.getJointInfo(
-                                    body.body_id,
-                                    other_link,
-                                    physicsClientId=client_id,
-                                )[12]
-                                other_name = (
-                                    raw_other.decode("utf-8")
-                                    if isinstance(raw_other, bytes)
-                                    else str(raw_other)
-                                )
-                            except Exception:
-                                pass
-                        contact_descriptions.append(f"body={other_body},link={other_name}")
-                    peak_joint_contact_count = len(contact_descriptions)
-                    peak_joint_contacts = tuple(sorted(contact_descriptions))
-                except Exception:
-                    peak_joint_contact_count = 0
-                    peak_joint_contacts = ()
-
         if (
             last_linear <= linear_threshold
             and last_angular <= angular_threshold
@@ -185,43 +111,11 @@ def settle_passive_body(
         ):
             stable += 1
             if stable >= stable_samples:
-                return SettlingResult(
-                    converged=True,
-                    steps=step,
-                    stable_samples_required=stable_samples,
-                    stable_samples_observed=stable,
-                    residual_linear_speed_m_s=last_linear,
-                    residual_angular_speed_rad_s=last_angular,
-                    residual_joint_speed_rad_s=last_joint,
-                    residual_joint_reported_speed_rad_s=last_reported_joint,
-                    peak_joint_index=peak_joint_index,
-                    peak_joint_name=peak_joint_name,
-                    peak_joint_position_rad=peak_joint_position_rad,
-                    peak_joint_reported_velocity_rad_s=peak_joint_reported_velocity_rad_s,
-                    peak_joint_applied_torque_nm=peak_joint_applied_torque_nm,
-                    peak_joint_contact_count=peak_joint_contact_count,
-                    peak_joint_contacts=peak_joint_contacts,
-                )
+                return result(converged=True, steps=step)
         else:
             stable = 0
 
-    return SettlingResult(
-        converged=False,
-        steps=max_steps,
-        stable_samples_required=stable_samples,
-        stable_samples_observed=stable,
-        residual_linear_speed_m_s=last_linear,
-        residual_angular_speed_rad_s=last_angular,
-        residual_joint_speed_rad_s=last_joint,
-        residual_joint_reported_speed_rad_s=last_reported_joint,
-        peak_joint_index=peak_joint_index,
-        peak_joint_name=peak_joint_name,
-        peak_joint_position_rad=peak_joint_position_rad,
-        peak_joint_reported_velocity_rad_s=peak_joint_reported_velocity_rad_s,
-        peak_joint_applied_torque_nm=peak_joint_applied_torque_nm,
-        peak_joint_contact_count=peak_joint_contact_count,
-        peak_joint_contacts=peak_joint_contacts,
-    )
+    return result(converged=False, steps=max_steps)
 
 
-__all__ = ["SettlingResult", "settle_passive_body"]
+__all__ = ["SETTLING_MAX_STEPS", "SettlingResult", "settle_passive_body"]

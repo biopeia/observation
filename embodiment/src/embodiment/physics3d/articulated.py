@@ -7,14 +7,14 @@ observer-side metadata; organisms see ordinal rec.N / eff.N channels only.
 from __future__ import annotations
 
 import math
-import tempfile
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from pathlib import Path
-from typing import cast
+from typing import Any
 
-from embodiment.physics3d.humanoid import (
+from embodiment.physics3d.mechanics import (
     BODY_MATERIAL,
+    CARRIER_MASS,
     END_RANGE_DAMPING,
     END_RANGE_MARGIN,
     END_RANGE_STIFFNESS,
@@ -26,13 +26,19 @@ from embodiment.physics3d.humanoid import (
     MotorBinding,
     SegmentSpec,
     SurfaceMaterial,
-    _apply_surface_material,
 )
 
+NAME_PREFIX = "body."
+# MuJoCo's URDF importer would otherwise weld massless carrier links into
+# their parents and renumber the joints of the opaque contract.
+_URDF_COMPILER = '<mujoco><compiler fusestatic="false" discardvisual="true"/></mujoco>'
+# Joint limits are anatomical: MuJoCo's default soft constraint lets a loaded
+# joint pass its limit by several degrees.  The stiffest stable response is a
+# time constant of two timesteps with near-rigid impedance.
+JOINT_LIMIT_IMPEDANCE = (0.99, 0.999, 0.001, 0.5, 2.0)
 GLOBAL_KINEMATIC_RECEPTORS = 10
 ECOLOGICAL_RECEPTORS = 1
 INTEROCEPTIVE_RECEPTOR_COUNT = 4
-CARRIER_MASS = 0.05
 
 
 @dataclass(frozen=True, slots=True)
@@ -212,21 +218,27 @@ def build_articulated_urdf(spec: ArticulatedBodySpec) -> str:
 
 
 class ArticulatedPhysics:
-    """Configurable PyBullet body with opaque ordinal sensorimotor contract."""
+    """Configurable MuJoCo body with an opaque ordinal sensorimotor contract."""
 
     SPEC: ArticulatedBodySpec
 
-    def __init__(self, client_id: int) -> None:
-        import pybullet
-
+    def __init__(self, scene: Any, *, spawn_height: float | None = None) -> None:
         spec = self.SPEC
-        self.p = pybullet
-        self.client_id = client_id
+        self.scene = scene
         self._sensor_values: dict[str, float] = {}
         self._applied_torque_by_joint: dict[int, float] = {}
         self._external_field_signal = 0.0
-        self.body_id = self._create_body(spec.spawn_height)
-        self._bind_loaded_constitution()
+        self._bound_revision = -1
+        self.motor_joint_indices = tuple(range(spec.motor_dof))
+        self._joint_ordinal_by_index = {index: index for index in self.motor_joint_indices}
+        self._link_index_by_name: dict[str, int] = {
+            spec.base_link_name: -1,
+            **{item.child_link: ordinal for ordinal, item in enumerate(spec.joint_topology)},
+        }
+        self._contact_links = (
+            -1,
+            *(self._link_index_by_name[name] for name in spec.contact_link_names),
+        )
         self.motor_bindings = tuple(
             MotorBinding(
                 joint_index=joint_index,
@@ -242,136 +254,101 @@ class ArticulatedPhysics:
             spec.base_link_name,
             *spec.contact_link_names,
         )
-        self._configure_self_collisions()
-        self._configure_joint_dynamics()
-        self._configure_surface_materials()
-        self._disable_default_motors()
+        self._add_to_scene(spec.spawn_height if spawn_height is None else float(spawn_height))
+        scene.recompile()
+        self._bind()
+        # Zero is outside the range of some joints; start each at the nearest
+        # position inside its mechanical limits.
+        for ordinal, joint in enumerate(spec.joint_specs):
+            lower, upper = _mechanical_joint_limits(joint)
+            scene.data.qpos[self._joint_qpos[ordinal]] = min(max(0.0, lower), upper)
+        scene.forward()
 
-    @staticmethod
-    def _decode_name(value: object) -> str:
-        return value.decode("utf-8") if isinstance(value, bytes) else str(value)
-
-    def _create_body(self, spawn_height: float) -> int:
-        urdf = build_articulated_urdf(self.SPEC)
-        with tempfile.NamedTemporaryFile(
-            mode="w",
-            suffix=".urdf",
-            prefix=f"symbiont-{self.SPEC.body_kind}-",
-            encoding="utf-8",
-            delete=False,
-        ) as handle:
-            handle.write(urdf)
-            path = handle.name
-        try:
-            flags = int(getattr(self.p, "URDF_USE_INERTIA_FROM_FILE", 0)) | int(
-                getattr(self.p, "URDF_USE_SELF_COLLISION", 0)
-            )
-            body_id = self.p.loadURDF(
-                path,
-                basePosition=(0.0, 0.0, float(spawn_height)),
-                baseOrientation=(0.0, 0.0, 0.0, 1.0),
-                useFixedBase=False,
-                flags=flags,
-                physicsClientId=self.client_id,
-            )
-        finally:
-            Path(path).unlink(missing_ok=True)
-        if int(body_id) < 0:
-            raise RuntimeError(f"failed to load {self.SPEC.body_kind} URDF")
-        return int(body_id)
-
-    def _bind_loaded_constitution(self) -> None:
+    # -- construction ---------------------------------------------------------
+    def _add_to_scene(self, spawn_height: float) -> None:
         spec = self.SPEC
-        count = int(self.p.getNumJoints(self.body_id, physicsClientId=self.client_id))
-        if count != spec.motor_dof:
-            raise RuntimeError(f"{spec.body_kind} loaded {count} joints, expected {spec.motor_dof}")
-        index_by_joint_name: dict[str, int] = {}
-        index_by_link_name: dict[str, int] = {spec.base_link_name: -1}
-        parent_by_index: dict[int, int] = {}
-        for index in range(count):
-            info = self.p.getJointInfo(self.body_id, index, physicsClientId=self.client_id)
-            index_by_joint_name[self._decode_name(info[1])] = index
-            index_by_link_name[self._decode_name(info[12])] = index
-            parent_by_index[index] = int(info[16])
+        mujoco = self.scene.mj
+        urdf = re.sub(r"(<robot[^>]*>)", r"\1" + _URDF_COMPILER, self._urdf(), count=1)
+        loaded = mujoco.MjSpec.from_string(urdf)
+        frame = self.scene.spec.worldbody.add_frame(pos=[0.0, 0.0, float(spawn_height)])
+        root = frame.attach_body(loaded.worldbody.first_body(), NAME_PREFIX, "")
+        root.add_freejoint(name=f"{NAME_PREFIX}root")
+        material = spec.body_material
+        friction = [
+            material.lateral_friction,
+            material.spinning_friction,
+            material.rolling_friction,
+        ]
+        for geom in self.scene.spec.geoms:
+            if geom.name.startswith(NAME_PREFIX) or geom.parent.name.startswith(NAME_PREFIX):
+                geom.friction = friction
+        limit_response = [2.0 * float(self.scene.spec.option.timestep), 1.0]
+        damping = {f"{NAME_PREFIX}{item.name}": item.passive_damping for item in spec.joint_specs}
+        for joint in self.scene.spec.joints:
+            if joint.name in damping:
+                joint.solref_limit = limit_response
+                joint.solimp_limit = list(JOINT_LIMIT_IMPEDANCE)
+                # Viscous joint damping, integrated implicitly by the engine.
+                # (linear, quadratic, cubic) coefficients; only the linear one.
+                joint.damping = [float(damping[joint.name]), 0.0, 0.0]
+        # A link and its parent never collide in MuJoCo; structural neighbours
+        # joined through a massless carrier need an explicit exclusion.
+        for left, right in spec.structural_neighbour_names:
+            self.scene.spec.add_exclude(
+                bodyname1=f"{NAME_PREFIX}{left}", bodyname2=f"{NAME_PREFIX}{right}"
+            )
 
-        missing = [item.name for item in spec.joint_specs if item.name not in index_by_joint_name]
-        if missing:
-            raise RuntimeError(f"URDF missing joints: {missing}")
-        self.motor_joint_indices = tuple(
-            index_by_joint_name[item.name] for item in spec.joint_specs
-        )
-        if self.motor_joint_indices != tuple(range(spec.motor_dof)):
-            raise RuntimeError(f"Bullet reordered {spec.body_kind} joints; opaque contract unsafe")
-        self._joint_ordinal_by_index = {
-            joint_index: ordinal for ordinal, joint_index in enumerate(self.motor_joint_indices)
-        }
-        self._link_index_by_name = index_by_link_name
-        self._contact_links = (
-            -1,
-            *(index_by_link_name[name] for name in spec.contact_link_names),
-        )
-        self._direct_pairs = {
-            tuple(sorted((parent_by_index[index], index))) for index in range(count)
-        }
-        self._structural_collision_exclusions = {
-            tuple(sorted((index_by_link_name[left], index_by_link_name[right])))
-            for left, right in spec.structural_neighbour_names
-        }
-        self._verify_loaded_joint_contract()
+    def _urdf(self) -> str:
+        return build_articulated_urdf(self.SPEC)
 
-    def _verify_loaded_joint_contract(self) -> None:
-        for ordinal, joint_index in enumerate(self.motor_joint_indices):
-            info = self.p.getJointInfo(self.body_id, joint_index, physicsClientId=self.client_id)
-            spec = self.SPEC.joint_specs[ordinal]
-            lower, upper = _mechanical_joint_limits(spec)
-            if abs(float(info[8]) - lower) > 1e-6 or abs(float(info[9]) - upper) > 1e-6:
-                raise RuntimeError(f"Bullet did not load limits for {spec.name}")
+    def _passive_torque(self, spec: JointSpec, *, position: float, velocity: float) -> float:
+        """Torque the body's own tissue adds to a joint, beside the command."""
+        return _end_range_resistance(spec, position=position, velocity=velocity)
 
-    def _configure_self_collisions(self) -> None:
-        excluded = self._direct_pairs | self._structural_collision_exclusions
-        links = tuple(range(-1, self.SPEC.motor_dof))
-        for offset, link_a in enumerate(links):
-            for link_b in links[offset + 1 :]:
-                pair = tuple(sorted((link_a, link_b)))
-                self.p.setCollisionFilterPair(
-                    self.body_id,
-                    self.body_id,
-                    link_a,
-                    link_b,
-                    enableCollision=0 if pair in excluded else 1,
-                    physicsClientId=self.client_id,
+    def _bind(self) -> None:
+        """Resolve this body's element ids in the scene's current model."""
+        spec = self.SPEC
+        scene = self.scene
+        model = scene.model
+        root_joint = scene.name_to_id("joint", f"{NAME_PREFIX}root")
+        self._root_qpos = int(model.jnt_qposadr[root_joint])
+        self._root_dof = int(model.jnt_dofadr[root_joint])
+        joint_ids = [
+            scene.name_to_id("joint", f"{NAME_PREFIX}{item.name}") for item in spec.joint_specs
+        ]
+        self._joint_qpos = tuple(int(model.jnt_qposadr[joint]) for joint in joint_ids)
+        self._joint_dof = tuple(int(model.jnt_dofadr[joint]) for joint in joint_ids)
+        for ordinal, joint in enumerate(joint_ids):
+            lower, upper = _mechanical_joint_limits(spec.joint_specs[ordinal])
+            low, high = (float(value) for value in model.jnt_range[joint])
+            if abs(low - lower) > 1e-6 or abs(high - upper) > 1e-6 or not model.jnt_limited[joint]:
+                raise RuntimeError(
+                    f"MuJoCo did not load limits for {spec.joint_specs[ordinal].name}"
                 )
+        self._body_id_by_link = {
+            index: scene.name_to_id("body", f"{NAME_PREFIX}{name}")
+            for name, index in self._link_index_by_name.items()
+        }
+        self.body_id = self._body_id_by_link[-1]
+        # Every engine body of this organism; ids move when the scene is rebuilt.
+        self.body_ids = frozenset(self._body_id_by_link.values())
+        self._link_by_body_id = {body: index for index, body in self._body_id_by_link.items()}
+        self._qpos_addresses = (
+            *range(self._root_qpos, self._root_qpos + 7),
+            *self._joint_qpos,
+        )
+        self._dof_addresses = (
+            *range(self._root_dof, self._root_dof + 6),
+            *self._joint_dof,
+        )
+        self._bound_revision = scene.revision
 
-    def _configure_joint_dynamics(self) -> None:
-        for ordinal, joint_index in enumerate(self.motor_joint_indices):
-            self.p.changeDynamics(
-                self.body_id,
-                joint_index,
-                maxJointVelocity=float(self.SPEC.joint_specs[ordinal].max_velocity),
-                physicsClientId=self.client_id,
-            )
+    def _current(self) -> tuple[Any, Any]:
+        if self._bound_revision != self.scene.revision:
+            self._bind()
+        return self.scene.model, self.scene.data
 
-    def _configure_surface_materials(self) -> None:
-        for link_index in range(-1, self.SPEC.motor_dof):
-            _apply_surface_material(
-                self.p,
-                self.body_id,
-                link_index,
-                self.SPEC.body_material,
-                client_id=self.client_id,
-            )
-
-    def _disable_default_motors(self) -> None:
-        for joint_index in self.motor_joint_indices:
-            self.p.setJointMotorControl2(
-                self.body_id,
-                joint_index,
-                self.p.VELOCITY_CONTROL,
-                targetVelocity=0.0,
-                force=0.0,
-                physicsClientId=self.client_id,
-            )
-
+    # -- opaque environment signal ---------------------------------------------
     def set_opaque_environment_state(self, *, external_field: float) -> None:
         value = float(external_field)
         if not math.isfinite(value) or not 0.0 <= value <= 1.0:
@@ -386,66 +363,149 @@ class ArticulatedPhysics:
     def _signed_unit(value: float, scale: float) -> float:
         return 0.5 + 0.5 * math.tanh(float(value) / max(scale, 1e-12))
 
+    # -- kinematic reads ----------------------------------------------------------
+    def joint_states(self) -> list[tuple[float, float]]:
+        _model, data = self._current()
+        return [
+            (float(data.qpos[position]), float(data.qvel[velocity]))
+            for position, velocity in zip(self._joint_qpos, self._joint_dof)
+        ]
+
+    def base_pose(self) -> tuple[list[float], list[float]]:
+        """Base position and orientation as (x, y, z) and (x, y, z, w)."""
+        _model, data = self._current()
+        q = self._root_qpos
+        w, x, y, z = (float(data.qpos[q + offset]) for offset in (3, 4, 5, 6))
+        return [float(data.qpos[q + offset]) for offset in range(3)], [x, y, z, w]
+
+    def link_pose(self, link_name: str) -> tuple[list[float], list[float]]:
+        """World position and rotation (nine row-major values) of a link frame."""
+        _model, data = self._current()
+        body = self._body_id_by_link[self._link_index_by_name[link_name]]
+        return data.xpos[body].tolist(), data.xmat[body].tolist()
+
+    def base_velocity(self) -> tuple[list[float], list[float]]:
+        """Linear and angular base velocity, both in the world frame."""
+        _model, data = self._current()
+        v = self._root_dof
+        linear = [float(data.qvel[v + offset]) for offset in range(3)]
+        local = [float(data.qvel[v + offset]) for offset in (3, 4, 5)]
+        rotation = data.xmat[self.body_id]
+        angular = [
+            sum(float(rotation[row * 3 + column]) * local[column] for column in range(3))
+            for row in range(3)
+        ]
+        return linear, angular
+
+    def contact_details(self) -> list[dict[str, object]]:
+        """Observer-side description of each contact this body takes part in."""
+        model, data = self._current()
+        mujoco = self.scene.mj
+        import numpy
+
+        name_by_link = {index: name for name, index in self._link_index_by_name.items()}
+        force = numpy.zeros(6)
+        details: list[dict[str, object]] = []
+        for index in range(int(data.ncon)):
+            contact = data.contact[index]
+            bodies = (
+                int(model.geom_bodyid[contact.geom1]),
+                int(model.geom_bodyid[contact.geom2]),
+            )
+            for own, other in (bodies, bodies[::-1]):
+                if own not in self._link_by_body_id:
+                    continue
+                mujoco.mj_contactForce(model, data, index, force)
+                link = self._link_by_body_id[own]
+                details.append(
+                    {
+                        "link_index": link,
+                        "link_name": name_by_link[link],
+                        "position": [float(value) for value in contact.pos],
+                        "normal": [float(value) for value in contact.frame[:3]],
+                        "normal_force": max(0.0, float(force[0])),
+                        # Negative while the surfaces interpenetrate.
+                        "distance": float(contact.dist),
+                        "other_body_id": other,
+                        "other_link_name": name_by_link.get(self._link_by_body_id.get(other)),
+                    }
+                )
+        return details
+
+    def _contact_loads(self) -> tuple[set[int], dict[int, float], int]:
+        """Links of this body in contact, their peak normal force, contact count."""
+        model, data = self._current()
+        mujoco = self.scene.mj
+        import numpy
+
+        force = numpy.zeros(6)
+        active: set[int] = set()
+        peak = {link: 0.0 for link in self._contact_links}
+        count = 0
+        for index in range(int(data.ncon)):
+            contact = data.contact[index]
+            links = [
+                self._link_by_body_id[body]
+                for body in (
+                    int(model.geom_bodyid[contact.geom1]),
+                    int(model.geom_bodyid[contact.geom2]),
+                )
+                if body in self._link_by_body_id
+            ]
+            if not links:
+                continue
+            count += 1
+            mujoco.mj_contactForce(model, data, index, force)
+            normal = max(0.0, float(force[0]))
+            for link in links:
+                active.add(link)
+                if link in peak:
+                    peak[link] = max(peak[link], normal)
+        return active, peak, count
+
+    def mass_distribution(self) -> tuple[float, list[float]]:
+        """Total mass and world-frame centre of mass of the body."""
+        model, data = self._current()
+        total = 0.0
+        weighted = [0.0, 0.0, 0.0]
+        for body in self._body_id_by_link.values():
+            mass = max(0.0, float(model.body_mass[body]))
+            total += mass
+            for axis in range(3):
+                weighted[axis] += mass * float(data.xipos[body][axis])
+        if total <= 0.0:
+            return 0.0, self.base_pose()[0]
+        return total, [value / total for value in weighted]
+
+    def joint_torques(self) -> list[float]:
+        """Torque applied at each joint for the next step: command plus passive."""
+        _model, data = self._current()
+        return [float(data.qfrc_applied[address]) for address in self._joint_dof]
+
+    # -- receptors and effectors -----------------------------------------------------
     def sample_receptors(self) -> Mapping[str, float]:
         values: list[float] = []
-        if hasattr(self.p, "getJointStates"):
-            states = self.p.getJointStates(
-                self.body_id,
-                self.motor_joint_indices,
-                physicsClientId=self.client_id,
-            )
-        else:
-            states = [
-                self.p.getJointState(self.body_id, idx, physicsClientId=self.client_id)
-                for idx in self.motor_joint_indices
-            ]
-        for state in states:
-            values.extend(
-                (
-                    self._signed_unit(state[0], math.pi),
-                    self._signed_unit(state[1], 6.0),
-                )
-            )
+        for position, velocity in self.joint_states():
+            values.extend((self._signed_unit(position, math.pi), self._signed_unit(velocity, 6.0)))
 
-        _position, orientation = self.p.getBasePositionAndOrientation(
-            self.body_id, physicsClientId=self.client_id
-        )
-        linear_velocity, angular_velocity = self.p.getBaseVelocity(
-            self.body_id, physicsClientId=self.client_id
-        )
+        _position, orientation = self.base_pose()
+        linear_velocity, angular_velocity = self.base_velocity()
         values.extend(max(0.0, min(1.0, 0.5 + 0.5 * float(q))) for q in orientation)
         values.extend(self._signed_unit(v, 4.0) for v in linear_velocity)
         values.extend(self._signed_unit(v, 6.0) for v in angular_velocity)
 
-        contacts = self.p.getContactPoints(bodyA=self.body_id, physicsClientId=self.client_id)
-        active_links: set[int] = set()
-        for item in contacts:
-            if len(item) > 3:
-                active_links.add(int(item[3]))
-            if len(item) > 4 and int(item[1]) == self.body_id and int(item[2]) == self.body_id:
-                active_links.add(int(item[4]))
+        active_links, peak_force, _count = self._contact_loads()
         values.extend(1.0 if link in active_links else 0.0 for link in self._contact_links)
         values.append(self._external_field_signal)
-
-        peak_force = {link: 0.0 for link in self._contact_links}
-        for item in contacts:
-            if len(item) <= 9:
-                continue
-            force = max(0.0, float(item[9]))
-            link_a = int(item[3])
-            if link_a in peak_force:
-                peak_force[link_a] = max(peak_force[link_a], force)
-            if len(item) > 4 and int(item[1]) == self.body_id and int(item[2]) == self.body_id:
-                link_b = int(item[4])
-                if link_b in peak_force:
-                    peak_force[link_b] = max(peak_force[link_b], force)
         values.extend(self._bounded_contact_load(peak_force[link]) for link in self._contact_links)
 
-        if len(values) != len(self.receptor_ids):
+        # The spec's own receptors; a subclass may append further channels.
+        receptor_ids = self.SPEC.physical_receptor_ids()
+        if len(values) != len(receptor_ids):
             raise RuntimeError(
-                f"physics receptor contract mismatch: {len(values)} != {len(self.receptor_ids)}"
+                f"physics receptor contract mismatch: {len(values)} != {len(receptor_ids)}"
             )
-        self._sensor_values = dict(zip(self.receptor_ids, values))
+        self._sensor_values = dict(zip(receptor_ids, values))
         return dict(self._sensor_values)
 
     def receptor_value(self, receptor_id: str) -> float:
@@ -468,56 +528,25 @@ class ArticulatedPhysics:
         self.prepare_physics_substep()
 
     def prepare_physics_substep(self) -> None:
-        if hasattr(self.p, "getJointStates"):
-            states = self.p.getJointStates(
-                self.body_id,
-                self.motor_joint_indices,
-                physicsClientId=self.client_id,
+        """Set each joint's torque for the next step: command plus end-range resistance."""
+        _model, data = self._current()
+        for ordinal, (position, velocity) in enumerate(self.joint_states()):
+            passive = self._passive_torque(
+                self.SPEC.joint_specs[ordinal], position=position, velocity=velocity
             )
-        else:
-            states = [
-                self.p.getJointState(self.body_id, idx, physicsClientId=self.client_id)
-                for idx in self.motor_joint_indices
-            ]
-        for ordinal, (joint_index, state) in enumerate(zip(self.motor_joint_indices, states)):
-            spec = self.SPEC.joint_specs[ordinal]
-            passive = _end_range_resistance(
-                spec,
-                position=float(state[0]),
-                velocity=float(state[1]),
-            )
-            commanded = float(self._applied_torque_by_joint.get(joint_index, 0.0))
-            self.p.setJointMotorControl2(
-                self.body_id,
-                joint_index,
-                self.p.TORQUE_CONTROL,
-                force=float(commanded + passive),
-                physicsClientId=self.client_id,
-            )
+            commanded = float(self._applied_torque_by_joint.get(ordinal, 0.0))
+            data.qfrc_applied[self._joint_dof[ordinal]] = commanded + passive
 
     def actuator_work_step(self, dt: float) -> ActuatorWork:
         if not math.isfinite(float(dt)) or dt <= 0.0:
             raise ValueError("dt must be finite and positive")
-        active = [
-            (idx, float(torque))
-            for idx, torque in self._applied_torque_by_joint.items()
-            if abs(float(torque)) > 1e-9
-        ]
-        if not active:
-            return ActuatorWork(0.0, 0.0, 0.0, 0.0)
-        indices = [item[0] for item in active]
-        states = (
-            self.p.getJointStates(self.body_id, indices, physicsClientId=self.client_id)
-            if hasattr(self.p, "getJointStates")
-            else [
-                self.p.getJointState(self.body_id, idx, physicsClientId=self.client_id)
-                for idx in indices
-            ]
-        )
+        states = self.joint_states()
         positive = 0.0
         negative = 0.0
-        for (_, torque), state in zip(active, states):
-            work = torque * float(state[1]) * float(dt)
+        for index, torque in self._applied_torque_by_joint.items():
+            if abs(float(torque)) <= 1e-9:
+                continue
+            work = float(torque) * states[index][1] * float(dt)
             if work >= 0.0:
                 positive += work
             else:
@@ -533,90 +562,59 @@ class ArticulatedPhysics:
         """Compatibility scalar: absolute commanded actuator effort."""
         return self.actuator_work_step(dt).absolute_j
 
+    # -- physical state -------------------------------------------------------------
     def export_physical_state(self) -> dict[str, object]:
-        base_position, base_orientation = self.p.getBasePositionAndOrientation(
-            self.body_id, physicsClientId=self.client_id
-        )
-        linear_velocity, angular_velocity = self.p.getBaseVelocity(
-            self.body_id, physicsClientId=self.client_id
-        )
-        states = cast(
-            Sequence[Sequence[float]],
-            self.p.getJointStates(
-                self.body_id,
-                self.motor_joint_indices,
-                physicsClientId=self.client_id,
-            )
-            if hasattr(self.p, "getJointStates")
-            else [
-                self.p.getJointState(self.body_id, idx, physicsClientId=self.client_id)
-                for idx in self.motor_joint_indices
-            ],
-        )
+        _model, data = self._current()
+        base_position, base_orientation = self.base_pose()
+        linear_velocity, angular_velocity = self.base_velocity()
         joints = [
             {
-                "joint_index": int(joint_index),
-                "joint_name": self.SPEC.joint_specs[ordinal].name,
-                "position": float(state[0]),
-                "velocity": float(state[1]),
-                "applied_torque": float(self._applied_torque_by_joint.get(joint_index, 0.0)),
+                "joint_index": int(index),
+                "joint_name": self.SPEC.joint_specs[index].name,
+                "position": position,
+                "velocity": velocity,
+                "applied_torque": float(self._applied_torque_by_joint.get(index, 0.0)),
             }
-            for ordinal, (joint_index, state) in enumerate(zip(self.motor_joint_indices, states))
+            for index, (position, velocity) in enumerate(self.joint_states())
         ]
 
         links: list[dict[str, object]] = []
-        weighted_com = [0.0, 0.0, 0.0]
-        total_mass = 0.0
         for name, index in sorted(self._link_index_by_name.items(), key=lambda item: item[1]):
-            if index == -1:
-                link_position = base_position
-                link_orientation = base_orientation
-                com = base_position
-            else:
-                state = self.p.getLinkState(
-                    self.body_id,
-                    index,
-                    computeForwardKinematics=True,
-                    physicsClientId=self.client_id,
-                )
-                link_position, link_orientation, com = state[4], state[5], state[0]
-            mass = 1.0
-            if hasattr(self.p, "getDynamicsInfo"):
-                dynamics = self.p.getDynamicsInfo(
-                    self.body_id, index, physicsClientId=self.client_id
-                )
-                if dynamics and isinstance(dynamics[0], (int, float)):
-                    mass = max(0.0, float(dynamics[0]))
-            total_mass += mass
-            for axis in range(3):
-                weighted_com[axis] += mass * float(com[axis])
+            body = self._body_id_by_link[index]
+            w, x, y, z = (float(value) for value in data.xquat[body])
             links.append(
                 {
                     "link_index": int(index),
                     "link_name": str(name),
-                    "position": [float(x) for x in link_position],
-                    "orientation": [float(x) for x in link_orientation],
+                    "position": [float(value) for value in data.xpos[body]],
+                    "orientation": [x, y, z, w],
                 }
             )
-        center_of_mass = (
-            [value / total_mass for value in weighted_com]
-            if total_mass > 0.0
-            else [float(value) for value in base_position]
-        )
-        contacts = self.p.getContactPoints(bodyA=self.body_id, physicsClientId=self.client_id)
+        total_mass, center_of_mass = self.mass_distribution()
+        active_links, _peak, contact_count = self._contact_loads()
         return {
             "schema_version": self.SPEC.state_schema_version,
             "body_kind": self.SPEC.body_kind,
-            "base_position": [float(x) for x in base_position],
-            "base_orientation": [float(x) for x in base_orientation],
-            "linear_velocity": [float(x) for x in linear_velocity],
-            "angular_velocity": [float(x) for x in angular_velocity],
+            "base_position": base_position,
+            "base_orientation": base_orientation,
+            "linear_velocity": linear_velocity,
+            "angular_velocity": angular_velocity,
             "center_of_mass": center_of_mass,
             "total_mass": float(total_mass),
             "joints": joints,
             "links": links,
-            "contact_links": sorted({int(item[3]) for item in contacts if len(item) > 3}),
-            "contact_count": len(contacts),
+            "contact_links": sorted(active_links),
+            "contacts": self.contact_details(),
+            "contact_count": contact_count,
+            # ADR-0066 decision 5: what the engine needs to continue this body
+            # exactly.  The readable fields above are derived from it.
+            "engine_state": {
+                "qpos": [float(data.qpos[address]) for address in self._qpos_addresses],
+                "qvel": [float(data.qvel[address]) for address in self._dof_addresses],
+                "warmstart": [
+                    float(data.qacc_warmstart[address]) for address in self._dof_addresses
+                ],
+            },
         }
 
     def restore_physical_state(
@@ -629,72 +627,44 @@ class ArticulatedPhysics:
             raise ValueError("unsupported physics body state schema")
         if payload.get("body_kind") != self.SPEC.body_kind:
             raise ValueError(f"body state is not compatible with {self.SPEC.body_kind}")
-        position = _restore_vector(payload, "base_position", 3)
-        orientation = _restore_vector(payload, "base_orientation", 4)
-        linear_velocity = _restore_vector(payload, "linear_velocity", 3)
-        angular_velocity = _restore_vector(payload, "angular_velocity", 3)
-        raw_joints = payload.get("joints")
-        if not isinstance(raw_joints, (list, tuple)):
-            raise ValueError("joints must be a list or tuple")
-
-        expected = set(self.motor_joint_indices)
-        seen: set[int] = set()
-        validated: list[tuple[int, float, float]] = []
-        for item in raw_joints:
-            if not isinstance(item, Mapping):
-                raise ValueError("each joint state must be a mapping")
-            raw_index = item.get("joint_index")
-            raw_position = item.get("position")
-            raw_velocity = item.get("velocity")
-            if (
-                isinstance(raw_index, bool)
-                or not isinstance(raw_index, int)
-                or isinstance(raw_position, bool)
-                or not isinstance(raw_position, (int, float))
-                or isinstance(raw_velocity, bool)
-                or not isinstance(raw_velocity, (int, float))
-            ):
-                raise ValueError("joint state contains invalid values")
-            if raw_index not in expected:
-                raise ValueError(f"unexpected joint index: {raw_index}")
-            ordinal = self._joint_ordinal_by_index[raw_index]
-            spec = self.SPEC.joint_specs[ordinal]
-            joint_position = float(raw_position)
-            if (
-                not (
+        engine = payload.get("engine_state")
+        if not isinstance(engine, Mapping):
+            raise ValueError("body state has no engine state")
+        _model, data = self._current()
+        qpos = _restore_vector(engine, "qpos", len(self._qpos_addresses))
+        qvel = _restore_vector(engine, "qvel", len(self._dof_addresses))
+        warmstart = _restore_vector(engine, "warmstart", len(self._dof_addresses))
+        if not all(math.isfinite(value) for value in (*qpos, *qvel, *warmstart)):
+            raise ValueError("body state contains non-finite values")
+        if strict_anatomical_limits:
+            for ordinal, spec in enumerate(self.SPEC.joint_specs):
+                position = qpos[7 + ordinal]
+                if not (
                     spec.lower - JOINT_LIMIT_SOLVER_TOLERANCE
-                    <= joint_position
+                    <= position
                     <= spec.upper + JOINT_LIMIT_SOLVER_TOLERANCE
-                )
-                and strict_anatomical_limits
-            ):
-                raise ValueError(f"joint state outside hard anatomical limit: {spec.name}")
-            lower, upper = _mechanical_joint_limits(spec)
-            joint_position = max(lower, min(upper, joint_position))
-            joint_velocity = float(raw_velocity)
-            if joint_position == lower and joint_velocity < 0.0:
-                joint_velocity = 0.0
-            elif joint_position == upper and joint_velocity > 0.0:
-                joint_velocity = 0.0
-            seen.add(raw_index)
-            validated.append((raw_index, joint_position, joint_velocity))
-        if seen != expected:
-            raise ValueError("body state does not contain every motor joint")
-
-        self.p.resetBasePositionAndOrientation(
-            self.body_id, position, orientation, physicsClientId=self.client_id
-        )
-        self.p.resetBaseVelocity(
-            self.body_id,
-            linearVelocity=linear_velocity,
-            angularVelocity=angular_velocity,
-            physicsClientId=self.client_id,
-        )
-        for joint_index, joint_position, joint_velocity in validated:
-            self.p.resetJointState(
-                self.body_id,
-                joint_index,
-                targetValue=joint_position,
-                targetVelocity=joint_velocity,
-                physicsClientId=self.client_id,
-            )
+                ):
+                    raise ValueError(f"joint state outside hard anatomical limit: {spec.name}")
+        else:
+            # Observer-only display of a recorded state: project an excursion
+            # onto the mechanical range instead of refusing to draw it.
+            projected = list(qpos)
+            for ordinal, spec in enumerate(self.SPEC.joint_specs):
+                lower, upper = _mechanical_joint_limits(spec)
+                projected[7 + ordinal] = min(max(projected[7 + ordinal], lower), upper)
+            qpos = tuple(projected)
+        for address, value in zip(self._qpos_addresses, qpos):
+            data.qpos[address] = value
+        for address, value in zip(self._dof_addresses, qvel):
+            data.qvel[address] = value
+        for address, value in zip(self._dof_addresses, warmstart):
+            data.qacc_warmstart[address] = value
+        self._applied_torque_by_joint = {}
+        for address in self._joint_dof:
+            data.qfrc_applied[address] = 0.0
+        self.scene.forward()
+        # Recomputing the derived state also re-solves the constraints and
+        # overwrites the solver's warm start; put the saved one back so the
+        # next step is the one the saved body would have taken.
+        for address, value in zip(self._dof_addresses, warmstart):
+            data.qacc_warmstart[address] = value

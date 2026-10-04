@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import Iterable
 
-from lab.physics3d.runtime import PyBulletEmbodimentRuntime
+from lab.physics3d.runtime import Physics3DEmbodimentRuntime
 
 
 @dataclass(frozen=True, slots=True)
@@ -86,7 +86,7 @@ def run_sensorimotor_agency_trial(
     """Run one fresh canonical organism with opaque motor babbling."""
     if ticks < 1:
         raise ValueError("ticks must be positive")
-    with PyBulletEmbodimentRuntime(
+    with Physics3DEmbodimentRuntime(
         gui=False,
         seed=seed,
         physics_substeps_per_tick=physics_substeps_per_tick,

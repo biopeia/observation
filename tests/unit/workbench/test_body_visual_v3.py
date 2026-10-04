@@ -5,7 +5,7 @@ WEB = REPO_ROOT / "lab" / "src" / "lab" / "workbench" / "web"
 VIEWER = WEB / "views" / "body" / "viewer.js"
 ANATOMY = WEB / "views" / "body" / "anatomical-visual.js"
 OBSERVATION = REPO_ROOT / "lab" / "src" / "lab" / "observation" / "physics3d.py"
-HUMANOID = REPO_ROOT / "embodiment" / "src" / "embodiment" / "physics3d" / "humanoid.py"
+HUMANOID = REPO_ROOT / "embodiment" / "src" / "embodiment" / "physics3d" / "articulated.py"
 
 
 def _read(path: Path) -> str:
@@ -32,7 +32,7 @@ def test_body_visual_v3_exposes_real_com_and_contacts_only_as_observation() -> N
     viewer = _read(VIEWER)
 
     assert '"center_of_mass"' in humanoid
-    assert '"contacts": contact_details' in humanoid
+    assert '"contacts": self.contact_details()' in humanoid
     assert 'event["center_of_mass"]' in observation
     assert 'event["contacts"]' in observation
     assert "updateObserverSpatialOverlays(data)" in viewer
