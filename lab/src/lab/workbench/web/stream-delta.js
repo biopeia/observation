@@ -133,7 +133,15 @@ export class LiveObservationDecoder {
       this.states.set(channel, state);
       this.revisions.set(channel, revision);
       this.waitingForAnchor.delete(channel);
-      if (recovering) this.recordIssue({ kind: 'rebase', channel, revision });
+      const rebaseReason = payload.transport?.rebase ?? null;
+      if (recovering || rebaseReason) {
+        this.recordIssue({
+          kind: 'rebase',
+          channel,
+          revision,
+          reason: rebaseReason ?? 'revision-gap',
+        });
+      }
       return state;
     }
 
