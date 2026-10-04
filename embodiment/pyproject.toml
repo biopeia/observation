@@ -11,7 +11,7 @@ dependencies = []
 
 [project.optional-dependencies]
 # embodiment.physics3d drives PyBullet bodies directly.
-physics3d = ["pybullet>=3.2.7,<4"]
+physics3d = ["pybullet>=3.2.7,<4", "mujoco>=3.2,<4"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
