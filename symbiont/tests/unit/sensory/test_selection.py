@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import math
 
+import pytest
+
 from symbiont.sensory.predictive_credit import (
     MIN_SELECTION_OBSERVATIONS,
     PairwisePredictiveEvidence,
@@ -101,7 +103,7 @@ def test_same_source_predictability_is_not_selection_credit() -> None:
     assert engine.credits.get("sensor.filtered", 0.0) == 0.0
 
 
-def test_selection_v1_checkpoint_restores_without_raw_temporal_value() -> None:
+def test_selection_v1_checkpoint_is_rejected() -> None:
     engine = SensorySelectionEngine()
     for tick in range(24):
         engine.observe(
@@ -114,15 +116,9 @@ def test_selection_v1_checkpoint_restores_without_raw_temporal_value() -> None:
                 "sensor.a": ("source.a",),
                 "sensor.identity.target": ("source.b",),
             },
-        )
+    )
     payload = engine.checkpoint()
     payload["schema_version"] = 1
-    for row in payload["pairs"]:
-        row["persistence_error_ewma"] = row.pop("baseline_error_ewma", 0.0)
-        row.pop("effective_weight", None)
-        row["last_target"] = 123.0
 
-    restored = SensorySelectionEngine.restore(payload)
-    restored_payload = restored.checkpoint()
-    assert restored_payload["schema_version"] == 2
-    assert "last_target" not in repr(restored_payload)
+    with pytest.raises(ValueError, match="unsupported sensory selection checkpoint"):
+        SensorySelectionEngine.restore(payload)

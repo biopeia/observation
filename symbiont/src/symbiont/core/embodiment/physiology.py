@@ -341,9 +341,9 @@ class LivingBodyState:
 
     @classmethod
     def from_checkpoint(cls, payload: dict[str, object]) -> "LivingBodyState":
-        if not isinstance(payload, dict) or payload.get("schema_version") not in (2, 3):
+        if not isinstance(payload, dict) or payload.get("schema_version") != 3:
             raise ValueError("invalid living body checkpoint")
-        raw_structures = payload.get("structure_states", {})
+        raw_structures = payload["structure_states"]
         if not isinstance(raw_structures, dict):
             raise ValueError("invalid living body checkpoint: structure_states")
         structure_states: dict[str, BodyStructureState] = {}

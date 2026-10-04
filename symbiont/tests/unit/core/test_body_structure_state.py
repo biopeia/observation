@@ -52,16 +52,20 @@ def test_structure_states_checkpoint_round_trip():
         assert restored.structure_states[structure_id].checkpoint() == structure.checkpoint()
 
 
-def test_v2_checkpoint_without_structures_restores_with_none():
+def test_v2_checkpoint_without_structures_is_rejected():
     body = LivingBodyState(structural_integrity=0.6)
     payload = body.checkpoint()
     payload["schema_version"] = 2
     del payload["structure_states"]
+    with pytest.raises(ValueError, match="invalid living body checkpoint"):
+        LivingBodyState.from_checkpoint(payload)
 
-    restored = LivingBodyState.from_checkpoint(payload)
 
-    assert restored.structure_states == {}
-    assert restored.structural_integrity == pytest.approx(0.6)
+def test_v2_checkpoint_is_rejected_even_with_current_fields():
+    payload = LivingBodyState().checkpoint()
+    payload["schema_version"] = 2
+    with pytest.raises(ValueError, match="invalid living body checkpoint"):
+        LivingBodyState.from_checkpoint(payload)
 
 
 def test_structure_states_key_must_match_own_structure_id():

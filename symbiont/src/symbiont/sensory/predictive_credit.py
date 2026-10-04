@@ -269,13 +269,12 @@ class SensorySelectionEngine:
     def restore(cls, payload: Mapping[str, Any] | None) -> "SensorySelectionEngine":
         if payload is None:
             return cls()
-        if not isinstance(payload, Mapping) or payload.get("schema_version") not in (
-            1,
-            SELECTION_SCHEMA_VERSION,
-        ):
+        if not isinstance(payload, Mapping) or payload.get("schema_version") != SELECTION_SCHEMA_VERSION:
             raise ValueError("unsupported sensory selection checkpoint")
-        engine = cls(max_pairs=payload.get("max_pairs", MAX_SELECTION_PAIRS))
-        raw_pairs = payload.get("pairs", [])
+        if not {"max_pairs", "pairs"}.issubset(payload):
+            raise ValueError("incomplete sensory selection checkpoint")
+        engine = cls(max_pairs=payload["max_pairs"])
+        raw_pairs = payload["pairs"]
         if not isinstance(raw_pairs, list) or len(raw_pairs) > engine.max_pairs:
             raise ValueError("invalid sensory selection pair list")
         for raw in raw_pairs:

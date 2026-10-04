@@ -1589,3 +1589,10 @@ def test_developmental_decline_uses_accumulated_burden_not_an_age_counter():
         action_attempts=12,
     )
     assert continued.senescence_index > 0.0
+
+
+def test_developmental_tracker_rejects_schema_one_checkpoint():
+    payload = DevelopmentalTracker().checkpoint()
+    payload["schema_version"] = 1
+    with pytest.raises(ValueError, match="invalid developmental checkpoint"):
+        DevelopmentalTracker.from_checkpoint(payload)

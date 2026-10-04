@@ -127,15 +127,12 @@ def test_symbol_policy_checkpoint_v2_roundtrip_preserves_bias() -> None:
     assert before.selected_symbol_id == after.selected_symbol_id
 
 
-def test_symbol_policy_restores_legacy_v1_checkpoint_with_empty_bias() -> None:
+def test_symbol_policy_rejects_v1_checkpoint() -> None:
     policy = SymbolPolicy("organism", seed=9)
-    policy.choose(local_context_token="context.0", neighbor_ids=("r",), tick=0)
     legacy = policy.checkpoint()
-    del legacy["emission_bias"]
-    del legacy["max_bias_entries"]
     legacy["schema_version"] = 1
-    restored = SymbolPolicy.restore(legacy, organism_id="organism")
-    assert restored._emission_bias == {}
+    with pytest.raises(ValueError, match="invalid symbol policy checkpoint"):
+        SymbolPolicy.restore(legacy, organism_id="organism")
 
 
 def test_symbol_policy_rejects_unknown_schema_version() -> None:

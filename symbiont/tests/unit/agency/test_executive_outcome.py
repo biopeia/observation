@@ -157,8 +157,7 @@ def test_ledger_checkpoint_round_trip_is_exact():
     assert ExecutiveOutcomeLedger.restore(None).checkpoint()["entries"] == []
 
 
-def test_v1_context_keys_fold_into_their_relation_on_restore():
-    """EOL v1.1: contexts of one (competence, effect) merge; recency is kept."""
+def test_v1_context_keys_are_rejected():
 
     def entry(context, ticks, *, suppressed_at=None):
         return {
@@ -197,15 +196,5 @@ def test_v1_context_keys_fold_into_their_relation_on_restore():
         ],
         "counters": {"keys_created": 3, "keys_evicted": 0, "lookups": 7, "history_hits": 2},
     }
-    ledger = ExecutiveOutcomeLedger.restore(legacy)
-    assert len(ledger) == 2
-    merged = ledger.get(KEY)
-    assert merged is not None
-    assert [sample.tick for sample in merged.samples] == list(range(4, 20))
-    assert merged.suppression is not None and merged.suppression.invalidated_tick == 15
-    # Recency order follows the most recently updated legacy entry.
-    assert [entry["key"] for entry in ledger.checkpoint()["entries"]] == [
-        ["competence.d", "effect.f"],
-        ["competence.c", "effect.e"],
-    ]
-    assert ledger.metrics()["lookups"] == 7
+    with pytest.raises(ValueError, match="unsupported executive outcome ledger checkpoint"):
+        ExecutiveOutcomeLedger.restore(legacy)

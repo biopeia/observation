@@ -197,20 +197,17 @@ class DevelopmentalTracker:
 
     @classmethod
     def from_checkpoint(cls, payload: object) -> "DevelopmentalTracker":
-        if not isinstance(payload, dict) or payload.get("schema_version") not in (
-            1,
-            cls.SCHEMA_VERSION,
-        ):
+        if not isinstance(payload, dict) or payload.get("schema_version") != cls.SCHEMA_VERSION:
             raise ValueError("invalid developmental checkpoint")
         return cls(
-            tick=payload.get("tick", 0),
-            stress_ticks=payload.get("stress_ticks", 0),
-            recovery_events=payload.get("recovery_events", 0),
-            repair_events=payload.get("repair_events", 0),
-            excretion_events=payload.get("excretion_events", 0),
-            maintenance_burden=payload.get("maintenance_burden", 0.0),
-            retention_burden=payload.get("retention_burden", 0.0),
-            previous_stressed=payload.get("previous_stressed", False),
+            tick=payload["tick"],
+            stress_ticks=payload["stress_ticks"],
+            recovery_events=payload["recovery_events"],
+            repair_events=payload["repair_events"],
+            excretion_events=payload["excretion_events"],
+            maintenance_burden=payload["maintenance_burden"],
+            retention_burden=payload["retention_burden"],
+            previous_stressed=payload["previous_stressed"],
         )
 
 

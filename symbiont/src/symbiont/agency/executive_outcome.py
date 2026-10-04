@@ -371,14 +371,14 @@ class ExecutiveOutcomeLedger:
         if payload is None:
             return ledger
         version = payload.get("schema_version")
-        if version not in (1, cls.SCHEMA_VERSION):
+        if version != cls.SCHEMA_VERSION:
             raise ValueError("unsupported executive outcome ledger checkpoint")
-        entries = payload.get("entries", [])
+        if not {"entries", "counters", "capacity_pressure"}.issubset(payload):
+            raise ValueError("incomplete executive outcome ledger checkpoint")
+        entries = payload["entries"]
         if not isinstance(entries, list) or len(entries) > ledger.max_keys:
             raise ValueError("invalid or unbounded executive outcome ledger")
         for raw in entries:
-            # v1 keys carried a context as third element; v1.1 folds contexts
-            # of one relation together, keeping entry order as recency order.
             key = (str(raw["key"][0]), str(raw["key"][1]))
             evidence = ExecutiveOutcomeEvidence.restore(raw)
             existing = ledger._items.get(key)
@@ -387,9 +387,9 @@ class ExecutiveOutcomeLedger:
                 ledger._items.move_to_end(key)
             else:
                 ledger._items[key] = evidence
-        counters = payload.get("counters", {})
+        counters = payload["counters"]
         for name in ("keys_created", "keys_evicted", "lookups", "history_hits"):
-            value = int(counters.get(name, 0))
+            value = int(counters[name])
             if value < 0 or not math.isfinite(value):
                 raise ValueError("invalid executive outcome counter")
             setattr(ledger, name, value)

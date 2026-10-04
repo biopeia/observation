@@ -184,13 +184,10 @@ def test_reembodiment_does_not_fake_current_binding():
     assert acquisition.action_dimensions.items[0].embodiment_bound
 
 
-def test_legacy_surface_dimensions_are_discarded_on_restore():
-    legacy = {
-        "schema_version": 1,
-        "capacity": 8,
-        "items": [{"dimension_id": "action.dimension.aaaa", "actuator_slot_id": "slot.0"}],
-    }
-    assert ActionDimensionRegistry.restore(legacy).items == ()
+def test_legacy_surface_dimensions_are_rejected_on_restore():
+    legacy = {"schema_version": 1}
+    with pytest.raises(ValueError, match="unsupported action dimension checkpoint"):
+        ActionDimensionRegistry.restore(legacy)
 
 
 def test_registry_restore_rejects_wrong_schema_version():

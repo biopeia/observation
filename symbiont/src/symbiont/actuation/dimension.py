@@ -347,38 +347,44 @@ class ActionDimensionRegistry:
     ) -> "ActionDimensionRegistry":
         """Restore acquired dimensions; availability is re-derived by bind_surface().
 
-        Schema 1 dimensions were bootstrapped from the actuator surface rather
-        than acquired, so they are deliberately discarded (§83): the organism
-        starts with no dimensions instead of inheriting fabricated ones.
+        Only the current acquired-dimension schema is restorable.
         """
-        if payload is None or payload.get("schema_version") == 1:
+        if payload is None:
             return cls(policy=policy)
         if payload.get("schema_version") != cls.SCHEMA_VERSION:
             raise ValueError("unsupported action dimension checkpoint")
-        obj = cls(capacity=int(payload.get("capacity", 512)), policy=policy)
-        raw = payload.get("items", [])
+        if not {"capacity", "items"}.issubset(payload):
+            raise ValueError("incomplete action dimension checkpoint")
+        obj = cls(capacity=int(payload["capacity"]), policy=policy)
+        raw = payload["items"]
         if not isinstance(raw, list) or len(raw) > obj.capacity:
             raise ValueError("invalid or unbounded action dimensions")
         for entry in raw:
             if not isinstance(entry, Mapping):
                 raise ValueError("invalid action dimension entry")
-            channels = tuple(sorted(str(value) for value in entry.get("channel_refs", [])))
+            required_entry_fields = {
+                "dimension_id", "intervention_signature_refs", "channel_refs", "verified_surfaces",
+                "controllability", "confidence", "usage_count",
+            }
+            if not required_entry_fields.issubset(entry):
+                raise ValueError("incomplete action dimension entry")
+            channels = tuple(sorted(str(value) for value in entry["channel_refs"]))
             dimension_id = str(entry["dimension_id"])
             if dimension_id != opaque_dimension_id(channels):
                 raise ValueError("action dimension identity does not match its grounding")
             obj._items[dimension_id] = ActionDimension(
                 dimension_id=dimension_id,
                 intervention_signature_refs=tuple(
-                    sorted(str(value) for value in entry.get("intervention_signature_refs", []))
+                    sorted(str(value) for value in entry["intervention_signature_refs"])
                 ),
                 availability=False,
-                controllability=float(entry.get("controllability", 0.0)),
-                confidence=float(entry.get("confidence", 0.0)),
-                usage_count=int(entry.get("usage_count", 0)),
+                controllability=float(entry["controllability"]),
+                confidence=float(entry["confidence"]),
+                usage_count=int(entry["usage_count"]),
                 embodiment_bound=False,
             )
             obj._channels[dimension_id] = channels
-            surfaces = entry.get("verified_surfaces", [])
+            surfaces = entry["verified_surfaces"]
             if not isinstance(surfaces, list) or not surfaces:
                 raise ValueError("action dimension lacks the surfaces that grounded it")
             obj._verified_surfaces[dimension_id] = frozenset(str(value) for value in surfaces)

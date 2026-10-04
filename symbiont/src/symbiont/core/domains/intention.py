@@ -684,8 +684,14 @@ class IntentionDomain:
         if payload is None:
             return obj
         version = payload.get("schema_version")
-        if version not in (1, cls.SCHEMA_VERSION):
+        if version != cls.SCHEMA_VERSION:
             raise ValueError("unsupported executive intention checkpoint")
+        required = {
+            "active", "active_commitment_id", "progress_evidence", "consecutive_mismatches",
+            "reconciliation_trace", "formed", "counts", "outcome_evidence",
+        }
+        if not required.issubset(payload):
+            raise ValueError("incomplete executive intention checkpoint")
         raw_active = payload.get("active")
         if raw_active is not None:
             if not isinstance(raw_active, Mapping):
@@ -698,8 +704,8 @@ class IntentionDomain:
             obj.active_commitment_id = str(commitment) if commitment is not None else None
             if intent.status is IntentStatus.ACTIVE and obj.active_commitment_id is None:
                 raise ValueError("an active intent must reference its commitment")
-            obj._progress_evidence = int(payload.get("progress_evidence", 0))
-            obj._consecutive_mismatches = int(payload.get("consecutive_mismatches", 0))
+            obj._progress_evidence = int(payload["progress_evidence"])
+            obj._consecutive_mismatches = int(payload["consecutive_mismatches"])
             trace = payload.get("reconciliation_trace")
             if isinstance(trace, Mapping):
                 obj._binding_valid_at_start = bool(trace.get("binding_valid_at_start", False))
@@ -713,13 +719,12 @@ class IntentionDomain:
                     str(k): float(v) for k, v in dict(trace.get("quiet_rates", {})).items()
                 }
                 obj._observed_windows = int(trace.get("observed_windows", 0))
-        obj._formed = int(payload.get("formed", 0))
-        raw_counts = payload.get("counts", {})
+        obj._formed = int(payload["formed"])
+        raw_counts = payload["counts"]
         if isinstance(raw_counts, Mapping):
             for status in obj.counts:
                 obj.counts[status] = int(raw_counts.get(status.value, 0))
-        # Schema 1 (Agency Acquisition v1) had no executive outcome evidence.
-        obj.outcome_ledger = ExecutiveOutcomeLedger.restore(payload.get("outcome_evidence"))
+        obj.outcome_ledger = ExecutiveOutcomeLedger.restore(payload["outcome_evidence"])
         return obj
 
 

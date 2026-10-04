@@ -614,10 +614,14 @@ class SymbolPolicy:
         if payload is None:
             return cls(organism_id)
         version = payload.get("schema_version")
-        if version not in (1, cls.SCHEMA_VERSION) or payload.get("organism_id") != organism_id:
+        if version != cls.SCHEMA_VERSION or payload.get("organism_id") != organism_id:
             raise ValueError("invalid symbol policy checkpoint")
-        if not isinstance(payload.get("symbol_space"), list) or not isinstance(
-            payload.get("decisions", []), list
+        if not {
+            "seed", "symbol_space", "max_bias_entries", "decisions", "cost", "emission_bias"
+        }.issubset(payload):
+            raise ValueError("incomplete symbol policy checkpoint")
+        if not isinstance(payload["symbol_space"], list) or not isinstance(
+            payload["decisions"], list
         ):
             raise ValueError("invalid symbol policy rows")
         if len(payload["decisions"]) > MAX_HISTORY:
@@ -626,16 +630,14 @@ class SymbolPolicy:
             organism_id,
             seed=payload["seed"],
             symbol_space=tuple(payload["symbol_space"]),
-            max_bias_entries=payload.get("max_bias_entries", MAX_ASSOCIATIONS),
+            max_bias_entries=payload["max_bias_entries"],
         )
-        for row in payload.get("decisions", []):
+        for row in payload["decisions"]:
             policy._decisions.append(SymbolDecisionRecord.restore(row))
-        policy._cost = payload.get("cost", 0)
+        policy._cost = payload["cost"]
         if isinstance(policy._cost, bool) or not isinstance(policy._cost, int) or policy._cost < 0:
             raise ValueError("invalid symbol policy cost")
-        if version == 1:
-            return policy
-        raw_bias = payload.get("emission_bias", [])
+        raw_bias = payload["emission_bias"]
         if not isinstance(raw_bias, list) or len(raw_bias) > policy.max_bias_entries:
             raise ValueError("invalid symbol policy emission bias")
         for row in raw_bias:

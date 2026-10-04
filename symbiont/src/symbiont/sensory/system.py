@@ -715,20 +715,35 @@ class SensorySystem:
     ) -> "SensorySystem":
         if payload is None:
             return cls(plasticity_enabled=bool(plasticity_enabled))
-        if not isinstance(payload, dict) or payload.get("schema_version") not in (
-            1,
-            cls.SCHEMA_VERSION,
-        ):
+        if not isinstance(payload, dict) or payload.get("schema_version") != cls.SCHEMA_VERSION:
             raise ValueError("unsupported sensory system checkpoint")
+        required = {
+            "constitution",
+            "next_sensor_id",
+            "last_tick",
+            "capacity_rejections",
+            "sensors",
+            "selection",
+            "mutations",
+        }
+        if not required.issubset(payload):
+            raise ValueError("incomplete sensory system checkpoint")
         constitution = payload.get("constitution", {})
         if not isinstance(constitution, dict):
             raise ValueError("sensory constitution must be an object")
-        raw_limits = constitution.get("limits", {})
+        if (
+            constitution.get("schema_version") != cls.SCHEMA_VERSION
+            or constitution.get("selection_schema_version") != SELECTION_SCHEMA_VERSION
+        ):
+            raise ValueError("unsupported sensory constitution checkpoint")
+        if not {"plasticity_enabled", "limits", "modalities"}.issubset(constitution):
+            raise ValueError("incomplete sensory constitution checkpoint")
+        raw_limits = constitution["limits"]
         if not isinstance(raw_limits, dict):
             raise ValueError("sensory limits must be an object")
         limits = SensoryLimits(**raw_limits)
 
-        raw_modalities = constitution.get("modalities")
+        raw_modalities = constitution["modalities"]
         if not isinstance(raw_modalities, list) or not raw_modalities:
             raise ValueError("sensory modalities must be a non-empty array")
         modalities: list[SensoryModality] = []
@@ -751,14 +766,14 @@ class SensorySystem:
             except (KeyError, TypeError, ValueError) as exc:
                 raise ValueError(f"invalid sensory modality checkpoint: {exc}") from exc
 
-        next_sensor_id = payload.get("next_sensor_id", 1)
+        next_sensor_id = payload["next_sensor_id"]
         if (
             isinstance(next_sensor_id, bool)
             or not isinstance(next_sensor_id, int)
             or next_sensor_id < 1
         ):
             raise ValueError("next_sensor_id must be a positive integer")
-        stored_plasticity = constitution.get("plasticity_enabled", False)
+        stored_plasticity = constitution["plasticity_enabled"]
         if not isinstance(stored_plasticity, bool):
             raise ValueError("sensory plasticity_enabled must be boolean")
         system = cls(
@@ -769,7 +784,7 @@ class SensorySystem:
             ),
             next_sensor_id=next_sensor_id,
         )
-        raw_sensors = payload.get("sensors", [])
+        raw_sensors = payload["sensors"]
         if not isinstance(raw_sensors, list) or len(raw_sensors) > limits.max_active_sensors:
             raise ValueError("invalid sensory sensor list")
         for raw in raw_sensors:
@@ -786,7 +801,7 @@ class SensorySystem:
             if sensor.sensor_id in system._sensors:
                 raise ValueError("duplicate sensor id")
             system._sensors[sensor.sensor_id] = sensor
-        raw_mutations = payload.get("mutations", [])
+        raw_mutations = payload["mutations"]
         if not isinstance(raw_mutations, list) or len(raw_mutations) > 256:
             raise ValueError("invalid sensory mutation history")
         restored_mutations = [SensoryMutation.restore(raw) for raw in raw_mutations]
@@ -800,8 +815,8 @@ class SensorySystem:
             if mutation.sensor_id not in known_history_ids:
                 raise ValueError("mutation history references an unknown sensor lineage")
         system._mutations = restored_mutations
-        system._selection = SensorySelectionEngine.restore(payload.get("selection"))
-        capacity_rejections = payload.get("capacity_rejections", 0)
+        system._selection = SensorySelectionEngine.restore(payload["selection"])
+        capacity_rejections = payload["capacity_rejections"]
         if (
             isinstance(capacity_rejections, bool)
             or not isinstance(capacity_rejections, int)
@@ -809,7 +824,7 @@ class SensorySystem:
         ):
             raise ValueError("invalid sensory capacity_rejections")
         system._capacity_rejections = capacity_rejections
-        last_tick = payload.get("last_tick", 0)
+        last_tick = payload["last_tick"]
         if isinstance(last_tick, bool) or not isinstance(last_tick, int) or last_tick < 0:
             raise ValueError("last_tick must be a non-negative integer")
         system._last_tick = last_tick
