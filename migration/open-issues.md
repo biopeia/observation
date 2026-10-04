@@ -131,12 +131,13 @@ surface is an open decision.
 **OI-17 — Domain contracts are implicit.**
 The Physics3D apparatus contract is now owned by `embodiment.physics3d` and
 consumed by the Lab adapter; it names receptor sampling, opaque
-receptor/effector ids, and motor port pairings. This closes that boundary, but
-the broader issue remains:
-other library hand-offs still use plain values/callables, and
-`lab.integration.physics3d.apparatus` still builds organism types
-(`SensorReading`, `Capability`, `ActuatorConstitution`) directly from body
-internals. Domain-owned contracts across those boundaries remain open.
+receptor/effector ids, and motor port pairings. The organism's passive process
+telemetry hook is also now a named `ProcessTelemetryObserver` protocol rather
+than `Any`, preserving observer-only ownership. Other hand-offs still need an
+owner-by-owner contract audit, and `lab.integration.physics3d.apparatus` still
+constructs organism types (`SensorReading`, `Capability`,
+`ActuatorConstitution`) at the composition boundary. Domain-owned contracts
+across those boundaries remain open.
 
 **OI-6 — CLOSED: leaf imports no longer rely on core initialization order.**
 Shared epistemic conventions and organism limits now live in the independent

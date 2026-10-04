@@ -8,10 +8,16 @@ available; the organism attaches them.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Protocol
 
 from .discovery import DiscoveryProvider
 from .readings import ReadingProvider
+
+
+class ProcessTelemetryObserver(Protocol):
+    """Passive observer hook; telemetry must not become organism perception."""
+
+    def observe_tick(self, latency: float) -> None: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -20,7 +26,7 @@ class HostSenseSources:
     reading_providers: tuple[ReadingProvider, ...] = ()
     # Optional passive observer hook. It may receive timing, but its process
     # measurements are not offered as organism capabilities or readings.
-    process_telemetry: Any | None = None
+    process_telemetry: ProcessTelemetryObserver | None = None
     # "available" | "unavailable": whether host senses could be offered at all.
     availability: str = "unavailable"
 
