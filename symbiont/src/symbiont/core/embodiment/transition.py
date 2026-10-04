@@ -537,6 +537,16 @@ def prepare_fresh_embodiment_checkpoint(
             result[sensory_field] = deepcopy(dict(fresh_sensory))
         else:
             result.pop(sensory_field, None)
+    # Rhythm and drift baselines are keyed by percept name, not stable Body
+    # source identity. Reusing them could classify a new Body's first signal
+    # against statistics from a different physical stream. Start those
+    # body-bound estimators fresh; capability-keyed acclimation remains a
+    # longitudinal prior and is preserved separately.
+    for baseline_field in ("rhythms", "rhythms_replay", "drift", "drift_replay"):
+        if baseline_field in fresh:
+            result[baseline_field] = deepcopy(fresh[baseline_field])
+        else:
+            result.pop(baseline_field, None)
     # The new Body starts a new physiological episode. Carrying the previous
     # tick's stress bit would turn its first active observation into a false
     # recovery event for the closed Body.

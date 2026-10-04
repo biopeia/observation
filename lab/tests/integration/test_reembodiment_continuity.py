@@ -53,6 +53,10 @@ FRESH_BODY_FIELDS = {
     "physiology",
     "sensory_system",
     "sensory_development",
+    "rhythms",
+    "rhythms_replay",
+    "drift",
+    "drift_replay",
     "pending_embodied_work",
     "resting_requested",
 }
@@ -321,6 +325,22 @@ def test_body_owned_state_comes_from_the_fresh_body(case: _Case) -> None:
         }
         for item in archived
     )
+
+
+def test_percept_name_baselines_reset_but_capability_acclimation_is_preserved(
+    case: _Case,
+) -> None:
+    # The developed subject has non-empty rhythm/drift replay state. Those
+    # estimators are keyed by percept name, which is not a stable Body-source
+    # identity; they must restart from the new Body's fresh checkpoint.
+    for field in ("rhythms", "rhythms_replay", "drift", "drift_replay"):
+        assert case.previous[field]
+        assert case.previous[field] != case.fresh[field]
+        assert case.transformed[field] == case.fresh[field]
+
+    # Acclimation is keyed by opaque capability identity and remains an
+    # organism-owned longitudinal prior rather than current-body authority.
+    assert case.transformed["acclimation"] == case.previous["acclimation"]
 
 
 def test_identity_and_time_continue_and_the_transform_is_recorded(case: _Case) -> None:
