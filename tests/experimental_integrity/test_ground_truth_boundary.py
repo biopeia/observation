@@ -201,6 +201,7 @@ def test_symbiont_contains_only_subject_modules():
         "capacity.py",
         "cognition",
         "core",
+        "foundation",
         "genetics",
         "host",
         "modeling",

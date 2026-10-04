@@ -320,7 +320,8 @@ def test_workbench_v2_navigation_matches_product_architecture():
     for route in ("#home", "#mind", "#embodiment", "#vision", "#world", "#archive"):
         assert f'href="{route}"' in html
     assert 'href="#experiments"' not in html
-    assert "experiments: 'home'" in app
+    assert "const ROUTE_ALIASES = { body: 'embodiment' };" in app
+    assert "experiments: 'home'" not in app
     assert "mountVision" in app
 
 
