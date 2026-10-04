@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-pybullet = pytest.importorskip("pybullet")
-pybullet_data = pytest.importorskip("pybullet_data")
+pytest.importorskip("mujoco")
 
+from embodiment.physics3d.scene import PhysicsScene
 from environment.physics3d.environments import build_environment, environment_recipe
 from lab.integration.physics3d.bodies import ANTHROPOMORPHIC_V6_VISION
 from lab.physics3d.engine import run
@@ -18,14 +18,10 @@ pytestmark = pytest.mark.slow
 
 
 def _eye() -> dict[str, float]:
-    client = pybullet.connect(pybullet.DIRECT)
-    try:
-        pybullet.setAdditionalSearchPath(pybullet_data.getDataPath(), physicsClientId=client)
-        pybullet.loadURDF("plane.urdf", physicsClientId=client)
-        build_environment(client, environment_recipe("vision-nursery-v1"))
-        return ANTHROPOMORPHIC_V6_VISION.apparatus_factory(client).sample_receptors()
-    finally:
-        pybullet.disconnect(client)
+    scene = PhysicsScene(timestep=1.0 / 240.0)
+    scene.add_ground()
+    build_environment(scene, environment_recipe("vision-nursery-v1"))
+    return ANTHROPOMORPHIC_V6_VISION.apparatus_factory(scene).sample_receptors()
 
 
 def test_visual_samples_are_deterministic_bounded_and_contrasted() -> None:

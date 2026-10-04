@@ -65,7 +65,9 @@ class PhysicsWorldObserver:
                 "shapes": shapes,
                 "exists": True,
                 "material": {
-                    "mass": float(model.body_mass[body]),
+                    # A body the engine cannot move is reported massless, as fixed
+                    # world geometry always has been.
+                    "mass": float(model.body_mass[body]) if model.body_dofnum[body] else 0.0,
                     "lateral_friction": float(model.geom_friction[geoms_by_body[body][0]][0]),
                 },
                 "provenance": "physics-collision-geometry",

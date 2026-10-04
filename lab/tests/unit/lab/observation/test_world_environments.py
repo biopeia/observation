@@ -29,55 +29,47 @@ def test_recipe_resume_is_exact_and_cannot_silently_change_world():
 @pytest.mark.slow
 @pytest.mark.parametrize("kind", tuple(DEFAULT_BODY_REGISTRY._descriptors))
 def test_uncontacted_objects_are_invisible_but_contact_changes_opaque_receptors(kind):
-    p = pytest.importorskip("pybullet")
-    client = p.connect(p.DIRECT)
-    try:
-        descriptor = DEFAULT_BODY_REGISTRY.get(kind)
-        apparatus = descriptor.apparatus_factory(client)
-        p.resetBasePositionAndOrientation(
-            apparatus.body_id, [0, 0, 3], [0, 0, 0, 1], physicsClientId=client
-        )
-        p.performCollisionDetection(physicsClientId=client)
-        before = apparatus.sample_receptors()
-        recipe = environment_recipe("contact-garden-v1")
-        fixtures = build_environment(client, recipe)
-        p.performCollisionDetection(physicsClientId=client)
-        assert apparatus.sample_receptors() == before  # No vision or object IDs.
-        p.resetBasePositionAndOrientation(
-            apparatus.body_id, [1.8, 1, 0.5], [0, 0, 0, 1], physicsClientId=client
-        )
-        p.performCollisionDetection(physicsClientId=client)
-        after = apparatus.sample_receptors()
-        start = len(descriptor.observer_joint_specs) * 2 + 10
-        contact_ids = [
-            f"rec.{start + i}" for i in range(len(descriptor.observer_contact_region_names))
-        ]
-        assert any(before[r] != after[r] for r in contact_ids)
-        assert set(before) == set(after)
-        resource = PhysicalResource(client)
-        runtime = SimpleNamespace(
-            p=p,
-            client_id=client,
-            apparatus=apparatus,
-            resource=resource,
-            body_descriptor=descriptor,
-            environment_recipe=recipe,
-            passive_physical_state=apparatus.export_physical_state,
-        )
-        scene = PhysicsWorldObserver().capture(runtime)
-        assert len(scene["entities"]) == len(fixtures) + 1
-        assert scene["environment_recipe"] == recipe
-        assert all(
-            v == 0
-            for v in [p.getDynamicsInfo(body, -1, physicsClientId=client)[0] for body in fixtures]
-        )
-    finally:
-        p.disconnect(client)
+    pytest.importorskip("mujoco")
+    from embodiment.physics3d.scene import PhysicsScene
+
+    def place(position) -> None:
+        root = apparatus._root_qpos
+        scene.data.qpos[root : root + 3] = position
+        scene.forward()
+
+    scene = PhysicsScene(timestep=1.0 / 240.0)
+    descriptor = DEFAULT_BODY_REGISTRY.get(kind)
+    apparatus = descriptor.apparatus_factory(scene)
+    # Touch receptors only: the visual array, where present, is another channel.
+    start = len(descriptor.observer_joint_specs) * 2 + 10
+    contact_ids = [f"rec.{start + i}" for i in range(len(descriptor.observer_contact_region_names))]
+    place([0, 0, 3])
+    before = apparatus.sample_receptors()
+    recipe = environment_recipe("contact-garden-v1")
+    fixtures = build_environment(scene, recipe)
+    untouched = apparatus.sample_receptors()
+    assert [untouched[r] for r in contact_ids] == [before[r] for r in contact_ids]
+    place([1.8, 1, 0.5])
+    after = apparatus.sample_receptors()
+    assert any(before[r] != after[r] for r in contact_ids)
+    assert set(before) == set(after)
+    resource = PhysicalResource(scene)
+    runtime = SimpleNamespace(
+        scene=scene,
+        apparatus=apparatus,
+        resource=resource,
+        body_descriptor=descriptor,
+        environment_recipe=recipe,
+    )
+    observed = PhysicsWorldObserver().capture(runtime)
+    assert len(observed["entities"]) == len(fixtures) + 1
+    assert observed["environment_recipe"] == recipe
+    assert all(entity["material"]["mass"] == 0 for entity in observed["entities"].values())
 
 
 @pytest.mark.slow
 def test_runtime_restores_environment_without_putting_world_in_organism():
-    pytest.importorskip("pybullet")
+    pytest.importorskip("mujoco")
     from lab.physics3d.runtime import Physics3DEmbodimentRuntime
 
     runtime = Physics3DEmbodimentRuntime(
