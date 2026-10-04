@@ -93,6 +93,43 @@ console.log(JSON.stringify({{
     assert availability["affordances"] == "not_observed"
 
 
+def test_legacy_observer_classifications_are_adapted_once_and_removed_from_cognition() -> None:
+    snapshot = (WEB / "views/mind/snapshot.js").as_uri()
+    state = (WEB / "views/mind/state.js").as_uri()
+    out = _node(
+        f"""
+const {{applyMindSnapshot}} = await import({json.dumps(snapshot)});
+const {{snap, resetMindDataState}} = await import({json.dumps(state)});
+resetMindDataState();
+applyMindSnapshot({{
+  tick: 8,
+  cognition: {{
+    readouts: {{motor: 0.4}},
+    activationClasses: {{'concept.1': 12}},
+    predictionErrors: {{'predictor.1': 'high'}},
+  }},
+}});
+console.log(JSON.stringify({{
+  cognition: snap.cognition,
+  observerAnalysis: snap.observerAnalysis,
+  availability: snap.availability,
+}}));
+"""
+    )
+
+    assert out["cognition"]["readouts"] == {"motor": 0.4}
+    assert "activationClasses" not in out["cognition"]
+    assert "predictionErrors" not in out["cognition"]
+    assert out["observerAnalysis"]["activationClasses"] == {"concept.1": 12}
+    assert out["observerAnalysis"]["predictionErrors"] == {"predictor.1": "high"}
+    assert out["observerAnalysis"]["provenance"] == {
+        "owner": "observer",
+        "source": "legacy-cognition-adapter",
+        "feedsBack": False,
+    }
+    assert out["availability"]["observerAnalysis"] == "observed"
+
+
 def test_delta_gap_becomes_visible_and_rebase_recovers_channel() -> None:
     module = (WEB / "stream-delta.js").as_uri()
     out = _node(
