@@ -4,6 +4,36 @@ Status: **proposed; FP-0 preregistered** (owner delegated the recommendation,
 2026-09-28). Prerequisite of Cross-Domain Revision Coherence v1 Wave 2.
 Baseline: `main @ 0af9b286`.
 
+## Local codes
+
+Codes used inside this document only
+([naming rule](../../../lab/research/STUDY-INDEX.md#naming-rule)). Elsewhere,
+refer to the name or to the key `learning.footprint-precision` and the arm
+keys given in the [study index](../../../lab/research/STUDY-INDEX.md).
+
+| Code | Name |
+|---|---|
+| H1 | candidate cause: zero-count quiet baseline (§2) |
+| H2 | candidate cause: small samples and sequential testing (§2) |
+| H3 | candidate cause: baseline mismatch (§2) |
+| FP-0 | descriptive precision study (§3) |
+| FP-1 | membership fixes against ground truth (§6) |
+| FP-2 | explicit multiple-comparison correction (§9) |
+| FP-3 | repeated evaluation over time (§12) |
+| R | arm: current membership, the reference |
+| T | arm: time-matched quiet baseline (FP-1) |
+| M | arm: multiplicity, Bonferroni-adjusted entry bound (FP-1, FP-2) |
+| TM | arm: T and M together (FP-1) |
+| BH | arm: Benjamini–Hochberg membership at q = 0.05 (FP-2, FP-3) |
+| BHB | arm: Benjamini–Hochberg over disjoint blocks of 8 pulses, replicated in two blocks (FP-3) |
+
+Codes from other documents that appear in the body:
+
+| Code | Refers to |
+|---|---|
+| E6 (the "E6 gate") | acquisition to deliberate reuse closure, the release gate: `learning.agency-acquisition-reuse-closure` |
+| E8 (the "E8 body", E8 v3) | high-dimensional acquisition and its synthetic body: `learning.agency-high-dimensional-acquisition` |
+
 ## 1. Problem
 
 E8 v3 (Factorized Effect Representation v1 §16.4) found that every intent

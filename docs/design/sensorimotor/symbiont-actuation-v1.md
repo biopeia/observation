@@ -12,6 +12,34 @@ language: en
 ---
 # Symbiont Actuation v1 — Motor Apparatus & Closed Body Loop
 
+## Local codes
+
+Codes used inside this document only
+([naming rule](../../../lab/research/STUDY-INDEX.md#naming-rule)). Elsewhere,
+refer to the name. Other documents use P0–P6 and A7 for unrelated phases,
+priorities and gates.
+
+| Code | Name |
+|---|---|
+| P0 | implementation phase: motor substrate (§14) |
+| P1 | implementation phase: cognitive output roles and motor edge learning (§14) |
+| P2 | implementation phase: closed locomotor loop, with minimal proprioception (§14) |
+| P3 | implementation phase: motor learning (§14) |
+| P4 | implementation phase: interaction and acquisition (§14) |
+| P5 | implementation phase: emission (§14) |
+| P6 | implementation phase: persistence and continuity, the full gate (§14) |
+| P0.1 | hardening of P0: persistence of the motor calendar phase (§16.1) |
+| P0.2 | hardening of P0: strict validation of `restore_actuation_state` (§16.2) |
+| P0.3 | hardening of P0: effect replication across independent windows (§16.3) |
+| P0.4 | hardening of P0: additional validation hardening (§16.4) |
+| A01 | scientific gate: activates channels without receiving platform-side semantics (§13) |
+| A02 | scientific gate: distinguishes a causal actuator from a sham actuator (§13) |
+| A03 | scientific gate: discovers actuator-to-percept contingencies above background correlation (§13) |
+| A04 | scientific gate: relearns when the actuator-to-direction mapping is permuted without changing ids (§13) |
+| A05 | scientific gate: detects degradation of an actuator (§13) |
+| A06 | scientific gate: tells "I intended to act" from "my body acted" from "the world changed" (§13) |
+| A07 | scientific gate: autonomous locomotion improves on random actuator activation (§13) |
+
 **Status:** end-to-end technical design and specification, revision 6 — **P0 CLOSED**. Revision 1: `draft / needs amendment`. Revision 2: `approvable with 4 hardenings`. Revision 3: `4 hardenings incorporated`. Revision 4 fixes two startup details of P0 and an explicit test requirement. Revision 5 fixes four gaps from a post-merge audit (§16): phase persistence of the motor schedule (P0.1), strict restore validation (P0.2), effect replication between windows (P0.3), hardening of field validation + invariants of `MotorSlot`/`ActuatorConstitution` (P0.4); it supersedes the reset rule from revision 3/4 that broke replay equivalence; and, following a second finding in the same audit, it also removes the export gate based on minimum samples — the checkpoint is now bit-exact from any tick, including tick 0 (§16.6). Revision 6 closes P0 with two final adjustments (§16.7): `restore_actuation_state` validates consistency between fields (`windows_with_effect <= windows_completed`, `tick_in_window < window_ticks`, an `active` candidate must actually satisfy its own promotion condition) instead of accepting internally impossible states that would only fail ticks later; and `effect_strength = |corr(activation, Δpercept)|` is declared as the exact metric of v1 (§6), aligning the letter of the spec with the already verified implementation — the point-biserial correlation over a balanced ON/OFF schedule already captures the substance of "ON/OFF difference" that previous revisions described with other notation. It does not reopen the general architecture.
 **Scope:** `symbiont.actuation` (new), `symbiont.cognition.cognition_bridge` (extended), `symbiont.core.runtime` (extended), `symbiont_lab.world.adapter` (new bridge), `symbiont.cognition.checkpoint` (extended).
 **Guiding principle:** the organism's input chain (World → Source → Sensor → Percept → Cognition) currently has a broken symmetry — there is no equivalent output chain. Cognition produces `readouts` that no one consumes except telemetry (`runtime.py:2249`); real movement in World v4 is decided by `policy_rng.choice` in `symbiont_lab/world/population.py:299-317`, completely outside the organism. This spec closes the body loop:

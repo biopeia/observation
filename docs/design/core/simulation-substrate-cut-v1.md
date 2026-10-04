@@ -28,6 +28,26 @@ the "reconsider if" condition of §14. The ordering and scope of the
 workstreams are with the owner before step 1 starts.
 See [`register.md`](../register.md).
 
+## Local codes
+
+Codes used inside this document only
+([naming rule](../../../lab/research/STUDY-INDEX.md#naming-rule)). Elsewhere,
+refer to the name. The waves W0–W6 of Cognitive Cycle v1 are unrelated.
+
+| Code | Name |
+|---|---|
+| W1 | organism state layout and passive observation (§5) |
+| W2 | physics and vision backend (§5) |
+| W3 | organism hot-path algorithms (§5) |
+| W4 | native kernels, conditional on measurement (§5) |
+| W5 | persistence and telemetry formats (§5) |
+
+Codes from other documents that appear in the body:
+
+| Code | Refers to |
+|---|---|
+| A7 | the research programme's numerical and mechanical stability gate, and its protocol [Physics3D A7 Stability Gate v1](../embodiment/physics3d-a7-stability-gate-v1.md) |
+
 ## 1. Premise
 
 Owner decision (2026-10-04, ADR-0065): the change is a **clean cut**. No

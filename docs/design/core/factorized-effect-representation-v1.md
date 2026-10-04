@@ -6,6 +6,30 @@
 **Origin:** inspection of the owner's Physics3D organism, 2026-09-27
 (audit §0.1).
 
+## Local codes
+
+Codes used inside this document only
+([naming rule](../../../lab/research/STUDY-INDEX.md#naming-rule)). Elsewhere,
+refer to the name or to the key.
+
+| Code | Name |
+|---|---|
+| E8 | high-dimensional acquisition, the study introduced in §10: `learning.agency-high-dimensional-acquisition`. "E8 body" is its synthetic body |
+| E8 v2 | the run of that study with factorized effects (§14.2, §15) |
+| E8 v3 | the run of that study on chance-corrected intent reconciliation (§16) |
+
+Codes from other documents that appear in the body, all defined in Agency
+Acquisition & Executive Action v1 (§112–§117):
+
+| Code | Refers to |
+|---|---|
+| E1 | agency acquisition ablation: `learning.agency-acquisition-ablation` |
+| E2 | executive bridge ablation: `learning.agency-executive-bridge-ablation` |
+| E3 | intent persistence: `learning.agency-intent-persistence` |
+| E4 | embodied causal intervention: `learning.agency-embodied-causal-intervention` |
+| E5 | intentional causal advantage: `learning.agency-intentional-causal-advantage` |
+| E6 | acquisition to deliberate reuse closure, the release gate: `learning.agency-acquisition-reuse-closure` |
+
 ---
 
 ## 1. Problem

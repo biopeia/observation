@@ -18,8 +18,8 @@ to. It does not hold status, results or approval: design status lives in
    (code → name). A code is never used in another document: a cross-reference
    gives the canonical key or the document title.
 4. **Frozen evidence is not rewritten.** Existing protocols, results and
-   audits keep the codes they were written with. The alias tables below
-   translate them.
+   audits keep the codes they were written with. [Code meanings](#code-meanings)
+   translates them.
 5. New documents follow rules 1–3 from 2026-10-04.
 
 Adopted by owner decision on 2026-10-04.
@@ -132,6 +132,117 @@ The following directories hold an `experiment.toml` without an `[experiment] id`
 - `lab/experiments/learning/integrated-habitat-baseline`
 - `lab/experiments/learning/structured-communication-characterization`
 - `lab/experiments/observability/population-communication`
+
+## Code meanings
+
+What the most used short codes mean, one row per meaning. Every row was read
+from the document named in *Defined in*; nothing is inferred from the letter.
+*Key* is the canonical study key where the defining document or the
+`experiment.toml` title ties the code to a registered study, and "—" where the
+code names something that is not a registered study (a phase, a severity, a
+claim level, a workstream). Paths are relative to the repository root.
+
+The letter **E** names three unrelated series, the letter **P** at least
+seven, the letter **W** four. Check the document you are reading against
+*Defined in* before using a row.
+
+### E codes
+
+| Code | Meaning | Key | Defined in |
+|---|---|---|---|
+| E1 | Yoked External Causation (embodiment falsification battery) | `embodiment.yoked-external-causation` | `docs/methodology/research-programme.md` §11 |
+| E1 | Agency acquisition ablation (agency experiments) | `learning.agency-acquisition-ablation` | `docs/design/core/agency-acquisition-and-executive-action-v1.md` §112 |
+| E1 | Claim level "Durable": state survives the declared lifecycle boundary | — | `docs/design/core/epistemic-ownership-and-claim-levels-v1.md` §3 |
+| E2 | Tool / Body Distinction (embodiment falsification battery) | `embodiment.tool-body-distinction` | `docs/methodology/research-programme.md` §11 |
+| E2 | Executive bridge ablation (agency experiments) | `learning.agency-executive-bridge-ablation` | `docs/design/core/agency-acquisition-and-executive-action-v1.md` §113 |
+| E2 | Claim level "Consumed": a production path reads it and a decision can depend on it | — | `docs/design/core/epistemic-ownership-and-claim-levels-v1.md` §3 |
+| E3 | Temporal Causality (embodiment falsification battery) | `embodiment.temporal-causality-challenge` | `docs/methodology/research-programme.md` §11 |
+| E3 | Intent persistence (agency experiments) | `learning.agency-intent-persistence` | `docs/design/core/agency-acquisition-and-executive-action-v1.md` §114 |
+| E3 | Claim level "Useful": it improves a prespecified outcome | — | `docs/design/core/epistemic-ownership-and-claim-levels-v1.md` §3 |
+| E4 | Causal Revision: sham, permutation, break, transplant (embodiment falsification battery) | `embodiment.causal-revision-sequence` | `docs/methodology/research-programme.md` §11 |
+| E4 | Embodied causal intervention (agency experiments); a separate registered study is titled E4-v4 | `learning.agency-embodied-causal-intervention`; E4-v4: `learning.agency-consolidated-causal-intervention` | `docs/design/core/agency-acquisition-and-executive-action-v1.md` §115; `lab/experiments/learning/agency-consolidated-causal-intervention/experiment.toml` |
+| E4 | Claim level "Causal": an intervention on it caused a specified outcome | — | `docs/design/core/epistemic-ownership-and-claim-levels-v1.md` §3 |
+| E5 | Somatic Correlation Trap (embodiment falsification battery) | `embodiment.somatic-correlation-trap` | `docs/methodology/research-programme.md` §11 |
+| E5 | Intentional causal advantage (agency experiments) | `learning.agency-intentional-causal-advantage` | `docs/design/core/agency-acquisition-and-executive-action-v1.md` §116 |
+| E6 | Hidden Common Cause (embodiment falsification battery) | `embodiment.hidden-common-cause` | `docs/methodology/research-programme.md` §11 |
+| E6 | Acquisition to deliberate reuse closure, the release gate of the agency experiments ("E6 gate", "E6 passes 3/3") | `learning.agency-acquisition-reuse-closure` | `docs/design/core/agency-acquisition-and-executive-action-v1.md` §117 |
+| E7 | Heredity Leakage (embodiment falsification battery) | `embodiment.heredity-leakage-challenge` | `docs/methodology/research-programme.md` §11 |
+| E8 | Label Invariance (embodiment falsification battery; remediated as gate A8) | `embodiment.label-invariance` | `docs/methodology/research-programme.md` §8 (A8) and §11 |
+| E8 | High-dimensional acquisition (agency experiments). "E8 body" is its synthetic body of 16 actuators with 4 correlated receptors each and 32 drifting receptors; "E8 v2" and "E8 v3" are later runs of the same study | `learning.agency-high-dimensional-acquisition` | `docs/design/core/factorized-effect-representation-v1.md` §10 (v2: §14.2, v3: §16.3) |
+
+In `docs/design/core/cross-domain-revision-coherence-v1.md`,
+`docs/design/core/footprint-precision-v1.md`,
+`docs/design/core/factorized-effect-representation-v1.md` and
+`docs/design/core/binding-degradation-v1.md`, E6 and E8 are the agency
+experiments, not the embodiment battery.
+
+**GC-E codes.** `docs/design/cognition/generative-cognition-v1.md` §113–§126
+defines its own series, always introduced with the prefix `GC-` and sometimes
+abbreviated to the bare number inside a list (`GC-E3/E4`):
+
+| Code | Meaning | Key | Defined in |
+|---|---|---|---|
+| GC-E1 | Multi-step predictive utility | `learning.generative-cognition-predictive-utility` | §113 |
+| GC-E2 | Planning utility | `learning.generative-cognition-planning-utility` | §114 |
+| GC-E3 | Counterfactual utility | `learning.generative-cognition-counterfactual-utility` | §115 |
+| GC-E4 | Recombination | not established | §116 |
+| GC-E5 | Factual contamination | `learning.generative-cognition-release-gates` | §117 |
+| GC-E6 | Depth calibration | not established | §118 |
+| GC-E7 | Model correction | not established | §119 |
+| GC-E8 | Replay utility | not established | §120 |
+| GC-E9 | Re-embodiment transfer | not established | §121 |
+| GC-E10 | Endogenous agenda | `learning.generative-cognition-release-gates` | §122 |
+| GC-E11 | Generative consolidation | `learning.generative-cognition-consolidation-gates` | §123 |
+| GC-E12 | Consolidation contamination | `learning.generative-cognition-consolidation-gates` | §124 |
+| GC-E13 | Agenda × consolidation interaction | `learning.generative-cognition-release-gates` | §125 |
+| GC-E14 | Cross-domain generality | not established | §126 |
+
+A key is given only where the experiment's own `README.md` names the same
+code for the same subject. The other READMEs under
+`lab/experiments/learning/generative-cognition-*/` use numbers that do not
+match the design (for example the depth-calibration assay names GC-E8 and
+GC-E9, the model-correction assay GC-E6 and GC-E7, the replay-utility assay
+GC-E16 and GC-E17, which the design does not define). Those records are
+frozen; the mismatch is recorded here and not resolved.
+
+### P codes
+
+| Code | Meaning | Key | Defined in |
+|---|---|---|---|
+| P0 … P6 | Priority blocks of the research programme: P0 scientific infrastructure, P1 apparatus validity, P2 embodied causal agency, P3 genetic causal closure, P4 developmental morphogenesis, P5 out-of-distribution robustness, P6 population, communication and culture | — | `docs/methodology/research-programme.md` §28 (P1 also §9) |
+| P0 … P11 | Steps of the September 2026 performance programme: P0 performance optimization gate, P1 observability out of the organism hot path, P2 deterministic sensorimotor matching, P3 age-independent World journal, P4 decoupled physics, cognition, observation and render rates, P5 live observation anchors and deltas, P6 SSE transport cleanup, P7 browser rendering cost, P8 full performance reprofile, P9 ridge predictor exact precomputation, P10 ridge predictor width-4 hot path, P11 ridge predictor width-4 solve specialization | — | the notes `lab/research/perf/2026-09-p<N>-*.md`, one per step. "P0–P7" in `docs/design/observability/symbiont-lab-experience-and-world-architecture-specification-v1-spec.md` §4 refers to these |
+| P0 … P6 | Implementation phases of Symbiont Actuation v1: P0 motor substrate, P1 cognitive output roles and motor edge learning, P2 closed locomotor loop, P3 motor learning, P4 interaction and acquisition, P5 emission, P6 persistence and continuity. P0.1–P0.4 are the revision-5 hardening items of P0 | — | `docs/design/sensorimotor/symbiont-actuation-v1.md` §14 and §16 |
+| P0, P0.1 … P0.9 | The Living Body specification and its nine requirements (P0.1 one physiology … P0.9 no reward) | — | `docs/design/embodiment/living-body-p0.md` |
+| P0, P1, P2 | The three Experimental Decontamination steps: P0 removal of supplied semantic categories and typed action priors, P1 autonomy boundary, P2 organism / World isolation | — | `docs/design/experimentation/experimental-decontamination-p0.md`, `-p1.md`, `-p2.md`; audits `lab/research/audits/current/2026-09-experimental-contamination-audit-p0.md` and `2026-09-organism-world-isolation-p2.md` |
+| P0 … P6 | Implementation phases of Symbiont World v3: P0 World integrity, P1 durable World, P2 journal integration, P3–P6 Observatory 0.2 to 0.5 | — | `docs/design/world/symbiont-world-v3.md` (sections "Phase P0" to "Phase P6") |
+| P0, P1, P2 | Severity of a finding, and the priority shown in a wave heading; the scale itself is not defined in the document | — | `docs/design/core/cross-domain-revision-coherence-v1.md` §1.2, column "Sev" |
+| P0 … P3 | Severity classes of audit findings (P0 freeze blocker, P1 resolve or accept before the freeze, P2 accepted limitation, P3 future research) | — | `lab/research/audits/current/experimental-organism-v1/initial.md` |
+| P2 (as `LI-P2`) | Phase of Longitudinal Integrity v1: communication and social persistence repair. `LI-P0` … `LI-P6` are its phases | — | `docs/design/core/longitudinal-integrity-v1.md` (phase list) |
+| P5 | Preregistered study of private-model ancestry, arms P5-A "Independent Roots" and P5-B "Shadow Lineage". P5.1 is its re-run with ancestry exercisable; P5.2 is the later step with DEGRADED models as eligible training parents | — (no `experiment.toml`) | `docs/design/core/cross-domain-revision-coherence-v1.md` §8.2, §8.4, §8.7, §8.9 |
+| P6 | Private-model learnability under the training budget | `learning.private-model-learnability` | `docs/design/core/private-model-learnability-v1.md` §4 and §8 |
+
+"Priority: P0" and "Priority: P1" in `docs/roadmap.md` are priority labels of
+its workstreams; the roadmap does not define the scale: meaning not found.
+
+### D, W, FP, A and R codes
+
+| Code | Meaning | Key | Defined in |
+|---|---|---|---|
+| D1 | First question of Visual Acquisition v1: temporal predictive structure. D1-v1 is the original design, D1-v2 the redesign with a supported protected nursery | `learning.visual-acquisition-v1` (D1-v1 run: `learning.visual-acquisition-v1-development`; D1-v2 run: `learning.visual-acquisition-v1-d1v2-development`) | `docs/design/vision/visual-acquisition-v1.md` §1 and §11 |
+| D1 | Paired design data for the promotion-stability rule (D0 is the description of the archived P5.1 data) | — | `docs/design/core/promotion-stability-v1.md` §3 and §4 |
+| W1, W2, W3 | Waves of Cognitive Cycle v1: W1 shared fact identity, W2 outcome provenance linkage, W3 evaluation vector | — | `docs/design/cognition/cognitive-cycle-v1.md`, "Local codes" |
+| W1, W2, W3 | Workstreams of the substrate cut: W1 organism state layout and passive observation, W2 physics and vision backend, W3 organism hot-path algorithms | — | `docs/design/core/simulation-substrate-cut-v1.md` §5 |
+| W1, W2, W3 | Normative increments of the first Symbiont World: W1 movement and local perception, W2 Genesis laws (fields and resources), W3 the Lab adapter and the real scope of v1 | — | `docs/design/archive/symbiont-world-v1.md` §12, §13, §15 |
+| W1 (as "Gate W1") | The acceptance gate of Wave 1, cross-domain competence revision; "W0 gate" is that of Wave 0 | — | `docs/design/core/cross-domain-revision-coherence-v1.md` §2.1 and §3.8 |
+| W01 | World falsification gate: does a single Symbiont improve its physiological trajectory above a random action policy in the same world? | — (no `experiment.toml`; records in `lab/experiments/world/genesis-v1/`) | `docs/design/archive/symbiont-world-v1.md` §8 |
+| W02 | World falsification gate: do two identical Symbionts diverge under different stochastic history? | — (as W01) | `docs/design/archive/symbiont-world-v1.md` §8; retry in `docs/design/archive/symbiont-world-v2.md` §5 |
+| W03 | World falsification gate: do 8 founders without mutation produce ecological differentiation? Closed by the owner on 2026-10-02 | — (as W01) | `docs/design/archive/symbiont-world-v1.md` §8; closure in `lab/research/studies/ecology/w03-closure.md` |
+| FP-1 | Second footprint-precision study: membership fixes against ground truth (arms R, T, M, TM) | `learning.footprint-precision` (arms `learning.footprint-precision-fp1-r`, `-t`, `-m`, `-tm`) | `docs/design/core/footprint-precision-v1.md` §6 |
+| FP-2 | Third footprint-precision study: explicit multiple-comparison correction (arms R, M, BH) | `learning.footprint-precision` (arms `-fp2-r`, `-fp2-m`, `-fp2-bh`) | `docs/design/core/footprint-precision-v1.md` §9 |
+| FP-3 | Fourth footprint-precision study: repeated evaluation over time (arms R, BH, BHB) | `learning.footprint-precision` (arms `-fp3-r`, `-fp3-bh`, `-fp3-bhb`) | `docs/design/core/footprint-precision-v1.md` §12 |
+| A7 | Research-programme gate "Numerical and mechanical stability" (A1–A9 are the Phase A gates). Its Physics3D protocol is the design Physics3D A7 Stability Gate v1 | — | `docs/methodology/research-programme.md` §9; `docs/design/embodiment/physics3d-a7-stability-gate-v1.md` |
+| R3 | Relatedness level "unrelated": same interface, no actuator-to-receptor pair shared with the target Body (R1 same structure, R2 partial) | `embodiment.reembodiment-functional-transfer` | `docs/design/experimentation/reembodiment-functional-transfer-v1.md` §4 |
+| R3 | Illustrative resource with an immediate benefit and delayed harm, in a list R1–R6 of example resources | — | `docs/design/world/symbiont-world-v1-rationale.md` §9 |
 
 ## Short codes in existing documents
 

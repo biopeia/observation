@@ -19,6 +19,31 @@ locomotor machinery before physical closure. It also supersedes the old
 canonical interpretation of reproduction as a consequence of cognitive
 saturation or blocked structural growth.
 
+## Local codes
+
+Codes used inside this document only
+([naming rule](../../../lab/research/STUDY-INDEX.md#naming-rule)). Elsewhere,
+refer to the name. "P0" in the title names this specification; other
+documents use P0 for unrelated phases and priorities.
+
+| Code | Name |
+|---|---|
+| P0.1 | one physiology |
+| P0.2 | autonomous body homeostasis |
+| P0.3 | multidimensional opaque interoception |
+| P0.4 | closed physical energy/material loop |
+| P0.5 | one physical cost economy |
+| P0.6 | reproduction is physiology, not cognitive saturation |
+| P0.7 | ontogeny |
+| P0.8 | reduce motor scientific scaffolding |
+| P0.9 | no reward |
+| L0 | implementation stage: stop adding top-down intelligence |
+| L1 | implementation stage: state-owner audit and cutover |
+| L2 | implementation stage: physical homeostasis |
+| L3 | implementation stage: opaque body interoception |
+| L4 | implementation stage: conservation |
+| L5 | implementation stage: ontogeny and reproduction |
+
 ## Re-embodiment temporal correction (2026-09-24)
 
 Living Body remains the single owner of **physical physiological state**, but
