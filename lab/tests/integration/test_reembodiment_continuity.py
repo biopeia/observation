@@ -8,6 +8,8 @@ whether the retained knowledge is useful in the new Body.
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
+from typing import Any
 
 import pytest
 
@@ -512,6 +514,28 @@ def test_experience_continues_in_body_b_without_erasing_body_a_knowledge(
     retained = recorded | {record.record_id for record in restored.experience_archive.records}
     assert set(case.experience_in_a) <= retained
     assert _competence_ids(restored) >= case.competences_in_a
+
+
+def test_registered_nested_reembodiment_paths_resolve_in_checkpoint(case: _Case) -> None:
+    def has_path(payload: Mapping[str, Any], path: str) -> bool:
+        current: Any = payload
+        for part in path.split("."):
+            if not isinstance(current, Mapping) or part not in current:
+                return False
+            current = current[part]
+        return True
+
+    for entry in REGISTER:
+        for path, _policy in entry.nested_reembodiment:
+            candidates = {
+                root if path == root else f"{root}.{path}"
+                for root in entry.nested_checkpoint_fields
+            }
+            assert sum(has_path(case.transformed, candidate) for candidate in candidates) == 1, (
+                entry.attribute,
+                path,
+                candidates,
+            )
 
 
 def test_a_modified_reembodied_checkpoint_is_rejected(case: _Case) -> None:
