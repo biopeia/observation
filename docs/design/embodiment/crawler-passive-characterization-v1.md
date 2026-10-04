@@ -3,15 +3,18 @@ id: design.embodiment.crawler-passive-characterization-v1
 title: "Crawler Passive Characterization v1"
 document_type: design
 domain: embodiment
-status: proposed
+status: frozen
 canonical: false
 implementation_status: not_started
 language: en
 ---
 # Crawler Passive Characterization v1
 
-**State:** proposed exploratory apparatus characterization protocol. It is not
-approved or frozen and authorizes no run, parameter change, or scientific claim.
+**State:** frozen exploratory apparatus characterization protocol. Reviewed and
+approved by the project owner on 2026-10-04; the owner's external-operator
+review and explicit execution authorization were given outside the candidate
+commit. The scope remains limited to the characterization below; no parameter
+change or scientific claim is authorized.
 
 ## 1. Question and scope
 
@@ -78,10 +81,9 @@ similarity establish contact realism or calibration.
 
 ## 5. Governance and next gate
 
-This protocol must receive the required external scientific review and explicit
-owner approval, then be frozen with its execution revision before any run.
-Execution requires separate explicit owner authorization and the repository's
-`agentctl run` pinned-run workflow. Review or approval of this document alone
-does not launch a run. Any later physical calibration, parameter fitting,
-additional body, actuation, or scientific study requires its own scope and
-evidence contract.
+This protocol's external-operator review, owner approval, and run authorization
+were recorded on 2026-10-04. Freeze applies to the exact revision merged after
+this status transition; execution is restricted to that pinned revision and the
+repository's `agentctl run` workflow. Any later physical calibration,
+parameter fitting, additional body, actuation, or scientific study requires its
+own scope and evidence contract.
