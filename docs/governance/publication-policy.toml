@@ -1,8 +1,9 @@
-schema_version = 3
+schema_version = 4
 mode = "impact-routed-candidate-v4"
 normal_entrypoint = "python scripts/agentctl.py publish --message <message>"
 candidate_ci_event = "push"
 impact_planner_mode = "observe-only"
-merge_queue_variable = "USE_MERGE_QUEUE"
+ordinary_integration = "serialized-rebase-revalidate-pr"
+require_up_to_date_before_merge = true
 continuous_assurance = true
-note = "Each candidate SHA receives one governed engineering CI. ORDINARY candidates auto-promote through legacy current-main fast-forward unless USE_MERGE_QUEUE=true, in which case GitHub validates the composed merge_group before integration. SCIENTIFIC and CONSTITUTIONAL candidates require external review; FROZEN evidence is versioned rather than modified."
+note = "Each candidate SHA receives one governed engineering CI. ORDINARY promotion is serialized. If main advanced, the candidate branch is rebased with force-with-lease and receives fresh CI before another promotion attempt. A current green candidate is merged only through its PR. SCIENTIFIC and CONSTITUTIONAL candidates require external review; FROZEN evidence is versioned rather than modified."

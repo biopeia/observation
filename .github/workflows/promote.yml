@@ -25,7 +25,6 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
       HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
-      USE_MERGE_QUEUE: ${{ vars.USE_MERGE_QUEUE || 'false' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -70,34 +69,83 @@ jobs:
           fi
 
           echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
-          echo "merge_base=$MERGE_BASE" >> "$GITHUB_OUTPUT"
 
-      - name: Enqueue validated ordinary candidate
-        if: env.USE_MERGE_QUEUE == 'true'
+      - name: Rebase stale candidate and request fresh CI
+        id: freshness
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main "$HEAD_BRANCH"
+          CURRENT_MAIN="$(git rev-parse origin/main)"
+          REMOTE_HEAD="$(git rev-parse "origin/$HEAD_BRANCH")"
+
+          test "$REMOTE_HEAD" = "$HEAD_SHA"
+
+          PARENT="$(git rev-parse "$HEAD_SHA^")"
+          COMMIT_COUNT="$(git rev-list --count "$CURRENT_MAIN..$HEAD_SHA")"
+
+          if [ "$PARENT" = "$CURRENT_MAIN" ] && [ "$COMMIT_COUNT" = "1" ]; then
+            echo "fresh=true" >> "$GITHUB_OUTPUT"
+            echo "candidate is current with main"
+            exit 0
+          fi
+
+          echo "main advanced after candidate validation; rebasing candidate automatically"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$HEAD_BRANCH" "$HEAD_SHA"
+
+          if ! git rebase origin/main; then
+            git rebase --abort || true
+            echo "CONFLICT — automatic rebase failed; human or agent resolution required"
+            exit 1
+          fi
+
+          NEW_HEAD="$(git rev-parse HEAD)"
+          git push \
+            --force-with-lease="refs/heads/$HEAD_BRANCH:$HEAD_SHA" \
+            origin "HEAD:refs/heads/$HEAD_BRANCH"
+
+          echo "fresh=false" >> "$GITHUB_OUTPUT"
+          echo "candidate rebased to $NEW_HEAD; new candidate CI will validate the composed tree"
+
+      - name: Merge current validated ordinary candidate through its PR
+        if: steps.freshness.outputs.fresh == 'true'
         shell: bash
         env:
           PR_NUMBER: ${{ steps.verify.outputs.pr_number }}
         run: |
           set -euo pipefail
-          # With a merge queue required on main, GitHub validates the composed
-          # merge_group tree before integration. No merge method is specified
-          # because the queue owns final integration semantics.
-          gh pr merge "$PR_NUMBER" --auto
-          echo "candidate handed to GitHub merge queue: PR #$PR_NUMBER"
+          git fetch origin main "$HEAD_BRANCH"
+          EXPECTED_MAIN="$(git rev-parse origin/main)"
 
-      - name: Legacy fast-forward promotion
-        if: env.USE_MERGE_QUEUE != 'true'
-        shell: bash
-        run: |
-          set -euo pipefail
-          CURRENT_MAIN="$(git rev-parse origin/main)"
-          PARENT="$(git rev-parse "$HEAD_SHA^")"
-          COMMIT_COUNT="$(git rev-list --count "$CURRENT_MAIN..$HEAD_SHA")"
-
-          if [ "$PARENT" != "$CURRENT_MAIN" ] || [ "$COMMIT_COUNT" != "1" ]; then
-            echo "STALE — main advanced after candidate validation; rerun agentctl publish"
-            exit 1
+          if gh pr merge "$PR_NUMBER" --rebase --delete-branch; then
+            echo "ordinary candidate promoted through PR #$PR_NUMBER"
+            exit 0
           fi
 
-          git push origin "$HEAD_SHA:refs/heads/main"
-          git push origin --delete "$HEAD_BRANCH" || true
+          git fetch origin main "$HEAD_BRANCH"
+          CURRENT_MAIN="$(git rev-parse origin/main)"
+          CURRENT_HEAD="$(git rev-parse "origin/$HEAD_BRANCH")"
+
+          if [ "$CURRENT_MAIN" != "$EXPECTED_MAIN" ] && [ "$CURRENT_HEAD" = "$HEAD_SHA" ]; then
+            echo "main advanced during promotion; rebasing candidate for automatic revalidation"
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git checkout -B "$HEAD_BRANCH" "$HEAD_SHA"
+
+            if ! git rebase origin/main; then
+              git rebase --abort || true
+              echo "CONFLICT — automatic rebase failed after integration race"
+              exit 1
+            fi
+
+            git push \
+              --force-with-lease="refs/heads/$HEAD_BRANCH:$HEAD_SHA" \
+              origin "HEAD:refs/heads/$HEAD_BRANCH"
+            echo "candidate updated; fresh CI will trigger the next serialized promotion attempt"
+            exit 0
+          fi
+
+          echo "BLOCKED — PR merge failed without a main-advance race; inspect branch rules or PR state"
+          exit 1

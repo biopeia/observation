@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-10-04
 - **Decision owner:** project owner
-- **Relates to:** ADR-0057, ADR-0058, `scripts/agentctl.py`, `scripts/governance/ci_plan.py`, `.github/workflows/ci.yml`
+- **Relates to:** ADR-0057, ADR-0058, `scripts/agentctl.py`, `scripts/governance/ci_plan.py`, `.github/workflows/ci.yml`, `.github/workflows/promote.yml`
 - **Scope:** engineering publication and validation routing only. It does not redefine scientific evidence, experiment authority, FROZEN immutability or constitutional ownership.
 
 ## Context
@@ -28,12 +28,17 @@ ADR-0058 already accepted impact-based test selection, fail-closed fallback and 
 scheduled full-suite safety net. This ADR fixes the surrounding publication topology so
 that ADR-0058 can operate without duplicate work.
 
+After the first implementation, repository configuration established an additional
+constraint: this repository is owned by a personal GitHub account, where GitHub Merge
+Queue is not available. The accepted autonomy objective therefore requires repository-
+local serialization rather than a GitHub-hosted merge queue.
+
 ## Decision
 
 1. **Validate one candidate SHA once.** The primary CI runs on governed candidate
    branches. Opening the PR does not repeat the same CI, and moving an already validated
-   SHA to `main` does not repeat it. A future merge queue uses `merge_group` to validate
-   the composed integration tree, which is new evidence rather than duplicate evidence.
+   current SHA to `main` does not repeat it. If `main` advanced, the candidate is rebased;
+   the rebased SHA is a new composition and must receive fresh CI before integration.
 
 2. **Authority and impact are orthogonal.** `classify.py` continues to decide ORDINARY,
    SCIENTIFIC, CONSTITUTIONAL and FROZEN authority. `validation-matrix.toml` alone routes
@@ -67,19 +72,33 @@ that ADR-0058 can operate without duplicate work.
 8. **Validation cost becomes visible.** Governance classes have engineering wall-time
    targets. A budget is a diagnostic target, never permission to omit required evidence.
 
+9. **ORDINARY promotion is serialized and self-healing.** All automatic promotion jobs
+   share the `promote-main` concurrency group. If a candidate is no longer based directly
+   on current `main`, the workflow rebases it onto `main` and pushes the replacement SHA
+   with `force-with-lease`. That push obtains fresh candidate CI. Only a green candidate
+   whose parent is current `main` may be merged, and it is merged through its PR rather
+   than by bypassing branch protection.
+
+10. **Repository rules are part of the race guard.** `main` must require a pull request,
+    `governed-ci-gate`, and the branch to be up to date before merge. The workflow does
+    not bypass those requirements. If `main` advances between the freshness check and the
+    merge attempt, branch protection rejects the merge; the workflow rebases and lets the
+    new SHA re-enter normal CI.
+
 ## Consequences
 
-- Ordinary agent work approaches the intended path: implement, publish once, wait for one
+- Ordinary agent work approaches the intended path: implement, publish once, wait for
   affected CI, then promote automatically when allowed.
+- Concurrent ORDINARY agents no longer require repeated manual republication merely
+  because another ORDINARY candidate reached `main` first.
+- A stale candidate pays only for the evidence that actually became stale: its rebased
+  composition receives fresh governed CI.
 - Scientific and constitutional review boundaries remain unchanged; only unrelated
   technical validation is removed from their default path.
 - The repository keeps a full-suite safety net, but pays for it once per assurance window
   instead of once per candidate.
 - Failures found only by continuous assurance are evidence that the impact model is
   incomplete and require a new ownership/semantic-guard rule or a wider fallback.
-- Merge queue activation remains a repository setting because it changes GitHub-side
-  branch integration semantics. The workflow is made `merge_group`-ready before that
-  setting is enabled.
 
 ## Alternatives considered
 
@@ -92,17 +111,22 @@ that ADR-0058 can operate without duplicate work.
   assurance and explicit fallback evidence.
 - **Immediately enable targeted test skipping.** Rejected: ADR-0058 requires an
   observation phase before narrowing execution.
+- **Depend on GitHub Merge Queue.** Rejected for the current repository because the
+  feature is unavailable to this personal-account repository. A future move to an
+  organization may revisit that option, but it is not part of the current control plane.
+- **Permit stale green PRs to merge.** Rejected: a candidate validated against an older
+  `main` does not prove the resulting composition. Rebase plus fresh CI is required.
 
 ## Acceptance and rollout
 
-This ADR is **Accepted** by the project owner for the implementation described in this
-branch. Passing CI remains a separate technical condition and does not replace owner
-approval.
+This ADR is **Accepted** by the project owner for the implementation described here.
+Passing CI remains a separate technical condition and does not replace owner approval.
 
 The rollout is:
 
-1. merge the code with impact planner still `observe-only`;
-2. enable GitHub merge queue after the manual ruleset steps documented in the PR;
-3. collect impact manifests and continuous-assurance results;
-4. graduate only high-confidence ORDINARY surfaces to targeted execution in a separate,
+1. keep ADR-0058 impact planning in `observe-only`;
+2. use serialized ORDINARY promotion with automatic rebase/revalidation;
+3. require PRs, `governed-ci-gate`, and up-to-date branches in the `main` ruleset;
+4. collect impact manifests and continuous-assurance results;
+5. graduate only high-confidence ORDINARY surfaces to targeted execution in a separate,
    evidence-backed change.
