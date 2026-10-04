@@ -99,3 +99,32 @@ One organism, one seed. The cause was isolated on one scenario and one
 observation tick; the other four scenarios share the divergence tick pattern
 but were not decomposed individually. ADR-0065/0066 plan to replace the
 physics substrate; references captured now would not survive that cut.
+
+## Addendum — comparison corrected (2026-10-04, later the same day)
+
+Owner-approved, under ADR-0046. `run_digests` now drops the three host
+wall-clock readings from the trace before digesting
+(`observer_projection.timing_ms` and
+`observer_projection.pre.sensory_input.monotonic_timestamp_ns`, alongside the
+record durations it already dropped). Nothing else in the comparison changed.
+
+The five scenarios were rerun with the corrected code against the same
+captured candidates, still outside the repository:
+
+| Scenario | Status | Trainings observed | Promotion events |
+|---|---|---|---|
+| established-anthropomorphic | PASS | 0 | 0 |
+| developed-cognition | PASS | 0 | 0 |
+| reembodied-established | PASS | 0 | 0 |
+| private-model-training | PASS | 5 (3 required) | 5 |
+| promotion-eligible | PASS | 6 (4 required) | 6 (one required) |
+
+PASS here means each candidate is self-consistent under its scenario and
+reaches the declared event coverage. It is a statement about the candidates
+and the apparatus, not about any organism change.
+
+The suite in the repository is still `capture-required`: by owner decision
+no reference snapshot is added until the physics substrate cut
+(ADR-0065/0066), which would invalidate references captured now. Until then
+`agentctl publish` keeps reporting the suite as not assessable and sensitive
+changes stay SCIENTIFIC.
