@@ -23,7 +23,7 @@ import statistics
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 
 from lab.integration.organism import restore_canonical_organism
 from lab.studies.learning.agency_acquisition_body import (
@@ -256,6 +256,7 @@ def _entry_checkpoint(
         field
         for entry in REGISTER
         if entry.reembodiment is Reembodiment.PRESERVED
+        and not entry.nested_reembodiment
         for field in entry.checkpoint_fields
     } - _SAVE_METADATA
     changed = {
@@ -265,6 +266,32 @@ def _entry_checkpoint(
     } - {"last_runtime_vital_state"}
     if changed:
         failures.append("preserved_state_changed:" + ",".join(sorted(changed)))
+
+    # BodySchema is a mixed historical/current representation. Its old value
+    # must move to the episode archive while the active schema is cleared for
+    # Body B; comparing its whole checkpoint field as byte-preserved would
+    # contradict the nested continuity policy in REGISTER.
+    prior_schema = previous.get("body_schema")
+    archived_schemas = [
+        memory.get("body_schema_prior")
+        for memory in (transformed.get("embodiment_archive") or {}).get("body_memories", [])
+        if isinstance(memory, Mapping)
+    ]
+    if prior_schema is not None and prior_schema not in archived_schemas:
+        failures.append("body_schema_prior_not_archived")
+    active_schema = transformed.get("body_schema")
+    if isinstance(active_schema, Mapping) and (
+        active_schema.get("parts")
+        or active_schema.get("dependencies")
+        or active_schema.get("cognitive_learning", {}).get("regions")
+        or active_schema.get("cognitive_learning", {}).get("dependency_evidence")
+        or active_schema.get("sensorimotor_view", {}).get("support")
+        or active_schema.get("sensorimotor_view", {}).get("agentic_features")
+        or active_schema.get("boundary_evidence", {}).get("self_caused_channels")
+        or active_schema.get("boundary_evidence", {}).get("somatic_correlated_channels")
+        or active_schema.get("boundary_evidence", {}).get("external_channels")
+    ):
+        failures.append("body_schema_current_state_not_reset")
     return _json(transformed), previous, failures
 
 
