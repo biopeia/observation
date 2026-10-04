@@ -58,6 +58,7 @@ class ContinuityEntry:
     known_gap: str | None = None
     extra_checkpoint_fields: tuple[str, ...] = ()
     nested_reembodiment: tuple[tuple[str, Reembodiment], ...] = ()
+    nested_checkpoint_fields: tuple[str, ...] = ()
 
     @property
     def checkpoint_fields(self) -> tuple[str, ...]:
@@ -96,6 +97,7 @@ def _core(
     known_gap: str | None = None,
     extra_checkpoint_fields: tuple[str, ...] = (),
     nested_reembodiment: tuple[tuple[str, Reembodiment], ...] = (),
+    nested_checkpoint_fields: tuple[str, ...] = (),
 ) -> ContinuityEntry:
     return ContinuityEntry(
         attribute=attribute,
@@ -112,6 +114,7 @@ def _core(
         known_gap=known_gap,
         extra_checkpoint_fields=extra_checkpoint_fields,
         nested_reembodiment=nested_reembodiment,
+        nested_checkpoint_fields=nested_checkpoint_fields,
     )
 
 
@@ -273,6 +276,7 @@ REGISTER: tuple[ContinuityEntry, ...] = (
             ("sensorimotor_view", _VOID),
             ("boundary_evidence", _VOID),
         ),
+        nested_checkpoint_fields=("body_schema",),
     ),
     _core("_cognitive_bridge", "cognition.bridge", _P, "cognitive_bridge", _KEEP),
     _core("_memory_consolidator", "cognition.consolidation", _P, "memory", _KEEP),
@@ -285,6 +289,7 @@ REGISTER: tuple[ContinuityEntry, ...] = (
         "development",
         _KEEP,
         nested_reembodiment=(("previous_stressed", _BODY),),
+        nested_checkpoint_fields=("development",),
     ),
     # --- body, metabolism and physiology (same-Body restart) ---------------------
     _core("_living_body_state", "embodiment.physiology", _P, "living_body", _BODY),
@@ -336,6 +341,7 @@ REGISTER: tuple[ContinuityEntry, ...] = (
             ("action_domain.pending_motor_observation", _VOID),
             ("action_domain.pending_proprioception", _VOID),
         ),
+        nested_checkpoint_fields=("actuation",),
     ),
     _core("_actuation_enabled", "runtime configuration", _A, "actuation", _BODY),
     _core(
@@ -460,6 +466,7 @@ REGISTER: tuple[ContinuityEntry, ...] = (
             ("last_runtime_vital_state", _BODY),
             ("last_runtime_development_phase", _KEEP),
         ),
+        nested_checkpoint_fields=("last_runtime_vital_state", "last_runtime_development_phase"),
     ),
     _core(
         "_regulation_domain",

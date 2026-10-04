@@ -93,6 +93,12 @@ def test_entries_are_internally_consistent() -> None:
                 Reembodiment.PRESERVED,
                 Reembodiment.INVALIDATED,
             }, entry.attribute
+            assert entry.nested_checkpoint_fields, entry.attribute
+            assert set(entry.nested_checkpoint_fields) <= set(entry.checkpoint_fields), (
+                entry.attribute
+            )
+        else:
+            assert not entry.nested_checkpoint_fields, entry.attribute
 
 
 def test_retired_heritable_genome_is_not_misclassified_as_reembodiment_state() -> None:
