@@ -27,6 +27,8 @@ from symbiont.core.embodiment.transition import (
     prepare_fresh_embodiment_checkpoint,
     update_lifecycle_for_checkpoint,
 )
+from symbiont.core.regulation.reactive_memory import ReactiveMemory
+from symbiont.core.regulation.reactivity import InnateReactivity
 from symbiont.core.social import SocialHabitat
 from symbiont.core.social.interactions import EcologicalResourcePool
 from symbiont.host.checkpoint import CheckpointError, stamp_checkpoint_identity
@@ -300,6 +302,7 @@ def test_symbiont_owned_state_is_preserved_exactly(case: _Case) -> None:
         }
         - SAVE_METADATA
         - {"body_schema"}
+        - {"innate_reactivity"}
     )
 
     changed = {
@@ -755,6 +758,48 @@ def test_reembodiment_resets_only_body_specific_development_edge(case: _Case) ->
     } == {
         key: value for key, value in previous["development"].items() if key != "previous_stressed"
     }
+
+
+def test_reembodiment_resets_reactivity_frame_but_preserves_learned_memory(case: _Case) -> None:
+    previous = _json(case.previous)
+    detector = InnateReactivity(smoothing=1.0)
+    detector.evaluate(percepts={"opaque.reused": 0.1}, homeostatic_deviation=0.1)
+    detector.evaluate(percepts={"opaque.reused": 0.9}, homeostatic_deviation=0.4)
+    memory = ReactiveMemory()
+    memory.observe(signature="r3:s0:c0", primitive_id="competence.learned", relief=0.2)
+    memory.observe(signature="r3:s0:c0", primitive_id="competence.learned", relief=0.2)
+    previous["innate_reactivity"] = {
+        "schema_version": 1,
+        "reactivity": detector.checkpoint(),
+        "memory": memory.checkpoint(),
+    }
+    previous = stamp_checkpoint_identity(previous, transform="test-reactivity-frame")
+
+    transformed = prepare_fresh_embodiment_checkpoint(
+        previous,
+        case.fresh,
+        contract=EmbodimentDescriptor(
+            body_kind="causal-body-b", receptor_count=6, effector_count=6
+        ),
+        canonical_contract_fingerprint=case.body_b.surface.contract_fingerprint,
+    )
+
+    reactivity = transformed["innate_reactivity"]
+    assert isinstance(reactivity, dict)
+    reset_detector = reactivity["reactivity"]
+    assert isinstance(reset_detector, dict)
+    assert reset_detector["previous_deviation"] is None
+    assert reset_detector["previous_percepts"] == {}
+    assert reset_detector["smoothed_velocity"] == 0.0
+    assert reset_detector["surprise_threshold"] == 0.18
+    assert reactivity["memory"] == previous["innate_reactivity"]["memory"]
+
+    restored_detector = InnateReactivity.restore(reset_detector)
+    first_body_b_frame = restored_detector.evaluate(
+        percepts={"opaque.reused": 0.9}, homeostatic_deviation=0.4
+    )
+    assert first_body_b_frame.surprise == 0.0
+    assert first_body_b_frame.deviation_velocity == 0.0
 
 
 def test_a_modified_reembodied_checkpoint_is_rejected(case: _Case) -> None:

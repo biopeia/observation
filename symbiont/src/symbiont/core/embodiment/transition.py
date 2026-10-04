@@ -29,6 +29,7 @@ from symbiont.core.embodiment.longitudinal import (
     inject_memory_candidates,
     memory_for_contract,
 )
+from symbiont.core.regulation.reactivity import InnateReactivity
 from symbiont.host.checkpoint import (
     CHECKPOINT_SCHEMA_VERSION,
     stamp_checkpoint_identity,
@@ -501,6 +502,18 @@ def prepare_fresh_embodiment_checkpoint(
     verify_checkpoint_identity(dict(previous))
     previous = migrate_temporal_domains(previous)
     result = deepcopy(dict(previous))
+    # Percept deltas and physiological velocity are one-Body baselines. Keeping
+    # them would compare Body B's first readings against Body A's final frame.
+    reactivity = result.get("innate_reactivity")
+    if isinstance(reactivity, Mapping):
+        raw_detector = reactivity.get("reactivity")
+        if isinstance(raw_detector, Mapping):
+            detector = InnateReactivity.restore(dict(raw_detector))
+            detector.reset_for_new_embodiment()
+            result["innate_reactivity"] = {
+                **dict(reactivity),
+                "reactivity": detector.checkpoint(),
+            }
     # Archive the canonical episode before removing its current authority.
     raw_episode = previous.get("embodiment_episode")
     if isinstance(raw_episode, Mapping) and int(raw_episode.get("schema_version") or 0) in {2, 3}:

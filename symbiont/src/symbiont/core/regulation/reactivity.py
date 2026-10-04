@@ -112,6 +112,12 @@ class InnateReactivity:
             signature=signature,
         )
 
+    def reset_for_new_embodiment(self) -> None:
+        """Drop one-body baselines while retaining the configured detector."""
+        self._previous_deviation = None
+        self._previous_percepts.clear()
+        self._smoothed_velocity = 0.0
+
     def checkpoint(self) -> dict[str, object]:
         return {
             "schema_version": self.SCHEMA_VERSION,
