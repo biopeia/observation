@@ -16,6 +16,8 @@ from embodiment.physics3d.bodies import (
     ANTHROPOMORPHIC_V6,
     ASYMMETRIC_V1,
     CRAWLER_V1,
+    HEXAPOD_V1,
+    ROBOTIC_ARM_V1,
     BodyRegistry,
     vision_body_descriptor,
 )
@@ -34,7 +36,9 @@ def test_no_other_domain_is_installed_or_loaded() -> None:
 
 
 def test_body_contracts_are_complete_without_any_other_domain() -> None:
-    registry = BodyRegistry((ANTHROPOMORPHIC_V6, CRAWLER_V1, ASYMMETRIC_V1))
+    registry = BodyRegistry(
+        (ANTHROPOMORPHIC_V6, CRAWLER_V1, ASYMMETRIC_V1, HEXAPOD_V1, ROBOTIC_ARM_V1)
+    )
     for descriptor in registry.list():
         assert len(descriptor.receptor_ids) == descriptor.receptor_count
         assert len(set(descriptor.receptor_ids)) == descriptor.receptor_count

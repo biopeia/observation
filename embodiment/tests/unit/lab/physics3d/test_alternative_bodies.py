@@ -8,7 +8,9 @@ import pytest
 from embodiment.physics3d.articulated import ArticulatedPhysics, build_articulated_urdf
 from embodiment.physics3d.asymmetric import ASYMMETRIC_SPEC, AsymmetricPhysics
 from embodiment.physics3d.crawler import CRAWLER_SPEC, CrawlerPhysics
+from embodiment.physics3d.hexapod import HEXAPOD_SPEC, HexapodPhysics
 from embodiment.physics3d.humanoid import ANTHROPOMORPHIC_SPEC, HumanoidPhysics
+from embodiment.physics3d.robotic_arm import ROBOTIC_ARM_SPEC, RoboticArmPhysics
 
 
 @pytest.mark.parametrize("spec", [CRAWLER_SPEC, ASYMMETRIC_SPEC])
@@ -39,6 +41,8 @@ BODIES = [
     (CrawlerPhysics, CRAWLER_SPEC),
     (AsymmetricPhysics, ASYMMETRIC_SPEC),
     (HumanoidPhysics, ANTHROPOMORPHIC_SPEC),
+    (HexapodPhysics, HEXAPOD_SPEC),
+    (RoboticArmPhysics, ROBOTIC_ARM_SPEC),
 ]
 
 
@@ -89,6 +93,11 @@ def test_alternative_body_loads_headless(body_cls, spec) -> None:
             name in body._link_index_by_name
             for name in ("front_left_foot", "front_right_foot", "rear_left_foot", "rear_right_foot")
         )
+    if spec is HEXAPOD_SPEC:
+        assert all(
+            name.endswith("_foot") for name in spec.contact_link_names if name.endswith("foot")
+        )
+        assert sum(name.endswith("_foot") for name in body._link_index_by_name) == 6
 
 
 @pytest.mark.parametrize(("body_cls", "spec"), BODIES)
@@ -98,7 +107,10 @@ def test_alternative_body_settles_on_the_ground_without_exploding(body_cls, spec
     _drive(scene, body, 300)
     state = body.export_physical_state()
     assert all(abs(value) < 50.0 for value in state["base_position"])
-    assert 0.0 < state["base_position"][2] < spec.spawn_height + 0.5
+    if spec.fixed_base:
+        assert state["base_position"][2] == pytest.approx(spec.spawn_height)
+    else:
+        assert 0.0 < state["base_position"][2] < spec.spawn_height + 0.5
     assert state["contact_count"] > 0
     tolerance = math.radians(0.5)
     for joint, joint_spec in zip(state["joints"], spec.joint_specs):
@@ -183,3 +195,15 @@ def test_fixed_base_restore_checks_joint_limits_without_floating_root_offset() -
     state["engine_state"]["qpos"][0] = CRAWLER_SPEC.joint_specs[0].upper + 0.1
     with pytest.raises(ValueError, match="outside hard anatomical limit"):
         body.restore_physical_state(state)
+
+
+def test_robotic_arm_root_is_fixed_while_six_joints_remain_actuated() -> None:
+    scene = _scene()
+    body = RoboticArmPhysics(scene)
+    root_joint = scene.mj.mj_name2id(scene.model, scene.mj.mjtObj.mjOBJ_JOINT, "body.root")
+    assert root_joint == -1
+    initial_pose = body.base_pose()
+    _drive(scene, body, 40)
+    assert body.base_pose() == pytest.approx(initial_pose)
+    assert len(body.joint_states()) == 6
+    assert any(abs(velocity) > 0 for _, velocity in body.joint_states())
