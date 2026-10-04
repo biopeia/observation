@@ -12,7 +12,14 @@ language: en
 ---
 # Implementation Plan — Longitudinal Re-embodiment v1
 
-Status: **implementation-ready**.
+Status: **historical plan; not an active checkpoint-migration contract**.
+
+> **Current restore boundary (2026-10-04):** the outer organism loader accepts
+> schema 12 only and rejects older outer checkpoint schemas without migration.
+> The migration steps below record the original plan; they cannot be used to
+> restore schemas 1–11. A separately authorized transform of a schema-12
+> checkpoint is a different operation and must follow the current lifecycle
+> and continuity contracts.
 
 This document translates the longitudinal specs into concrete code changes.
 

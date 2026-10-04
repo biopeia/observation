@@ -441,6 +441,13 @@ symbiont_tick > 50000
 
 ## 8. Checkpoint Migration
 
+> **Historical proposal, not current outer-checkpoint policy (2026-10-04):**
+> the loader accepts schema 12 only and rejects schemas 1–11. The migration
+> procedures in this section do not run on those rejected outer checkpoints.
+> Any same-schema re-embodiment or temporal-decontamination transform is a
+> separately governed lifecycle operation and does not make an older outer
+> schema restorable.
+
 ### 8.1 Checkpoints with `embodiment_lifecycle`
 
 For the current body:
