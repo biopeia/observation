@@ -143,7 +143,7 @@ ANTHROPOMORPHIC_V6 = BodyDescriptor(
 
 CRAWLER_V1 = BodyDescriptor(
     body_kind=CRAWLER_SPEC.body_kind,
-    display_name="Crawler",
+    display_name="Four-legged crawler",
     version=CRAWLER_SPEC.state_schema_version,
     motor_dof=CRAWLER_SPEC.motor_dof,
     receptor_count=CRAWLER_SPEC.total_receptor_count,
