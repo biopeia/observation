@@ -260,7 +260,6 @@ REGISTER: tuple[ContinuityEntry, ...] = (
         _P,
         "body_schema",
         _KEEP,
-        known_gap="SYM-04",
         nested_reembodiment=(
             ("parts", _VOID),
             ("dependencies", _VOID),
