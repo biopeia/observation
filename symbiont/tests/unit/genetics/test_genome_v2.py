@@ -183,11 +183,14 @@ def test_epigenetic_capture_is_disabled_without_explicit_protocol():
         min_capture_delta=0.001,
     )
     for _ in range(PERSISTENCE_TICKS - 1):
-        assert germline.capture_acquired_variation(
-            current,
-            genome=genome,
-            protocol=protocol,
-        ) == ()
+        assert (
+            germline.capture_acquired_variation(
+                current,
+                genome=genome,
+                protocol=protocol,
+            )
+            == ()
+        )
     assert germline.capture_acquired_variation(
         current,
         genome=genome,

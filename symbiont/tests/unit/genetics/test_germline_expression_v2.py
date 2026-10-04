@@ -76,9 +76,7 @@ def test_germline_capture_persistence_resets_and_survives_checkpoint() -> None:
     genome = _base_genome("genome_test_capture_persistence")
     germline = GermlineState.from_genome(genome, acquired_capture_enabled=True)
     current = {
-        "plasticity.learning_rate.baseline": (
-            genome.plasticity.learning_rate.baseline + 0.05
-        )
+        "plasticity.learning_rate.baseline": (genome.plasticity.learning_rate.baseline + 0.05)
     }
 
     for _ in range(PERSISTENCE_TICKS // 2):
@@ -99,16 +97,12 @@ def test_germline_capture_persistence_resets_and_survives_checkpoint() -> None:
     legacy_payload.pop("capture_streaks")
     assert restore_germline(legacy_payload, genome).capture_streaks == {}
     protocol = EpigeneticProtocol(enabled=True, acquired_capture_enabled=True)
-    remaining = PERSISTENCE_TICKS - restored.capture_streaks[
-        "plasticity.learning_rate.baseline"
-    ]
+    remaining = PERSISTENCE_TICKS - restored.capture_streaks["plasticity.learning_rate.baseline"]
     for _ in range(remaining - 1):
-        assert restored.capture_acquired_variation(
-            current, genome=genome, protocol=protocol
-        ) == ()
-    assert restored.capture_acquired_variation(
-        current, genome=genome, protocol=protocol
-    ) == ("plasticity.learning_rate.baseline",)
+        assert restored.capture_acquired_variation(current, genome=genome, protocol=protocol) == ()
+    assert restored.capture_acquired_variation(current, genome=genome, protocol=protocol) == (
+        "plasticity.learning_rate.baseline",
+    )
 
 
 def test_symbiont_uses_canonical_germline_expression_at_birth() -> None:

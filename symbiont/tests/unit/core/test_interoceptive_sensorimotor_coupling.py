@@ -19,6 +19,8 @@ from symbiont.actuation.surface import derive_actuator_constitution
 def _test_embodiment_fingerprint(organism_id: str, actuator_ids: tuple[str, ...]) -> str:
     digest = hashlib.sha256("|".join(actuator_ids).encode("utf-8")).hexdigest()
     return f"test-embodiment:{organism_id}:{digest}"
+
+
 from symbiont.cognition.birth import load_base_genome
 from symbiont.cognition.limits import KernelLimits
 from symbiont.core.orchestration.runtime import OrganismDeadError, OrganismRuntime
@@ -116,7 +118,9 @@ def test_sensorimotor_primitive_formation_is_channel_identity_agnostic():
     learner = CompetenceDevelopmentEngine(
         tuple(f"actuator.{i}" for i in range(4)),
         organism_id="org-interoceptive-primitive",
-        embodiment_fingerprint=_test_embodiment_fingerprint("org-interoceptive-primitive", tuple(f"actuator.{i}" for i in range(4))),
+        embodiment_fingerprint=_test_embodiment_fingerprint(
+            "org-interoceptive-primitive", tuple(f"actuator.{i}" for i in range(4))
+        ),
         max_concurrent=4,
     )
     sequence = (

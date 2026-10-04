@@ -116,7 +116,7 @@ def test_selection_v1_checkpoint_is_rejected() -> None:
                 "sensor.a": ("source.a",),
                 "sensor.identity.target": ("source.b",),
             },
-    )
+        )
     payload = engine.checkpoint()
     payload["schema_version"] = 1
 

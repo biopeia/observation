@@ -18,9 +18,7 @@ from symbiont.sensory import SensorySystem
 
 class _PredictorBridge:
     def __init__(self, *, cognitive_name: str, gain: float) -> None:
-        self.shadow_predictions = (
-            SimpleNamespace(source_id=cognitive_name, predictive_gain=gain),
-        )
+        self.shadow_predictions = (SimpleNamespace(source_id=cognitive_name, predictive_gain=gain),)
         self.graph = None
 
     def tick(self, *args: object, **kwargs: object) -> CognitiveBridgeResult:
