@@ -150,7 +150,7 @@ may contain lower-level components; do not promote the whole subsystem beyond
 the evidence shown. Raise a level only with the required differential test or
 controlled study, and record the exact scope and artifact.
 
-## 6. Bounded source trace (2026-10-04; not owner-approved)
+## 6. Bounded source trace (completed 2026-10-04; not owner-approved)
 
 This is a bounded source map, not completion of the owner audit in §2 or the
 acceptance condition in §8.
@@ -291,9 +291,40 @@ unproven is an episode/replay-dependent later action decision and its
 differential effect. This does not raise episodic decision consumption above
 E1.
 
-## 8. Acceptance condition
+## 8. Audit closure and deferred debt
 
-This design remains proposed until an owner-approved audit fills every required
-field in §2 for the candidate systems in §4, with links to implementation and
-tests. Missing or conflicting ownership is a finding to resolve; it is not
-permission to merge systems or infer capability.
+The bounded engineering audit requested for this inventory is complete as a
+source-and-test review of the current branch. This closes the audit pass, not
+the design's owner-approval condition, the listed implementation debt, or any
+scientific claim. The current evidence supports these dispositions:
+
+| Area | Audit disposition | Remaining debt |
+|---|---|---|
+| CognitiveGraph / bridge; predictor credit; competence-effect admission; generative admission; private-model choice | Separate production consumers and tested differential paths are identified. Their evidence ceilings are the scoped E2 claims in §5. | Complete source/retraction coverage is absent; tests establish admission/use, not evidence validity, physical execution, or benefit. |
+| EvidenceRevisionLedger / HostAcclimation; SignalKnowledge | Ownership split and production roles are traced. They report dissent, maintain baselines, or expose operational signal summaries; no organism action consumer was found for the ledger or SignalKnowledge. | Provider-to-reading lineage and interpretation of fixed thresholds remain unvalidated; persisted dissent counts do not revise accepted state. |
+| Causal/sensorimotor evidence and acquisition | Observed transitions, derived estimates, competence materialization, and current-body execution bindings are distinct owners. | Full evidence lineage, revocation/restore coverage, and any independent ranking consequence require narrower owner-level follow-up. No causal truth is established. |
+| Episodic/consolidated memory | Storage, retrieval/replay, consolidation summaries, and graph retrospective support are distinct. The resting replay path is consumed as non-factual generative state. | No tested episode-to-later-action effect; retrieval provenance, eviction, and contradiction policy are not complete contracts. |
+| Generative factual reconciliation | Production private-runtime caller is traced through an `OBSERVED` episode. | `note_factual_outcome()` trusts nonempty caller-provided evidence references and does not resolve them. Canonical reference ownership and a boundary regression remain open. |
+| Social evidence; symbol/sequence grounding | Source-attributed social state and local communication associations have bounded uses; no canonical social-claim-to-action path was found. | Caller-supplied outcome authority, transport attribution, reconciliation, and any future decision path need explicit contracts. No trust or shared-meaning claim is supported. |
+| Private models / ancestry | Persistence and prospective-choice consumption are mechanically covered at the stated scope; ancestry remains vocabulary continuity. | Prediction quality and ancestry utility are unproven and require separate controlled evaluation before E3/E4 claims. |
+| Provenance | Structural derivation metadata and its live-reference persistence are distinguished from evidence and truth. | Producer coverage is not universal; the event ring is not a complete reconstructable history. |
+| BodySchema, sensory adaptation, epigenetic/genome marks | Current-body authority, archived priors, active sensory state, somatic priors, and germline marks are kept separate; the cited mechanical re-embodiment/inheritance paths remain below utility claims. | No transfer/adaptive-benefit claim; unsupported somatic priors remain rejected; germline tests show mechanism, not benefit. |
+
+No two candidate systems were shown to have identical assertion semantics,
+evidence rules, revision behavior, persistence ownership, and consumers.
+Therefore the audit recommends **no consolidation, no unified cognition
+score, and no broad runtime refactor**. Keep current owners separate and
+resolve the specific contract debts above only when an owner or consumer needs
+them. The focused cross-subsystem engineering regression set run for this
+closeout passed: 213 tests. No scientific experiment or E3/E4 evaluation was
+run.
+
+## 9. Acceptance condition
+
+This design remains proposed until an owner approves the boundaries and
+dispositions above. The source-audit pass is complete; that approval is not
+implied by this report. Any future subsystem merge, capability promotion, or
+claim beyond the evidence levels in §5 still requires its specific missing
+§2 contract fields, implementation/test links, and (for E3/E4) the separate
+controlled scientific process. Missing or conflicting ownership is a finding
+to resolve; it is not permission to merge systems or infer capability.
