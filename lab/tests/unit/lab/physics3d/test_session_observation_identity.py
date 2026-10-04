@@ -33,9 +33,11 @@ def test_unmanaged_physics3d_session_gets_ephemeral_run_identity() -> None:
     assert snapshot.run_id is not None
     assert snapshot.run_id.startswith("local:")
     assert captured["bridge"].run_id == snapshot.run_id
+    assert captured["bridge"].organism_id is None
+    assert captured["bridge"].body_id is None
 
 
-def test_managed_session_uses_durable_launch_run_identity(tmp_path: Path) -> None:
+def test_managed_session_uses_durable_launch_identity(tmp_path: Path) -> None:
     captured = {}
 
     def runner(**kwargs) -> int:
@@ -58,5 +60,10 @@ def test_managed_session_uses_durable_launch_run_identity(tmp_path: Path) -> Non
     assert session.start(launch) is True
     _wait_terminal(session)
 
-    assert session.snapshot().run_id == "run-managed-1"
+    snapshot = session.snapshot()
+    assert snapshot.run_id == "run-managed-1"
+    assert snapshot.organism_ref == "org-1"
+    assert snapshot.body_ref == "body-1"
     assert captured["bridge"].run_id == "run-managed-1"
+    assert captured["bridge"].organism_id == "org-1"
+    assert captured["bridge"].body_id == "body-1"
