@@ -124,10 +124,10 @@ keeps the population runtime, transactions and persistence.
 This applies to the Lab only. The other three libraries import nothing from
 Symbiont, and the fix for them was never to widen the API: code that needed the
 organism moved to `lab.integration`. The canonical organism composition,
-organism CLI, replay runner, and clonal-budding orchestrator now use
-`symbiont.api` for the organism lifecycle types and checkpoint entry points
-they consume. Lab
-production and study code still imports organism subsystems directly; deciding
+organism CLI, replay runner, and clonal-budding orchestrator use `symbiont.api`
+for lifecycle types and checkpoint entry points. The resident launcher and
+advisory evaluator now also use its checkpoint operations. Lab production and
+study code still imports organism subsystems directly; deciding
 which additional internals (including
 `symbiont.modeling` and `symbiont.cognition.generative`) belong in the public
 surface remains open.
