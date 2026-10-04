@@ -1,0 +1,64 @@
+{
+  "authorization_model": "external-operator-policy",
+  "command": [
+    "/home/alessbarb/workspace/repos/active/symbiont-lab/.git/symbiont-agent/runs/cc-w1c-s103/environment/bin/python",
+    "-m",
+    "lab.experiments.verified_child",
+    "module",
+    "lab.studies.learning.shared_fact_identity",
+    "{work}/subject",
+    "/home/alessbarb/workspace/repos/active/symbiont-lab/.git/symbiont-agent/runs/cc-w1c-s103/work",
+    "--develop-ticks",
+    "128",
+    "--ticks",
+    "512",
+    "--seed",
+    "103",
+    "--train-interval",
+    "1"
+  ],
+  "commit": "f0eb0d9b2873661365a18a0eef0bdecd094d23e9",
+  "cpu_threads": 2,
+  "dependency_extras": [
+    "modeling",
+    "physics3d"
+  ],
+  "disk_gb": 3.0,
+  "elapsed_seconds": 2039.1227877140045,
+  "ended_at": "2026-10-04T19:27:31.486848+00:00",
+  "execution_fingerprint": {
+    "dependency_lock_hash": "6a2410855db7b4b7d87aeb624b95a9397160ccd066aa0d0977dd713241dc373a",
+    "effective_config_hash": "018332200fea351591e3ee38a9610093356e034e8bbcdfb97d7d75c7d6ed2365",
+    "experiment_id": "learning.cognitive-cycle-shared-fact-identity-confirmatory",
+    "git_commit": "f0eb0d9b2873661365a18a0eef0bdecd094d23e9",
+    "is_dirty": false,
+    "python_base_prefix": "/home/alessbarb/.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu",
+    "python_executable": "/home/alessbarb/.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu/bin/python3.12",
+    "python_prefix": "/home/alessbarb/workspace/repos/active/symbiont-lab/.git/symbiont-agent/runs/cc-w1c-s103/environment",
+    "python_version": "3.12.13",
+    "repo_root": "/tmp/symbiont-lab-worktrees/run-f0eb0d9b28-t0ma33d6",
+    "seed": 103,
+    "symbiont_file": "/tmp/symbiont-lab-worktrees/run-f0eb0d9b28-t0ma33d6/symbiont/src/symbiont/__init__.py",
+    "symbiont_lab_file": "/tmp/symbiont-lab-worktrees/run-f0eb0d9b28-t0ma33d6/lab/src/lab/__init__.py"
+  },
+  "experiment_id": "learning.cognitive-cycle-shared-fact-identity-confirmatory",
+  "governance_ref": "868b7c375e9d099e6e8679c18d901f52e5d8a87a",
+  "id": "cc-w1c-s103",
+  "memory_gb": 8.0,
+  "resource_preflight": {
+    "available_cpu_threads": 8,
+    "available_memory_gb": 9.840225219726562,
+    "free_disk_gb": 13.05465316772461
+  },
+  "returncode": 0,
+  "scientific_input": {
+    "external_state": false,
+    "mode": "protocol-generated"
+  },
+  "scope": "confirmation",
+  "seed": 103,
+  "started_at": "2026-10-04T18:53:32.334737+00:00",
+  "state": "complete",
+  "wall_minutes": 240,
+  "worktree_commit": "f0eb0d9b2873661365a18a0eef0bdecd094d23e9"
+}
