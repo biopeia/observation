@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+from dataclasses import replace
 
 import pytest
 
@@ -10,7 +11,7 @@ from embodiment.physics3d.alternative_bodies import (
     AsymmetricPhysics,
     CrawlerPhysics,
 )
-from embodiment.physics3d.articulated import build_articulated_urdf
+from embodiment.physics3d.articulated import ArticulatedPhysics, build_articulated_urdf
 from embodiment.physics3d.humanoid import ANTHROPOMORPHIC_SPEC, HumanoidPhysics
 
 
@@ -148,4 +149,41 @@ def test_body_state_without_engine_state_is_rejected() -> None:
     state = body.export_physical_state()
     del state["engine_state"]
     with pytest.raises(ValueError, match="no engine state"):
+        body.restore_physical_state(state)
+
+
+class _FixedBaseCrawlerPhysics(ArticulatedPhysics):
+    SPEC = replace(CRAWLER_SPEC, body_kind="crawler-fixed-base-test", fixed_base=True)
+
+
+def test_fixed_base_articulated_body_keeps_root_anchored_and_checkpoints_joint_state() -> None:
+    scene = _scene()
+    body = _FixedBaseCrawlerPhysics(scene)
+    root_joint = scene.mj.mj_name2id(scene.model, scene.mj.mjtObj.mjOBJ_JOINT, "body.root")
+    assert root_joint == -1
+    initial_pose = body.base_pose()
+    assert initial_pose[0][2] == pytest.approx(CRAWLER_SPEC.spawn_height)
+
+    _drive(scene, body, 40)
+
+    assert body.base_pose() == pytest.approx(initial_pose)
+    assert body.base_velocity() == ([0.0, 0.0, 0.0], [0.0, 0.0, 0.0])
+    state = body.export_physical_state()
+    assert len(state["engine_state"]["qpos"]) == CRAWLER_SPEC.motor_dof
+    assert len(state["engine_state"]["qvel"]) == CRAWLER_SPEC.motor_dof
+    assert any(abs(velocity) > 0.0 for _, velocity in body.joint_states())
+
+    restored = _FixedBaseCrawlerPhysics(_scene())
+    restored.restore_physical_state(state)
+    assert restored.export_physical_state()["engine_state"] == state["engine_state"]
+    _drive(scene, body, 20, start=40)
+    _drive(restored.scene, restored, 20, start=40)
+    assert restored.export_physical_state() == body.export_physical_state()
+
+
+def test_fixed_base_restore_checks_joint_limits_without_floating_root_offset() -> None:
+    body = _FixedBaseCrawlerPhysics(_scene())
+    state = body.export_physical_state()
+    state["engine_state"]["qpos"][0] = CRAWLER_SPEC.joint_specs[0].upper + 0.1
+    with pytest.raises(ValueError, match="outside hard anatomical limit"):
         body.restore_physical_state(state)
