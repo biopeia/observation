@@ -1356,84 +1356,6 @@ class EpisodicExperienceMemory:
         return payload
 
     @classmethod
-    def _restore_v1(
-        cls,
-        payload: Mapping[str, object],
-        *,
-        organism_id: str,
-        kernel_limits: KernelLimits,
-    ) -> "EpisodicExperienceMemory":
-        memory = cls(organism_id, kernel_limits=kernel_limits)
-        raw_episodes = payload.get("episodes", [])
-        if not isinstance(raw_episodes, list):
-            raise EpisodicMemoryError("invalid v1 episode collection")
-        for raw in raw_episodes:
-            if not isinstance(raw, Mapping):
-                continue
-            initial = raw.get("initial_context", [])
-            actions = raw.get("action_tokens", [])
-            outcomes = raw.get("outcome_tokens", [])
-            sources = raw.get("source_record_ids", [])
-            evidence = raw.get("evidence_refs", [])
-            if not all(
-                isinstance(value, list) for value in (initial, actions, outcomes, sources, evidence)
-            ):
-                continue
-            pseudo_record = ExperienceRecord(
-                record_id=(
-                    str(sources[0])
-                    if sources
-                    else "transition.migrated." + hashlib.sha256(str(raw).encode()).hexdigest()[:24]
-                ),
-                organism_id=organism_id,
-                tick_class=max(0, int(raw.get("start_tick", 0))),
-                context_tokens=tuple(str(item) for item in initial[:256]),
-                action_token=(str(actions[0]) if actions else None),
-                outcome_tokens=tuple(str(item) for item in outcomes[:32]) or ("outcome.migrated",),
-                epistemic_status=EpistemicStatus.OBSERVED,
-                evidence_refs=tuple(str(item) for item in evidence[:16]) or ("evidence.migrated",),
-                confidence_class=7,
-                source_kind=SourceKind.ACTION_OUTCOME,
-            )
-            projection = EpisodicProjection.from_record(pseudo_record)
-            raw_occurrences = raw.get("occurrence_ticks", [pseudo_record.tick_class])
-            if not isinstance(raw_occurrences, list) or not raw_occurrences:
-                raw_occurrences = [pseudo_record.tick_class]
-            valid_occurrences = [
-                tick
-                for tick in raw_occurrences
-                if isinstance(tick, int) and not isinstance(tick, bool) and tick >= 0
-            ]
-            if not valid_occurrences:
-                valid_occurrences = [pseudo_record.tick_class]
-            for occurrence_index, occurrence_tick in enumerate(valid_occurrences[:64]):
-                migrated = ExperienceRecord(
-                    record_id=(
-                        pseudo_record.record_id
-                        if occurrence_index == 0
-                        else (
-                            "transition.migrated."
-                            + hashlib.sha256(
-                                f"{pseudo_record.record_id}:{occurrence_tick}:{occurrence_index}".encode()
-                            ).hexdigest()[:24]
-                        )
-                    ),
-                    organism_id=organism_id,
-                    tick_class=occurrence_tick,
-                    context_tokens=pseudo_record.context_tokens,
-                    action_token=pseudo_record.action_token,
-                    outcome_tokens=pseudo_record.outcome_tokens,
-                    epistemic_status=EpistemicStatus.OBSERVED,
-                    evidence_refs=pseudo_record.evidence_refs,
-                    confidence_class=pseudo_record.confidence_class,
-                    source_kind=pseudo_record.source_kind,
-                )
-                memory.observe(migrated, projection)
-                memory.flush()
-        memory._interpretations = {}
-        return memory
-
-    @classmethod
     def restore(
         cls,
         payload: Mapping[str, object] | None,
@@ -1446,14 +1368,21 @@ class EpisodicExperienceMemory:
             return cls(organism_id, kernel_limits=limits)
         if not isinstance(payload, Mapping):
             raise EpisodicMemoryError("invalid episodic checkpoint")
-        schema = payload.get("schema_version")
-        if schema == 1:
-            return cls._restore_v1(payload, organism_id=organism_id, kernel_limits=limits)
-        if schema != cls.SCHEMA_VERSION or payload.get("organism_id") != organism_id:
+        required = {
+            "schema_version",
+            "organism_id",
+            "episodes",
+            "interpretations",
+            "retrieval_counts",
+            "metrics",
+        }
+        if set(payload) != required:
+            raise EpisodicMemoryError("episodic checkpoint fields do not match the current schema")
+        if payload.get("schema_version") != cls.SCHEMA_VERSION or payload.get("organism_id") != organism_id:
             raise EpisodicMemoryError("invalid episodic checkpoint identity")
 
         memory = cls(organism_id, kernel_limits=limits)
-        raw_episodes = payload.get("episodes", [])
+        raw_episodes = payload["episodes"]
         if not isinstance(raw_episodes, list) or len(raw_episodes) > limits.max_episodic_episodes:
             raise EpisodicMemoryError("invalid episodic episode collection")
         memory._episodes = [
@@ -1468,36 +1397,42 @@ class EpisodicExperienceMemory:
             episode.episode_id: memory._episode_size(episode) for episode in memory._episodes
         }
 
-        raw_interpretations = payload.get("interpretations", {})
+        raw_interpretations = payload["interpretations"]
         if not isinstance(raw_interpretations, Mapping):
             raise EpisodicMemoryError("invalid episodic interpretations")
         for episode_id, raw_values in raw_interpretations.items():
-            if episode_id not in set(ids) or not isinstance(raw_values, list):
-                continue
+            if episode_id not in set(ids) or not isinstance(raw_values, list) or any(
+                not isinstance(value, str) for value in raw_values
+            ):
+                raise EpisodicMemoryError("invalid episodic interpretation entry")
             values = _bounded_unique(
-                (str(value) for value in raw_values),
+                raw_values,
                 limit=limits.max_episodic_interpretations_per_episode,
             )
             if values:
-                memory._interpretations[str(episode_id)] = set(values)
+                memory._interpretations[episode_id] = set(values)
 
-        raw_counts = payload.get("retrieval_counts", {})
-        if isinstance(raw_counts, Mapping):
-            for episode_id, count in raw_counts.items():
-                if (
-                    episode_id in set(ids)
-                    and isinstance(count, int)
-                    and not isinstance(count, bool)
-                    and count >= 0
-                ):
-                    memory._retrieval_counts[str(episode_id)] = count
+        raw_counts = payload["retrieval_counts"]
+        if not isinstance(raw_counts, Mapping):
+            raise EpisodicMemoryError("invalid episodic retrieval counts")
+        for episode_id, count in raw_counts.items():
+            if (
+                episode_id not in set(ids)
+                or isinstance(count, bool)
+                or not isinstance(count, int)
+                or count < 0
+            ):
+                raise EpisodicMemoryError("invalid episodic retrieval count entry")
+            memory._retrieval_counts[episode_id] = count
 
-        raw_metrics = payload.get("metrics", {})
-        if isinstance(raw_metrics, Mapping):
-            for name in ("retrieval_count", "replay_count", "compaction_count", "eviction_count"):
-                value = raw_metrics.get(name, 0)
-                if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
-                    setattr(memory, f"_{name}", value)
+        raw_metrics = payload["metrics"]
+        metric_names = {"retrieval_count", "replay_count", "compaction_count", "eviction_count"}
+        if not isinstance(raw_metrics, Mapping) or set(raw_metrics) != metric_names:
+            raise EpisodicMemoryError("invalid episodic metrics")
+        for name, value in raw_metrics.items():
+            if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+                raise EpisodicMemoryError(f"invalid episodic metric {name}")
+            setattr(memory, f"_{name}", value)
 
         # Pending observations are intentionally absent from v2 checkpoints.
         memory.consolidate()

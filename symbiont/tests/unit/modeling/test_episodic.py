@@ -279,45 +279,19 @@ def test_checkpoint_does_not_bridge_pending_episode_across_restart() -> None:
     assert restored.episodes == ()
 
 
-def test_v1_checkpoint_migrates_to_sparse_v2() -> None:
-    legacy = {
-        "schema_version": 1,
-        "organism_id": ORG,
-        "episodes": [
-            {
-                "episode_id": "episode.legacy",
-                "start_tick": 10,
-                "end_tick": 10,
-                "occurrence_ticks": [10],
-                "trace": [],
-                "initial_context": [
-                    "sense.signal.aaa",
-                    "internal.pressure.low",
-                ],
-                "terminal_context": [],
-                "action_tokens": ["action.motor.composite"],
-                "outcome_tokens": ["outcome.sense.channel.a.up.3"],
-                "evidence_refs": ["evidence.legacy"],
-                "source_record_ids": ["transition.legacy"],
-                "novelty": 1.0,
-                "surprise": 1.0,
-                "recurrence": 1,
-                "compressed": False,
-            }
-        ],
-        "interpretations": {},
-        "retrieval_counts": {},
-        "metrics": {},
-    }
+def test_restore_rejects_historical_v1_checkpoint() -> None:
+    historical = {"schema_version": 1, "organism_id": ORG, "episodes": []}
 
-    restored = EpisodicExperienceMemory.restore(
-        legacy,
-        organism_id=ORG,
-    )
+    with pytest.raises(EpisodicMemoryError, match="fields do not match the current schema"):
+        EpisodicExperienceMemory.restore(historical, organism_id=ORG)
 
-    assert restored.SCHEMA_VERSION == 2
-    assert len(restored.episodes) == 1
-    assert restored.episodes[0].projection.effect_features
+
+def test_restore_rejects_incomplete_current_checkpoint() -> None:
+    payload = EpisodicExperienceMemory(ORG).checkpoint()
+    del payload["metrics"]
+
+    with pytest.raises(EpisodicMemoryError, match="fields do not match the current schema"):
+        EpisodicExperienceMemory.restore(payload, organism_id=ORG)
 
 
 def test_checkpoint_rejects_wrong_identity() -> None:
