@@ -113,6 +113,36 @@ def _registry_state(payload: object) -> dict[str, object] | None:
     return None
 
 
+def _without_host_clock(payload: Mapping[str, object]) -> dict[str, object]:
+    """A tick trace without host wall-clock readings.
+
+    Durations and monotonic timestamps measure host load, not causal state:
+    two executions of one snapshot never repeat them.
+    """
+    stable = dict(payload)
+    record = stable.get("record")
+    if isinstance(record, Mapping):
+        stable["record"] = {
+            key: value
+            for key, value in record.items()
+            if key not in {"organism_ms", "physics_ms", "diagnostics_ms"}
+        }
+    projection = stable.get("observer_projection")
+    if isinstance(projection, Mapping):
+        projection = {key: value for key, value in projection.items() if key != "timing_ms"}
+        pre = projection.get("pre")
+        sensory = pre.get("sensory_input") if isinstance(pre, Mapping) else None
+        if isinstance(pre, Mapping) and isinstance(sensory, Mapping):
+            projection["pre"] = {
+                **pre,
+                "sensory_input": {
+                    key: value for key, value in sensory.items() if key != "monotonic_timestamp_ns"
+                },
+            }
+        stable["observer_projection"] = projection
+    return stable
+
+
 def _configure_equivalence_determinism(config: EquivalenceRunConfig) -> dict[str, object] | None:
     if not config.training:
         return None
@@ -222,15 +252,7 @@ def run_digests(
             previous_active = active_id
 
         def observe_trace(tick: int, payload: Mapping[str, object]) -> None:
-            stable_payload = dict(payload)
-            record = stable_payload.get("record")
-            if isinstance(record, Mapping):
-                # Runtime durations are host-load measurements, not causal state.
-                stable_payload["record"] = {
-                    key: value
-                    for key, value in record.items()
-                    if key not in {"organism_ms", "physics_ms", "diagnostics_ms"}
-                }
+            stable_payload = _without_host_clock(payload)
             components = {key: _digest(value) for key, value in stable_payload.items()}
             trace_components_per_tick.append((int(tick), components))
             trace_per_tick.append((int(tick), _digest(components)))

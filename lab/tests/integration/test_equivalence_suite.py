@@ -183,3 +183,23 @@ def test_snapshot_contract_rejects_missing_model_artifacts() -> None:
         },
     )
     assert reason and "model artifacts" in reason
+
+
+def test_trace_comparison_ignores_host_clock_but_not_causal_content():
+    """Two executions of one snapshot differ only in host wall-clock readings."""
+    from lab.physics3d.equivalence import _digest, _without_host_clock
+
+    def trace(*, clock: float, value: float) -> dict:
+        return {
+            "record": {"tick": 7, "organism_ms": clock, "physics_ms": clock},
+            "observer_projection": {
+                "timing_ms": {"organism": clock, "physics": clock},
+                "pre": {
+                    "sensory_input": {"monotonic_timestamp_ns": int(clock), "signals": [value]},
+                },
+            },
+        }
+
+    first = _digest(_without_host_clock(trace(clock=100.9, value=0.5)))
+    assert first == _digest(_without_host_clock(trace(clock=101.9, value=0.5)))
+    assert first != _digest(_without_host_clock(trace(clock=100.9, value=0.6)))
