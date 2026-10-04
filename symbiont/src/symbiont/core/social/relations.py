@@ -199,38 +199,67 @@ class ResourceEvidenceLedger:
 
     @classmethod
     def from_checkpoint(cls, payload: dict[str, Any]) -> "ResourceEvidenceLedger":
-        if not isinstance(payload, dict) or payload.get("schema_version") not in (1, 2):
+        required = {"schema_version", "max_resources", "evidence"}
+        if (
+            not isinstance(payload, dict)
+            or payload.get("schema_version") != 2
+            or set(payload) != required
+        ):
             raise ValueError("invalid resource evidence checkpoint")
-        ledger = cls(max_resources=int(payload.get("max_resources", 64)))
-        rows = payload.get("evidence", [])
+        max_resources = payload["max_resources"]
+        if not isinstance(max_resources, int) or isinstance(max_resources, bool):
+            raise ValueError("invalid resource evidence checkpoint")
+        ledger = cls(max_resources=max_resources)
+        rows = payload["evidence"]
         if not isinstance(rows, list) or len(rows) > ledger._max:
             raise ValueError("invalid resource evidence rows")
         seen: set[str] = set()
         for row in rows:
-            if not isinstance(row, dict):
+            row_fields = {
+                "token", "requested", "granted", "observations", "denied",
+                "last_tick", "consecutive_denied",
+            }
+            if not isinstance(row, dict) or set(row) != row_fields:
                 raise ValueError("invalid resource evidence row")
             token = row.get("token")
-            requested = float(row.get("requested", 0.0))
-            granted = float(row.get("granted", 0.0))
-            observations = int(row.get("observations", 0))
-            denied = int(row.get("denied", 0))
+            requested = row["requested"]
+            granted = row["granted"]
+            observations = row["observations"]
+            denied = row["denied"]
             last_tick = row.get("last_tick")
-            consecutive_denied = int(row.get("consecutive_denied", 0))
+            consecutive_denied = row["consecutive_denied"]
             if (
                 not isinstance(token, str)
                 or not token
                 or len(token) > 64
+                or not isinstance(requested, (int, float))
+                or isinstance(requested, bool)
+                or not isinstance(granted, (int, float))
+                or isinstance(granted, bool)
                 or not math.isfinite(requested)
                 or not math.isfinite(granted)
                 or requested <= 0.0
                 or granted < 0.0
                 or granted > requested
+                or not isinstance(observations, int)
                 or observations < 1
+                or isinstance(observations, bool)
+                or not isinstance(denied, int)
                 or denied < 0
+                or isinstance(denied, bool)
                 or denied > observations
+                or not isinstance(consecutive_denied, int)
                 or consecutive_denied < 0
+                or isinstance(consecutive_denied, bool)
                 or consecutive_denied > observations
-                or (last_tick is not None and (not isinstance(last_tick, int) or last_tick < 0))
+                or (
+                    last_tick is not None
+                    and (
+                        not isinstance(last_tick, int)
+                        or isinstance(last_tick, bool)
+                        or last_tick < 0
+                    )
+                )
             ):
                 raise ValueError("invalid resource evidence values")
             if token in seen:
@@ -337,37 +366,58 @@ class RelationLedger:
 
     @classmethod
     def from_checkpoint(cls, payload: dict[str, Any]) -> "RelationLedger":
-        if not isinstance(payload, dict) or payload.get("schema_version") not in (1, 2, 3, 4):
+        required = {"schema_version", "max_relations", "relations"}
+        if (
+            not isinstance(payload, dict)
+            or payload.get("schema_version") != 4
+            or set(payload) != required
+        ):
             raise ValueError("invalid relation checkpoint")
-        ledger = cls(max_relations=int(payload.get("max_relations", 1024)))
-        rows = payload.get("relations", [])
+        max_relations = payload["max_relations"]
+        if not isinstance(max_relations, int) or isinstance(max_relations, bool):
+            raise ValueError("invalid relation checkpoint")
+        ledger = cls(max_relations=max_relations)
+        rows = payload["relations"]
         if not isinstance(rows, list) or len(rows) > ledger._max:
             raise ValueError("invalid relation rows")
         for row in rows:
-            required = {"source_id", "target_id", "support", "harm", "observations"}
-            if not isinstance(row, dict) or not required.issubset(row):
+            required = {
+                "source_id", "target_id", "support", "harm", "observations",
+                "reciprocal_observations", "conflicts", "last_tick", "rejections", "channel",
+            }
+            if not isinstance(row, dict) or set(row) != required:
                 raise ValueError("invalid relation row")
-            support, harm, observations = (
-                float(row["support"]),
-                float(row["harm"]),
-                int(row["observations"]),
-            )
-            reciprocal = int(row.get("reciprocal_observations", 0))
-            conflicts = int(row.get("conflicts", 0))
-            rejections = int(row.get("rejections", 0))
-            channel = row.get("channel", "default")
+            support, harm, observations = row["support"], row["harm"], row["observations"]
+            reciprocal = row["reciprocal_observations"]
+            conflicts = row["conflicts"]
+            rejections = row["rejections"]
+            channel = row["channel"]
             last_tick = row.get("last_tick")
             if (
                 not isinstance(row.get("source_id"), str)
                 or not isinstance(row.get("target_id"), str)
+                or not isinstance(support, (int, float))
+                or isinstance(support, bool)
+                or not isinstance(harm, (int, float))
+                or isinstance(harm, bool)
                 or not math.isfinite(support)
                 or not math.isfinite(harm)
                 or support < 0
                 or harm < 0
+                or not isinstance(observations, int)
                 or observations < 0
+                or isinstance(observations, bool)
+                or not isinstance(reciprocal, int)
                 or reciprocal < 0
+                or isinstance(reciprocal, bool)
+                or reciprocal > observations
+                or not isinstance(conflicts, int)
                 or conflicts < 0
+                or isinstance(conflicts, bool)
+                or conflicts > observations
+                or not isinstance(rejections, int)
                 or rejections < 0
+                or isinstance(rejections, bool)
                 or rejections > observations
                 or not isinstance(channel, str)
                 or not channel
@@ -616,7 +666,12 @@ class SocialHabitat:
     def from_checkpoint(cls, payload: dict[str, Any]) -> "SocialHabitat":
         from .interactions import EcologicalResourcePool
 
-        if not isinstance(payload, dict) or payload.get("schema_version") not in (1, 2):
+        required = {"schema_version", "max_members", "members", "pool", "ledger", "suspended"}
+        if (
+            not isinstance(payload, dict)
+            or payload.get("schema_version") != 2
+            or set(payload) != required
+        ):
             raise ValueError("invalid social habitat checkpoint")
         members = payload.get("members")
         if not isinstance(members, list) or any(
@@ -625,7 +680,9 @@ class SocialHabitat:
             raise ValueError("invalid social habitat members")
         if len(set(members)) != len(members):
             raise ValueError("duplicate social habitat member")
-        max_members = int(payload.get("max_members", 128))
+        max_members = payload["max_members"]
+        if not isinstance(max_members, int) or isinstance(max_members, bool) or max_members < 1:
+            raise ValueError("invalid social habitat member limit")
         if len(members) > max_members:
             raise ValueError("social habitat member limit exceeded")
         pool_payload, ledger_payload = payload.get("pool"), payload.get("ledger")
@@ -638,7 +695,7 @@ class SocialHabitat:
         )
         for member in members:
             habitat.admit(member)
-        suspended = payload.get("suspended", [])
+        suspended = payload["suspended"]
         if not isinstance(suspended, list):
             raise ValueError("invalid suspended interactions")
         for pair in suspended:

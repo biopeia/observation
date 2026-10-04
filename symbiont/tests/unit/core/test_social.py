@@ -97,17 +97,9 @@ def test_relation_observation_rejects_non_finite_or_ambiguous_values(kwargs) -> 
 
 def test_relation_checkpoint_rejects_non_finite_and_fractional_ticks() -> None:
     ledger = RelationLedger()
+    ledger.observe("a", "b", benefit=1.0, tick=1)
     payload = ledger.checkpoint()
-    payload["relations"] = [
-        {
-            "source_id": "a",
-            "target_id": "b",
-            "support": float("nan"),
-            "harm": 0.0,
-            "observations": 1,
-            "last_tick": 1,
-        }
-    ]
+    payload["relations"][0]["support"] = float("nan")
     with pytest.raises(ValueError, match="invalid relation values"):
         RelationLedger.from_checkpoint(payload)
     payload["relations"][0]["support"] = 1.0
@@ -155,6 +147,60 @@ def test_resource_evidence_revises_a_previously_useful_token_after_repeated_deni
     assert ledger.evidence[0].consecutive_denied == 1
     restored = ResourceEvidenceLedger.from_checkpoint(ledger.checkpoint())
     assert restored.evidence == ledger.evidence
+
+
+@pytest.mark.parametrize(
+    "factory, obsolete_schema, missing_field",
+    [
+        ("resource", 1, "evidence"),
+        ("relation", 3, "relations"),
+        ("habitat", 1, "suspended"),
+    ],
+)
+def test_social_checkpoint_restore_rejects_obsolete_schema_and_missing_current_fields(
+    factory, obsolete_schema, missing_field
+) -> None:
+    from symbiont.core.social import ResourceEvidenceLedger, SocialHabitat
+    from symbiont.core.social.interactions import EcologicalResourcePool
+
+    if factory == "resource":
+        checkpoint = ResourceEvidenceLedger().checkpoint()
+        restore = ResourceEvidenceLedger.from_checkpoint
+    elif factory == "relation":
+        checkpoint = RelationLedger().checkpoint()
+        restore = RelationLedger.from_checkpoint
+    else:
+        checkpoint = SocialHabitat(EcologicalResourcePool({"food": 1.0})).checkpoint()
+        restore = SocialHabitat.from_checkpoint
+
+    obsolete = dict(checkpoint, schema_version=obsolete_schema)
+    with pytest.raises(ValueError):
+        restore(obsolete)
+
+    incomplete = dict(checkpoint)
+    del incomplete[missing_field]
+    with pytest.raises(ValueError):
+        restore(incomplete)
+
+
+def test_relation_checkpoint_rejects_missing_current_relation_evidence() -> None:
+    ledger = RelationLedger()
+    ledger.observe("a", "b", benefit=1.0)
+    checkpoint = ledger.checkpoint()
+    del checkpoint["relations"][0]["channel"]
+    with pytest.raises(ValueError, match="invalid relation row"):
+        RelationLedger.from_checkpoint(checkpoint)
+
+
+def test_resource_evidence_checkpoint_rejects_missing_current_evidence_field() -> None:
+    from symbiont.core.social import ResourceEvidenceLedger
+
+    ledger = ResourceEvidenceLedger()
+    ledger.observe("food", requested=1.0, granted=0.5)
+    checkpoint = ledger.checkpoint()
+    del checkpoint["evidence"][0]["consecutive_denied"]
+    with pytest.raises(ValueError, match="invalid resource evidence row"):
+        ResourceEvidenceLedger.from_checkpoint(checkpoint)
 
 
 def test_social_habitat_can_suspend_and_resume_pair_interaction() -> None:
