@@ -250,6 +250,39 @@ def test_v41_round_trip_is_exact_for_every_tick(tmp_path):
     assert verify_v41_run(writer.root)["complete"] is True
 
 
+def test_live_reader_uses_a_consistent_committed_snapshot(tmp_path):
+    writer = TelemetryV41Writer(
+        tmp_path,
+        organism_id="symbiont:test",
+        start_tick=0,
+        seed=42,
+        physics_hz=240,
+        cognition_hz=24,
+        embodiment_mode="test",
+        flush_every=1,
+        run_id="live-run",
+    )
+    writer.append(DummyTick(tick=1), rich_state=_state(1))
+    older_reader = TelemetryV41Reader(writer.root)
+    initial_path_count = len(older_reader.structural_paths._paths)
+
+    # Tick 2 adds a structural path that was not present in the reader's
+    # loaded registry. The reader must not combine that newer commit with its
+    # older registry snapshot.
+    writer.append(DummyTick(tick=2), rich_state=_state(2))
+    writer.flush()
+
+    assert [item["tick"] for item in older_reader.iter_states()] == [1]
+    writer.close()
+    # A torn, uncommitted tail after the last commit is ignored using the
+    # committed stream offsets rather than decoded as a complete record.
+    with (writer.root / "structures" / "state.bin").open("ab") as handle:
+        handle.write(b"\x80")
+    newer_reader = TelemetryV41Reader(writer.root)
+    assert len(newer_reader.structural_paths._paths) > initial_path_count
+    assert [item["tick"] for item in newer_reader.iter_states()] == [1, 2]
+
+
 def test_v41_separates_checkpoints_from_anchors(tmp_path):
     writer = TelemetryV41Writer(
         tmp_path,

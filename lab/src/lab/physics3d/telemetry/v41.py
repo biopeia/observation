@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import io
 import json
 import os
 import uuid
@@ -710,6 +711,14 @@ class TelemetryV41Reader:
         self.ticks_path = self.root / "ticks.ndjson"
         if not self.ticks_path.is_file():
             raise FileNotFoundError(f"telemetry tick commits not found: {self.ticks_path}")
+        # Capture the commit log before loading the registries. The writer
+        # flushes registry/stream handles before the tick log; a complete
+        # commit in this snapshot therefore names only data already durable.
+        # Keeping the commit boundary fixed prevents a reader from combining
+        # old in-memory registries with newer commits from a live run.
+        tick_bytes = self.ticks_path.read_bytes()
+        last_newline = tick_bytes.rfind(b"\n")
+        self._tick_log_snapshot = tick_bytes[: last_newline + 1] if last_newline >= 0 else b""
         self.layout_revision = int(self.manifest.get("layout_revision", -1))
         if self.layout_revision != 4:
             raise ValueError(f"unsupported telemetry layout revision: {self.layout_revision}")
@@ -722,6 +731,7 @@ class TelemetryV41Reader:
             self.root / "schemas" / "structural-paths.bin",
             self.strings,
         )
+        self._committed_ticks = {int(commit["tick"]) for commit in self._iter_commits()}
 
     def _stream_path(self, name: str) -> Path:
         return self.root.joinpath(*self._BINARY_STREAM_PATHS[name])
@@ -733,7 +743,9 @@ class TelemetryV41Reader:
             claimed = payload.pop("anchor_sha256", None)
             if self.verify and payload_sha256(payload) != claimed:
                 raise ValueError(f"telemetry anchor hash mismatch: {path.name}")
-            result.append((int(payload["tick"]), path))
+            tick = int(payload["tick"])
+            if tick in self._committed_ticks:
+                result.append((tick, path))
         return result
 
     def _load_anchor(self, path: Path) -> dict[str, Any]:
@@ -763,7 +775,8 @@ class TelemetryV41Reader:
                         path = self.root / raw_path
                         if not path.is_file():
                             raise FileNotFoundError(path)
-                        candidate = path
+                        if item_tick in self._committed_ticks:
+                            candidate = path
             except (
                 OSError,
                 ValueError,
@@ -787,7 +800,9 @@ class TelemetryV41Reader:
         previous_hash: str | None = None
         previous_sequence: int | None = None
         previous_tick: int | None = None
-        with self.ticks_path.open("r", encoding="utf-8", newline="\n") as handle:
+        with io.TextIOWrapper(
+            io.BytesIO(self._tick_log_snapshot), encoding="utf-8", newline="\n"
+        ) as handle:
             handle.seek(int(start_offset))
             for line_no, line in enumerate(handle, start=1):
                 if not line.strip():
@@ -921,6 +936,15 @@ class TelemetryV41Reader:
             return
 
         offsets = dict(anchor.get("stream_offsets", {}))
+        commits = [
+            commit
+            for commit in self._iter_commits(start_offset=int(anchor.get("ticks_offset", 0)))
+            if int(commit.get("tick", -1)) > anchor_tick
+            and (end_tick is None or int(commit.get("tick", -1)) <= int(end_tick))
+        ]
+        committed_stream_offsets = dict(offsets)
+        if commits:
+            committed_stream_offsets.update(commits[-1].get("stream_offsets", {}))
         stream_names = self._BINARY_STREAM_PATHS
         handles = {name: self._stream_path(name).open("rb") for name in stream_names}
         binary_decoders = {
@@ -936,18 +960,13 @@ class TelemetryV41Reader:
                 handle,
                 binary_decoders[name],
                 start_offset=int(offsets.get(name, 0)),
+                end_offset=int(committed_stream_offsets.get(name, offsets.get(name, 0))),
             )
             for name, handle in handles.items()
         }
         try:
-            for commit in self._iter_commits(start_offset=int(anchor.get("ticks_offset", 0))):
+            for commit in commits:
                 tick = int(commit["tick"])
-                if tick < anchor_tick:
-                    continue
-                if tick == anchor_tick:
-                    continue
-                if end_tick is not None and tick > int(end_tick):
-                    break
 
                 events.begin_tick()
                 fallback_state = fallback.values.get("fallback", {})

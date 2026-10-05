@@ -269,15 +269,21 @@ class BinaryRecordIterator:
         decoder,
         *,
         start_offset: int = 0,
+        end_offset: int | None = None,
     ) -> None:
         self.handle = handle
         self.decoder = decoder
+        self.end_offset = None if end_offset is None else int(end_offset)
         self.handle.seek(int(start_offset))
 
     def next(self) -> dict[str, Any] | None:
+        if self.end_offset is not None and self.handle.tell() >= self.end_offset:
+            return None
         length = _read_uvarint(self.handle)
         if length is None:
             return None
+        if self.end_offset is not None and self.handle.tell() + length > self.end_offset:
+            raise ValueError("binary telemetry record exceeds committed stream offset")
         payload = self.handle.read(length)
         if len(payload) != length:
             raise ValueError("truncated binary telemetry record")
@@ -1213,11 +1219,13 @@ class BinaryTickBucket:
         decoder,
         *,
         start_offset: int = 0,
+        end_offset: int | None = None,
     ) -> None:
         self.iterator = BinaryRecordIterator(
             handle,
             decoder,
             start_offset=start_offset,
+            end_offset=end_offset,
         )
         self._pending: dict[str, Any] | None = None
 
