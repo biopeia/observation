@@ -186,8 +186,6 @@ def test_mind_generative_cognition_is_separate_from_atlas_topology():
     assert ".mind-cognition-right-rail" in css
     assert "source?.cognition?.generative" in controller
     assert "renderGenerativePanel(source)" in controller
-    # The panel's wording comes from the observability-state contract, which
-    # names why a snapshot is or is not there (issue #277).
     assert "classifyObservability(" in controller
     assert "observability.label" in controller
     assert "Generative resident not observed" not in controller
@@ -265,7 +263,7 @@ def test_world_is_extracted_from_embodiment_domain():
 
     assert 'href="#embodiment"' in html and 'href="#world"' in html
     assert 'href="#body"' not in html
-    assert "body: 'embodiment'" in app  # old links keep working
+    assert "body: 'embodiment'" in app
     assert "options: { domain: 'embodiment' }" in app
     assert "options: { domain: 'world' }" in app
 
@@ -301,7 +299,6 @@ def test_action_discovery_moved_from_mind_to_embodiment():
     assert "'motor'" not in tabs
     assert not list((WEB_ROOT / "views" / "mind").glob("motor-learning*.js"))
 
-    # Reuses the existing transport; subscribed only while the tab is active.
     assert "new MindStreams(" in discovery
     assert "deactivate()" in discovery and "this.streams?.close()" in discovery
     assert "else this.discovery.deactivate();" in workspace
@@ -519,9 +516,9 @@ def test_mind_development_distinguishes_existing_structure_from_observed_change(
     history = _read("views/mind/history.js")
 
     assert "Current cognitive structure" in history
-    assert "Observed since" in history
-    assert "Recorded change" in history
-    assert "Zero change means stable during observation, not undeveloped." in history
+    assert "Observed in this run since" in history
+    assert "Recorded change · current run" in history
+    assert "Zero change means stable during this observed run segment, not undeveloped." in history
 
 
 def test_statusbar_distinguishes_live_experience_from_observatory_view():
@@ -637,8 +634,9 @@ def test_mind_development_history_is_scoped_persistent_and_bootstrapped():
     assert "symbiont-lab:mind-development:v1:" in history
     assert "window.localStorage" in history
     assert "observedStartTick" in history
-    assert "mindHistory.splice(pointIndex, 0, point)" in history
-    assert "historySnapshots.splice(snapshotIndex, 0, captured)" in history
+    assert "sameRun(item.runId, runId)" in history
+    assert "run-boundary:" in history
+    assert "historySnapshots.findIndex" in history
     assert "captureSnapshot: false, persist: !meta.historical" in mind
     assert "/api/organism/history?limit=256" in streams
     assert "bootstrapRecentHistory" in streams
