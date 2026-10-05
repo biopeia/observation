@@ -196,6 +196,9 @@ def test_private_model_prediction_changes_prospective_choice():
         discover_senses=False,
     )
     runtime._model_registry = SimpleNamespace(active=SimpleNamespace(model_id="model.active"))
+    # This test isolates model-dependent choice. Prospective pragmatic action is
+    # now intentionally gated by current constitutional need.
+    runtime._homeostasis.body_state.fatigue = 0.8
 
     class Bridge:
         outcomes = {
@@ -257,8 +260,8 @@ def test_private_model_prediction_changes_prospective_choice():
     assert first.competence_id == "competence.a"
     assert runtime.last_prospective_decision.reason == "selected"
 
-    # Hold the affordances, graph readouts, values, and active model identity
-    # fixed; intervene only on its output mapping.
+    # Hold the affordances, graph readouts, values, active model identity, and
+    # homeostatic need fixed; intervene only on the model's output mapping.
     runtime._private_model_bridge.outcomes = {
         "action.competence.a": "outcome.negative",
         "action.competence.b": "outcome.positive",
