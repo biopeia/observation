@@ -254,8 +254,9 @@ class ProspectiveDecision:
             value = float(getattr(self, name))
             if not math.isfinite(value) or not 0.0 <= value <= 1.0:
                 raise ValueError(f"{name} must be within [0, 1]")
-        if self.counterfactual_prediction_ref is not None and not self.counterfactual_prediction_ref.startswith(
-            "model-prediction."
+        if (
+            self.counterfactual_prediction_ref is not None
+            and not self.counterfactual_prediction_ref.startswith("model-prediction.")
         ):
             raise ValueError("counterfactual prediction must keep its model-prediction identity")
 
