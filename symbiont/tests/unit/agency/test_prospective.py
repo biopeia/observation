@@ -10,7 +10,7 @@ from symbiont.agency.types import (
     CounterfactualPrediction,
     ProspectiveCandidate,
 )
-from symbiont.agency.value import OutcomeValueLedger
+from symbiont.agency.value import OutcomeValueLedger, context_key_for
 
 
 def _make_agency(
@@ -94,9 +94,7 @@ def test_no_candidates_returns_no_candidates_or_similar():
 
 
 def test_predictor_exception_treated_as_no_candidate():
-    """If predictor raises, candidate is skipped (fail-closed)."""
     ledger = OutcomeValueLedger()
-    # Pre-populate ledger so value exists for both outcomes
     ledger.observe("outcome.positive", 0.5, tick=0)
     agency = _make_agency(ledger=ledger)
     decision = agency.deliberate(
@@ -106,13 +104,11 @@ def test_predictor_exception_treated_as_no_candidate():
         homeostatic_deviation=0.5,
         predictor=_predictor_raises,
     )
-    # All candidates skipped → no selection
     assert decision.reason in {"no_candidates", "no_value_evidence", "insufficient_confidence"}
 
 
 def test_successful_selection_with_sufficient_evidence():
     ledger = OutcomeValueLedger()
-    # Give the predicted outcome a good value history
     for tick in range(8):
         ledger.observe("outcome.positive", 0.7, tick=tick)
 
@@ -131,8 +127,45 @@ def test_successful_selection_with_sufficient_evidence():
     assert decision.tick == 10
 
 
+def test_same_predicted_outcome_can_be_selected_or_rejected_by_private_context():
+    ledger = OutcomeValueLedger()
+    low_context = ("sense.rec.103", "state.sense.x.level.1")
+    high_context = ("sense.rec.103", "state.sense.x.level.6")
+    low_key = context_key_for(low_context)
+    high_key = context_key_for(high_context)
+    for tick in range(8):
+        ledger.observe("outcome.same", 0.7, tick=tick, context_key=low_key)
+        ledger.observe("outcome.same", -0.7, tick=tick, context_key=high_key)
+
+    agency = _make_agency(ledger=ledger)
+    predictor = lambda aid, ctx: CounterfactualPrediction(
+        action_id=aid,
+        predicted_outcome="outcome.same",
+        confidence_class=7,
+    )
+
+    selected = agency.deliberate(
+        tick=20,
+        candidates=[_candidate("prim.same")],
+        context_tokens=low_context,
+        homeostatic_deviation=0.8,
+        predictor=predictor,
+    )
+    rejected = agency.deliberate(
+        tick=21,
+        candidates=[_candidate("prim.same")],
+        context_tokens=high_context,
+        homeostatic_deviation=0.8,
+        predictor=predictor,
+    )
+
+    assert selected.reason == "selected"
+    assert selected.candidate_id == "prim.same"
+    assert rejected.reason == "insufficient_margin"
+    assert rejected.candidate_id is None
+
+
 def test_query_budget_limits_candidates_queried():
-    """Only the first `query_budget` candidates are evaluated."""
     query_calls = []
 
     def _counting_predictor(action_id, ctx):
@@ -157,8 +190,10 @@ def test_query_budget_limits_candidates_queried():
 
 def test_checkpoint_roundtrip_preserves_ledger():
     ledger = OutcomeValueLedger()
+    context = ("ctx.checkpoint",)
+    context_key = context_key_for(context)
     for tick in range(6):
-        ledger.observe("outcome.checkpoint", 0.4, tick=tick)
+        ledger.observe("outcome.checkpoint", 0.4, tick=tick, context_key=context_key)
 
     agency = _make_agency(ledger=ledger)
     checkpoint = agency.checkpoint()
@@ -171,8 +206,12 @@ def test_checkpoint_roundtrip_preserves_ledger():
     )
     restored = ProspectiveAgency.restore(checkpoint, organism_id="test-org", policy=policy)
 
-    original_est = agency.outcome_value_ledger.estimate("outcome.checkpoint")
-    restored_est = restored.outcome_value_ledger.estimate("outcome.checkpoint")
+    original_est = agency.outcome_value_ledger.estimate(
+        "outcome.checkpoint", context_key=context_key
+    )
+    restored_est = restored.outcome_value_ledger.estimate(
+        "outcome.checkpoint", context_key=context_key
+    )
 
     assert original_est is not None
     assert restored_est is not None
@@ -195,7 +234,6 @@ def test_restore_fails_closed_on_wrong_schema():
 
 
 def test_deliberate_on_death_then_no_active_model():
-    """Death gate takes priority over no-model gate."""
     agency = _make_agency()
     decision = agency.deliberate(
         tick=5,
