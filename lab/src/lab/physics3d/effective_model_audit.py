@@ -215,9 +215,7 @@ def _inventory(scene: Any) -> dict[str, object]:
     }
 
 
-def _scene_findings(
-    scene: Any, timestep: float, gravity: Sequence[float]
-) -> list[AuditFinding]:
+def _scene_findings(scene: Any, timestep: float, gravity: Sequence[float]) -> list[AuditFinding]:
     options = _options(scene)
     timestep_ok = _same(timestep, options.get("timestep"))
     gravity_ok = _same(list(gravity), options.get("gravity"))
@@ -464,9 +462,7 @@ def _resource_findings(scene: Any, resource: Any | None) -> list[AuditFinding]:
     return _material_findings("material.resource", RESOURCE_MATERIAL, friction)
 
 
-def _environment_findings(
-    scene: Any, recipe: Mapping[str, Any] | None
-) -> list[AuditFinding]:
+def _environment_findings(scene: Any, recipe: Mapping[str, Any] | None) -> list[AuditFinding]:
     if recipe is None:
         return []
     findings: list[AuditFinding] = []
@@ -606,7 +602,9 @@ def audit_effective_model(
         "total": len(findings),
         "errors": sum(item.severity == "error" for item in findings),
         "warnings": sum(item.severity == "warning" for item in findings),
-        **{relation: sum(item.relation == relation for item in findings) for relation in _RELATIONS},
+        **{
+            relation: sum(item.relation == relation for item in findings) for relation in _RELATIONS
+        },
     }
     report: dict[str, object] = {
         "schema_version": AUDIT_SCHEMA_VERSION,
