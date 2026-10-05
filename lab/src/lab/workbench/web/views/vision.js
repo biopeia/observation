@@ -263,6 +263,7 @@ function requestRender() {
 function connectStreams() {
   if (streams) return;
   streams = new MindStreams({
+    hydrateDevelopment: false,
     onTelemetry: (data, meta = {}) => {
       if (meta.historical) return;
       if (!applyTelemetryEvent(data)) return;
