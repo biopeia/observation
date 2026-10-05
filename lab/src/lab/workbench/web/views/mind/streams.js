@@ -16,6 +16,14 @@ function frameIdentity(frame) {
   };
 }
 
+function sameCoherentIdentity(current, next) {
+  return Boolean(
+    current &&
+    current.runId === next.runId &&
+    (current.organismId == null || next.organismId == null || current.organismId === next.organismId),
+  );
+}
+
 /**
  * Mind stream coordinator.
  *
@@ -44,6 +52,8 @@ export class MindStreams {
     this.activeInstance = null;
     this.activeRunId = null;
     this.localMindActive = false;
+    this.coherentIdentity = null;
+    this.liveFrameReceived = false;
     this.closed = true;
     this.developmentHydratedIdentity = null;
     this.sourceIdentity = {
@@ -119,12 +129,13 @@ export class MindStreams {
 
   connect() {
     this.closed = false;
+    this.liveFrameReceived = false;
     this.emitSourceState('waiting', { reason: 'connecting' });
-    void this.bootstrapRecentHistory().finally(() => {
-      if (this.closed) return;
-      this.connectOrganism();
-      this.connectFleet();
-    });
+    // History is optional presentation context. Do not make live telemetry
+    // wait for this potentially expensive request before opening the stream.
+    this.connectOrganism();
+    this.connectFleet();
+    void this.bootstrapRecentHistory();
   }
 
   async bootstrapRecentHistory() {
@@ -132,6 +143,10 @@ export class MindStreams {
       const response = await fetch('/api/organism/history?limit=256', { cache: 'no-store' });
       if (!response.ok || this.closed) return;
       const payload = await response.json();
+      // A live coherent frame is authoritative and newer than this bootstrap.
+      // If it arrived while history was loading, discard the historical replay
+      // rather than letting it roll the live presentation back.
+      if (this.closed || this.liveFrameReceived) return;
       const frames = Array.isArray(payload?.items) ? payload.items : [];
       let previousIdentity = null;
       for (let index = 0; index < frames.length; index += 1) {
@@ -188,6 +203,7 @@ export class MindStreams {
     this.activeInstance = null;
     this.activeRunId = null;
     this.localMindActive = false;
+    this.coherentIdentity = null;
     this.liveDecoder.reset();
     this.emitSourceState('disconnected', {
       source: null,
@@ -212,6 +228,7 @@ export class MindStreams {
       if (!data?.type) return;
 
       if (data.type === 'observed_frame' && data.source === 'physics3d') {
+        this.liveFrameReceived = true;
         this.localMindActive = true;
         const identity = frameIdentity(data);
         if (!identity.runId) {
@@ -224,6 +241,10 @@ export class MindStreams {
           return;
         }
         this.emitSourceState('live', { source: 'physics3d', ...identity });
+        this.coherentIdentity = {
+          runId: identity.runId,
+          organismId: identity.organismId,
+        };
         if (this.instance) {
           this.instance.close();
           this.instance = null;
@@ -259,15 +280,23 @@ export class MindStreams {
         // coherent frame arrives. This clears presentation from a previous run
         // before any new-run field can be shown.
         this.localMindActive = true;
-        this.emitSourceState('waiting', {
-          source: 'physics3d',
-          runId: data.run_id ?? null,
-          instanceId: data.instance_id ?? null,
-          organismId: data.organism_id ?? null,
-          bodyId: data.body_id ?? null,
-          embodimentId: data.embodiment_id ?? null,
-          reason: 'awaiting-coherent-frame',
-        });
+        const runId = data.run_id ?? null;
+        const organismId = data.organism_id ?? null;
+        const identity = { runId, organismId };
+        if (!sameCoherentIdentity(this.coherentIdentity, identity)) {
+          this.coherentIdentity = null;
+          this.emitSourceState('waiting', {
+            source: 'physics3d',
+            runId,
+            instanceId: data.instance_id ?? null,
+            organismId,
+            bodyId: data.body_id ?? null,
+            embodimentId: data.embodiment_id ?? null,
+            reason: 'awaiting-coherent-frame',
+          });
+        } else if (this.coherentIdentity.organismId == null && organismId != null) {
+          this.coherentIdentity.organismId = organismId;
+        }
         if (this.instance) {
           this.instance.close();
           this.instance = null;
@@ -286,11 +315,16 @@ export class MindStreams {
           bodyId: data.body_id ?? null,
           embodimentId: data.embodiment_id ?? null,
         };
-        this.emitSourceState('waiting', {
-          source: 'physics3d',
-          ...identity,
-          reason: data.coherent_frame_follows ? 'awaiting-coherent-frame' : null,
-        });
+        if (!sameCoherentIdentity(this.coherentIdentity, identity)) {
+          this.coherentIdentity = null;
+          this.emitSourceState('waiting', {
+            source: 'physics3d',
+            ...identity,
+            reason: data.coherent_frame_follows ? 'awaiting-coherent-frame' : null,
+          });
+        } else if (this.coherentIdentity.organismId == null && identity.organismId != null) {
+          this.coherentIdentity.organismId = identity.organismId;
+        }
         if (this.instance) {
           this.instance.close();
           this.instance = null;
@@ -299,6 +333,10 @@ export class MindStreams {
         this.activeRunId = null;
         if (!data.coherent_frame_follows) {
           this.emitSourceState('live', { source: 'physics3d', ...identity });
+          this.coherentIdentity = {
+            runId: identity.runId,
+            organismId: identity.organismId,
+          };
           this.onSnapshot(data.snapshot, { source: 'physics3d', ...identity });
         }
         return;

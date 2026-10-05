@@ -8,7 +8,44 @@ function stateIdentity(state) {
 
 function eventIdentity(event) {
   if (!event?.run_id) return null;
-  return `${event.run_id}|${event.body_id ?? ''}|${event.embodiment_id ?? ''}`;
+  return {
+    run_id: event.run_id,
+    // Runtime component projections and apparatus/body-pose projections do
+    // not currently share the same body_id namespace. Compare physical ids
+    // only against subsequent events from the same projection family.
+    scope: ['body', 'cognition', 'vitals'].includes(event.type) ? 'components' : 'apparatus',
+    body_id: event.body_id ?? null,
+    embodiment_id: event.embodiment_id ?? null,
+    body_kind: event.body_kind ?? null,
+  };
+}
+
+function mergeEventIdentity(current, next) {
+  if (!current) {
+    return {
+      identity: { run_id: next.run_id, scopes: { [next.scope]: next } },
+      conflict: false,
+    };
+  }
+  if (current.run_id !== next.run_id) return { identity: current, conflict: true };
+  const scoped = current.scopes[next.scope] ?? { scope: next.scope };
+  const fields = ['body_id', 'embodiment_id', 'body_kind'];
+  const conflict = fields.some((key) => (
+    scoped[key] != null && next[key] != null && scoped[key] !== next[key]
+  ));
+  if (conflict) return { identity: current, conflict: true };
+  return {
+    identity: {
+      ...current,
+      scopes: {
+        ...current.scopes,
+        [next.scope]: Object.fromEntries(
+          [['scope', next.scope], ...fields.map((key) => [key, scoped[key] ?? next[key]])],
+        ),
+      },
+    },
+    conflict: false,
+  };
 }
 
 function markStatus(viewer, text, freshness, color) {
@@ -40,11 +77,11 @@ export class PhysicalObservationBoundary {
       if (!data) return data;
       const nextIdentity = eventIdentity(data);
       if (!nextIdentity) return data;
-      if (acceptedIdentity === null) {
-        acceptedIdentity = nextIdentity;
+      const merged = mergeEventIdentity(acceptedIdentity, nextIdentity);
+      if (!merged.conflict) {
+        acceptedIdentity = merged.identity;
         return data;
       }
-      if (nextIdentity === acceptedIdentity) return data;
 
       markStatus(
         viewer,

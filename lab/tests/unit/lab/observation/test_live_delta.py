@@ -284,3 +284,18 @@ def test_bus_recent_materialized_returns_observed_frames_in_organism_time_order(
 
     assert bus.recent_materialized("observed_frame", limit=8) == [first, second]
     assert bus.recent_materialized("observed_frame", limit=1) == [second]
+
+
+def test_recent_materialized_skips_decoding_unrelated_channels():
+    from unittest.mock import patch
+
+    bus = ObservationBus(queue_size=64, history_size=64, anchor_interval=64)
+    frame = {"type": "observed_frame", "source": "physics3d", "tick": 1}
+    bus.push(frame)
+    for tick in range(2, 24):
+        bus.push({"type": "body_pose", "tick": tick, "joints": [tick]})
+
+    with patch("lab.observation.bus.json.loads", wraps=json.loads) as loads:
+        assert bus.recent_materialized("observed_frame", limit=1) == [frame]
+
+    assert loads.call_count == 1

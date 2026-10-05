@@ -24,6 +24,7 @@ class ObservationMessage:
 
     stream_id: int
     data: bytes
+    materialized_type: str | None = None
 
 
 def _with_rebase_notice(message: ObservationMessage, reason: str) -> ObservationMessage:
@@ -53,6 +54,7 @@ def _with_rebase_notice(message: ObservationMessage, reason: str) -> Observation
     return ObservationMessage(
         stream_id=message.stream_id,
         data=json.dumps(enriched, separators=(",", ":"), ensure_ascii=False).encode("utf-8"),
+        materialized_type=message.materialized_type,
     )
 
 
@@ -116,6 +118,7 @@ class ObservationBus:
                             separators=(",", ":"),
                             ensure_ascii=False,
                         ).encode("utf-8"),
+                        materialized_type=event_type,
                     )
                 elif projected.get("type") == "observation_delta":
                     anchor = self._delta.anchor(event_type)
@@ -127,15 +130,21 @@ class ObservationBus:
                                 separators=(",", ":"),
                                 ensure_ascii=False,
                             ).encode("utf-8"),
+                            materialized_type=event_type,
                         )
                 else:
                     self._last_by_type[event_type] = ObservationMessage(
                         stream_id=stream_id,
                         data=data,
+                        materialized_type=event_type,
                     )
                 self._last_sequence_by_type[event_type] = stream_id
 
-            message = ObservationMessage(stream_id=stream_id, data=data)
+            message = ObservationMessage(
+                stream_id=stream_id,
+                data=data,
+                materialized_type=event_type,
+            )
             # Reconnect cursors identify transport messages, not the client's
             # per-channel bases (which an earlier overflow may have dropped).
             # Keep bounded materialized history so replay is self-contained.
@@ -219,7 +228,14 @@ class ObservationBus:
             messages = list(self._history)
 
         result: list[dict[str, Any]] = []
-        for message in messages:
+        for message in reversed(messages):
+            # The bounded replay history also contains large world-scene and
+            # apparatus payloads. Their type is known at ingestion; skip them
+            # without repeatedly decoding their JSON for a cognition history
+            # query. Legacy/test-created messages without this hint retain the
+            # JSON fallback.
+            if message.materialized_type is not None and message.materialized_type != wanted:
+                continue
             try:
                 payload = json.loads(message.data)
             except (TypeError, ValueError):
@@ -234,7 +250,10 @@ class ObservationBus:
             if not isinstance(state, dict) or state.get("type") != wanted:
                 continue
             result.append(deepcopy(state))
-        return result[-bounded_limit:]
+            if len(result) >= bounded_limit:
+                break
+        result.reverse()
+        return result
 
     def world_scene(self) -> dict | None:
         """Atomic materialized scene for initial loads and dropped-delta recovery."""

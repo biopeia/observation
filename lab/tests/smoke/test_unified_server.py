@@ -159,10 +159,16 @@ def test_physics3d_catalog_endpoints_are_available(tmp_path) -> None:
         status, body = request(server, "/api/bodies")
         assert status == 200
         payload = json.loads(body)
-        body_kinds = {item["body_kind"] for item in payload["items"]}
+        catalog = {item["body_kind"]: item for item in payload["items"]}
+        body_kinds = set(catalog)
         assert "anthropomorphic-v6" in body_kinds
+        assert "crawler-v1" in body_kinds
         assert "hexapod-v1" in body_kinds
         assert "robotic-arm-v1" in body_kinds
+        crawler_model = catalog["crawler-v1"]["observer_model"]
+        assert crawler_model["base_link"]
+        assert crawler_model["segments"]
+        assert crawler_model["joints"]
 
         status, body = request(server, "/api/organisms")
         assert status == 200

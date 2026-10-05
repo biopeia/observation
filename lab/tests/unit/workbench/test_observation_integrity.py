@@ -191,6 +191,73 @@ console.log(JSON.stringify(seen));
     assert out[3]["embodimentChanged"] is True
 
 
+def test_coherent_live_stream_does_not_show_waiting_between_each_tick() -> None:
+    module = (WEB / "views/mind/streams.js").as_uri()
+    out = _node(
+        f"""
+const {{MindStreams}} = await import({json.dumps(module)});
+class FakeEventSource {{
+  constructor() {{ globalThis.source = this; }}
+  addEventListener(_name, callback) {{ this.onmessage = callback; }}
+  close() {{}}
+}}
+globalThis.EventSource = FakeEventSource;
+const states = [];
+const stream = new MindStreams({{
+  onSourceState: (state) => states.push({{status:state.status, reason:state.reason, runId:state.runId}}),
+  hydrateDevelopment: false,
+}});
+stream.connectOrganism();
+const send = (payload) => globalThis.source.onmessage({{data:JSON.stringify(payload)}});
+const identity = {{source:'physics3d', run_id:'r1', organism_id:'o1', body_id:'apparatus-body-ref'}};
+send({{type:'observed_frame', ...identity, tick:1, body:null, cognition:null, vitals:null, mind:{{tick:1}}}});
+for (const type of ['body','cognition','vitals']) send({{type, source:'physics3d', run_id:'r1', organism_id:'o1', body_id:'runtime-body-id', tick:2}});
+send({{type:'mind_snapshot', ...identity, tick:2, snapshot:{{tick:2}}, coherent_frame_follows:true}});
+send({{type:'observed_frame', ...identity, tick:2, body:null, cognition:null, vitals:null, mind:{{tick:2}}}});
+console.log(JSON.stringify(states));
+""",
+    )
+
+    assert out == [
+        {"status": "live", "reason": None, "runId": "r1"},
+        {"status": "live", "reason": None, "runId": "r1"},
+    ]
+
+
+def test_slow_history_bootstrap_does_not_delay_or_overwrite_live_frame() -> None:
+    module = (WEB / "views/mind/streams.js").as_uri()
+    out = _node(
+        f"""
+const {{MindStreams}} = await import({json.dumps(module)});
+let releaseHistory;
+const history = new Promise(resolve => {{ releaseHistory = resolve; }});
+class FakeEventSource {{
+  constructor(url) {{ this.url=url; globalThis.created.push(this); }}
+  addEventListener(_name, callback) {{ this.onmessage = callback; }}
+  close() {{ this.closed=true; }}
+}}
+globalThis.created = [];
+globalThis.EventSource = FakeEventSource;
+globalThis.fetch = (url) => url.includes('/history')
+  ? history
+  : Promise.resolve({{ok:true, json:async()=>({{sources:{{observatory:{{available:false}}}}}})}});
+const telemetry = [];
+const stream = new MindStreams({{onTelemetry: (event, meta) => telemetry.push({{tick:event.tick, historical:!!meta.historical}})}});
+stream.connect();
+const source = globalThis.created.find(x => x.url === '/api/organism');
+const live = {{type:'observed_frame', source:'physics3d', run_id:'r1', organism_id:'o1', tick:2,
+  body:{{type:'body', tick:2}}, cognition:null, vitals:null}};
+source.onmessage({{data:JSON.stringify(live)}});
+releaseHistory({{ok:true, json:async()=>({{items:[{{type:'observed_frame', source:'physics3d', run_id:'r1', organism_id:'o1', tick:1,
+  body:{{type:'body', tick:1}}, cognition:null, vitals:null}}]}})}});
+await new Promise(resolve => setTimeout(resolve, 0));
+console.log(JSON.stringify({{connected:!!source, telemetry}}));
+""",
+    )
+
+    assert out == {"connected": True, "telemetry": [{"tick": 2, "historical": False}]}
+
+
 def test_multiple_observatory_instances_are_not_selected_by_array_order() -> None:
     module = (WEB / "views/mind/streams.js").as_uri()
     out = _node(

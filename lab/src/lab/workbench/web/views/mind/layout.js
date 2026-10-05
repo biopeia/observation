@@ -379,6 +379,8 @@ function buildTelemNodes(parent) {
     { id: 'mind-t-cognition', label: 'Cognition',  init: '—' },
     { id: 'mind-t-motor',     label: 'Motor',      init: '—' },
     { id: 'mind-t-instance',  label: 'Instance',   init: '—' },
+    { id: 'mind-t-stream',    label: 'Stream',     init: 'disconnected' },
+    { id: 'mind-t-frame',     label: 'Frame ticks', init: '— / —' },
   ];
 
   for (const item of items) {

@@ -387,6 +387,15 @@ async function stopRun() {
   try {
     await jsonRequest('/api/runs/stop', { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' });
   } catch (error) {
+    // The run can terminate between the last state poll and this request. A
+    // rejected stop is therefore also a cue to reconcile the displayed run
+    // state instead of leaving a stale active card and Stop button in place.
+    try {
+      await Promise.all([loadCatalog(), loadState()]);
+      render();
+    } catch {
+      // Preserve the original stop error; a refresh failure is secondary.
+    }
     window.alert(`Unable to stop Physics3D run: ${error.message}`);
   }
 }
@@ -463,4 +472,3 @@ export function unmount() {
   rootNode = null;
   lastPhysicsSignature = null;
 }
-

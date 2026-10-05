@@ -67,3 +67,85 @@ console.log(JSON.stringify({{
     assert out["laterBoundary"] is True
     assert out["freshness"] == "stale"
     assert "resetting presentation" in out["status"]
+
+
+def test_partial_tick_identity_does_not_reset_observer_viewer() -> None:
+    module = (WEB / "views/body/observability.js").as_uri()
+    out = _node(
+        f"""
+const {{PhysicalObservationBoundary}} = await import({json.dumps(module)});
+let remounts = 0;
+const boundary = new PhysicalObservationBoundary({{onIdentityChange: () => remounts += 1}});
+const decoder = {{decode: (payload) => payload, takeIssue: () => null}};
+const viewer = {{decoder, liveDecoder: decoder, statusEl: {{dataset: {{}}, style: {{}}, textContent: ''}}}};
+boundary.mount(null);
+boundary.attach(viewer);
+const first = decoder.decode({{type:'body_pose', run_id:'r1', body_id:'apparatus-body-ref', body_kind:'crawler-v1', tick:1}});
+const partial = decoder.decode({{type:'body_pose', run_id:'r1', tick:2}});
+const enriched = decoder.decode({{type:'body', run_id:'r1', body_id:'runtime-body-id', body_kind:'crawler-v1', tick:3}});
+const distinctProjection = decoder.decode({{type:'cognition', run_id:'r1', body_id:'runtime-body-id', tick:4}});
+const repeatedPose = decoder.decode({{type:'body_pose', run_id:'r1', body_id:'apparatus-body-ref', body_kind:'crawler-v1', tick:5}});
+await Promise.resolve();
+console.log(JSON.stringify({{first:first?.tick, partial:partial?.tick, enriched:enriched?.tick, distinctProjection:distinctProjection?.tick, repeatedPose:repeatedPose?.tick, remounts}}));
+""",
+    )
+
+    assert out == {
+        "first": 1,
+        "partial": 2,
+        "enriched": 3,
+        "distinctProjection": 4,
+        "repeatedPose": 5,
+        "remounts": 0,
+    }
+
+
+def test_identity_change_within_same_projection_family_resets_viewer() -> None:
+    module = (WEB / "views/body/observability.js").as_uri()
+    out = _node(
+        f"""
+const {{PhysicalObservationBoundary}} = await import({json.dumps(module)});
+let remounts = 0;
+const boundary = new PhysicalObservationBoundary({{onIdentityChange: () => remounts += 1}});
+const decoder = {{decode: (payload) => payload, takeIssue: () => null}};
+const viewer = {{decoder, liveDecoder: decoder, statusEl: {{dataset: {{}}, style: {{}}, textContent: ''}}}};
+boundary.mount(null);
+boundary.attach(viewer);
+decoder.decode({{type:'body', run_id:'r1', body_id:'b1', tick:1}});
+const changed = decoder.decode({{type:'body', run_id:'r1', body_id:'b2', tick:2}});
+await Promise.resolve();
+console.log(JSON.stringify({{changed, remounts}}));
+""",
+    )
+
+    assert out == {"changed": None, "remounts": 1}
+
+
+def test_dense_body_pose_marks_body_status_live() -> None:
+    source = (WEB / "views/body/viewer.js").read_text()
+    pose_handler = source.split("  handleBodyPoseEvent(data) {", 1)[1].split(
+        "  handleBodyEvent(data) {", 1
+    )[0]
+    assert "this.markBodyLive();" in pose_handler
+
+
+def test_body_view_consumes_complete_observed_frames() -> None:
+    source = (WEB / "views/body/viewer.js").read_text()
+    assert "case 'observed_frame': this.handleObservedFrame(data);" in source
+    frame_handler = source.split("  handleObservedFrame(frame) {", 1)[1].split(
+        "  markBodyLive() {", 1
+    )[0]
+    assert "this.handleBodyEvent(frame.body)" in frame_handler
+    assert "this.handleCognitionEvent(frame.cognition)" in frame_handler
+    assert "this.handleVitalsEvent(frame.vitals)" in frame_handler
+
+
+def test_body_view_does_not_present_fallback_morphology_as_requested_body() -> None:
+    source = (WEB / "views/body/viewer.js").read_text()
+    model_handler = source.split("  ensureBodyModel(bodyKind) {", 1)[1].split(
+        "  buildDOM() {", 1
+    )[0]
+    assert "this.skeletonRoot.visible = false" in model_handler
+    assert "Observer model unavailable: ${requested}" in model_handler
+    assert "this.skeletonRoot.visible = true" in model_handler
+    assert "this.scheduleBodyModelRetry();" in source

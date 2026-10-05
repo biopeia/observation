@@ -50,6 +50,10 @@ export class BodyViewer {
     // SSE may identify a body before the asynchronous catalog request finishes.
     // Retain that request and apply it once its observer model is available.
     this.requestedBodyKind = this.activeBodyKind;
+    this.bodyModelRetryTimer = null;
+    this.bodyModelRetryDelayMs = 1000;
+    this.bodyModelCatalogReady = false;
+    this.bodyModelRequestController = null;
     this.bodyModels.set(this.activeBodyKind, this.bodyModel);
 
     // Three.js instances
@@ -189,18 +193,47 @@ export class BodyViewer {
   }
 
   async loadBodyModels() {
+    const controller = new AbortController();
+    this.bodyModelRequestController = controller;
+    const timeout = setTimeout(() => controller.abort(), 5000);
     try {
-      const response = await fetch('/api/bodies', { cache: 'no-store' });
-      if (!response.ok) return;
+      const response = await fetch('/api/bodies', {
+        cache: 'no-store',
+        signal: controller.signal,
+      });
+      if (!response.ok) throw new Error(`body catalog returned HTTP ${response.status}`);
       const payload = await response.json();
+      if (this.unmounted) return;
       for (const item of payload.items ?? []) {
         const model = bodyModelFromCatalog(item);
         if (model?.bodyKind) this.bodyModels.set(model.bodyKind, model);
       }
+      this.bodyModelCatalogReady = true;
+      this.bodyModelRetryDelayMs = 1000;
       this.ensureBodyModel(this.requestedBodyKind);
     } catch {
-      // Presentation catalog failure must never affect the running organism.
+      // Presentation catalog failure must never affect the running organism,
+      // but it must not silently leave a different body's fallback visible.
+      if (!this.unmounted) {
+        this.ensureBodyModel(this.requestedBodyKind);
+        this.scheduleBodyModelRetry();
+      }
+    } finally {
+      clearTimeout(timeout);
+      if (this.bodyModelRequestController === controller) {
+        this.bodyModelRequestController = null;
+      }
     }
+  }
+
+  scheduleBodyModelRetry() {
+    if (this.unmounted || this.bodyModelRetryTimer !== null) return;
+    const delay = this.bodyModelRetryDelayMs;
+    this.bodyModelRetryDelayMs = Math.min(this.bodyModelRetryDelayMs * 2, 30000);
+    this.bodyModelRetryTimer = setTimeout(() => {
+      this.bodyModelRetryTimer = null;
+      void this.loadBodyModels();
+    }, delay);
   }
 
   ensureBodyModel(bodyKind) {
@@ -208,10 +241,23 @@ export class BodyViewer {
     this.requestedBodyKind = requested;
     if (requested === this.activeBodyKind) return;
     const model = this.bodyModels.get(requested);
-    if (!model) return;
+    if (!model) {
+      // Never render the anthropomorphic fallback as if it were a different
+      // selected apparatus (for example crawler-v1).
+      if (this.skeletonRoot) this.skeletonRoot.visible = false;
+      if (this.modelStatusEl) {
+        this.modelStatusEl.hidden = false;
+        this.modelStatusEl.textContent = this.bodyModelCatalogReady
+          ? `Observer model unavailable: ${requested}`
+          : `Loading observer model: ${requested}`;
+      }
+      return;
+    }
     this.activeBodyKind = requested;
     this.bodyModel = model;
     this.rebuildSkeleton();
+    if (this.skeletonRoot) this.skeletonRoot.visible = true;
+    if (this.modelStatusEl) this.modelStatusEl.hidden = true;
   }
 
   buildDOM() {
@@ -234,6 +280,25 @@ export class BodyViewer {
     });
     this.statusEl.textContent = '○ Waiting for organism…';
     this.canvasWrap.appendChild(this.statusEl);
+
+    this.modelStatusEl = el('span', 'body-model-status', {
+      position: 'absolute',
+      top: '16px',
+      left: '16px',
+      zIndex: '3',
+      padding: '7px 10px',
+      border: '1px solid rgba(241, 250, 140, 0.45)',
+      borderRadius: '6px',
+      background: 'rgba(7, 15, 22, 0.82)',
+      color: 'var(--amber, #f1fa8c)',
+      fontFamily: 'var(--mono, monospace)',
+      fontSize: '11px',
+      pointerEvents: 'none',
+      userSelect: 'none',
+    });
+    this.modelStatusEl.hidden = true;
+    this.modelStatusEl.setAttribute('role', 'status');
+    this.canvasWrap.appendChild(this.modelStatusEl);
 
     this.presentationDebugEl = el('div', 'body-presentation-debug', {
       position: 'absolute',
@@ -1366,6 +1431,7 @@ export class BodyViewer {
 
       switch (data.type) {
         case 'world_scene': this.worldView?.accept(data); break;
+        case 'observed_frame': this.handleObservedFrame(data); break;
         case 'body_pose':     this.handleBodyPoseEvent(data);      break;
         case 'body':          this.handleBodyEvent(data);          break;
         case 'cognition':     this.handleCognitionEvent(data);     break;
@@ -1391,6 +1457,10 @@ export class BodyViewer {
     const tick = Number(data.tick);
     const tickSpanMs = Number(data.tick_simulation_span_s) * 1000;
     if (!Number.isFinite(sourceTimeMs)) return;
+
+    // A dense body_pose is authoritative live body evidence too. Previously
+    // only the lower-frequency `body` event cleared the waiting indicator.
+    this.markBodyLive();
 
     this.hasDensePoseStream = true;
     this.observeDenseProducer(tick, receivedAt, tickSpanMs);
@@ -1452,10 +1522,7 @@ export class BodyViewer {
 
   handleBodyEvent(data) {
     this.ensureBodyModel(data.body_kind);
-    if (this.statusEl && this.statusEl.textContent !== '● Live') {
-      this.statusEl.textContent = '● Live';
-      this.statusEl.style.color = 'var(--mint, #50fa7b)';
-    }
+    this.markBodyLive();
 
     // Store target positions instead of applying immediately (for lerping)
     if (data.base_position) {
@@ -1599,6 +1666,24 @@ export class BodyViewer {
     }
   }
 
+  handleObservedFrame(frame) {
+    // The coherent-frame contract is also a complete source of body evidence.
+    // Consume its projections directly rather than assuming every transport
+    // client will separately receive the component events preceding the frame.
+    if (frame?.body?.type === 'body') this.handleBodyEvent(frame.body);
+    if (frame?.cognition?.type === 'cognition') this.handleCognitionEvent(frame.cognition);
+    if (frame?.vitals?.type === 'vitals') this.handleVitalsEvent(frame.vitals);
+    if (frame?.mind && typeof frame.mind === 'object') {
+      this.handleMindSnapshotEvent({ snapshot: frame.mind });
+    }
+  }
+
+  markBodyLive() {
+    if (!this.statusEl || this.statusEl.textContent === '● Live') return;
+    this.statusEl.textContent = '● Live';
+    this.statusEl.style.color = 'var(--mint, #50fa7b)';
+  }
+
   handleMindSnapshotEvent(data) {
     const snapshot = data?.snapshot;
     if (!snapshot || typeof snapshot !== 'object') return;
@@ -1739,6 +1824,13 @@ export class BodyViewer {
       this.sse.close();
       this.sse = null;
     }
+
+    if (this.bodyModelRetryTimer !== null) {
+      clearTimeout(this.bodyModelRetryTimer);
+      this.bodyModelRetryTimer = null;
+    }
+    this.bodyModelRequestController?.abort();
+    this.bodyModelRequestController = null;
 
     if (this.resizeObs) {
       this.resizeObs.disconnect();

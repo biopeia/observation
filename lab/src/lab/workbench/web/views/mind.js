@@ -176,6 +176,10 @@ function updateTelemetryStrip(force = false) {
       : _tel.motorOrigin === 'babbling' ? PAL.amber : null,
   );
   setTelem('mind-t-instance', _snap.displayId ?? _snap.instanceId ?? _streamState.organismId ?? '—');
+  const streamDetail = [_streamState.status || 'disconnected', _streamState.reason]
+    .filter(Boolean).join(' · ');
+  setTelem('mind-t-stream', streamDetail);
+  setTelem('mind-t-frame', `${_streamState.telemetryTick ?? '—'} / ${_streamState.snapshotTick ?? '—'}`);
   _lastUITime = now;
 }
 
