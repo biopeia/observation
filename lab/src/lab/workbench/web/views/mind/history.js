@@ -21,7 +21,8 @@ import { episodeImpact } from './cognitive-refinement.js';
 
 let activeEpisodeId = null;
 
-const DEVELOPMENT_STORAGE_PREFIX = 'symbiont-lab:mind-development:v1:';
+const DEVELOPMENT_STORAGE_PREFIX = 'symbiont-lab:mind-development:v2:';
+const LEGACY_DEVELOPMENT_STORAGE_PREFIX = 'symbiont-lab:mind-development:v1:';
 const DEVELOPMENT_PERSIST_INTERVAL_TICKS = 32;
 const DEVELOPMENT_SNAPSHOT_LIMIT = 160;
 const DEVELOPMENT_SNAPSHOT_MAX_GAP = 64;
@@ -34,8 +35,8 @@ function developmentStorage() {
   }
 }
 
-function developmentStorageKey(organismId) {
-  return `${DEVELOPMENT_STORAGE_PREFIX}${encodeURIComponent(String(organismId))}`;
+function developmentStorageKey(organismId, prefix = DEVELOPMENT_STORAGE_PREFIX) {
+  return `${prefix}${encodeURIComponent(String(organismId))}`;
 }
 
 function clearDevelopmentBuffers() {
@@ -49,6 +50,57 @@ function clearDevelopmentBuffers() {
 
 function boundedArray(raw, limit) {
   return Array.isArray(raw) ? raw.slice(-limit) : [];
+}
+
+function normalizedRunId(value) {
+  const text = String(value ?? '').trim();
+  return text || null;
+}
+
+function sameRun(left, right) {
+  return normalizedRunId(left) === normalizedRunId(right);
+}
+
+function restorePayload(payload, identity) {
+  if (!payload || String(payload.organismId ?? '') !== identity) return false;
+
+  if (payload.schema === 2) {
+    mindHistory.push(...boundedArray(payload.mindHistory, 2048));
+    milestones.push(...boundedArray(payload.milestones, 128));
+    historySnapshots.push(...boundedArray(payload.historySnapshots, DEVELOPMENT_SNAPSHOT_LIMIT));
+  } else if (payload.schema === 1) {
+    // v1 did not distinguish run boundaries. Preserve it as legacy evidence,
+    // explicitly unscoped rather than assigning a run after the fact.
+    mindHistory.push(...boundedArray(payload.mindHistory, 2048).map((item) => ({
+      ...item,
+      runId: null,
+      legacyUnscoped: true,
+    })));
+    milestones.push(...boundedArray(payload.milestones, 128).map((item) => ({
+      ...item,
+      runId: null,
+      legacyUnscoped: true,
+    })));
+    historySnapshots.push(...boundedArray(payload.historySnapshots, DEVELOPMENT_SNAPSHOT_LIMIT).map((item) => ({
+      ...item,
+      runId: null,
+      legacyUnscoped: true,
+    })));
+  } else {
+    return false;
+  }
+
+  developmentScope.baselinePoint =
+    payload.baselinePoint && Number.isFinite(Number(payload.baselinePoint.tick))
+      ? { ...payload.baselinePoint }
+      : mindHistory.at(0) ? { ...mindHistory.at(0) } : null;
+  const start = Number(payload.observedStartTick);
+  developmentScope.observedStartTick = Number.isFinite(start)
+    ? start
+    : mindHistory.at(0)?.tick ?? null;
+  developmentScope.lastPersistedTick = mindHistory.at(-1)?.tick ?? null;
+  developmentScope.restored = Boolean(mindHistory.length || historySnapshots.length);
+  return true;
 }
 
 export function persistMindDevelopmentHistory({ force = false } = {}) {
@@ -67,8 +119,9 @@ export function persistMindDevelopmentHistory({ force = false } = {}) {
   const storage = developmentStorage();
   if (!storage) return false;
   const payload = {
-    schema: 1,
+    schema: 2,
     organismId,
+    activeRunId: developmentScope.activeRunId,
     observedStartTick: developmentScope.observedStartTick,
     baselinePoint: developmentScope.baselinePoint,
     mindHistory: mindHistory.slice(-2048),
@@ -95,14 +148,20 @@ export function persistMindDevelopmentHistory({ force = false } = {}) {
   return true;
 }
 
-export function activateMindDevelopmentHistory(organismId) {
+export function activateMindDevelopmentHistory(organismId, runId = null) {
   const identity = String(organismId ?? '').trim();
   if (!identity) return false;
-  if (developmentScope.organismId === identity) return false;
+  const nextRunId = normalizedRunId(runId);
+
+  if (developmentScope.organismId === identity) {
+    developmentScope.activeRunId = nextRunId;
+    return false;
+  }
 
   persistMindDevelopmentHistory({ force: true });
   clearDevelopmentBuffers();
   developmentScope.organismId = identity;
+  developmentScope.activeRunId = nextRunId;
   developmentScope.observedStartTick = null;
   developmentScope.baselinePoint = null;
   developmentScope.lastPersistedTick = null;
@@ -112,32 +171,18 @@ export function activateMindDevelopmentHistory(organismId) {
   if (!storage) return true;
 
   try {
-    const raw = storage.getItem(developmentStorageKey(identity));
-    if (!raw) return true;
-    const payload = JSON.parse(raw);
-    if (
-      payload?.schema !== 1 ||
-      String(payload?.organismId ?? '') !== identity
-    ) {
-      return true;
-    }
-    mindHistory.push(...boundedArray(payload.mindHistory, 2048));
-    milestones.push(...boundedArray(payload.milestones, 128));
-    historySnapshots.push(...boundedArray(payload.historySnapshots, DEVELOPMENT_SNAPSHOT_LIMIT));
-    developmentScope.baselinePoint =
-      payload.baselinePoint && Number.isFinite(Number(payload.baselinePoint.tick))
-        ? { ...payload.baselinePoint }
-        : mindHistory.at(0) ? { ...mindHistory.at(0) } : null;
-    const start = Number(payload.observedStartTick);
-    developmentScope.observedStartTick = Number.isFinite(start)
-      ? start
-      : mindHistory.at(0)?.tick ?? null;
-    developmentScope.lastPersistedTick = mindHistory.at(-1)?.tick ?? null;
-    developmentScope.restored = Boolean(mindHistory.length || historySnapshots.length);
+    const currentRaw = storage.getItem(developmentStorageKey(identity));
+    if (currentRaw && restorePayload(JSON.parse(currentRaw), identity)) return true;
+
+    const legacyRaw = storage.getItem(
+      developmentStorageKey(identity, LEGACY_DEVELOPMENT_STORAGE_PREFIX),
+    );
+    if (legacyRaw) restorePayload(JSON.parse(legacyRaw), identity);
   } catch {
     // Corrupt observer cache must never block the live organism.
     clearDevelopmentBuffers();
   }
+  developmentScope.activeRunId = nextRunId;
   return true;
 }
 
@@ -196,8 +241,19 @@ export function renderHistory({ onOpenHistoryTick = () => {} } = {}) {
   root.replaceChildren();
 
   const current = mindHistory.at(-1) ?? null;
-  const previous = mindHistory.length > 1 ? mindHistory.at(-2) : null;
-  const episodes = deriveCognitiveEpisodes(historySnapshots, mindHistory, 160);
+  const currentRunId = normalizedRunId(current?.runId ?? developmentScope.activeRunId);
+  const currentRunHistory = currentRunId
+    ? mindHistory.filter((point) => sameRun(point.runId, currentRunId))
+    : mindHistory.filter((point) => point.runId == null);
+  const currentRunSnapshots = currentRunId
+    ? historySnapshots.filter((item) => sameRun(item.runId, currentRunId))
+    : historySnapshots.filter((item) => item.runId == null);
+  const previous = currentRunHistory.length > 1 ? currentRunHistory.at(-2) : null;
+  const episodes = deriveCognitiveEpisodes(currentRunSnapshots, currentRunHistory, 160);
+  const runIds = [...new Set(mindHistory.map((point) => normalizedRunId(point.runId) ?? 'legacy-unscoped'))];
+  const visibleMilestones = milestones.filter((item) =>
+    currentRunId ? sameRun(item.runId, currentRunId) : item.runId == null
+  );
 
   const head = el('div', 'mind-development-head');
   const copy = el('div', '');
@@ -206,27 +262,22 @@ export function renderHistory({ onOpenHistoryTick = () => {} } = {}) {
   const title = el('h2', '');
   title.textContent = 'How cognition is changing';
   const sub = el('p', '');
-  sub.textContent = 'Observed developmental events and structural episodes in organism time. Charts are supporting evidence, not the story itself.';
+  sub.textContent = 'Observed developmental evidence is segmented by run. Cross-run continuity is preserved for the organism but never treated as one uninterrupted observation stream.';
   copy.append(eyebrow, title, sub);
   const now = el('strong', 'mind-live-state');
   now.textContent = current?.tick != null ? `t${Number(current.tick).toLocaleString()}` : 'NO HISTORY';
   head.append(copy, now);
   root.appendChild(head);
 
-  const observerAttached = milestones.find(item =>
+  const observerAttached = visibleMilestones.find(item =>
     String(item?.label || '').toLowerCase().includes('observer attached')
   );
   const observedStart =
-    developmentScope.observedStartTick ??
+    currentRunHistory.at(0)?.tick ??
     observerAttached?.tick ??
-    mindHistory.at(0)?.tick ??
     current?.tick ??
     null;
-  const observedBaseline =
-    developmentScope.baselinePoint ??
-    mindHistory.find(point => point.tick >= observedStart) ??
-    mindHistory.at(0) ??
-    null;
+  const observedBaseline = currentRunHistory.at(0) ?? current ?? null;
   const observedDelta = (key) => {
     const a = Number(current?.[key]);
     const b = Number(observedBaseline?.[key]);
@@ -243,14 +294,19 @@ export function renderHistory({ onOpenHistoryTick = () => {} } = {}) {
       <small>This structure may predate the available observer history.</small>
     </div>
     <div class="mind-development-scope-block">
-      <span>Observed since</span>
-      <strong>${observedStart != null ? 't' + Number(observedStart).toLocaleString() : 'observer start unknown'}</strong>
-      <small>Observer-owned history for this organism. Earlier uncaptured life is never reconstructed or invented.</small>
+      <span>Current run</span>
+      <strong>${currentRunId ?? 'run identity unavailable'}</strong>
+      <small>${runIds.length} observed run segment${runIds.length === 1 ? '' : 's'} retained for this organism.</small>
     </div>
     <div class="mind-development-scope-block">
-      <span>Recorded change</span>
+      <span>Observed in this run since</span>
+      <strong>${observedStart != null ? 't' + Number(observedStart).toLocaleString() : 'observer start unknown'}</strong>
+      <small>Earlier runs are retained as separate evidence and are not used as this run's baseline.</small>
+    </div>
+    <div class="mind-development-scope-block">
+      <span>Recorded change · current run</span>
       <strong>${observedDelta('concepts')} concepts · ${observedDelta('predictors')} predictors · ${episodes.length} episodes</strong>
-      <small>Zero change means stable during observation, not undeveloped.</small>
+      <small>Zero change means stable during this observed run segment, not undeveloped.</small>
     </div>
   `;
   root.appendChild(scope);
@@ -274,22 +330,22 @@ export function renderHistory({ onOpenHistoryTick = () => {} } = {}) {
     compact('Relations · last frame Δ', diff('edges')),
     compact('Motor links · last frame Δ', diff('motorEdges')),
     compact('Self regions', current?.selfRegions ?? '—'),
-    compact('Episodes', episodes.length),
+    compact('Run segments', runIds.length),
   );
   root.appendChild(changeStrip);
 
   const narrative = panelSection(
-    'Developmental narrative',
-    'First-observed milestones in organism time. Selecting an event opens the nearest captured cognitive state.',
+    'Developmental narrative · current run',
+    'First-observed milestones are scoped to the current run so a lifecycle boundary can never masquerade as developmental continuity.',
   );
   narrative.classList.add('mind-development-narrative');
-  if (!milestones.length) {
+  if (!visibleMilestones.length) {
     const empty = el('div', 'mind-live-empty');
-    applyEmptyState(empty, 'No developmental milestones have been captured for this organism yet.', streamState);
+    applyEmptyState(empty, 'No developmental milestones have been captured for this run yet.', streamState);
     narrative.appendChild(empty);
   } else {
     const line = el('div', 'mind-development-line');
-    for (const milestone of milestones) {
+    for (const milestone of visibleMilestones) {
       const event = el('button', 'mind-development-event');
       event.type = 'button';
       event.innerHTML = `
@@ -305,8 +361,8 @@ export function renderHistory({ onOpenHistoryTick = () => {} } = {}) {
   root.appendChild(narrative);
 
   const episodePanel = panelSection(
-    'Cognitive episodes',
-    'Observer-derived windows where structural, predictive or contextual change clustered together.',
+    'Cognitive episodes · current run',
+    'Observer-derived windows where structural, predictive or contextual change clustered together. Episodes never span run boundaries.',
   );
   episodePanel.classList.add('mind-development-episodes');
   if (!episodes.length) {
@@ -350,24 +406,24 @@ export function renderHistory({ onOpenHistoryTick = () => {} } = {}) {
   const measures = document.createElement('details');
   measures.className = 'mind-development-measures';
   const summary = document.createElement('summary');
-  summary.textContent = 'Longitudinal measures';
+  summary.textContent = 'Longitudinal measures · current run';
   measures.appendChild(summary);
   const charts = el('div', 'mind-development-charts');
   const energy = panelSection('Energy / physiology');
-  energy.appendChild(sparklineSvg(mindHistory.filter(point => point.energy != null), 'energy', PAL.coral));
+  energy.appendChild(sparklineSvg(currentRunHistory.filter(point => point.energy != null), 'energy', PAL.coral));
   const edges = panelSection('Cognitive relations');
-  edges.appendChild(sparklineSvg(mindHistory, 'edges', PAL.violet));
+  edges.appendChild(sparklineSvg(currentRunHistory, 'edges', PAL.violet));
   const concepts = panelSection('Concept growth');
-  concepts.appendChild(sparklineSvg(mindHistory, 'concepts', PAL.cyan));
+  concepts.appendChild(sparklineSvg(currentRunHistory, 'concepts', PAL.cyan));
   const predictors = panelSection('Predictor growth');
-  predictors.appendChild(sparklineSvg(mindHistory, 'predictors', PAL.amber));
+  predictors.appendChild(sparklineSvg(currentRunHistory, 'predictors', PAL.amber));
   const motor = panelSection('Motor-output relations');
-  motor.appendChild(sparklineSvg(mindHistory, 'motorEdges', '#e09f3e'));
+  motor.appendChild(sparklineSvg(currentRunHistory, 'motorEdges', '#e09f3e'));
   charts.append(energy, edges, concepts, predictors, motor);
   measures.appendChild(charts);
   root.appendChild(measures);
 
-  if (mindHistory.length) {
+  if (currentRunHistory.length) {
     const observer = panelSection(
       'Observer analysis',
       'Secondary analytical projection. It is not part of the organism and is never fed back.',
@@ -404,16 +460,15 @@ function snapshotForHistory(tick) {
   };
 }
 
-function registerMilestone(kind, label, tick, tone = 'info') {
+function registerMilestone(kind, label, tick, tone = 'info', runId = developmentScope.activeRunId) {
   if (!Number.isFinite(tick) || tick <= 0) return;
-  const existing = milestones.find((item) => item.kind === kind);
+  const canonicalRunId = normalizedRunId(runId);
+  const existing = milestones.find((item) => item.kind === kind && sameRun(item.runId, canonicalRunId));
   if (existing) {
     if (tick < existing.tick) existing.tick = tick;
-    milestones.sort((a, b) => a.tick - b.tick);
     return;
   }
-  milestones.push({ kind, label, tick, tone });
-  milestones.sort((a, b) => a.tick - b.tick);
+  milestones.push({ kind, label, tick, tone, runId: canonicalRunId });
 }
 
 function recordSelfPersistence(tick) {
@@ -477,10 +532,10 @@ function developmentSnapshotFingerprint(snapshot) {
   ]);
 }
 
-function shouldCaptureDevelopmentSnapshot(tick, captured) {
-  const last = historySnapshots.at(-1);
+function shouldCaptureDevelopmentSnapshot(tick, runId, captured) {
+  const last = [...historySnapshots].reverse().find((item) => sameRun(item.runId, runId));
   if (!last) return true;
-  if (tick - last.tick >= DEVELOPMENT_SNAPSHOT_MAX_GAP) return true;
+  if (Math.abs(tick - last.tick) >= DEVELOPMENT_SNAPSHOT_MAX_GAP) return true;
   return developmentSnapshotFingerprint(last.snapshot) !==
     developmentSnapshotFingerprint(captured.snapshot);
 }
@@ -489,10 +544,12 @@ export function recordMindHistory({ captureSnapshot = true, persist = true } = {
   if (!developmentScope.organismId) return;
   const tick = finiteNumber(tel.tick ?? snap.tick, 0);
   if (tick <= 0) return;
+  const runId = normalizedRunId(developmentScope.activeRunId ?? streamState.runId);
+  developmentScope.activeRunId = runId;
 
-  developmentScope.observedStartTick = developmentScope.observedStartTick == null
-    ? tick
-    : Math.min(developmentScope.observedStartTick, tick);
+  if (developmentScope.observedStartTick == null) {
+    developmentScope.observedStartTick = tick;
+  }
 
   recordSelfPersistence(tick);
   const topology = snap.topology ?? { nodes: [], edges: [] };
@@ -503,6 +560,7 @@ export function recordMindHistory({ captureSnapshot = true, persist = true } = {
   const topologyPredictors = nodes.filter((node) => node.kind === 'predictor').length;
   const point = {
     tick,
+    runId,
     concepts: tel.cognitiveConcepts != null
       ? finiteNumber(tel.cognitiveConcepts, topologyConcepts)
       : topologyConcepts,
@@ -533,37 +591,40 @@ export function recordMindHistory({ captureSnapshot = true, persist = true } = {
     selfDependencies: (snap.bodySchema?.dependencies ?? []).length,
   };
 
-  if (
-    developmentScope.baselinePoint == null ||
-    point.tick <= developmentScope.baselinePoint.tick
-  ) {
+  if (developmentScope.baselinePoint == null) {
     developmentScope.baselinePoint = { ...point };
   }
 
-  let pointIndex = mindHistory.findIndex((item) => item.tick >= point.tick);
-  if (pointIndex < 0) pointIndex = mindHistory.length;
-  const existingPoint = mindHistory[pointIndex]?.tick === point.tick
-    ? mindHistory[pointIndex]
-    : null;
-  const previous = pointIndex > 0 ? mindHistory[pointIndex - 1] : null;
-  if (existingPoint) {
-    Object.assign(existingPoint, point);
+  const existingIndex = mindHistory.findIndex(
+    (item) => item.tick === point.tick && sameRun(item.runId, runId),
+  );
+  const previous = [...mindHistory].reverse().find((item) => sameRun(item.runId, runId)) ?? null;
+  const previousObserved = mindHistory.at(-1) ?? null;
+  if (existingIndex >= 0) {
+    Object.assign(mindHistory[existingIndex], point);
   } else {
-    mindHistory.splice(pointIndex, 0, point);
+    if (previousObserved && !sameRun(previousObserved.runId, runId)) {
+      registerMilestone(
+        `run-boundary:${runId ?? 'unscoped'}`,
+        `Run boundary${runId ? ` · ${runId}` : ' · identity unavailable'}`,
+        tick,
+        'info',
+        runId,
+      );
+    }
+    mindHistory.push(point);
     while (mindHistory.length > 2048) mindHistory.shift();
   }
 
   if (captureSnapshot) {
-    const captured = { tick, snapshot: snapshotForHistory(tick) };
-    let snapshotIndex = historySnapshots.findIndex((item) => item.tick >= tick);
-    if (snapshotIndex < 0) snapshotIndex = historySnapshots.length;
-    if (historySnapshots[snapshotIndex]?.tick === tick) {
+    const captured = { tick, runId, snapshot: snapshotForHistory(tick) };
+    const snapshotIndex = historySnapshots.findIndex(
+      (item) => item.tick === tick && sameRun(item.runId, runId),
+    );
+    if (snapshotIndex >= 0) {
       historySnapshots[snapshotIndex] = captured;
-    } else if (
-      snapshotIndex < historySnapshots.length ||
-      shouldCaptureDevelopmentSnapshot(tick, captured)
-    ) {
-      historySnapshots.splice(snapshotIndex, 0, captured);
+    } else if (shouldCaptureDevelopmentSnapshot(tick, runId, captured)) {
+      historySnapshots.push(captured);
       while (historySnapshots.length > DEVELOPMENT_SNAPSHOT_LIMIT) {
         historySnapshots.shift();
       }
@@ -571,25 +632,25 @@ export function recordMindHistory({ captureSnapshot = true, persist = true } = {
   }
 
   if (!previous) {
-    registerMilestone('observer-attached', 'Observer attached', tick, 'info');
+    registerMilestone('observer-attached', 'Observer attached to run', tick, 'info', runId);
     if (persist) persistMindDevelopmentHistory();
     return;
   }
 
   if (previous.concepts === 0 && point.concepts > 0) {
-    registerMilestone('first-concept', 'First observed concept birth', tick, 'violet');
+    registerMilestone('first-concept', 'First observed concept birth', tick, 'violet', runId);
   }
   if (previous.predictors === 0 && point.predictors > 0) {
-    registerMilestone('first-predictor', 'First observed predictor birth', tick, 'amber');
+    registerMilestone('first-predictor', 'First observed predictor birth', tick, 'amber', runId);
   }
   if (previous.motorCompetences === 0 && point.motorCompetences > 0) {
-    registerMilestone('first-primitive', 'Motor competences became available', tick, 'cyan');
+    registerMilestone('first-primitive', 'Motor competences became available', tick, 'cyan', runId);
   }
   if (previous.repertoire === 0 && point.repertoire > 0) {
-    registerMilestone('first-repertoire', 'Motor repertoire became available', tick, 'mint');
+    registerMilestone('first-repertoire', 'Motor repertoire became available', tick, 'mint', runId);
   }
   if (previous.motorEdges === 0 && point.motorEdges > 0) {
-    registerMilestone('first-motor-edge', 'First observed cognition → motor edge', tick, 'mint');
+    registerMilestone('first-motor-edge', 'First observed cognition → motor edge', tick, 'mint', runId);
   }
 
   const lastCognitiveUse =
@@ -604,28 +665,33 @@ export function recordMindHistory({ captureSnapshot = true, persist = true } = {
       'First observed cognitive motor use',
       tick,
       'mint',
+      runId,
     );
   }
 
   if (previous.physiology !== point.physiology) {
     if (point.physiology === 'stressed') {
-      registerMilestone('stressed', 'Physiology → stressed', tick, 'coral');
+      registerMilestone('stressed', 'Physiology → stressed', tick, 'coral', runId);
     }
     if (point.physiology === 'dormant') {
-      registerMilestone('dormant', 'Physiology → dormant', tick, 'amber');
+      registerMilestone('dormant', 'Physiology → dormant', tick, 'amber', runId);
     }
     if (point.physiology === 'dead') {
-      registerMilestone('death', 'Death', tick, 'coral');
+      registerMilestone('death', 'Death', tick, 'coral', runId);
     }
   }
 
   if (persist) persistMindDevelopmentHistory();
 }
 
-export function nearestHistorySnapshot(tick) {
+export function nearestHistorySnapshot(tick, runId = developmentScope.activeRunId) {
+  const canonicalRunId = normalizedRunId(runId);
+  const scoped = canonicalRunId
+    ? historySnapshots.filter((item) => sameRun(item.runId, canonicalRunId))
+    : historySnapshots;
   let best = null;
   let distance = Infinity;
-  for (const item of historySnapshots) {
+  for (const item of scoped) {
     const candidateDistance = Math.abs(item.tick - tick);
     if (candidateDistance < distance) {
       best = item;

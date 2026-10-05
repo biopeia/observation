@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import threading
 import traceback
+import uuid
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Callable
@@ -31,6 +32,7 @@ class Physics3DSessionSnapshot:
     thread_alive: bool
     run_id: str | None = None
     organism_ref: str | None = None
+    body_ref: str | None = None
     body_kind: str | None = None
     startup_phase: str | None = None
     run_kind: str | None = None
@@ -45,6 +47,7 @@ class Physics3DSessionSnapshot:
             "thread_alive": self.thread_alive,
             "run_id": self.run_id,
             "organism_ref": self.organism_ref,
+            "body_ref": self.body_ref,
             "body_kind": self.body_kind,
             "startup_phase": self.startup_phase,
             "run_kind": self.run_kind,
@@ -78,6 +81,7 @@ class Physics3DSession:
         self._error: str | None = None
         self._traceback: str | None = None
         self._launch: Physics3DLaunchSpec | None = None
+        self._run_id: str | None = None
         self._startup_phase: str | None = None
         self._exit_cause: str | None = None
 
@@ -85,7 +89,17 @@ class Physics3DSession:
         with self._lock:
             if self._thread is not None and self._thread.is_alive():
                 return False
-            self._bridge = Physics3DObservationBridge(self._bus)
+            # Every live observation session has a Lab-owned run identity.  A
+            # managed launch uses its durable run id; ad-hoc --physics3d mode
+            # receives an ephemeral id so browser state can never be composed
+            # across distinct process lifecycles merely because both are local.
+            self._run_id = launch.run_id if launch is not None else f"local:{uuid.uuid4()}"
+            self._bridge = Physics3DObservationBridge(
+                self._bus,
+                run_id=self._run_id,
+                organism_id=launch.organism_ref if launch is not None else None,
+                body_id=launch.body_ref if launch is not None else None,
+            )
             self._state = Physics3DSessionState.STARTING
             self._exit_code = None
             self._error = None
@@ -221,8 +235,9 @@ class Physics3DSession:
                 error=self._error,
                 traceback=self._traceback,
                 thread_alive=bool(thread and thread.is_alive()),
-                run_id=launch.run_id if launch is not None else None,
+                run_id=self._run_id,
                 organism_ref=launch.organism_ref if launch is not None else None,
+                body_ref=launch.body_ref if launch is not None else None,
                 body_kind=launch.body_kind if launch is not None else None,
                 startup_phase=self._startup_phase,
                 run_kind=launch.run_kind.value if launch is not None else None,

@@ -29,12 +29,11 @@ export function computeObserverMapCoordinates({
     ? explicitActivity.filter(sense => sense.active).length / explicitActivity.length
     : 0;
 
-  // Activation/error classes are observer-derived whenever the canonical
-  // observation boundary supplies them separately.
-  const activationClasses =
-    observerAnalysis?.activationClasses ?? cognition?.activationClasses ?? {};
-  const predictionErrors =
-    observerAnalysis?.predictionErrors ?? cognition?.predictionErrors ?? {};
+  // Quantized activation/error classes are observer-derived facts. Legacy
+  // snapshots are normalized once in snapshot.js; renderers never reinterpret
+  // cognition as an observer-analysis namespace.
+  const activationClasses = observerAnalysis?.activationClasses ?? {};
+  const predictionErrors = observerAnalysis?.predictionErrors ?? {};
 
   const activationValues = Object.values(activationClasses)
     .map(value => classRatio(value, 15));

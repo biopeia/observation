@@ -67,7 +67,7 @@ def test_candidate_ci_is_not_duplicated_by_pr_or_main_push() -> None:
     workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
 
     assert "pull_request:" not in workflow
-    assert "branches: [agentctl/**, governance/**, refactor/*]" in workflow
+    assert "branches: [agentctl/**, governance/**, refactor/*, fix/*]" in workflow
     assert "branches: [main" not in workflow
     assert "merge_group:" in workflow
     assert "cancel-in-progress: true" in workflow
