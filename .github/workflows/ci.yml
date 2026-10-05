@@ -5,7 +5,7 @@ on:
   # not execute the same CI a second time, and moving an already validated SHA
   # into main does not execute it a third time.
   push:
-    branches: [agentctl/**, governance/**, refactor/*]
+    branches: [agentctl/**, governance/**, refactor/*, fix/*]
   # Ready for GitHub merge queue: the queue validates the composed tree.
   merge_group:
   workflow_dispatch:

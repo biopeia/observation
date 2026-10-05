@@ -231,9 +231,14 @@ def make_handler(
                             "organism_id",
                             "instance_id",
                             "run_id",
+                            "body_id",
+                            "embodiment_id",
+                            "topology_revision",
+                            "body",
                             "cognition",
                             "vitals",
                             "mind",
+                            "provenance",
                         )
                         if key in frame
                     }

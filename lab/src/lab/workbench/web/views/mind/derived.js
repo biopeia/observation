@@ -8,10 +8,14 @@ export function currentMotorOutputEdges(topology = snap.topology) {
 }
 
 export function currentPhysiologyState() {
-  return String(
-    snap.organismState?.state ??
-    (tel.alive === false ? 'dead' : 'active')
-  ).toLowerCase();
+  const explicit = snap.organismState?.state;
+  if (explicit != null && String(explicit).trim()) {
+    return String(explicit).toLowerCase();
+  }
+  if (tel.alive === true) return 'active';
+  if (tel.alive === false) return 'dead';
+  // Absence is epistemic uncertainty, not evidence that the organism is active.
+  return 'unknown';
 }
 
 

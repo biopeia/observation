@@ -40,6 +40,8 @@ def test_uncontacted_objects_are_invisible_but_contact_changes_opaque_receptors(
     scene = PhysicsScene(timestep=1.0 / 240.0)
     descriptor = DEFAULT_BODY_REGISTRY.get(kind)
     apparatus = descriptor.apparatus_factory(scene)
+    if apparatus.SPEC.fixed_base:
+        pytest.skip("contact relocation probe requires a free-root apparatus")
     # Touch receptors only: the visual array, where present, is another channel.
     start = len(descriptor.observer_joint_specs) * 2 + 10
     contact_ids = [f"rec.{start + i}" for i in range(len(descriptor.observer_contact_region_names))]
