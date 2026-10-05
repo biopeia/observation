@@ -153,7 +153,8 @@ def test_context_key_is_stable_and_order_sensitive():
     first = context_key_for(("a", "b"))
     assert first == context_key_for(("a", "b"))
     assert first != context_key_for(("b", "a"))
-    assert "a" not in first and "b" not in first
+    assert first.startswith("value-context.")
+    assert len(first.removeprefix("value-context.")) == 24
 
 
 def test_checkpoint_roundtrip_preserves_statistics_and_context():
