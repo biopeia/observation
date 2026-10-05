@@ -88,7 +88,9 @@ def make_handler(
                 return
             body = path.read_bytes()
             self.send_response(200)
-            self.send_header("Content-Type", _STATIC_TYPES.get(path.suffix.lower(), "application/octet-stream"))
+            self.send_header(
+                "Content-Type", _STATIC_TYPES.get(path.suffix.lower(), "application/octet-stream")
+            )
             self.send_header("Content-Length", str(len(body)))
             self.send_header("Cache-Control", "no-cache")
             self._security_headers()
@@ -223,7 +225,14 @@ def make_handler(
                 except ValueError:
                     self._json(400, {"error": "invalid provenance depth"})
                     return
-                if not kind or not ref_id or len(kind) > 64 or len(ref_id) > 512 or depth < 1 or depth > 24:
+                if (
+                    not kind
+                    or not ref_id
+                    or len(kind) > 64
+                    or len(ref_id) > 512
+                    or depth < 1
+                    or depth > 24
+                ):
                     self._json(400, {"error": "invalid provenance reference"})
                     return
                 payload = causal_provenance_query(kind, ref_id, depth)
@@ -311,7 +320,9 @@ def make_handler(
                     self._json(503, {"error": "organism catalog unavailable"})
                     return
                 try:
-                    result = organism_alias_setter(str(payload.get("ref") or ""), payload.get("alias"))
+                    result = organism_alias_setter(
+                        str(payload.get("ref") or ""), payload.get("alias")
+                    )
                 except ValueError as exc:
                     self._json(400, {"error": str(exc)})
                     return
