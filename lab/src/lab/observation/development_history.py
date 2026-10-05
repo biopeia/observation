@@ -103,9 +103,7 @@ def _point(
         "schemaConfidence": _number(summary.get("schema_confidence")),
         "predictionError": _number(summary.get("prediction_error")),
         "motorOrigin": (
-            summary.get("action_source")
-            if isinstance(summary.get("action_source"), str)
-            else None
+            summary.get("action_source") if isinstance(summary.get("action_source"), str) else None
         ),
         "energy": _number(summary.get("metabolic_reserve_ratio")),
         "physiology": physiology,
@@ -175,9 +173,7 @@ def _managed_runs(runs_dir: Path, organism_id: str) -> list[dict[str, Any]]:
             {
                 "run_id": str(lab_manifest.get("run_id") or run_dir.name),
                 "started_at": str(
-                    lab_manifest.get("started_at")
-                    or telemetry_manifest.get("started_at_utc")
-                    or ""
+                    lab_manifest.get("started_at") or telemetry_manifest.get("started_at_utc") or ""
                 ),
                 "reader": reader,
                 "telemetry_manifest": telemetry_manifest,
