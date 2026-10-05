@@ -79,3 +79,23 @@ def test_compound_anatomy_does_not_assume_one_material_per_segment() -> None:
     assert "setSegmentInspectorHighlight" in viewer
     assert "const group = new THREE.Group()" in anatomy
     assert "mesh.material.emissive.setHex(activity" not in viewer
+
+
+def test_body_viewer_applies_body_request_that_arrives_before_catalog() -> None:
+    viewer = _read(VIEWER)
+    loader = viewer[
+        viewer.index("async loadBodyModels()") : viewer.index("ensureBodyModel(bodyKind)")
+    ]
+
+    assert "this.requestedBodyKind = this.activeBodyKind" in viewer
+    assert "this.requestedBodyKind = requested" in viewer
+    assert "this.ensureBodyModel(this.requestedBodyKind)" in loader
+
+
+def test_robotic_arm_presentation_uses_link_axis_geometry_not_humanoid_limb_shape() -> None:
+    anatomy = _read(ANATOMY)
+
+    assert "isRoboticArmBody(bodyKind)" in anatomy
+    assert "createRoboticArmSegment(segName, seg)" in anatomy
+    assert "shaft.rotation.z = Math.PI / 2" in anatomy
+    assert "segName === 'arm_base'" in anatomy

@@ -9,6 +9,8 @@ import * as THREE from 'three';
 
 const HUMANOID_SKIN = 0xb58b73;
 const TECHNICAL_NEUTRAL = 0x708293;
+const ARM_ALLOY = 0x8798a8;
+const ARM_JOINT = 0x3d6d91;
 
 function materialFor(segName, humanoid) {
   const color = humanoid ? HUMANOID_SKIN : TECHNICAL_NEUTRAL;
@@ -114,12 +116,75 @@ function isHumanoidBody(bodyKind) {
   return kind.includes('anthrop') || kind.includes('humanoid');
 }
 
+function isRoboticArmBody(bodyKind) {
+  return String(bodyKind || '').toLowerCase().includes('robotic-arm');
+}
+
+function createRoboticArmSegment(segName, seg) {
+  const [width, depth, height] = seg.wdh.map(Number);
+  const group = new THREE.Group();
+  const housing = new THREE.MeshStandardMaterial({
+    color: ARM_ALLOY,
+    roughness: 0.42,
+    metalness: 0.68,
+  });
+  const joint = new THREE.MeshStandardMaterial({
+    color: ARM_JOINT,
+    roughness: 0.5,
+    metalness: 0.55,
+  });
+
+  if (segName === 'arm_base') {
+    const pedestal = new THREE.Mesh(
+      new THREE.CylinderGeometry(Math.max(width, depth) * 0.48, Math.max(width, depth) * 0.5, height * 0.92, 32),
+      housing,
+    );
+    group.add(pedestal);
+    const foot = new THREE.Mesh(
+      new THREE.CylinderGeometry(Math.max(width, depth) * 0.5, Math.max(width, depth) * 0.5, height * 0.12, 32),
+      joint,
+    );
+    foot.position.y = -height * 0.42;
+    group.add(foot);
+  } else {
+    // The arm's links extend along the local X axis. The humanoid limb helper
+    // assumes vertical limbs and collapses these short-thickness links.
+    const radius = Math.max(depth, height) * 0.43;
+    const shaft = new THREE.Mesh(
+      new THREE.CylinderGeometry(radius * 0.84, radius, Math.max(width * 0.9, radius), 24, 2),
+      housing,
+    );
+    shaft.rotation.z = Math.PI / 2;
+    group.add(shaft);
+    for (const sign of [-1, 1]) {
+      const collar = new THREE.Mesh(
+        new THREE.CylinderGeometry(radius * 1.18, radius * 1.18, Math.max(radius * 0.38, 0.018), 20),
+        joint,
+      );
+      collar.rotation.z = Math.PI / 2;
+      collar.position.x = sign * width * 0.38;
+      group.add(collar);
+    }
+  }
+
+  group.name = `${segName}_mesh`;
+  group.traverse((mesh) => {
+    if (!mesh.isMesh) return;
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    mesh.userData.segmentName = segName;
+    mesh.userData.visualRole = 'surface';
+  });
+  return group;
+}
+
 /**
  * Create one smooth observer-side segment while preserving the physical
  * segment origin, scale and parent transform.
  */
 export function createAnatomicalSegment(segName, seg, bodyKind) {
   const [width, depth, height] = seg.wdh.map(Number);
+  if (isRoboticArmBody(bodyKind)) return createRoboticArmSegment(segName, seg);
   const humanoid = isHumanoidBody(bodyKind);
   const material = materialFor(segName, humanoid);
 
