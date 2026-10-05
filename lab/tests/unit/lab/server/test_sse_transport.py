@@ -47,6 +47,7 @@ def test_stream_organism_never_parses_serialized_payload(monkeypatch):
         def __init__(self):
             self.consumer = Consumer()
             self.unsubscribed = False
+            self.disconnects = 0
 
         def subscribe(self, after_sequence=None):
             assert after_sequence is None
@@ -55,6 +56,9 @@ def test_stream_organism_never_parses_serialized_payload(monkeypatch):
         def unsubscribe(self, consumer):
             assert consumer is self.consumer
             self.unsubscribed = True
+
+        def note_client_disconnect(self):
+            self.disconnects += 1
 
     class Writer:
         def __init__(self):
@@ -94,6 +98,7 @@ def test_stream_organism_never_parses_serialized_payload(monkeypatch):
     assert handler.responses == [200]
     assert bytes(handler.wfile.data) == b'id: 7\ndata: {"type":"vitals","tick":2}\n\n'
     assert handler.wfile.flushes == 1
+    assert stream.disconnects == 1
     assert stream.unsubscribed is True
 
 
