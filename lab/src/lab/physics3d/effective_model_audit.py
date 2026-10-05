@@ -1,7 +1,9 @@
-"""Read-only audit of declared Physics3D apparatus against compiled MuJoCo truth.
+"""Read-only audit of Physics3D declarations against compiled MuJoCo truth.
 
 The audit never mutates MjSpec, MjModel, MjData or sensor state. It records
-source declarations, compiled values and the relationship between them.
+what source declarations say, what MuJoCo actually compiled, and whether the
+relationship is exact, transformed, runtime-enforced, implicit, missing,
+provisional, or mismatched.
 """
 
 from __future__ import annotations
@@ -10,13 +12,23 @@ import hashlib
 import json
 import math
 import platform
+from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 from embodiment.physics3d.articulated import ArticulatedBodySpec
 from embodiment.physics3d.mechanics import SurfaceMaterial
 
 AUDIT_SCHEMA_VERSION = 1
+_RELATIONS = (
+    "exact",
+    "transformed",
+    "runtime",
+    "implicit",
+    "missing",
+    "provisional",
+    "mismatch",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,6 +45,7 @@ class AuditFinding:
 
 
 def _plain(value: Any) -> Any:
+    """Convert backend values into deterministic JSON-compatible primitives."""
     if value is None or isinstance(value, (str, int, float, bool)):
         return value
     if hasattr(value, "tolist"):
@@ -58,7 +71,9 @@ def _same(left: object, right: object, tolerance: float = 1e-9) -> bool:
     if isinstance(left, Sequence) and not isinstance(left, (str, bytes)):
         if not isinstance(right, Sequence) or isinstance(right, (str, bytes)):
             return False
-        return len(left) == len(right) and all(_same(a, b, tolerance) for a, b in zip(left, right))
+        return len(left) == len(right) and all(
+            _same(first, second, tolerance) for first, second in zip(left, right)
+        )
     return left == right
 
 
@@ -70,7 +85,16 @@ def _finding(
     severity: str = "info",
     note: str = "",
 ) -> AuditFinding:
-    return AuditFinding(path, _plain(declared), _plain(effective), relation, severity, note)
+    if relation not in _RELATIONS:
+        raise ValueError(f"unknown audit relation: {relation}")
+    return AuditFinding(
+        path=path,
+        declared=_plain(declared),
+        effective=_plain(effective),
+        relation=relation,
+        severity=severity,
+        note=note,
+    )
 
 
 def _enum_name(value: Any) -> str:
@@ -125,8 +149,9 @@ def _options(scene: Any) -> dict[str, object]:
 
 
 def _inventory(scene: Any) -> dict[str, object]:
+    """Complete compiled inventory needed to inspect the active apparatus."""
     model = scene.model
-    bodies = []
+    bodies: list[dict[str, object]] = []
     for identifier in range(int(model.nbody)):
         bodies.append(
             {
@@ -139,7 +164,8 @@ def _inventory(scene: Any) -> dict[str, object]:
                 "mocap_id": int(model.body_mocapid[identifier]),
             }
         )
-    joints = []
+
+    joints: list[dict[str, object]] = []
     for identifier in range(int(model.njnt)):
         dof = int(model.jnt_dofadr[identifier])
         joints.append(
@@ -154,7 +180,8 @@ def _inventory(scene: Any) -> dict[str, object]:
                 "solimp_limit": _plain(model.jnt_solimp[identifier]),
             }
         )
-    geoms = []
+
+    geoms: list[dict[str, object]] = []
     for identifier in range(int(model.ngeom)):
         body = int(model.geom_bodyid[identifier])
         geoms.append(
@@ -171,6 +198,7 @@ def _inventory(scene: Any) -> dict[str, object]:
                 "conaffinity": int(model.geom_conaffinity[identifier]),
             }
         )
+
     return {
         "counts": {
             "nbody": int(model.nbody),
@@ -187,22 +215,26 @@ def _inventory(scene: Any) -> dict[str, object]:
     }
 
 
-def _scene_findings(scene: Any, timestep: float, gravity: Sequence[float]) -> list[AuditFinding]:
+def _scene_findings(
+    scene: Any, timestep: float, gravity: Sequence[float]
+) -> list[AuditFinding]:
     options = _options(scene)
+    timestep_ok = _same(timestep, options.get("timestep"))
+    gravity_ok = _same(list(gravity), options.get("gravity"))
     findings = [
         _finding(
             "scene.timestep",
             timestep,
             options.get("timestep"),
-            "exact" if _same(timestep, options.get("timestep")) else "mismatch",
-            "info" if _same(timestep, options.get("timestep")) else "error",
+            "exact" if timestep_ok else "mismatch",
+            "info" if timestep_ok else "error",
         ),
         _finding(
             "scene.gravity",
             list(gravity),
             options.get("gravity"),
-            "exact" if _same(list(gravity), options.get("gravity")) else "mismatch",
-            "info" if _same(list(gravity), options.get("gravity")) else "error",
+            "exact" if gravity_ok else "mismatch",
+            "info" if gravity_ok else "error",
         ),
     ]
     for field in (
@@ -295,7 +327,31 @@ def _segment_findings(scene: Any, spec: ArticulatedBodySpec) -> list[AuditFindin
     model = scene.model
     findings: list[AuditFinding] = []
     for name, source in sorted(spec.segments.items()):
-        identifier = scene.name_to_id("body", f"body.{name}")
+        try:
+            identifier = scene.name_to_id("body", f"body.{name}")
+        except KeyError:
+            findings.extend(
+                [
+                    _finding(
+                        f"segment.{name}.mass",
+                        source.mass,
+                        None,
+                        "missing",
+                        "warning",
+                        "SegmentSpec exists but no independently compiled MuJoCo body has this name.",
+                    ),
+                    _finding(
+                        f"segment.{name}.compiled_inertia",
+                        {"size": source.size, "origin": source.origin},
+                        None,
+                        "missing",
+                        "warning",
+                        "No compiled body exists from which effective inertia can be read.",
+                    ),
+                ]
+            )
+            continue
+
         mass = float(model.body_mass[identifier])
         mass_ok = _same(source.mass, mass, 1e-6)
         findings.extend(
@@ -326,15 +382,24 @@ def _segment_findings(scene: Any, spec: ArticulatedBodySpec) -> list[AuditFindin
 def _material_findings(
     path: str,
     material: Any,
-    effective_friction: Sequence[float] | Sequence[Sequence[float]] | None,
+    effective_friction: object,
 ) -> list[AuditFinding]:
-    expected = [material.lateral_friction, material.spinning_friction, material.rolling_friction]
+    expected = [
+        material.lateral_friction,
+        material.spinning_friction,
+        material.rolling_friction,
+    ]
     if effective_friction is None:
         friction_ok = False
-    elif effective_friction and isinstance(effective_friction[0], Sequence):
+    elif (
+        isinstance(effective_friction, Sequence)
+        and effective_friction
+        and isinstance(effective_friction[0], Sequence)
+    ):
         friction_ok = all(_same(expected, item, 1e-7) for item in effective_friction)
     else:
         friction_ok = _same(expected, effective_friction, 1e-7)
+
     findings = [
         _finding(
             f"{path}.friction",
@@ -371,7 +436,16 @@ def _ground_findings(scene: Any, material: SurfaceMaterial) -> list[AuditFinding
     try:
         identifier = scene.name_to_id("geom", "ground")
     except KeyError:
-        return [_finding("material.ground", asdict(material), None, "missing", "error", "Ground geom is absent.")]
+        return [
+            _finding(
+                "material.ground",
+                asdict(material),
+                None,
+                "missing",
+                "error",
+                "Ground geom is absent from the compiled scene.",
+            )
+        ]
     friction = [float(value) for value in scene.model.geom_friction[identifier]]
     return _material_findings("material.ground", material, friction)
 
@@ -390,7 +464,9 @@ def _resource_findings(scene: Any, resource: Any | None) -> list[AuditFinding]:
     return _material_findings("material.resource", RESOURCE_MATERIAL, friction)
 
 
-def _environment_findings(scene: Any, recipe: Mapping[str, Any] | None) -> list[AuditFinding]:
+def _environment_findings(
+    scene: Any, recipe: Mapping[str, Any] | None
+) -> list[AuditFinding]:
     if recipe is None:
         return []
     findings: list[AuditFinding] = []
@@ -402,8 +478,18 @@ def _environment_findings(scene: Any, recipe: Mapping[str, Any] | None) -> list[
             if _body_name(scene, int(scene.model.geom_bodyid[geom])) == body_name
         ]
         if not geoms:
-            findings.append(_finding(f"environment.{body_name}", fixture, None, "missing", "error"))
+            findings.append(
+                _finding(
+                    f"environment.{body_name}",
+                    fixture,
+                    None,
+                    "missing",
+                    "error",
+                    "Declared fixture has no compiled geometry.",
+                )
+            )
             continue
+
         geom = geoms[0]
         if fixture.get("motion"):
             masks = {
@@ -422,6 +508,7 @@ def _environment_findings(scene: Any, recipe: Mapping[str, Any] | None) -> list[
                 )
             )
             continue
+
         friction = [float(value) for value in scene.model.geom_friction[geom]]
         lateral_ok = _same(fixture.get("friction"), friction[0], 1e-7)
         findings.extend(
@@ -454,18 +541,40 @@ def _vision_findings(apparatus: Any) -> list[AuditFinding]:
 
     topology_count = len(getattr(visual.topology, "neighbours", {}))
     receptor_count = len(visual.receptor_ids)
+    topology_ok = receptor_count == topology_count
     return [
         _finding(
             "vision.receptor_topology",
             receptor_count,
             topology_count,
-            "exact" if receptor_count == topology_count else "mismatch",
-            "info" if receptor_count == topology_count else "error",
+            "exact" if topology_ok else "mismatch",
+            "info" if topology_ok else "error",
             "Checks topology completeness without sampling or mutating the sensor.",
         ),
-        _finding("vision.background_luminance", None, BACKGROUND_LUMINANCE, "provisional", "warning", "Pending apparatus qualification."),
-        _finding("vision.ambient_fraction", None, AMBIENT_FRACTION, "provisional", "warning", "Pending apparatus qualification."),
-        _finding("vision.light_direction", None, LIGHT_DIRECTION, "provisional", "warning", "Pending apparatus qualification."),
+        _finding(
+            "vision.background_luminance",
+            None,
+            BACKGROUND_LUMINANCE,
+            "provisional",
+            "warning",
+            "Pending apparatus qualification.",
+        ),
+        _finding(
+            "vision.ambient_fraction",
+            None,
+            AMBIENT_FRACTION,
+            "provisional",
+            "warning",
+            "Pending apparatus qualification.",
+        ),
+        _finding(
+            "vision.light_direction",
+            None,
+            LIGHT_DIRECTION,
+            "provisional",
+            "warning",
+            "Pending apparatus qualification.",
+        ),
     ]
 
 
@@ -479,8 +588,9 @@ def audit_effective_model(
     ground_material: SurfaceMaterial,
     resource: Any | None = None,
     environment_recipe: Mapping[str, Any] | None = None,
+    report_body_kind: str | None = None,
 ) -> dict[str, object]:
-    """Return a deterministic JSON-safe audit for one already compiled scene."""
+    """Return a deterministic JSON-safe audit for one compiled scene."""
     findings = [
         *_scene_findings(scene, declared_timestep, declared_gravity),
         *_joint_findings(scene, body_spec),
@@ -496,27 +606,20 @@ def audit_effective_model(
         "total": len(findings),
         "errors": sum(item.severity == "error" for item in findings),
         "warnings": sum(item.severity == "warning" for item in findings),
-        **{
-            relation: sum(item.relation == relation for item in findings)
-            for relation in (
-                "exact",
-                "transformed",
-                "runtime",
-                "implicit",
-                "missing",
-                "provisional",
-                "mismatch",
-            )
-        },
+        **{relation: sum(item.relation == relation for item in findings) for relation in _RELATIONS},
     }
     report: dict[str, object] = {
         "schema_version": AUDIT_SCHEMA_VERSION,
-        "body_kind": body_spec.body_kind,
+        "body_kind": report_body_kind or body_spec.body_kind,
+        "source_body_kind": body_spec.body_kind,
         "engine": {
             "name": "mujoco",
             "version": str(getattr(scene.mj, "__version__", "unknown")),
         },
-        "host": {"python": platform.python_version(), "platform": platform.platform()},
+        "host": {
+            "python": platform.python_version(),
+            "platform": platform.platform(),
+        },
         "model": _inventory(scene),
         "findings": [item.as_dict() for item in findings],
         "summary": summary,
@@ -532,4 +635,9 @@ def report_json(report: Mapping[str, object], *, pretty: bool = True) -> str:
     return json.dumps(report, sort_keys=True, separators=(",", ":")) + "\n"
 
 
-__all__ = ["AUDIT_SCHEMA_VERSION", "AuditFinding", "audit_effective_model", "report_json"]
+__all__ = [
+    "AUDIT_SCHEMA_VERSION",
+    "AuditFinding",
+    "audit_effective_model",
+    "report_json",
+]
