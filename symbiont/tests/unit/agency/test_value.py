@@ -1,4 +1,4 @@
-"""Unit tests for OutcomeValueLedger — Welford statistics, eviction, checkpoint."""
+"""Unit tests for OutcomeValueLedger — statistics, context, eviction, checkpoint."""
 
 from __future__ import annotations
 
@@ -6,7 +6,11 @@ import math
 
 import pytest
 
-from symbiont.agency.value import MAX_OUTCOME_VALUES, OutcomeValueLedger
+from symbiont.agency.value import (
+    MAX_OUTCOME_VALUES,
+    OutcomeValueLedger,
+    context_key_for,
+)
 
 
 def test_empty_ledger_estimate_returns_none():
@@ -58,13 +62,12 @@ def test_confidence_saturates_at_16_samples():
         ledger.observe("outcome.c", 0.1, tick=tick)
     est = ledger.estimate("outcome.c")
     assert est is not None
-    assert est.confidence == 1.0  # saturates at 16 samples
+    assert est.confidence == 1.0
 
 
 def test_confidence_grows_with_samples():
     ledger = OutcomeValueLedger()
     ledger.observe("outcome.d", 0.5, tick=0)
-    est4 = None
     for tick in range(1, 5):
         ledger.observe("outcome.d", 0.5, tick=tick)
     est4 = ledger.estimate("outcome.d")
@@ -82,7 +85,7 @@ def test_clamping_to_minus_one_plus_one():
     ledger.observe("outcome.extreme", -999.0, tick=1)
     est = ledger.estimate("outcome.extreme")
     assert est is not None
-    assert est.mean_value == 0.0  # (1.0 + -1.0) / 2
+    assert est.mean_value == 0.0
 
 
 def test_nan_observation_silently_ignored():
@@ -107,28 +110,68 @@ def test_capacity_enforced_at_256():
 
 def test_eviction_removes_lowest_evidence_entry():
     ledger = OutcomeValueLedger()
-    # Fill to capacity
     for i in range(MAX_OUTCOME_VALUES):
-        # Give most entries 2 samples
         ledger.observe(f"outcome.{i:04d}", 0.5, tick=0)
         ledger.observe(f"outcome.{i:04d}", 0.5, tick=1)
-    # The entry "outcome.0000" and friends all have 2 samples now.
-    # Create a weakly-observed outcome:
     ledger.observe("outcome.new_weak", 0.5, tick=2)
-    # At this point one entry must have been evicted
     assert ledger.known_outcome_count == MAX_OUTCOME_VALUES
 
 
-def test_checkpoint_roundtrip_preserves_statistics():
+def test_same_outcome_can_have_opposite_value_in_two_private_contexts():
     ledger = OutcomeValueLedger()
+    low = context_key_for(("sense.rec.103", "state.sense.x.level.1"))
+    high = context_key_for(("sense.rec.103", "state.sense.x.level.6"))
+
+    for tick in range(4):
+        ledger.observe("outcome.same", 0.6, tick=tick, context_key=low)
+        ledger.observe("outcome.same", -0.5, tick=tick, context_key=high)
+
+    low_value = ledger.estimate("outcome.same", context_key=low)
+    high_value = ledger.estimate("outcome.same", context_key=high)
+    global_value = ledger.estimate("outcome.same")
+
+    assert low_value is not None and low_value.mean_value > 0.0
+    assert high_value is not None and high_value.mean_value < 0.0
+    assert global_value is not None
+    assert low_value.mean_value != high_value.mean_value
+
+
+def test_unknown_context_falls_back_to_global_value():
+    ledger = OutcomeValueLedger()
+    known = context_key_for(("state.sense.a.level.1",))
+    unknown = context_key_for(("state.sense.a.level.7",))
+    ledger.observe("outcome.a", 0.4, tick=1, context_key=known)
+
+    contextual_fallback = ledger.estimate("outcome.a", context_key=unknown)
+    global_value = ledger.estimate("outcome.a")
+
+    assert contextual_fallback is not None and global_value is not None
+    assert contextual_fallback.mean_value == global_value.mean_value
+
+
+def test_context_key_is_stable_and_order_sensitive():
+    first = context_key_for(("a", "b"))
+    assert first == context_key_for(("a", "b"))
+    assert first != context_key_for(("b", "a"))
+    assert "a" not in first and "b" not in first
+
+
+def test_checkpoint_roundtrip_preserves_statistics_and_context():
+    ledger = OutcomeValueLedger()
+    context = context_key_for(("state.sense.a.level.2",))
     for tick in range(8):
-        ledger.observe("outcome.roundtrip", tick * 0.1 - 0.4, tick=tick)
+        ledger.observe(
+            "outcome.roundtrip",
+            tick * 0.1 - 0.4,
+            tick=tick,
+            context_key=context,
+        )
 
     checkpoint = ledger.checkpoint()
     restored = OutcomeValueLedger.restore(checkpoint)
 
-    original = ledger.estimate("outcome.roundtrip")
-    roundtripped = restored.estimate("outcome.roundtrip")
+    original = ledger.estimate("outcome.roundtrip", context_key=context)
+    roundtripped = restored.estimate("outcome.roundtrip", context_key=context)
 
     assert original is not None
     assert roundtripped is not None
@@ -136,6 +179,27 @@ def test_checkpoint_roundtrip_preserves_statistics():
     assert abs(original.variance - roundtripped.variance) < 1e-9
     assert original.samples == roundtripped.samples
     assert original.confidence == roundtripped.confidence
+    assert restored.contextual_outcome_count == 1
+
+
+def test_restore_accepts_v1_global_checkpoint():
+    checkpoint = {
+        "schema_version": 1,
+        "stats": {
+            "outcome.valid": {
+                "samples": 5,
+                "mean": 0.3,
+                "m2": 0.02,
+                "positive": 3,
+                "negative": 1,
+                "last_tick": 10,
+            }
+        },
+    }
+    restored = OutcomeValueLedger.restore(checkpoint)
+    estimate = restored.estimate("outcome.valid")
+    assert estimate is not None and estimate.mean_value == pytest.approx(0.3)
+    assert restored.contextual_outcome_count == 0
 
 
 def test_restore_fails_closed_on_unknown_schema():
