@@ -142,10 +142,8 @@ class GenerativeCognitionReleaseGateReport:
 def _run_gc_e5(*, episodes: int) -> FactualContaminationGate:
     resident = ResidentGenerativeCognition(organism_id="gc-release-e5")
     resident.register_model(_FalsePredictionModel())
-    # This gate acts as the factual evaluator. It owns only outcomes it has
-    # emitted and exposes those references after recording each outcome.
     factual_evidence_refs: set[str] = set()
-    resident.set_factual_evidence_resolver(lambda ref: ref in factual_evidence_refs)
+    resident.set_factual_evidence_resolver(factual_evidence_refs.__contains__)
     all_non_observed = True
 
     for index in range(episodes):
@@ -160,6 +158,9 @@ def _run_gc_e5(*, episodes: int) -> FactualContaminationGate:
             state.origin != "observed" for state in snapshot.states
         )
         evidence_ref = f"evidence.gc-e5.{index}"
+        # The study's factual ledger stands in for the runtime-owned canonical
+        # evidence store. Only refs materialised here are allowed through the
+        # same fail-closed reconciliation boundary used in production.
         factual_evidence_refs.add(evidence_ref)
         resident.note_factual_outcome(
             action_id=action_id,

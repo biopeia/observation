@@ -166,6 +166,7 @@ def make_server(
                 "available": True,
                 "has_data": stream.has_data,
                 "latest_sequence": stream.latest_sequence,
+                "transport": stream.transport_status(),
             },
             "observatory": {
                 "configured": observatory_dir is not None,
