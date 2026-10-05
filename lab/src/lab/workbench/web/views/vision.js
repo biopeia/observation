@@ -1,7 +1,17 @@
 import { MindStreams } from './mind/streams.js';
 import { applyTelemetryEvent } from './mind/telemetry.js';
 import { applyMindSnapshot } from './mind/snapshot.js';
-import { snap, streamState, tel } from './mind/state.js';
+import { resetMindDataState, snap, streamState, tel } from './mind/state.js';
+import {
+  displayObservedCount,
+  frameTimedOut,
+  observedCollectionCount,
+  observedFiniteNumber,
+  observedTopologyCounts,
+  refreshFrameCoherence,
+} from './shared/observation-semantics.js';
+
+const STALE_AFTER_MS = 5000;
 
 let rootNode = null;
 let lastState = null;
@@ -17,6 +27,10 @@ function physics(state) {
   return state?.sources?.physics3d ?? {};
 }
 
+function physicsRunning(state) {
+  return ['starting', 'running', 'stopping'].includes(physics(state).state);
+}
+
 function hasVisualApparatus(p) {
   return String(p?.body_kind || '').includes('vision');
 }
@@ -26,25 +40,24 @@ function visionExperienceActive(p) {
 }
 
 function topologyStats() {
-  const nodes = snap.topology?.nodes ?? [];
-  const senses = nodes.filter(node => node.kind === 'sense').length;
-  const concepts = nodes.filter(node => node.kind === 'concept').length;
-  const predictors = nodes.filter(node => node.kind === 'predictor').length;
-  const readouts = nodes.filter(node => node.kind === 'readout').length;
-  return { senses, concepts, predictors, readouts };
+  return observedTopologyCounts(snap.topology, snap.availability?.topology);
 }
 
 function sensoryStats() {
   const sensors = Array.isArray(snap.sensoryPhenotype?.sensors)
     ? snap.sensoryPhenotype.sensors
     : [];
-  const development = Array.isArray(snap.sensoryDevelopment)
-    ? snap.sensoryDevelopment
-    : [];
-  const relations = Array.isArray(snap.sensoryRelations)
-    ? snap.sensoryRelations
-    : [];
-  return { sensors, development, relations };
+  return {
+    sensors: observedCollectionCount(snap.availability?.sensoryPhenotype, sensors),
+    development: observedCollectionCount(
+      snap.availability?.sensoryDevelopment,
+      snap.sensoryDevelopment,
+    ),
+    relations: observedCollectionCount(
+      snap.availability?.sensoryRelations,
+      snap.sensoryRelations,
+    ),
+  };
 }
 
 function fieldCells(apparatus, live) {
@@ -67,7 +80,7 @@ function modeNav() {
 function discoveryBody({ apparatus, visionLive }) {
   const topology = topologyStats();
   const sensory = sensoryStats();
-  const predictionError = Number(tel.predictionError);
+  const predictionError = observedFiniteNumber(tel.predictionError);
 
   return `
     <div class="v2-two-col">
@@ -89,11 +102,12 @@ function discoveryBody({ apparatus, visionLive }) {
         <h3>What can be measured without inventing visual semantics</h3>
         <div class="v2-facts">
           <div><span>Stream</span><strong>${esc(streamState.status || 'disconnected')}</strong></div>
-          <div><span>Frame coherence</span><strong>${streamState.coherent ? 'coherent' : 'partial'}</strong></div>
-          <div><span>Admitted senses · all modalities</span><strong>${sensory.sensors.length || '—'}</strong></div>
-          <div><span>Sense nodes · all modalities</span><strong>${topology.senses}</strong></div>
-          <div><span>Predictors · all modalities</span><strong>${topology.predictors}</strong></div>
-          <div><span>Prediction error</span><strong>${Number.isFinite(predictionError) ? predictionError.toFixed(3) : '—'}</strong></div>
+          <div><span>Frame consistency</span><strong>${streamState.coherent ? 'coherent' : 'partial'}</strong></div>
+          <div><span>Freshness</span><strong>${streamState.stale ? 'stale' : 'live'}</strong></div>
+          <div><span>Admitted senses · all modalities</span><strong>${displayObservedCount(sensory.sensors)}</strong></div>
+          <div><span>Sense nodes · all modalities</span><strong>${displayObservedCount(topology.senses)}</strong></div>
+          <div><span>Predictors · all modalities</span><strong>${displayObservedCount(topology.predictors)}</strong></div>
+          <div><span>Prediction error</span><strong>${predictionError == null ? '—' : predictionError.toFixed(3)}</strong></div>
         </div>
         <div class="v2-empty vision-boundary">
           <strong>Visual attribution is intentionally not inferred.</strong>
@@ -106,10 +120,10 @@ function discoveryBody({ apparatus, visionLive }) {
       <div class="v2-kicker">Development signals</div>
       <h3>Current evidence available to the observer</h3>
       <div class="vision-development-strip">
-        <div><span>Sensory development records</span><strong>${sensory.development.length}</strong></div>
-        <div><span>Sensory relations</span><strong>${sensory.relations.length}</strong></div>
-        <div><span>Concepts</span><strong>${topology.concepts}</strong></div>
-        <div><span>Readouts</span><strong>${topology.readouts}</strong></div>
+        <div><span>Sensory development records</span><strong>${displayObservedCount(sensory.development)}</strong></div>
+        <div><span>Sensory relations</span><strong>${displayObservedCount(sensory.relations)}</strong></div>
+        <div><span>Concepts</span><strong>${displayObservedCount(topology.concepts)}</strong></div>
+        <div><span>Readouts</span><strong>${displayObservedCount(topology.readouts)}</strong></div>
       </div>
       <p class="v2-note">These are organism-side structures observed passively. They are not claimed to be visual unless causal provenance proves that relation.</p>
     </section>`;
@@ -168,10 +182,10 @@ function acquiredBody() {
         <div class="v2-kicker">Nearby cognitive structure</div>
         <h3>Available, but not classified as visual</h3>
         <div class="vision-development-strip vertical">
-          <div><span>Sense nodes</span><strong>${topology.senses}</strong></div>
-          <div><span>Concepts</span><strong>${topology.concepts}</strong></div>
-          <div><span>Predictors</span><strong>${topology.predictors}</strong></div>
-          <div><span>Readouts</span><strong>${topology.readouts}</strong></div>
+          <div><span>Sense nodes</span><strong>${displayObservedCount(topology.senses)}</strong></div>
+          <div><span>Concepts</span><strong>${displayObservedCount(topology.concepts)}</strong></div>
+          <div><span>Predictors</span><strong>${displayObservedCount(topology.predictors)}</strong></div>
+          <div><span>Readouts</span><strong>${displayObservedCount(topology.readouts)}</strong></div>
         </div>
         <p class="v2-note">Once causal source provenance is exported, this panel can separate visual acquisition from the organism's other sensory structure without semantic leakage.</p>
       </section>
@@ -249,18 +263,21 @@ function requestRender() {
 function connectStreams() {
   if (streams) return;
   streams = new MindStreams({
+    hydrateDevelopment: false,
     onTelemetry: (data, meta = {}) => {
+      if (meta.historical) return;
       if (!applyTelemetryEvent(data)) return;
       streamState.lastTelemetryAt = Date.now();
       streamState.telemetryTick = meta.frameTick ?? data.tick ?? streamState.telemetryTick;
-      updateCoherence();
+      refreshFrameCoherence(streamState);
       requestRender();
     },
     onSnapshot: (snapshot, meta = {}) => {
+      if (meta.historical) return;
       if (!applyMindSnapshot(snapshot)) return;
       streamState.lastSnapshotAt = Date.now();
       streamState.snapshotTick = meta.tick ?? snapshot?.tick ?? snapshot?.snapshot?.tick ?? null;
-      updateCoherence();
+      refreshFrameCoherence(streamState);
       requestRender();
     },
     onSourceState: (next) => {
@@ -273,30 +290,28 @@ function connectStreams() {
         snap.sensoryRelations = [];
         streamState.telemetryTick = null;
         streamState.snapshotTick = null;
+        streamState.lastCoherentFrameAt = null;
       }
       Object.assign(streamState, {
         status: next.status,
         source: next.source ?? null,
         instanceId: next.instanceId ?? null,
         runId: next.runId ?? null,
+        organismId: next.organismId ?? null,
+        bodyId: next.bodyId ?? null,
+        embodimentId: next.embodimentId ?? null,
         stale: next.status !== 'live',
         reason: next.reason ?? null,
       });
-      updateCoherence();
+      refreshFrameCoherence(streamState);
       requestRender();
     },
   });
   streams.connect();
 }
 
-function updateCoherence() {
-  streamState.coherent =
-    streamState.telemetryTick != null &&
-    streamState.snapshotTick != null &&
-    streamState.telemetryTick === streamState.snapshotTick;
-}
-
 export function mount(root, state = null) {
+  resetMindDataState();
   rootNode = root;
   lastState = state;
   connectStreams();
@@ -306,6 +321,20 @@ export function mount(root, state = null) {
 export function update(root, state) {
   if (root !== rootNode) rootNode = root;
   lastState = state;
+  if (frameTimedOut(streamState, Date.now(), STALE_AFTER_MS)) {
+    streamState.status = 'stale';
+    streamState.stale = true;
+    streamState.reason = 'coherent-frame-timeout';
+  }
+  if (
+    streamState.source === 'physics3d' &&
+    !physicsRunning(state) &&
+    streamState.status === 'live'
+  ) {
+    streamState.status = 'stale';
+    streamState.stale = true;
+    streamState.reason = 'physics3d-run-ended';
+  }
   requestRender();
 }
 

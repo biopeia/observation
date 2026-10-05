@@ -1,4 +1,8 @@
 import { LiveObservationDecoder } from '../../stream-delta.js';
+import {
+  cancelCanonicalDevelopmentHydration,
+  hydrateCanonicalDevelopmentHistory,
+} from './development-authority.js';
 
 function frameIdentity(frame) {
   // Canonical v2 fields live on the frame itself. Nested fallbacks exist only
@@ -25,12 +29,14 @@ export class MindStreams {
     onTopology,
     onWaiting,
     onSourceState,
+    hydrateDevelopment = true,
   } = {}) {
     this.onTelemetry = onTelemetry ?? (() => {});
     this.onSnapshot = onSnapshot ?? (() => {});
     this.onTopology = onTopology ?? (() => {});
     this.onWaiting = onWaiting ?? (() => {});
     this.onSourceState = onSourceState ?? (() => {});
+    this.hydrateDevelopment = hydrateDevelopment !== false;
 
     this.organism = null;
     this.fleet = null;
@@ -39,6 +45,7 @@ export class MindStreams {
     this.activeRunId = null;
     this.localMindActive = false;
     this.closed = true;
+    this.developmentHydratedIdentity = null;
     this.sourceIdentity = {
       source: null,
       instanceId: null,
@@ -80,6 +87,14 @@ export class MindStreams {
       identityChanged,
       embodimentChanged,
     });
+
+    if (this.hydrateDevelopment && status === 'live' && organismId) {
+      const historyIdentity = `${organismId}|${runId ?? ''}`;
+      if (historyIdentity !== this.developmentHydratedIdentity) {
+        this.developmentHydratedIdentity = historyIdentity;
+        void hydrateCanonicalDevelopmentHistory(organismId, runId);
+      }
+    }
   }
 
   consumeDecoderIssues() {
@@ -161,6 +176,8 @@ export class MindStreams {
 
   close() {
     this.closed = true;
+    cancelCanonicalDevelopmentHydration();
+    this.developmentHydratedIdentity = null;
     for (const key of ['organism', 'fleet', 'instance']) {
       const source = this[key];
       if (source) {

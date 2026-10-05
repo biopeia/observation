@@ -1,26 +1,4 @@
-"""All HTTP routes for the unified Symbiont Lab server.
-
-Routes:
-  GET  /                      → app.html (SPA shell)
-  GET  /assets/*              → static files from server/assets/
-  GET  /observatory/*         → static files from observatory/ package
-  GET  /api/state             → JSON runs + observation source status
-  GET  /api/organism          → SSE: live organism body/cognition/vitals
-  GET  /api/organism/history  → JSON: recent materialized observed frames
-  GET  /api/world-scene       → materialized observer spatial snapshot
-  GET  /api/provenance/why   → JSON causal ancestry for a selected reference
-  GET  /fleet                 → SSE: observatory fleet (if observatory_dir set)
-  GET  /instances/<id>        → SSE: single organism journal stream
-  GET  /api/instance/<id>/manifest → JSON: instance manifest
-  GET  /api/instance/<id>/history-summary → JSON: run history summary
-  GET  /api/bodies            → available Physics3D body contracts
-  GET  /api/organisms         → persisted Symbiont identities
-  GET  /api/runs              → managed Physics3D run history
-  GET  /api/run-definitions   → Experience/World run definitions (observer-only)
-  POST /api/runs              → start a managed Physics3D run
-  POST /api/runs/stop         → stop the active Physics3D run
-  POST /api/organisms/alias   → set/clear an observer-only organism alias
-"""
+"""All HTTP routes for the unified Symbiont Lab server."""
 
 from __future__ import annotations
 
@@ -60,6 +38,7 @@ def make_handler(
     body_catalog: Callable[[], list[dict[str, object]]] | None = None,
     organism_catalog: Callable[[], list[dict[str, Any]]] | None = None,
     run_catalog: Callable[[], list[dict[str, Any]]] | None = None,
+    development_history_query: Callable[[str, int], dict[str, Any]] | None = None,
     physics_run_starter: Callable[[dict[str, Any]], dict[str, object]] | None = None,
     physics_run_stopper: Callable[[], bool] | None = None,
     organism_alias_setter: Callable[[str, str | None], dict[str, Any]] | None = None,
@@ -68,9 +47,6 @@ def make_handler(
     observatory_source = ObservatorySource(observatory_dir)
 
     class Handler(BaseHTTPRequestHandler):
-        # ----------------------------------------------------------------
-        # Error suppression
-        # ----------------------------------------------------------------
         def handle(self) -> None:
             try:
                 super().handle()
@@ -78,11 +54,8 @@ def make_handler(
                 pass
 
         def log_message(self, fmt: str, *args: object) -> None:
-            pass  # silence per-request logs
+            pass
 
-        # ----------------------------------------------------------------
-        # Helpers
-        # ----------------------------------------------------------------
         def _security_headers(self) -> None:
             self.send_header("X-Content-Type-Options", "nosniff")
             self.send_header("Referrer-Policy", "no-referrer")
@@ -113,11 +86,11 @@ def make_handler(
             if not path.is_file():
                 self._json(404, {"error": "not found"})
                 return
-            suffix = path.suffix.lower()
-            ctype = _STATIC_TYPES.get(suffix, "application/octet-stream")
             body = path.read_bytes()
             self.send_response(200)
-            self.send_header("Content-Type", ctype)
+            self.send_header(
+                "Content-Type", _STATIC_TYPES.get(path.suffix.lower(), "application/octet-stream")
+            )
             self.send_header("Content-Length", str(len(body)))
             self.send_header("Cache-Control", "no-cache")
             self._security_headers()
@@ -125,7 +98,6 @@ def make_handler(
             self.wfile.write(body)
 
         def _static_under(self, root: Path, relative: str) -> None:
-            """Serve a file only when its resolved path remains under root."""
             resolved_root = root.resolve()
             candidate = (resolved_root / relative).resolve()
             if not candidate.is_relative_to(resolved_root):
@@ -134,17 +106,15 @@ def make_handler(
             self._static(candidate)
 
         def _body(self) -> dict[str, Any]:
-            raw_length = self.headers.get("Content-Length", "0")
             try:
-                length = int(raw_length)
+                length = int(self.headers.get("Content-Length", "0"))
             except (TypeError, ValueError) as exc:
                 raise ValueError("invalid Content-Length") from exc
             if length < 0:
                 raise ValueError("invalid Content-Length")
             if length > _MAX_BODY_BYTES:
                 raise OverflowError("request body exceeds 32768 bytes")
-            raw = self.rfile.read(length) or b"{}"
-            payload = json.loads(raw)
+            payload = json.loads(self.rfile.read(length) or b"{}")
             if not isinstance(payload, dict):
                 raise ValueError("JSON object required")
             return payload
@@ -160,35 +130,23 @@ def make_handler(
                 return False
             return parsed.netloc == (self.headers.get("Host") or "")
 
-        # ----------------------------------------------------------------
-        # GET routing
-        # ----------------------------------------------------------------
         def do_GET(self) -> None:  # noqa: N802
             parsed = urlparse(self.path)
             path = parsed.path
 
-            # SPA shell
             if path in ("/", "/index.html"):
                 self._static(assets_dir / "app.html")
                 return
-
-            # Static assets
             if path.startswith("/assets/"):
-                rel = path[len("/assets/") :]
-                self._static_under(assets_dir, rel)
+                self._static_under(assets_dir, path[len("/assets/") :])
                 return
-
-            # Observatory static files (render/, ui/, state/, transport/, etc.)
             if path.startswith("/observatory/"):
-                rel = path[len("/observatory/") :]
                 obs_root = observatory_package_root()
                 if obs_root is None:
                     self._json(404, {"error": "not found"})
                     return
-                self._static_under(obs_root, rel)
+                self._static_under(obs_root, path[len("/observatory/") :])
                 return
-
-            # ── API ──────────────────────────────────────────────────────
 
             if path == "/api/state":
                 payload: dict[str, Any] = {}
@@ -196,16 +154,12 @@ def make_handler(
                     payload["sources"] = source_status()
                 self._json(200, payload)
                 return
-
             if path == "/api/world-scene":
-                scene = observation_bus.world_scene()
-                self._json(200, {"scene": scene})
+                self._json(200, {"scene": observation_bus.world_scene()})
                 return
-
             if path == "/api/organism":
                 self._stream_organism()
                 return
-
             if path == "/api/organism/history":
                 query = parse_qs(parsed.query, keep_blank_values=False)
                 try:
@@ -216,36 +170,49 @@ def make_handler(
                 if limit < 1 or limit > 512:
                     self._json(400, {"error": "history limit must be between 1 and 512"})
                     return
-                frames = observation_bus.recent_materialized(
-                    "observed_frame",
-                    limit=limit,
-                )
+                frames = observation_bus.recent_materialized("observed_frame", limit=limit)
                 items = []
                 for frame in frames:
-                    item = {
-                        key: frame[key]
-                        for key in (
-                            "type",
-                            "source",
-                            "tick",
-                            "organism_id",
-                            "instance_id",
-                            "run_id",
-                            "body_id",
-                            "embodiment_id",
-                            "topology_revision",
-                            "body",
-                            "cognition",
-                            "vitals",
-                            "mind",
-                            "provenance",
-                        )
-                        if key in frame
-                    }
-                    items.append(item)
+                    items.append(
+                        {
+                            key: frame[key]
+                            for key in (
+                                "type",
+                                "source",
+                                "tick",
+                                "organism_id",
+                                "instance_id",
+                                "run_id",
+                                "body_id",
+                                "embodiment_id",
+                                "topology_revision",
+                                "body",
+                                "cognition",
+                                "vitals",
+                                "mind",
+                                "provenance",
+                            )
+                            if key in frame
+                        }
+                    )
                 self._json(200, {"items": items})
                 return
-
+            if path == "/api/organism/development-history":
+                if development_history_query is None:
+                    self._json(503, {"error": "Development history unavailable"})
+                    return
+                query = parse_qs(parsed.query, keep_blank_values=False)
+                organism_id = str((query.get("organism_id") or [""])[0]).strip()
+                try:
+                    limit = int((query.get("limit") or ["2048"])[0])
+                except ValueError:
+                    self._json(400, {"error": "invalid development history limit"})
+                    return
+                if not organism_id or len(organism_id) > 256 or limit < 1 or limit > 2048:
+                    self._json(400, {"error": "invalid development history query"})
+                    return
+                self._json(200, development_history_query(organism_id, limit))
+                return
             if path == "/api/provenance/why":
                 if causal_provenance_query is None:
                     self._json(503, {"error": "causal provenance unavailable"})
@@ -274,37 +241,29 @@ def make_handler(
                     return
                 self._json(200, payload)
                 return
-
             if path == "/api/environments" and body_catalog is not None:
                 from environment.physics3d.environments import ENVIRONMENT_NAMES
 
                 self._json(200, {"items": list(ENVIRONMENT_NAMES)})
                 return
-
             if path == "/api/run-definitions" and body_catalog is not None:
                 from lab.experience import run_definition_catalog
 
                 self._json(200, {"items": run_definition_catalog()})
                 return
-
             if path == "/api/bodies" and body_catalog is not None:
                 self._json(200, {"items": body_catalog()})
                 return
-
             if path == "/api/organisms" and organism_catalog is not None:
                 self._json(200, {"items": organism_catalog()})
                 return
-
             if path == "/api/runs" and run_catalog is not None:
                 self._json(200, {"items": run_catalog()})
                 return
 
-            # ── Observatory SSE (optional) ───────────────────────────────
-
             if path == "/fleet":
                 self._stream_fleet()
                 return
-
             if path.startswith("/instances/"):
                 instance_id = path[len("/instances/") :]
                 if valid_instance_id(instance_id):
@@ -312,7 +271,6 @@ def make_handler(
                     return
                 self._json(404, {"error": "not found"})
                 return
-
             if path.startswith("/api/instance/") and path.endswith("/manifest"):
                 instance_id = path[len("/api/instance/") : -len("/manifest")]
                 if observatory_dir and valid_instance_id(instance_id):
@@ -320,7 +278,6 @@ def make_handler(
                     return
                 self._json(404, {"error": "not found"})
                 return
-
             if path.startswith("/api/instance/") and path.endswith("/history-summary"):
                 instance_id = path[len("/api/instance/") : -len("/history-summary")]
                 if observatory_dir and valid_instance_id(instance_id):
@@ -328,12 +285,8 @@ def make_handler(
                     return
                 self._json(404, {"error": "not found"})
                 return
-
             self._json(404, {"error": "not found"})
 
-        # ----------------------------------------------------------------
-        # POST routing
-        # ----------------------------------------------------------------
         def do_POST(self) -> None:  # noqa: N802
             if not self._origin_allowed():
                 self._json(403, {"error": "untrusted origin"})
@@ -362,7 +315,6 @@ def make_handler(
                     return
                 self._json(202, {"started": True, **started})
                 return
-
             if path == "/api/organisms/alias":
                 if organism_alias_setter is None:
                     self._json(503, {"error": "organism catalog unavailable"})
@@ -376,19 +328,14 @@ def make_handler(
                     return
                 self._json(200, result)
                 return
-
             if path == "/api/runs/stop":
                 if physics_run_stopper is None or not physics_run_stopper():
                     self._json(409, {"error": "no active Physics3D run"})
                     return
                 self._json(202, {"stopping": True})
                 return
-
             self._json(404, {"error": "not found"})
 
-        # ----------------------------------------------------------------
-        # Organism SSE
-        # ----------------------------------------------------------------
         def _stream_organism(self) -> None:
             stream_organism(self, observation_bus)
 

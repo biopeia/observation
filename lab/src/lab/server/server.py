@@ -15,6 +15,7 @@ from lab.app.physics3d.runs import DEFAULT_LAB_STATE_ROOT, Physics3DRunStore
 from lab.app.physics3d.session import Physics3DSession, Physics3DSessionState
 from lab.experience import resolve_termination
 from lab.observation.bus import ObservationBus
+from lab.observation.development_history import build_development_history
 from lab.observation.observatory import ObservatorySource
 from lab.observation.provenance_journal import ProvenanceIndex, ProvenanceJournal
 from lab.server.api import make_handler
@@ -26,7 +27,6 @@ _ASSETS = WEB_ROOT
 
 
 def _default_observatory_dir() -> str | None:
-    """Resolve Observatory lazily so the server remains usable without that package."""
     try:
         from lab.observatory.config import DEFAULT_OBSERVATORY_DIR
     except ImportError:
@@ -35,11 +35,8 @@ def _default_observatory_dir() -> str | None:
 
 
 class UnifiedLabServer(ThreadingHTTPServer):
-    """Local-only HTTP server that owns optional producer lifecycles."""
-
     daemon_threads = True
     allow_reuse_address = True
-
     physics_session: Physics3DSession | None = None
 
     def server_close(self) -> None:
@@ -47,7 +44,6 @@ class UnifiedLabServer(ThreadingHTTPServer):
         self.physics_session = None
         if session is not None:
             session.close()
-
         super().server_close()
 
 
@@ -60,7 +56,6 @@ def make_server(
     physics3d: bool = False,
     physics_state_root: Path | None = None,
 ) -> UnifiedLabServer:
-    """Build the configured server without inventing organism data by default."""
     if host != "127.0.0.1":
         raise ValueError("UnifiedLabServer refuses to bind outside 127.0.0.1")
 
@@ -130,8 +125,14 @@ def make_server(
         session.request_stop()
         return True
 
+    def development_history_query(organism_id: str, limit: int) -> dict[str, Any]:
+        return build_development_history(
+            run_store.runs_dir,
+            organism_id=organism_id,
+            limit=limit,
+        )
+
     def causal_provenance_query(kind: str, ref_id: str, depth: int) -> dict[str, Any] | None:
-        """Read causal history for the current managed run; apparatus only."""
         session = session_holder["physics3d"]
         if session is None:
             return None
@@ -144,8 +145,6 @@ def make_server(
         index = ProvenanceIndex.load(ProvenanceJournal(journal_path))
         ref = CausalRef(kind, ref_id)
         if ref not in index.lifecycle:
-            # A root reference can legitimately lack a producer; only return
-            # such a tree when it is mentioned by some recorded event.
             mentioned = any(
                 ref == event.subject or ref in event.produced or ref in event.caused_by
                 for event in index.events
@@ -175,7 +174,6 @@ def make_server(
             "physics3d": (
                 {
                     **session.snapshot().as_dict(),
-                    # Observer-only human name; Symbiont never sees it.
                     "organism_alias": run_store.alias_for(session.snapshot().organism_ref),
                 }
                 if session is not None
@@ -199,6 +197,7 @@ def make_server(
             body_catalog=run_store.bodies,
             organism_catalog=run_store.organisms,
             run_catalog=run_store.runs,
+            development_history_query=development_history_query,
             physics_run_starter=start_physics_run,
             physics_run_stopper=stop_physics_run,
             organism_alias_setter=run_store.set_alias,
@@ -248,11 +247,8 @@ def main(argv: list[str] | None = None) -> None:
         help="Observatory state directory used by live Mind data",
     )
     args = parser.parse_args(argv)
-
     obs_dir = Path(args.observatory_dir).expanduser() if args.observatory_dir else None
-
     stream = ObservationBus()
-
     server = make_server(
         port=args.port,
         observation_bus=stream,
