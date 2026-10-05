@@ -108,7 +108,11 @@ export function applyMindSnapshot(raw) {
   snap.observerAnalysis = adaptLegacyObserverAnalysis(source, availability);
   snap.cognition = organismCognitionOnly(rawCognition);
   snap.topology = scalar(source, availability, 'topology', 'topology');
-  snap.atlas = scalar(source, availability, 'atlas', 'atlas');
+
+  const atlasPresent = Object.hasOwn(source, 'atlas');
+  availability.atlas = availabilityFor(atlasPresent, source.atlas);
+  snap.atlas = source.atlas ?? null;
+
   snap.selfModel = scalar(source, availability, 'selfModel', 'self_model', 'selfModel');
   snap.bodySchema = scalar(source, availability, 'bodySchema', 'body_schema', 'bodySchema');
   snap.sensoryPhenotype = scalar(
@@ -157,21 +161,25 @@ export function applyMindSnapshot(raw) {
   snap.sensorimotor = scalar(source, availability, 'sensorimotor', 'sensorimotor');
   snap.embodiment = scalar(source, availability, 'embodiment', 'embodiment');
   snap.outcome = scalar(source, availability, 'outcome', 'outcome');
-  snap.agencyAcquisition = scalar(
-    source,
-    availability,
-    'agencyAcquisition',
-    'agency_acquisition',
-    'agencyAcquisition',
-  );
-  snap.affordances = collection(source, availability, 'affordances', 'affordances');
-  snap.executiveIntention = scalar(
-    source,
-    availability,
-    'executiveIntention',
-    'executive_intention',
-    'executiveIntention',
-  );
+
+  const agencyPresent = Object.hasOwn(source, 'agency_acquisition') || Object.hasOwn(source, 'agencyAcquisition');
+  const agencyValue = Object.hasOwn(source, 'agency_acquisition')
+    ? source.agency_acquisition
+    : source.agencyAcquisition;
+  availability.agencyAcquisition = availabilityFor(agencyPresent, agencyValue);
+  snap.agencyAcquisition = agencyPresent ? agencyValue : null;
+
+  const affordancesPresent = Object.hasOwn(source, 'affordances');
+  availability.affordances = availabilityFor(affordancesPresent, source.affordances);
+  snap.affordances = Array.isArray(source.affordances) ? source.affordances : [];
+
+  const executivePresent = Object.hasOwn(source, 'executive_intention') || Object.hasOwn(source, 'executiveIntention');
+  const executiveValue = Object.hasOwn(source, 'executive_intention')
+    ? source.executive_intention
+    : source.executiveIntention;
+  availability.executiveIntention = availabilityFor(executivePresent, executiveValue);
+  snap.executiveIntention = executivePresent ? executiveValue : null;
+
   snap.availability = availability;
   return true;
 }
