@@ -7,6 +7,7 @@ import {
   selfRegionHistory,
 } from './state.js';
 
+const AUTHORITY = 'lab-physics3d-telemetry-v4.1';
 let requestGeneration = 0;
 
 function normalizedRunId(value) {
@@ -22,7 +23,7 @@ function snapshotKey(item) {
   return `${normalizedRunId(item?.runId) ?? ''}|${Number(item?.tick) || 0}`;
 }
 
-function mergeByKey(canonical, live, keyFn, limit) {
+function mergeByKey(canonical, live, keyFn, limit, runOrder) {
   const merged = new Map();
   for (const item of [...canonical, ...live]) {
     if (!item || !Number.isFinite(Number(item.tick))) continue;
@@ -30,9 +31,12 @@ function mergeByKey(canonical, live, keyFn, limit) {
   }
   return [...merged.values()]
     .sort((a, b) => {
-      const runA = normalizedRunId(a.runId) ?? '';
-      const runB = normalizedRunId(b.runId) ?? '';
-      if (runA !== runB) return runA.localeCompare(runB);
+      const runA = normalizedRunId(a.runId);
+      const runB = normalizedRunId(b.runId);
+      const orderA = runOrder.has(runA) ? runOrder.get(runA) : Number.MAX_SAFE_INTEGER;
+      const orderB = runOrder.has(runB) ? runOrder.get(runB) : Number.MAX_SAFE_INTEGER;
+      if (orderA !== orderB) return orderA - orderB;
+      if (runA !== runB) return String(runA ?? '').localeCompare(String(runB ?? ''));
       return Number(a.tick) - Number(b.tick);
     })
     .slice(-limit);
@@ -92,10 +96,9 @@ function resetForAuthority(organismId, runId) {
   developmentScope.baselinePoint = null;
   developmentScope.lastPersistedTick = null;
   developmentScope.restored = false;
-  developmentScope.authority = 'observatory-journal';
+  developmentScope.authority = AUTHORITY;
   developmentScope.coverage = [];
   developmentScope.complete = false;
-  developmentScope.unindexedRunCount = 0;
   developmentScope.loading = true;
   developmentScope.error = null;
 }
@@ -125,7 +128,7 @@ export async function hydrateCanonicalDevelopmentHistory(organismId, runId = nul
   if (generation !== requestGeneration || developmentScope.organismId !== identity) return false;
   if (
     payload?.schema_version !== 1 ||
-    payload?.authority !== 'observatory-journal' ||
+    payload?.authority !== AUTHORITY ||
     payload?.organism_id !== identity
   ) {
     developmentScope.loading = false;
@@ -141,24 +144,31 @@ export async function hydrateCanonicalDevelopmentHistory(organismId, runId = nul
   const liveSnapshots = [...historySnapshots];
   const canonicalPoints = Array.isArray(payload.points) ? payload.points : [];
   const canonicalSnapshots = Array.isArray(payload.snapshots) ? payload.snapshots : [];
+  const coverage = Array.isArray(payload.coverage) ? payload.coverage : [];
+  const runOrder = new Map(
+    coverage.map((entry, index) => [normalizedRunId(entry?.run_id), index]),
+  );
+  const activeRunId = normalizedRunId(runId);
+  if (activeRunId != null && !runOrder.has(activeRunId)) {
+    runOrder.set(activeRunId, runOrder.size);
+  }
 
   mindHistory.length = 0;
-  mindHistory.push(...mergeByKey(canonicalPoints, livePoints, pointKey, 2048));
+  mindHistory.push(...mergeByKey(canonicalPoints, livePoints, pointKey, 2048, runOrder));
   historySnapshots.length = 0;
-  historySnapshots.push(...mergeByKey(canonicalSnapshots, liveSnapshots, snapshotKey, 160));
+  historySnapshots.push(...mergeByKey(canonicalSnapshots, liveSnapshots, snapshotKey, 160, runOrder));
 
   milestones.length = 0;
   milestones.push(...rebuildCanonicalMilestones(mindHistory));
-  developmentScope.coverage = Array.isArray(payload.coverage) ? payload.coverage : [];
+  developmentScope.coverage = coverage;
   developmentScope.complete = payload.complete === true;
-  developmentScope.unindexedRunCount = Number(payload.unindexed_run_count) || 0;
   developmentScope.observedStartTick = mindHistory.at(0)?.tick ?? null;
   developmentScope.baselinePoint = mindHistory.at(0) ? { ...mindHistory.at(0) } : null;
   developmentScope.lastPersistedTick = mindHistory.at(-1)?.tick ?? null;
   developmentScope.restored = Boolean(mindHistory.length || historySnapshots.length);
   developmentScope.loading = false;
   developmentScope.error = null;
-  developmentScope.authority = payload.available === false ? 'unavailable' : 'observatory-journal';
+  developmentScope.authority = payload.available === false ? 'unavailable' : AUTHORITY;
   return true;
 }
 
