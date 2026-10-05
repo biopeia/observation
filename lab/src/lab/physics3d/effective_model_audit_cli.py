@@ -17,7 +17,11 @@ from embodiment.physics3d.mechanics import GROUND_MATERIAL
 from embodiment.physics3d.robotic_arm import ROBOTIC_ARM_SPEC, RoboticArmPhysics
 from embodiment.physics3d.scene import DEFAULT_GRAVITY, PhysicsScene
 from embodiment.physics3d.vision import VisionHumanoidPhysics
-from environment.physics3d.environments import ENVIRONMENT_NAMES, build_environment, environment_recipe
+from environment.physics3d.environments import (
+    ENVIRONMENT_NAMES,
+    build_environment,
+    environment_recipe,
+)
 from environment.physics3d.resource import PhysicalResource
 from lab.physics3d.effective_model_audit import audit_effective_model
 from modality.vision import VisualApparatus
@@ -51,6 +55,7 @@ def _scenario(body_kind: str, environment_name: str) -> dict[str, object]:
         scene=scene,
         apparatus=apparatus,
         body_spec=spec,
+        report_body_kind=body_kind,
         declared_timestep=TIMESTEP,
         declared_gravity=DEFAULT_GRAVITY,
         ground_material=GROUND_MATERIAL,
