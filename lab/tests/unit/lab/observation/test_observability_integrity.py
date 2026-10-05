@@ -9,6 +9,7 @@ from lab.observation.contracts import (
     ObservedFrame,
 )
 from lab.observation.physics3d import Physics3DObservationBridge
+from lab.observation.world_scene import SCENE_CONTRACT
 
 
 class _Sink:
@@ -139,18 +140,22 @@ def test_world_scene_overflow_rebase_is_visible() -> None:
     bus.push(
         {
             "type": "world_scene",
-            "mode": "anchor",
-            "scene_revision": 1,
-            "entities": [],
+            "kind": "snapshot",
+            "contract": SCENE_CONTRACT,
+            "world_id": "world-1",
+            "revision": 1,
+            "entities": {},
             "run_id": "r",
         }
     )
     bus.push(
         {
             "type": "world_scene",
-            "mode": "anchor",
-            "scene_revision": 2,
-            "entities": [],
+            "kind": "snapshot",
+            "contract": SCENE_CONTRACT,
+            "world_id": "world-1",
+            "revision": 2,
+            "entities": {},
             "run_id": "r",
         }
     )
