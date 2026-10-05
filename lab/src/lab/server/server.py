@@ -232,7 +232,9 @@ def main(argv: list[str] | None = None) -> None:
         description="Symbiont Lab — unified local workbench",
     )
     parser.add_argument("--port", type=int, default=8765)
-    parser.add_argument("--no-browser", action="store_true", help="Don't open browser automatically")
+    parser.add_argument(
+        "--no-browser", action="store_true", help="Don't open browser automatically"
+    )
     parser.add_argument(
         "--physics3d",
         action="store_true",
