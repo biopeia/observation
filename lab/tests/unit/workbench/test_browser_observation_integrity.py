@@ -171,7 +171,7 @@ class _Handler(BaseHTTPRequestHandler):
             return
 
         if parsed.path == "/":
-            body = b"""<!doctype html>
+            body = """<!doctype html>
 <meta charset="utf-8">
 <div id="mind-root"></div>
 <div id="result" data-status="pending">pending</div>
@@ -199,7 +199,7 @@ class _Handler(BaseHTTPRequestHandler):
   };
   setTimeout(check, 50);
 </script>
-"""
+""".encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))
