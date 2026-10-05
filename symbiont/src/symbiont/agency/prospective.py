@@ -26,7 +26,7 @@ from .types import (
     DeliberationOutcome,
     ProspectiveCandidate,
 )
-from .value import OutcomeValueLedger
+from .value import OutcomeValueLedger, context_key_for
 
 # TODO(p1): How much confidence relaxation per non-selected candidate (unused in P0)
 _QUERY_BUDGET_DEFAULT = 8
@@ -39,7 +39,7 @@ class ProspectiveAgency:
     1. Check deliberation readiness
     2. Limit candidate set to query budget
     3. Request counterfactual predictions via caller-supplied predictor
-    4. Look up outcome-value estimates from ledger
+    4. Look up context-sensitive outcome-value estimates from ledger
     5. Delegate to ProspectivePolicy
     6. Return DeliberationOutcome
 
@@ -84,24 +84,7 @@ class ProspectiveAgency:
         has_active_model: bool = True,
         organism_alive: bool = True,
     ) -> DeliberationOutcome:
-        """Run one deliberation cycle and return a decision.
-
-        Args:
-            tick: Current organism tick.
-            candidates: Prospective action candidates (from candidates.py).
-            context_tokens: Current private cognitive context tokens.
-            homeostatic_deviation: Current physiological deviation in [0, 1].
-            predictor: Callable(action_id, context_tokens) -> CounterfactualPrediction.
-                Called per candidate. Exceptions are caught; the candidate is
-                skipped (fail-closed) rather than propagating.
-            has_active_model: Whether an ACTIVE private SLM exists.
-            organism_alive: Whether the organism's physiology is alive.
-
-        Returns:
-            DeliberationOutcome describing the chosen action or the reason for
-            abstention.
-        """
-        # --- Death gate (highest priority) ---
+        """Run one deliberation cycle and return a decision."""
         if not organism_alive:
             return DeliberationOutcome(
                 tick=tick,
@@ -114,7 +97,6 @@ class ProspectiveAgency:
                 reason="physiology_dead",
             )
 
-        # --- Model gate ---
         if not has_active_model:
             return DeliberationOutcome(
                 tick=tick,
@@ -127,7 +109,6 @@ class ProspectiveAgency:
                 reason="no_active_model",
             )
 
-        # --- Readiness gate ---
         candidate_list = list(candidates)
         readiness = check_readiness(
             has_active_model=has_active_model,
@@ -138,7 +119,6 @@ class ProspectiveAgency:
             organism_alive=organism_alive,
         )
         if not readiness.ready:
-            # Map first failure reason to a DeliberationOutcome reason
             first_reason = readiness.reasons[0] if readiness.reasons else "no_candidates"
             reason = self._map_readiness_reason(first_reason)
             return DeliberationOutcome(
@@ -152,24 +132,24 @@ class ProspectiveAgency:
                 reason=reason,
             )
 
-        # --- Budget gate ---
         if len(candidate_list) > self._query_budget:
             candidate_list = candidate_list[: self._query_budget]
 
-        # --- Evaluate candidates ---
+        value_context = context_key_for(context_tokens)
         evaluated: list[EvaluatedCandidate] = []
         for candidate in candidate_list:
             try:
                 prediction = predictor(candidate.action_id, context_tokens)
             except Exception:  # noqa: BLE001
-                # WARN(fail-closed): skip this candidate if predictor raises
                 continue
 
             if not isinstance(prediction, CounterfactualPrediction):
                 continue
 
-            # Look up historical value for the predicted outcome
-            value = self._ledger.estimate(prediction.predicted_outcome)
+            value = self._ledger.estimate(
+                prediction.predicted_outcome,
+                context_key=value_context,
+            )
             epistemic_value = 0.0
             if epistemic_value_provider is not None:
                 try:
@@ -188,7 +168,6 @@ class ProspectiveAgency:
                 )
             )
 
-        # --- Delegate to policy ---
         return self._policy.choose(
             evaluated,
             homeostatic_deviation=homeostatic_deviation,
@@ -197,7 +176,6 @@ class ProspectiveAgency:
 
     @staticmethod
     def _map_readiness_reason(readiness_reason: str) -> str:
-        """Map internal readiness failure codes to DeliberationOutcome reasons."""
         mapping = {
             "organism_dead": "physiology_dead",
             "no_active_model": "no_active_model",
@@ -209,11 +187,6 @@ class ProspectiveAgency:
         return mapping.get(readiness_reason, "no_candidates")
 
     def checkpoint(self) -> dict[str, object]:
-        """Export agency state for persistence.
-
-        Only the OutcomeValueLedger is persisted. Pending counterfactuals and
-        deliberation state are ephemeral and are not restored across restarts.
-        """
         return {
             "schema_version": 1,
             "outcome_value_ledger": self._ledger.checkpoint(),
@@ -228,7 +201,6 @@ class ProspectiveAgency:
         policy: ProspectivePolicy,
         query_budget: int = _QUERY_BUDGET_DEFAULT,
     ) -> "ProspectiveAgency":
-        """Restore from a checkpoint payload. Fails closed on schema mismatch."""
         if not isinstance(payload, dict):
             raise ValueError("invalid prospective agency checkpoint")
         version = payload.get("schema_version")
@@ -248,24 +220,15 @@ class ProspectiveAgency:
 
 @dataclass(frozen=True, slots=True)
 class ProspectiveDecision:
-    """A candidate selected for executive admission (§50).
-
-    Ephemeral projection: never checkpointed, never a motor authority.  It is
-    transformed into an ActionIntent by IntentionDomain.form().
-    """
+    """A candidate selected for executive admission (§50)."""
 
     competence_id: str
-
     anticipated_effect_id: str | None
-
     prediction_ref: str | None
-
     confidence: float
     epistemic_relevance: float
     homeostatic_relevance: float
-
     origin_refs: tuple[str, ...]
-
     admission: AdmissionRoute = AdmissionRoute.COGNITIVE
     supporting_affordance_id: str | None = None
 
@@ -282,7 +245,7 @@ class ProspectiveDecision:
 
 @dataclass(frozen=True)
 class ExecutiveAdmissionPolicy:
-    """Explicit gate from "represented" to "selected for realization" (§47-§48)."""
+    """Explicit gate from represented to selected for realization."""
 
     readout_threshold: float = 0.1
     minimum_relevance: float = 0.2
@@ -312,29 +275,7 @@ def admit_afforded_action(
     policy: ExecutiveAdmissionPolicy,
     executive_history: Callable[[ActionAffordance], ExecutiveModulation] | None = None,
 ) -> ProspectiveDecision | None:
-    """Model-free executive admission of one currently afforded competence.
-
-    A primitive readout alone is only a representation: it may be memory,
-    rehearsal or association.  A competence is admitted only when
-
-    * it is represented — its readout is active (cognitive route) or an
-      effect anticipated by Generative Cognition resolves to it
-      (generative route);
-    * it is currently afforded (executable here, with an expected effect);
-    * and there is executive reason to realize it now: epistemic relevance
-      (what it would do is still uncertain, by generative expectation or by
-      its own predictive confidence) or homeostatic relevance (it has
-      relieved the current need before) reaches the admission threshold.
-
-    This is ProspectiveAgency's model-free admission, not another selector;
-    the ActionArbitrator still decides motor authority.
-
-    ``executive_history`` (Executive Outcome Learning v1) scales each
-    candidate's relevance by its own key's bounded executive factor and
-    excludes suppressed keys.  The recorded epistemic and homeostatic
-    relevances are never altered, and no candidate depends on another's
-    history.
-    """
+    """Model-free executive admission of one currently afforded competence."""
     candidates: list[tuple[ActionAffordance, AdmissionRoute, tuple[str, ...]]] = []
     for affordance in affordances:
         raw = primitive_readouts.get(affordance.competence_id)
@@ -361,9 +302,6 @@ def admit_afforded_action(
         )
     best: tuple[tuple[float, ...], ProspectiveDecision] | None = None
     for affordance, route, origins in candidates:
-        # Epistemic relevance: the stronger of the organism's own signals that
-        # realizing this competence would still be informative -- generative
-        # expected uncertainty reduction, or its own predictive uncertainty.
         generative_epistemic = epistemic_value(affordance.competence_id)
         epistemic = max(
             0.0,

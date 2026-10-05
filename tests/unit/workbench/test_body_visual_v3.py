@@ -83,7 +83,9 @@ def test_compound_anatomy_does_not_assume_one_material_per_segment() -> None:
 
 def test_body_viewer_applies_body_request_that_arrives_before_catalog() -> None:
     viewer = _read(VIEWER)
-    loader = viewer[viewer.index("async loadBodyModels()") : viewer.index("ensureBodyModel(bodyKind)")]
+    loader = viewer[
+        viewer.index("async loadBodyModels()") : viewer.index("ensureBodyModel(bodyKind)")
+    ]
 
     assert "this.requestedBodyKind = this.activeBodyKind" in viewer
     assert "this.requestedBodyKind = requested" in viewer

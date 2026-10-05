@@ -332,7 +332,7 @@ def test_observed_outcome_credit_never_uses_counterfactual_prediction():
         tick_class=10,
         context_tokens=("sense.opaque",),
         action_token="action.primitive.actual",
-        outcome_tokens=("outcome.observed.actual",),
+        outcome_tokens=("outcome.observed.actual", "outcome.incidental"),
         epistemic_status=EpistemicStatus.OBSERVED,
         evidence_refs=("evidence.actual",),
         confidence_class=7,
@@ -348,13 +348,15 @@ def test_observed_outcome_credit_never_uses_counterfactual_prediction():
     assert runtime._pending_outcome_value_credit
     assert {
         outcome_id
-        for _due, outcome_id, _baseline, _discount in runtime._pending_outcome_value_credit
+        for _due, outcome_id, _context, _baseline, _discount in runtime._pending_outcome_value_credit
     } == {"outcome.observed.actual"}
+    assert all(
+        context.startswith("value-context.")
+        for _due, _outcome, context, _baseline, _discount in runtime._pending_outcome_value_credit
+    )
 
 
 def test_counterfactual_context_uses_training_vocabulary_not_concept_tokens():
-    from types import SimpleNamespace
-
     runtime = PrivateModelOrganismRuntime(
         organism_id="private-context-vocabulary",
         bootstrap_semantic_senses=False,
@@ -551,14 +553,12 @@ def _motor_frames(runtime: PrivateModelOrganismRuntime):
     previous = runtime._capture_private_frame(
         RuntimeTickResult(tick=1, actuation=actuation, actuations=(actuation,), **base)
     )
-    # T1 of the next tick closes the attempt opened by that command.
     runtime._action_domain.last_transition = SimpleNamespace(transition_id="transition.abc")
     current = runtime._capture_private_frame(RuntimeTickResult(tick=2, **base))
     return previous, current
 
 
 def test_shared_fact_identity_cites_the_causal_transition_first():
-    """Cognitive Cycle v1 W1: the private episode names the fact it interprets."""
     runtime = PrivateModelOrganismRuntime(
         organism_id="private-shared-fact",
         bootstrap_semantic_senses=False,
@@ -588,7 +588,6 @@ def test_shared_fact_identity_is_inert_by_default():
 
 
 def test_shared_fact_identity_reconciles_imagination_under_one_source(monkeypatch):
-    """Cognitive Cycle v1 F2: the same event is not counted once per signal reference."""
     runtime = PrivateModelOrganismRuntime(
         organism_id="private-shared-fact",
         bootstrap_semantic_senses=False,
@@ -610,7 +609,6 @@ def test_shared_fact_identity_reconciles_imagination_under_one_source(monkeypatc
 
 
 def _acted(runtime: PrivateModelOrganismRuntime, **fields) -> RuntimeTickResult:
-    """A tick result shaped like production: the action domain reports its command."""
     actuation = Actuation(actuator_id="actuator.0123456789abcdef", requested=0.8, delivered=0.6)
     return RuntimeTickResult(
         tick=1,
@@ -632,7 +630,6 @@ def _acted(runtime: PrivateModelOrganismRuntime, **fields) -> RuntimeTickResult:
 
 
 def test_motor_command_is_named_by_its_competence_not_its_command_id():
-    """Cognitive Cycle v1 F6: the production result carries a per-command id."""
     runtime = PrivateModelOrganismRuntime(
         organism_id="private-action-identity",
         bootstrap_semantic_senses=False,

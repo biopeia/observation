@@ -5,6 +5,11 @@ the two-step treatment can distinguish their terminal generated outcomes and
 uses that information to select the evaluator-owned safe action.  The control
 uses one-step prospection and therefore follows the stable candidate order.
 
+The shared immediate outcome has matched positive endogenous value in both
+conditions.  This keeps the assay inside ProspectiveAgency's pragmatic contract
+while leaving the treatment's two-step epistemic signal as the only difference
+between conditions.
+
 The evaluator scores the selected action after deliberation.  It never enters
 the organism's context, generated workspace or factual ledger.
 """
@@ -74,7 +79,7 @@ class _OpaquePlanningModel:
 def _ledger() -> OutcomeValueLedger:
     ledger = OutcomeValueLedger()
     for tick in range(4):
-        ledger.observe(_INTERMEDIATE, 0.0, tick=tick)
+        ledger.observe(_INTERMEDIATE, 0.5, tick=tick)
     return ledger
 
 
