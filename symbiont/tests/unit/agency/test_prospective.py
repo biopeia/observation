@@ -125,6 +125,31 @@ def test_successful_selection_with_sufficient_evidence():
     assert decision.predicted_outcome == "outcome.positive"
     assert decision.expected_value is not None
     assert decision.tick == 10
+    assert decision.counterfactual_prediction_ref is not None
+    assert decision.counterfactual_prediction_ref.startswith("model-prediction.")
+
+
+def test_supplied_counterfactual_prediction_identity_is_preserved():
+    ledger = OutcomeValueLedger()
+    for tick in range(8):
+        ledger.observe("outcome.positive", 0.7, tick=tick)
+    agency = _make_agency(ledger=ledger)
+
+    decision = agency.deliberate(
+        tick=12,
+        candidates=[_candidate("prim.alpha")],
+        context_tokens=("ctx.a",),
+        homeostatic_deviation=0.5,
+        predictor=lambda aid, ctx: CounterfactualPrediction(
+            action_id=aid,
+            predicted_outcome="outcome.positive",
+            confidence_class=7,
+            prediction_ref="model-prediction.explicit",
+        ),
+    )
+
+    assert decision.reason == "selected"
+    assert decision.counterfactual_prediction_ref == "model-prediction.explicit"
 
 
 def test_same_predicted_outcome_can_be_selected_or_rejected_by_private_context():

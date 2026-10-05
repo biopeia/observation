@@ -69,6 +69,7 @@ from ...host.percepts import Percept
 from ...provenance import CausalEvent, CausalRef
 from ...sensory import SensorySystem
 from ..cognition.bridge import CognitiveBridge, CognitiveBridgeResult
+from ..cognition.context import project_cognitive_context
 from ..embodiment.body_schema import BodySchemaEngine
 from ..embodiment.homeostasis import HomeostaticController
 from ..regulation import InnateReactivity, ReactiveMemory, ReactiveState
@@ -1280,10 +1281,10 @@ class ActionDomain:
                 tick=tick,
             )
 
-    def _context_ref(self, active_concepts: tuple[str, ...]) -> str:
-        surface = self.surface.contract_fingerprint if self.surface is not None else "no-surface"
-        material = surface + "|" + ("|".join(active_concepts) or "opaque")
-        return "context." + hashlib.sha256(material.encode("utf-8")).hexdigest()[:24]
+    @staticmethod
+    def _context_ref(cognition: CognitiveBridgeResult | None) -> str:
+        """Project causal context from cognition; embodiment authority stays in bindings."""
+        return project_cognitive_context(cognition).context_ref
 
     @staticmethod
     def _opaque_changes(
@@ -1917,7 +1918,7 @@ class ActionDomain:
             for competence in self.competence_library.items
             if self.competence_is_executable(competence)
         )
-        context_ref = self._context_ref(active_concepts)
+        context_ref = self._context_ref(cognition)
         resolver = self.affordance_resolver()
         # T5: "given this situation, what can I probably do?" -- derived, never stored.
         self.last_affordances = resolver.current(
@@ -2189,7 +2190,6 @@ class ActionDomain:
             "state."
             + _canonical_hash({"values": dict(sorted(sensorimotor_body_state.items()))})[:24]
         )
-        context_ref = self._context_ref(active_concepts)
         if not intents:
             # §16: nothing crosses the body boundary this tick, so the next
             # observation is a passive (no-intervention) counterfactual window.
@@ -2271,6 +2271,14 @@ class ActionDomain:
                 "state_before_ref": state_before_ref,
             }
 
+        pending_attempt = self.acquisition.pending_attempt
+        credit_provenance = {
+            "context_ref": context_ref,
+            "commitment_ref": (
+                self.active_commitment.commitment_id if self.active_commitment is not None else None
+            ),
+            "attempt_ref": pending_attempt.attempt_id if pending_attempt is not None else None,
+        }
         if (
             primitive_selected_now
             and self.last_executed_controller_seed_id is not None
@@ -2293,6 +2301,7 @@ class ActionDomain:
                 concept_ids=active_concepts,
                 baseline_error=homeostatic_baseline,
                 tick=tick,
+                **credit_provenance,
             )
         if self._competence_development is not None:
             self._competence_development.observe(
@@ -2323,6 +2332,7 @@ class ActionDomain:
                         concept_ids=active_concepts,
                         baseline_error=homeostatic_baseline,
                         tick=tick,
+                        **credit_provenance,
                     )
 
         if self.last_motor_command is None:
@@ -2594,6 +2604,7 @@ class ActionDomain:
             "observed_effect_id": observed.observed_effect_id if observed is not None else None,
             "match": outcome.effect_similarity if outcome is not None else None,
             "result": outcome.status.value if outcome is not None else None,
+            "context_ref": attempt.context_ref,
         }
 
     def _causal_relation_observation(self) -> list[dict[str, Any]]:
@@ -2721,6 +2732,7 @@ class ActionDomain:
                     "motor_command_ref": item.motor_command_ref,
                     "started_tick": item.started_tick,
                     "completed_tick": item.completed_tick,
+                    "context_ref": item.context_ref,
                 }
                 for item in list(self.acquisition.recent_attempts)[-16:]
             ],

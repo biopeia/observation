@@ -704,6 +704,7 @@ class PrivateModelOrganismRuntime(ModeledOrganismRuntime):
             0.0,
             min(1.0, float(outcome.expected_value or 0.0)),
         )
+        counterfactual_ref = outcome.counterfactual_prediction_ref
         return ProspectiveDecision(
             competence_id=outcome.candidate_id,
             anticipated_effect_id=affordance.anticipated_effect_id,
@@ -711,12 +712,18 @@ class PrivateModelOrganismRuntime(ModeledOrganismRuntime):
             confidence=max(0.0, min(1.0, float(outcome.model_confidence or 0.0))),
             epistemic_relevance=0.0 if epistemic is None else max(0.0, min(1.0, epistemic)),
             homeostatic_relevance=homeostatic_relevance,
-            origin_refs=(
-                f"prospective.decision.{tick}.{outcome.candidate_id}",
-                affordance.affordance_id,
+            origin_refs=tuple(
+                ref
+                for ref in (
+                    f"prospective.decision.{tick}.{outcome.candidate_id}",
+                    affordance.affordance_id,
+                    counterfactual_ref,
+                )
+                if ref is not None
             ),
             admission=AdmissionRoute.PROSPECTIVE,
             supporting_affordance_id=affordance.affordance_id,
+            counterfactual_prediction_ref=counterfactual_ref,
         )
 
     def _schedule_observed_outcome_value_credit(

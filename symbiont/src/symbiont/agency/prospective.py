@@ -12,9 +12,10 @@ Separation:
 
 from __future__ import annotations
 
+import hashlib
 import math
 from collections.abc import Callable, Collection, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from .affordance import ActionAffordance
 from .executive_outcome import ExecutiveModulation
@@ -145,6 +146,17 @@ class ProspectiveAgency:
 
             if not isinstance(prediction, CounterfactualPrediction):
                 continue
+            if prediction.prediction_ref is None:
+                material = (
+                    f"{self._organism_id}|{tick}|{candidate.action_id}|"
+                    f"{context_tokens}|{prediction.predicted_outcome}|"
+                    f"{prediction.confidence_class}"
+                )
+                prediction = replace(
+                    prediction,
+                    prediction_ref="model-prediction."
+                    + hashlib.sha256(material.encode("utf-8")).hexdigest()[:24],
+                )
 
             value = self._ledger.estimate(
                 prediction.predicted_outcome,
@@ -231,6 +243,7 @@ class ProspectiveDecision:
     origin_refs: tuple[str, ...]
     admission: AdmissionRoute = AdmissionRoute.COGNITIVE
     supporting_affordance_id: str | None = None
+    counterfactual_prediction_ref: str | None = None
 
     def __post_init__(self) -> None:
         if not self.competence_id:
@@ -241,6 +254,11 @@ class ProspectiveDecision:
             value = float(getattr(self, name))
             if not math.isfinite(value) or not 0.0 <= value <= 1.0:
                 raise ValueError(f"{name} must be within [0, 1]")
+        if (
+            self.counterfactual_prediction_ref is not None
+            and not self.counterfactual_prediction_ref.startswith("model-prediction.")
+        ):
+            raise ValueError("counterfactual prediction must keep its model-prediction identity")
 
 
 @dataclass(frozen=True)
