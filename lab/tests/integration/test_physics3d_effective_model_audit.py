@@ -61,6 +61,15 @@ def test_every_canonical_body_has_a_clean_declared_to_compiled_mapping(spec, fac
     assert report["summary"]["missing"] > 0
 
 
+def test_asymmetric_orphan_right_foot_declaration_is_visible() -> None:
+    report = _run(ASYMMETRIC_SPEC, AsymmetricPhysics, "flat-v1")
+    by_path = {item["path"]: item for item in report["findings"]}
+
+    assert by_path["segment.right_foot.mass"]["relation"] == "missing"
+    assert by_path["segment.right_foot.mass"]["severity"] == "warning"
+    assert by_path["segment.right_foot.compiled_inertia"]["relation"] == "missing"
+
+
 @pytest.mark.parametrize("environment_name", ENVIRONMENT_NAMES)
 def test_every_canonical_environment_is_auditable(environment_name: str) -> None:
     report = _run(CRAWLER_SPEC, CrawlerPhysics, environment_name)
