@@ -138,7 +138,12 @@ def make_handler(
                 self._static(assets_dir / "app.html")
                 return
             if path.startswith("/assets/"):
-                self._static_under(assets_dir, path[len("/assets/") :])
+                relative = path[len("/assets/") :]
+                # Images live in the web package's assets/ directory while
+                # the stylesheet and script bundle lives at its root.
+                if relative.startswith("img/"):
+                    relative = f"assets/{relative}"
+                self._static_under(assets_dir, relative)
                 return
             if path.startswith("/observatory/"):
                 obs_root = observatory_package_root()
@@ -211,7 +216,17 @@ def make_handler(
                 if not organism_id or len(organism_id) > 256 or limit < 1 or limit > 2048:
                     self._json(400, {"error": "invalid development history query"})
                     return
-                self._json(200, development_history_query(organism_id, limit))
+                try:
+                    payload = development_history_query(organism_id, limit)
+                except (OSError, ValueError):
+                    # A live telemetry writer can update append-only schema
+                    # registries while a history reader is being constructed.
+                    # Do not drop the HTTP connection or expose filesystem
+                    # details; callers can retry this explicitly unavailable
+                    # observer projection.
+                    self._json(503, {"error": "development history temporarily unavailable"})
+                    return
+                self._json(200, payload)
                 return
             if path == "/api/provenance/why":
                 if causal_provenance_query is None:
