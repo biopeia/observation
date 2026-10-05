@@ -77,15 +77,14 @@ def test_all_missing_value_returns_no_value_evidence():
 
 
 def test_insufficient_model_confidence_returns_reason():
-    policy = _make_policy(min_model_confidence=0.9)  # very high threshold
-    ec = _candidate("prim.1", "outcome.1", cc=1, mean_value=0.5)  # cc=1 → conf=1/7≈0.14
+    policy = _make_policy(min_model_confidence=0.9)
+    ec = _candidate("prim.1", "outcome.1", cc=1, mean_value=0.5)
     decision = policy.choose([ec], homeostatic_deviation=0.5, tick=1)
     assert decision.reason == "insufficient_confidence"
 
 
 def test_decision_margin_blocks_close_candidates():
-    policy = _make_policy(decision_margin=0.5)  # high margin requirement
-    # Two candidates with very similar utility
+    policy = _make_policy(decision_margin=0.5)
     ec1 = _candidate("prim.1", "outcome.1", cc=7, mean_value=0.5, samples=16)
     ec2 = _candidate("prim.2", "outcome.2", cc=7, mean_value=0.49, samples=16)
     decision = policy.choose([ec1, ec2], homeostatic_deviation=0.5, tick=1)
@@ -113,18 +112,24 @@ def test_best_utility_candidate_wins():
     assert decision.candidate_id == "prim.good"
 
 
-def test_negative_utility_candidate_can_lose_to_zero():
-    """A candidate with negative mean value should have negative utility."""
+def test_negative_utility_candidate_can_lose_to_positive():
     policy = _make_policy(decision_margin=0.01)
     ec_neg = _candidate("prim.neg", "outcome.neg", cc=7, mean_value=-0.8, samples=16)
-    ec_zero = _candidate("prim.zero", "outcome.zero", cc=7, mean_value=0.01, samples=16)
-    decision = policy.choose([ec_neg, ec_zero], homeostatic_deviation=0.3, tick=10)
+    ec_pos = _candidate("prim.pos", "outcome.pos", cc=7, mean_value=0.1, samples=16)
+    decision = policy.choose([ec_neg, ec_pos], homeostatic_deviation=0.3, tick=10)
     assert decision.reason == "selected"
-    assert decision.candidate_id == "prim.zero"
+    assert decision.candidate_id == "prim.pos"
+
+
+def test_only_non_positive_value_abstains_from_pragmatic_prospection():
+    policy = _make_policy(decision_margin=0.0)
+    ec = _candidate("prim.neg", "outcome.neg", cc=7, mean_value=-0.8, samples=16)
+    decision = policy.choose([ec], homeostatic_deviation=0.8, tick=10)
+    assert decision.reason == "insufficient_margin"
+    assert decision.candidate_id is None
 
 
 def test_tiebreaking_is_deterministic():
-    """Same candidates + same tick → same decision every time."""
     policy = _make_policy(decision_margin=0.0)
     ec1 = _candidate("prim.alpha", "outcome.x", cc=7, mean_value=0.5, samples=16)
     ec2 = _candidate("prim.beta", "outcome.x", cc=7, mean_value=0.5, samples=16)
@@ -132,12 +137,10 @@ def test_tiebreaking_is_deterministic():
     decisions = [
         policy.choose(candidates, homeostatic_deviation=0.5, tick=42).candidate_id for _ in range(5)
     ]
-    assert len(set(decisions)) == 1, "tiebreaking must be deterministic"
+    assert len(set(decisions)) == 1
 
 
 def test_tiebreaking_varies_by_tick():
-    """Different ticks produce different tiebreaking (pseudorandom, not constant)."""
-    # This is a soft property — may be the same for some ticks, but not all
     policy = _make_policy(decision_margin=0.0)
     ec1 = _candidate("prim.aa", "outcome.1", cc=7, mean_value=0.5, samples=16)
     ec2 = _candidate("prim.bb", "outcome.1", cc=7, mean_value=0.5, samples=16)
@@ -145,27 +148,53 @@ def test_tiebreaking_varies_by_tick():
         policy.choose([ec1, ec2], homeostatic_deviation=0.5, tick=t).candidate_id
         for t in range(100)
     }
-    # With 100 different ticks, both candidates should appear at some point
-    assert len(choices) >= 1  # deterministic per tick, but varied across ticks
+    assert len(choices) >= 1
+
+
+def test_homeostatic_need_scales_expected_value():
+    policy = _make_policy(decision_margin=0.0)
+    ec = _candidate("prim.1", "outcome.1", cc=7, mean_value=0.8, samples=16)
+
+    low = policy.choose([ec], homeostatic_deviation=0.2, tick=1)
+    high = policy.choose([ec], homeostatic_deviation=0.8, tick=2)
+
+    assert low.reason == high.reason == "selected"
+    assert low.expected_value is not None and high.expected_value is not None
+    assert high.expected_value == pytest.approx(low.expected_value * 4.0)
+
+
+def test_zero_homeostatic_need_abstains_from_pragmatic_prospection():
+    policy = _make_policy(decision_margin=0.0)
+    ec = _candidate("prim.1", "outcome.1", cc=7, mean_value=0.9, samples=16)
+    decision = policy.choose([ec], homeostatic_deviation=0.0, tick=1)
+    assert decision.reason == "insufficient_margin"
+    assert decision.candidate_id is None
 
 
 def test_selected_decision_has_correct_margin():
     policy = _make_policy(decision_margin=0.0)
     ec1 = _candidate("prim.1", "outcome.1", cc=7, mean_value=0.9, samples=16)
     ec2 = _candidate("prim.2", "outcome.2", cc=7, mean_value=0.4, samples=16)
-    decision = policy.choose([ec1, ec2], homeostatic_deviation=0.0, tick=1)
+    decision = policy.choose([ec1, ec2], homeostatic_deviation=0.5, tick=1)
     assert decision.reason == "selected"
     assert decision.decision_margin is not None
     assert decision.decision_margin >= 0.0
 
 
 def test_zero_confidence_class_is_excluded():
-    """Confidence class 0 is no-signal and must not allow selection."""
     policy = _make_policy(min_model_confidence=0.0)
     ec = _candidate("prim.zero_cc", "outcome.1", cc=0, mean_value=0.9, samples=16)
     decision = policy.choose([ec], homeostatic_deviation=0.5, tick=1)
-    # cc=0 → model_confidence_norm=0 < _MIN_CONFIDENCE_CLASS=1
     assert decision.reason == "insufficient_confidence"
+
+
+def test_policy_rejects_invalid_homeostatic_deviation():
+    policy = _make_policy()
+    ec = _candidate("prim.1", "outcome.1", cc=7, mean_value=0.5, samples=16)
+    with pytest.raises(ValueError):
+        policy.choose([ec], homeostatic_deviation=-0.1, tick=1)
+    with pytest.raises(ValueError):
+        policy.choose([ec], homeostatic_deviation=1.1, tick=1)
 
 
 def test_policy_construction_validates_inputs():
