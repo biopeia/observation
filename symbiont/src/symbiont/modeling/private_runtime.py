@@ -544,9 +544,7 @@ class PrivateModelOrganismRuntime(ModeledOrganismRuntime):
         self._last_prospective_decision = None
         self._last_prospective_query_count = 0
         self._last_prospective_cost = 0.0
-        self._pending_outcome_value_credit: list[
-            tuple[int, str, str, float, float]
-        ] = []
+        self._pending_outcome_value_credit: list[tuple[int, str, str, float, float]] = []
         if not enable_prospective_agency:
             return
 
@@ -778,9 +776,7 @@ class PrivateModelOrganismRuntime(ModeledOrganismRuntime):
             discount,
         ) in self._pending_outcome_value_credit:
             if due_tick > tick:
-                remaining.append(
-                    (due_tick, outcome_id, value_context, baseline, discount)
-                )
+                remaining.append((due_tick, outcome_id, value_context, baseline, discount))
                 continue
             intrinsic_value = (baseline - current_deviation) * discount
             self._prospective_agency.outcome_value_ledger.observe(
