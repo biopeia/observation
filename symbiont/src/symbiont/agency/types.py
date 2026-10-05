@@ -52,12 +52,13 @@ class CounterfactualPrediction:
 
     This is a counterfactual: it describes what the model predicts *would*
     happen if the action were taken. It is never recorded as observed
-    experience.
+    experience. ``prediction_ref`` is provenance only and never evidence.
     """
 
     action_id: str
     predicted_outcome: str
     confidence_class: int
+    prediction_ref: str | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.action_id, str) or not self.action_id:
@@ -72,6 +73,13 @@ class CounterfactualPrediction:
             or not 0 <= self.confidence_class <= 7
         ):
             raise ValueError("confidence_class must be an integer in [0, 7]")
+        if self.prediction_ref is not None:
+            if (
+                not isinstance(self.prediction_ref, str)
+                or not self.prediction_ref.startswith("model-prediction.")
+                or len(self.prediction_ref) > 128
+            ):
+                raise ValueError("prediction_ref must be a bounded model-prediction reference")
 
 
 @dataclass(frozen=True, slots=True)
@@ -116,9 +124,9 @@ class OutcomeValueEstimate:
 class DeliberationOutcome:
     """The outcome of one deliberation cycle.
 
-    Only ``selected`` decisions carry a non-None ``candidate_id``. All other
-    fields are ``None`` when the decision did not select any action. The
-    ``reason`` field is closed to the technical values in ``_VALID_REASONS``.
+    Only ``selected`` decisions carry a non-None ``candidate_id``. The
+    counterfactual prediction reference remains separate from the causal
+    effect prediction owned by Sensorimotor/Agency.
     """
 
     tick: int
@@ -129,6 +137,7 @@ class DeliberationOutcome:
     value_confidence: float | None
     decision_margin: float | None
     reason: str
+    counterfactual_prediction_ref: str | None = None
 
     def __post_init__(self) -> None:
         import math
@@ -140,7 +149,6 @@ class DeliberationOutcome:
                 f"reason {self.reason!r} is not a valid technical reason; "
                 f"valid values: {sorted(_VALID_REASONS)}"
             )
-        # Numeric optional fields must be finite when present
         for name, val in (
             ("expected_value", self.expected_value),
             ("model_confidence", self.model_confidence),
@@ -153,6 +161,15 @@ class DeliberationOutcome:
                 or not math.isfinite(float(val))
             ):
                 raise ValueError(f"{name} must be a finite float or None")
+        if self.counterfactual_prediction_ref is not None:
+            if (
+                not isinstance(self.counterfactual_prediction_ref, str)
+                or not self.counterfactual_prediction_ref.startswith("model-prediction.")
+                or len(self.counterfactual_prediction_ref) > 128
+            ):
+                raise ValueError(
+                    "counterfactual_prediction_ref must be a bounded model-prediction reference"
+                )
 
 
 __all__ = [
