@@ -219,6 +219,7 @@ class ProspectivePolicy:
             value_confidence=float(best_ec.value.confidence),
             decision_margin=float(margin) if math.isfinite(margin) else None,
             reason="selected",
+            counterfactual_prediction_ref=best_ec.prediction.prediction_ref,
         )
 
 
