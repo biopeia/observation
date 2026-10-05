@@ -7,6 +7,7 @@ Routes:
   GET  /api/state             → JSON runs + observation source status
   GET  /api/organism          → SSE: live organism body/cognition/vitals
   GET  /api/organism/history  → JSON: recent materialized observed frames
+  GET  /api/organism/development-history → JSON: canonical Observatory history
   GET  /api/world-scene       → materialized observer spatial snapshot
   GET  /api/provenance/why   → JSON causal ancestry for a selected reference
   GET  /fleet                 → SSE: observatory fleet (if observatory_dir set)
@@ -31,6 +32,7 @@ from typing import Any, Callable
 from urllib.parse import parse_qs, urlparse
 
 from lab.observation.bus import ObservationBus
+from lab.observation.development_history import build_development_history
 from lab.observation.observatory import (
     ObservatorySource,
     observatory_package_root,
@@ -244,6 +246,25 @@ def make_handler(
                     }
                     items.append(item)
                 self._json(200, {"items": items})
+                return
+
+            if path == "/api/organism/development-history":
+                query = parse_qs(parsed.query, keep_blank_values=False)
+                organism_id = str((query.get("organism_id") or [""])[0]).strip()
+                try:
+                    limit = int((query.get("limit") or ["2048"])[0])
+                except ValueError:
+                    self._json(400, {"error": "invalid development history limit"})
+                    return
+                if not organism_id or len(organism_id) > 256 or limit < 1 or limit > 2048:
+                    self._json(400, {"error": "invalid development history query"})
+                    return
+                payload = build_development_history(
+                    observatory_dir,
+                    organism_id=organism_id,
+                    limit=limit,
+                )
+                self._json(200, payload)
                 return
 
             if path == "/api/provenance/why":
