@@ -24,6 +24,7 @@ from collections.abc import Collection
 from dataclasses import dataclass
 
 from .types import (
+    CounterfactualPrediction,
     DeliberationOutcome,
     OutcomeValueEstimate,
     ProspectiveCandidate,
@@ -38,7 +39,7 @@ class EvaluatedCandidate:
     """One candidate after model prediction and value lookup have been applied."""
 
     candidate: ProspectiveCandidate
-    prediction: object
+    prediction: CounterfactualPrediction
     value: OutcomeValueEstimate | None
     estimated_cost: float | None
     epistemic_value: float = 0.0
@@ -105,12 +106,7 @@ class ProspectivePolicy:
     ) -> float:
         model_conf = confidence_class / float(_CONFIDENCE_CLASS_MAX)
         urgency = max(0.0, min(1.0, float(homeostatic_deviation)))
-        return (
-            float(value.mean_value)
-            * float(value.confidence)
-            * model_conf
-            * urgency
-        )
+        return float(value.mean_value) * float(value.confidence) * model_conf * urgency
 
     def choose(
         self,
@@ -157,22 +153,19 @@ class ProspectivePolicy:
         confident: list[tuple[float, float, str, EvaluatedCandidate]] = []
         for ec in valued:
             assert ec.value is not None
-            prediction = ec.prediction
-            confidence_class = int(getattr(prediction, "confidence_class"))
-            model_conf_norm = confidence_class / float(_CONFIDENCE_CLASS_MAX)
+            model_conf_norm = ec.prediction.confidence_class / float(_CONFIDENCE_CLASS_MAX)
             if model_conf_norm < self._min_model_confidence:
                 continue
             if ec.value.confidence < self._min_value_confidence:
                 continue
-            if confidence_class < _MIN_CONFIDENCE_CLASS:
+            if ec.prediction.confidence_class < _MIN_CONFIDENCE_CLASS:
                 continue
             utility = self._utility(
                 ec.value,
-                confidence_class,
+                ec.prediction.confidence_class,
                 homeostatic_deviation=float(homeostatic_deviation),
             )
-            action_id = str(ec.candidate.action_id)
-            tiebreak = self._tiebreak_key(action_id, tick)
+            tiebreak = self._tiebreak_key(ec.candidate.action_id, tick)
             confident.append((utility, float(ec.epistemic_value), tiebreak, ec))
 
         if not confident:
@@ -190,9 +183,6 @@ class ProspectivePolicy:
         confident.sort(key=lambda item: (-item[0], -item[1], item[2]))
         best_utility, _, _, best_ec = confident[0]
 
-        # A prospective pragmatic route must not deliberately choose an outcome
-        # that is expected to maintain or worsen current disequilibrium.  The
-        # model-free executive remains responsible for epistemic exploration.
         if best_utility <= 0.0:
             return DeliberationOutcome(
                 tick=tick,
@@ -220,14 +210,12 @@ class ProspectivePolicy:
             )
 
         assert best_ec.value is not None
-        prediction = best_ec.prediction
-        confidence_class = int(getattr(prediction, "confidence_class"))
         return DeliberationOutcome(
             tick=tick,
             candidate_id=best_ec.candidate.action_id,
-            predicted_outcome=str(getattr(prediction, "predicted_outcome")),
+            predicted_outcome=best_ec.prediction.predicted_outcome,
             expected_value=float(best_utility),
-            model_confidence=confidence_class / float(_CONFIDENCE_CLASS_MAX),
+            model_confidence=best_ec.prediction.confidence_class / float(_CONFIDENCE_CLASS_MAX),
             value_confidence=float(best_ec.value.confidence),
             decision_margin=float(margin) if math.isfinite(margin) else None,
             reason="selected",
