@@ -1,28 +1,57 @@
 """Outcome-value ledger for L8 Prospective Agency.
 
-Maps opaque outcome tokens to endogenous historical value derived
-exclusively from homeostatic deviation changes. No environmental,
-semantic, or evaluator-supplied signals appear here.
+Maps opaque outcome tokens to endogenous historical value derived exclusively
+from homeostatic deviation changes.  Value is learned at two resolutions:
 
-Signal of interest:
-    baseline_homeostatic_deviation - later_homeostatic_deviation
+* a global fallback for the opaque outcome token; and
+* a context-specific estimate keyed by a digest of the organism's own private
+  context tokens.
 
-Positive value → outcome historically improved physiological state.
-Negative value → outcome historically worsened physiological state.
+No environmental, semantic, evaluator-supplied, or physiology field names are
+accepted here.  The context digest exists only to preserve the distinction
+between otherwise identical outcomes experienced in different organism-visible
+states.
 """
 
 from __future__ import annotations
 
+import hashlib
 import math
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Iterable
 
 from .types import OutcomeValueEstimate
 
 MAX_OUTCOME_VALUES = 256
+MAX_CONTEXTUAL_OUTCOME_VALUES = 1024
 
-# Confidence saturates at this many samples
+# Confidence saturates at this many samples.
 _CONFIDENCE_SATURATION_SAMPLES = 16
+_CONTEXT_KEY_PREFIX = "value-context."
+
+
+def context_key_for(context_tokens: Iterable[str]) -> str:
+    """Return a stable opaque identity for an organism-visible context.
+
+    Tokens are already private organism vocabulary.  The ledger deliberately
+    stores only a digest so it cannot acquire or expose semantic interpretation
+    of that vocabulary.  Order is preserved because the private model consumes
+    the same ordered context sequence.
+    """
+    bounded: list[str] = []
+    for raw in context_tokens:
+        token = str(raw)
+        if not token:
+            continue
+        bounded.append(token)
+        if len(bounded) >= 512:
+            break
+    material = "\x1f".join(bounded).encode("utf-8")
+    return _CONTEXT_KEY_PREFIX + hashlib.sha256(material).hexdigest()[:24]
+
+
+def _valid_context_key(value: object) -> bool:
+    return isinstance(value, str) and value.startswith(_CONTEXT_KEY_PREFIX) and len(value) <= 64
 
 
 @dataclass(slots=True)
@@ -31,13 +60,12 @@ class OutcomeValueStat:
 
     samples: int
     mean: float
-    m2: float  # Welford's running sum of squared deviations
-    positive: int  # count of positive-value observations
-    negative: int  # count of negative-value observations
-    last_tick: int  # tick of most recent observation for eviction ordering
+    m2: float
+    positive: int
+    negative: int
+    last_tick: int
 
     def update(self, value: float) -> None:
-        """Welford online update — never call with NaN/Inf (caller must guard)."""
         self.samples += 1
         delta = value - self.mean
         self.mean += delta / self.samples
@@ -50,7 +78,6 @@ class OutcomeValueStat:
 
     @property
     def variance(self) -> float:
-        """Bessel-corrected sample variance; 0.0 when fewer than 2 samples."""
         if self.samples < 2:
             return 0.0
         return self.m2 / (self.samples - 1)
@@ -100,25 +127,43 @@ class OutcomeValueStat:
 
 
 class OutcomeValueLedger:
-    """Learn historical endogenous value of opaque outcome tokens.
+    """Learn endogenous value of opaque outcomes without erasing context.
 
-    Each observed (outcome_id, intrinsic_value) pair updates Welford running
-    statistics. The intrinsic value must be pre-computed outside this class as:
-
-        baseline_homeostatic_deviation - later_homeostatic_deviation
-
-    Nothing here knows about resources, locomotion, or evaluator metrics.
-    Eviction is purely evidence- and recency-based (never semantic).
+    Every observation updates the global fallback.  When ``context_key`` is
+    supplied it also updates a context-specific estimate.  Prospective lookup
+    prefers the contextual estimate and falls back to global evidence while a
+    new context is still evidence-poor.
     """
 
-    _SCHEMA_VERSION = 1
+    _SCHEMA_VERSION = 2
 
     def __init__(self) -> None:
         self._stats: dict[str, OutcomeValueStat] = {}
+        self._context_stats: dict[tuple[str, str], OutcomeValueStat] = {}
 
     @property
     def known_outcome_count(self) -> int:
         return len(self._stats)
+
+    @property
+    def contextual_outcome_count(self) -> int:
+        return len(self._context_stats)
+
+    @staticmethod
+    def _new_stat(tick: int) -> OutcomeValueStat:
+        return OutcomeValueStat(
+            samples=0,
+            mean=0.0,
+            m2=0.0,
+            positive=0,
+            negative=0,
+            last_tick=tick,
+        )
+
+    @staticmethod
+    def _update_stat(stat: OutcomeValueStat, value: float, *, tick: int) -> None:
+        stat.update(value)
+        stat.last_tick = tick
 
     def observe(
         self,
@@ -126,60 +171,82 @@ class OutcomeValueLedger:
         intrinsic_value: float,
         *,
         tick: int,
+        context_key: str | None = None,
     ) -> None:
-        """Record one intrinsic-value observation for an outcome token.
+        """Record one factual endogenous-value observation.
 
-        Silently rejects NaN, Inf, or out-of-range values to prevent
-        poisoning the running statistics.
+        ``context_key`` must be an opaque key generated from organism-visible
+        context.  Supplying no context preserves the v1 global-only behaviour.
         """
         if not isinstance(outcome_id, str) or not outcome_id or len(outcome_id) > 128:
             raise ValueError("outcome_id must be a bounded non-empty string")
+        if context_key is not None and not _valid_context_key(context_key):
+            raise ValueError("context_key must be an opaque value-context key")
         if (
             isinstance(intrinsic_value, bool)
             or not isinstance(intrinsic_value, (int, float))
             or not math.isfinite(float(intrinsic_value))
         ):
-            # WARN(fail-closed): Silently discard non-finite observations; they must not corrupt
-            # the Welford accumulator.
             return
         if isinstance(tick, bool) or not isinstance(tick, int) or tick < 0:
             raise ValueError("tick must be a non-negative integer")
 
-        value = float(intrinsic_value)
-        # Clamp to [-1, 1] — same range as homeostatic deviation difference
-        value = max(-1.0, min(1.0, value))
+        value = max(-1.0, min(1.0, float(intrinsic_value)))
 
         stat = self._stats.get(outcome_id)
         if stat is None:
-            # Enforce capacity before creating a new entry
             if len(self._stats) >= MAX_OUTCOME_VALUES:
-                self._evict_one()
-            stat = OutcomeValueStat(
-                samples=0,
-                mean=0.0,
-                m2=0.0,
-                positive=0,
-                negative=0,
-                last_tick=tick,
-            )
+                self._evict_global_one()
+            stat = self._new_stat(tick)
             self._stats[outcome_id] = stat
+        self._update_stat(stat, value, tick=tick)
 
-        stat.update(value)
-        stat.last_tick = tick
+        if context_key is None:
+            return
+        contextual_key = (context_key, outcome_id)
+        contextual = self._context_stats.get(contextual_key)
+        if contextual is None:
+            if len(self._context_stats) >= MAX_CONTEXTUAL_OUTCOME_VALUES:
+                self._evict_contextual_one()
+            contextual = self._new_stat(tick)
+            self._context_stats[contextual_key] = contextual
+        self._update_stat(contextual, value, tick=tick)
 
-    def _evict_one(self) -> None:
-        """Remove the weakest outcome entry by evidence count, then recency."""
+    def _evict_global_one(self) -> None:
         if not self._stats:
             return
-        # Evict by (fewest samples, oldest last_tick) — never by semantics
         worst_key = min(
             self._stats,
             key=lambda k: (self._stats[k].samples, self._stats[k].last_tick, k),
         )
         del self._stats[worst_key]
 
-    def estimate(self, outcome_id: str) -> OutcomeValueEstimate | None:
-        """Return an estimate for the outcome, or None if unknown."""
+    def _evict_contextual_one(self) -> None:
+        if not self._context_stats:
+            return
+        worst_key = min(
+            self._context_stats,
+            key=lambda k: (
+                self._context_stats[k].samples,
+                self._context_stats[k].last_tick,
+                k,
+            ),
+        )
+        del self._context_stats[worst_key]
+
+    def estimate(
+        self,
+        outcome_id: str,
+        *,
+        context_key: str | None = None,
+    ) -> OutcomeValueEstimate | None:
+        """Return contextual value when known, otherwise the global fallback."""
+        if context_key is not None:
+            if not _valid_context_key(context_key):
+                raise ValueError("context_key must be an opaque value-context key")
+            contextual = self._context_stats.get((context_key, outcome_id))
+            if contextual is not None and contextual.samples >= 1:
+                return contextual.to_estimate(outcome_id)
         stat = self._stats.get(outcome_id)
         if stat is None or stat.samples < 1:
             return None
@@ -189,15 +256,23 @@ class OutcomeValueLedger:
         return {
             "schema_version": self._SCHEMA_VERSION,
             "stats": {outcome_id: stat.checkpoint() for outcome_id, stat in self._stats.items()},
+            "context_stats": [
+                {
+                    "context_key": context_key,
+                    "outcome_id": outcome_id,
+                    "stat": stat.checkpoint(),
+                }
+                for (context_key, outcome_id), stat in sorted(self._context_stats.items())
+            ],
         }
 
     @classmethod
     def restore(cls, payload: object) -> "OutcomeValueLedger":
-        """Restore from a checkpoint payload. Fails closed on schema mismatch."""
+        """Restore v1 global ledgers or v2 contextual ledgers."""
         if not isinstance(payload, dict):
             raise ValueError("invalid outcome-value ledger checkpoint")
         version = payload.get("schema_version")
-        if version != cls._SCHEMA_VERSION:
+        if version not in {1, cls._SCHEMA_VERSION}:
             raise ValueError(f"unsupported outcome-value ledger schema version: {version!r}")
         raw_stats = payload.get("stats", {})
         if not isinstance(raw_stats, dict):
@@ -207,20 +282,45 @@ class OutcomeValueLedger:
         for outcome_id, raw_stat in raw_stats.items():
             if len(ledger._stats) >= MAX_OUTCOME_VALUES:
                 break
-            # WARN(fail-closed): Schema/root corruption remains fail-closed above. Individual
-            # bounded ledger entries are independently recoverable evidence:
-            # skip one malformed item without discarding all valid phenotype.
             if not isinstance(outcome_id, str) or not isinstance(raw_stat, dict):
                 continue
             try:
                 ledger._stats[outcome_id] = OutcomeValueStat.restore(raw_stat)
             except (ValueError, TypeError, KeyError):
                 continue
+
+        if version == cls._SCHEMA_VERSION:
+            raw_context = payload.get("context_stats", [])
+            if not isinstance(raw_context, list):
+                raise ValueError("invalid contextual outcome-value checkpoint")
+            for item in raw_context:
+                if len(ledger._context_stats) >= MAX_CONTEXTUAL_OUTCOME_VALUES:
+                    break
+                if not isinstance(item, dict):
+                    continue
+                context_key = item.get("context_key")
+                outcome_id = item.get("outcome_id")
+                raw_stat = item.get("stat")
+                if (
+                    not _valid_context_key(context_key)
+                    or not isinstance(outcome_id, str)
+                    or not outcome_id
+                    or not isinstance(raw_stat, dict)
+                ):
+                    continue
+                try:
+                    ledger._context_stats[(context_key, outcome_id)] = OutcomeValueStat.restore(
+                        raw_stat
+                    )
+                except (ValueError, TypeError, KeyError):
+                    continue
         return ledger
 
 
 __all__ = [
+    "MAX_CONTEXTUAL_OUTCOME_VALUES",
     "MAX_OUTCOME_VALUES",
     "OutcomeValueStat",
     "OutcomeValueLedger",
+    "context_key_for",
 ]

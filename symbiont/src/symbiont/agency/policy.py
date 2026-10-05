@@ -1,15 +1,19 @@
 """Prospective decision policy for L8 Prospective Agency.
 
 Pure decision logic. Receives pre-evaluated candidates and returns a
-DeliberationOutcome. Knows nothing about models, physiology, or motor
-execution.
+DeliberationOutcome. Knows nothing about physiology fields, motor execution, or
+environment semantics.
 
-Utility formula (P0):
-    utility = mean_value × value_confidence × model_confidence_normalized
+Pragmatic utility is endogenous historical value gated by current constitutional
+need:
 
-where model_confidence_normalized = confidence_class / 7.
+    utility = mean_value
+              × value_confidence
+              × model_confidence_normalized
+              × homeostatic_deviation
 
-No environmental or evaluator metrics feed into this computation.
+A non-positive pragmatic utility is never selected prospectively. Exploration
+and epistemic admission remain available through the model-free executive path.
 """
 
 from __future__ import annotations
@@ -26,8 +30,8 @@ from .types import (
     ProspectiveCandidate,
 )
 
-_MIN_CONFIDENCE_CLASS = 1  # confidence_class 0 is considered no-signal
-_CONFIDENCE_CLASS_MAX = 7  # denominator for normalising confidence_class
+_MIN_CONFIDENCE_CLASS = 1
+_CONFIDENCE_CLASS_MAX = 7
 
 
 @dataclass(frozen=True)
@@ -37,8 +41,8 @@ class EvaluatedCandidate:
     candidate: ProspectiveCandidate
     prediction: CounterfactualPrediction
     value: OutcomeValueEstimate | None
-    estimated_cost: float | None  # reserved for L8.6+; unused in P0 utility
-    epistemic_value: float = 0.0  # comparison-only tiebreak signal in [0, 1]
+    estimated_cost: float | None
+    epistemic_value: float = 0.0
 
     def __post_init__(self) -> None:
         if (
@@ -51,20 +55,7 @@ class EvaluatedCandidate:
 
 
 class ProspectivePolicy:
-    """Conservative selection policy for prospective action deliberation.
-
-    A candidate dominates only if all of the following hold:
-    - prediction.confidence_class >= min_confidence_class
-    - value evidence exists (OutcomeValueEstimate is not None)
-    - value confidence (from ledger) meets sample threshold
-    - utility margin over the next-best candidate >= decision_margin
-
-    Utility (P0): mean_value × value_confidence × model_confidence_normalized
-
-    Tie-breaking is deterministic: sha256 of organism_id + tick + action_id.
-
-    Costs are reserved for L8.6+; not used in P0 utility ranking.
-    """
+    """Conservative selection policy for prospective action deliberation."""
 
     def __init__(
         self,
@@ -103,7 +94,6 @@ class ProspectivePolicy:
         self._decision_margin = float(decision_margin)
 
     def _tiebreak_key(self, action_id: str, tick: int) -> str:
-        """Deterministic tiebreak — never interprets action_id semantically."""
         material = f"{self._organism_id}:{tick}:{action_id}".encode("utf-8")
         return hashlib.sha256(material).hexdigest()
 
@@ -111,10 +101,12 @@ class ProspectivePolicy:
     def _utility(
         value: OutcomeValueEstimate,
         confidence_class: int,
+        *,
+        homeostatic_deviation: float,
     ) -> float:
-        """P0 utility: mean_value × value_confidence × model_confidence_normalized."""
         model_conf = confidence_class / float(_CONFIDENCE_CLASS_MAX)
-        return float(value.mean_value) * float(value.confidence) * model_conf
+        urgency = max(0.0, min(1.0, float(homeostatic_deviation)))
+        return float(value.mean_value) * float(value.confidence) * model_conf * urgency
 
     def choose(
         self,
@@ -123,20 +115,16 @@ class ProspectivePolicy:
         homeostatic_deviation: float,
         tick: int,
     ) -> DeliberationOutcome:
-        """Select the best candidate, or return a non-selecting decision.
+        """Select the best positively-valued candidate, or abstain."""
+        if (
+            isinstance(homeostatic_deviation, bool)
+            or not isinstance(homeostatic_deviation, (int, float))
+            or not math.isfinite(float(homeostatic_deviation))
+            or not 0.0 <= float(homeostatic_deviation) <= 1.0
+        ):
+            raise ValueError("homeostatic_deviation must be within [0, 1]")
 
-        Args:
-            candidates: Pre-evaluated candidates (prediction + value already
-                resolved by ProspectiveAgency).
-            homeostatic_deviation: Current physiological disequilibrium in [0, 1].
-                Accepted for future extensions; not currently used in utility.
-            tick: Current organism tick for deterministic tiebreaking.
-
-        Returns:
-            A DeliberationOutcome with reason indicating outcome.
-        """
         candidate_list = list(candidates)
-
         if not candidate_list:
             return DeliberationOutcome(
                 tick=tick,
@@ -149,7 +137,6 @@ class ProspectivePolicy:
                 reason="no_candidates",
             )
 
-        # Filter candidates with sufficient evidence
         valued = [ec for ec in candidate_list if ec.value is not None]
         if not valued:
             return DeliberationOutcome(
@@ -163,10 +150,9 @@ class ProspectivePolicy:
                 reason="no_value_evidence",
             )
 
-        # Apply confidence gates
         confident: list[tuple[float, float, str, EvaluatedCandidate]] = []
         for ec in valued:
-            assert ec.value is not None  # narrowing
+            assert ec.value is not None
             model_conf_norm = ec.prediction.confidence_class / float(_CONFIDENCE_CLASS_MAX)
             if model_conf_norm < self._min_model_confidence:
                 continue
@@ -174,7 +160,11 @@ class ProspectivePolicy:
                 continue
             if ec.prediction.confidence_class < _MIN_CONFIDENCE_CLASS:
                 continue
-            utility = self._utility(ec.value, ec.prediction.confidence_class)
+            utility = self._utility(
+                ec.value,
+                ec.prediction.confidence_class,
+                homeostatic_deviation=float(homeostatic_deviation),
+            )
             tiebreak = self._tiebreak_key(ec.candidate.action_id, tick)
             confident.append((utility, float(ec.epistemic_value), tiebreak, ec))
 
@@ -190,16 +180,23 @@ class ProspectivePolicy:
                 reason="insufficient_confidence",
             )
 
-        # Sort by utility desc, then by deterministic tiebreak asc
-        # Pragmatic utility remains authoritative. Epistemic value can only
-        # break exact utility ties; it is not added to reward/value.
         confident.sort(key=lambda item: (-item[0], -item[1], item[2]))
         best_utility, _, _, best_ec = confident[0]
 
-        # Check decision margin against second-best pragmatic utility.
+        if best_utility <= 0.0:
+            return DeliberationOutcome(
+                tick=tick,
+                candidate_id=None,
+                predicted_outcome=None,
+                expected_value=None,
+                model_confidence=None,
+                value_confidence=None,
+                decision_margin=0.0,
+                reason="insufficient_margin",
+            )
+
         second_utility = confident[1][0] if len(confident) > 1 else -math.inf
         margin = best_utility - second_utility
-
         if margin < self._decision_margin:
             return DeliberationOutcome(
                 tick=tick,
@@ -212,7 +209,7 @@ class ProspectivePolicy:
                 reason="insufficient_margin",
             )
 
-        assert best_ec.value is not None  # narrowing
+        assert best_ec.value is not None
         return DeliberationOutcome(
             tick=tick,
             candidate_id=best_ec.candidate.action_id,

@@ -48,7 +48,6 @@ class _PrivateFrame:
     development: str | None
     homeostatic_deviation: float
     episodic_projection: EpisodicProjection
-    # Cognitive Cycle v1 §5.1: the motor-caused fact this frame observed.
     factual_ref: str | None = None
 
 
@@ -65,7 +64,6 @@ class PrivateModelOrganismRuntime(ModeledOrganismRuntime):
     transition rather than fabricating a consequence across the discontinuity.
     """
 
-    # Layer of the continuity register this runtime's checkpoint must satisfy.
     _CONTINUITY_LAYER = "private_model"
 
     def __init__(
@@ -84,8 +82,6 @@ class PrivateModelOrganismRuntime(ModeledOrganismRuntime):
             raise ValueError("shared_fact_identity must be boolean")
         self._capture_private_experience = capture_private_experience
         self._enable_prospective_agency = enable_prospective_agency
-        # Cognitive Cycle v1 W1: off until its retention/corpus comparison is
-        # reviewed -- it changes record hashes and generative source diversity.
         self._shared_fact_identity = shared_fact_identity
         self._pending_private_frame: _PrivateFrame | None = None
         super().__init__(**kwargs)
@@ -157,7 +153,6 @@ class PrivateModelOrganismRuntime(ModeledOrganismRuntime):
 
     @staticmethod
     def _value_class(value: float) -> int:
-        """Bound a numeric percept into an opaque three-bit state class."""
         if 0.0 <= value <= 1.0:
             normalized = value
         else:
@@ -224,7 +219,6 @@ class PrivateModelOrganismRuntime(ModeledOrganismRuntime):
         vital: str | None,
         development: str | None,
     ) -> EpisodicProjection:
-        """Capture the sparse cognitive state actually available at this tick."""
         cognition = result.cognition
         activations = (
             cognition.activations
@@ -316,9 +310,6 @@ class PrivateModelOrganismRuntime(ModeledOrganismRuntime):
         actuations = result.actuations or (
             (result.actuation,) if result.actuation is not None else ()
         )
-        # A motor command is identified by what was done, not by its command
-        # id: a per-command token never recurs, so nothing could be learned or
-        # reconciled about it (Cognitive Cycle v1 F6).
         if result.action_result is not None and not actuations:
             action_id = result.action_result.action_id
             action_token = f"action.{action_id}"
@@ -359,11 +350,6 @@ class PrivateModelOrganismRuntime(ModeledOrganismRuntime):
                     "motor.channel",
                     actuation.actuator_id,
                 )
-                # A named learned competence already has a stable opaque
-                # action token. Do not condition its causal training episode on
-                # post-execution delivered values that are unavailable during
-                # counterfactual choice. Composite exploration still needs channel
-                # detail because it has no acquired action identity.
                 if not named_competence:
                     context.append(f"internal.{actuator_token}.requested.{requested_class}")
                     context.append(f"internal.{actuator_token}.delivered.{delivered_class}")
@@ -377,12 +363,6 @@ class PrivateModelOrganismRuntime(ModeledOrganismRuntime):
                             delivered_class,
                         )
                     )
-            # When the execution originated from a named competence, use the
-            # competence's opaque identity as the action token. This gives
-            # counterfactual inference the same token that was produced during
-            # training — one representation for learning and imagining.
-            # For exploration and unbound multi-channel vectors, the
-            # composite fallback preserves the existing behaviour.
             if named_competence:
                 action_token = f"action.{executed_pid}"
             else:
@@ -403,8 +383,6 @@ class PrivateModelOrganismRuntime(ModeledOrganismRuntime):
             vital=vital,
             development=development,
         )
-        # The transition closed during this tick is the consequence of the
-        # command issued in the previous frame: one fact, cited by its own id.
         transition = self._action_domain.last_transition if self._shared_fact_identity else None
         return _PrivateFrame(
             tick=result.tick,
@@ -556,26 +534,17 @@ class PrivateModelOrganismRuntime(ModeledOrganismRuntime):
             )
         )
 
-    # ------------------------------------------------------------------ #
-    #  L8: Prospective Agency integration                                  #
-    # ------------------------------------------------------------------ #
-
     def _init_prospective_agency(
         self,
         *,
         enable_prospective_agency: bool = True,
     ) -> None:
-        """Initialise the prospective agency subsystem.
-
-        Called once from __init__ after super().__init__() so physiology_config
-        is available. Configuration/programming errors fail closed during
-        construction; runtime absence of an ACTIVE model merely abstains.
-        """
+        """Initialise the prospective agency subsystem."""
         self._prospective_agency = None
         self._last_prospective_decision = None
         self._last_prospective_query_count = 0
         self._last_prospective_cost = 0.0
-        self._pending_outcome_value_credit: list[tuple[int, str, float, float]] = []
+        self._pending_outcome_value_credit: list[tuple[int, str, str, float, float]] = []
         if not enable_prospective_agency:
             return
 
@@ -600,24 +569,7 @@ class PrivateModelOrganismRuntime(ModeledOrganismRuntime):
         competence_id: str,
         context_tokens: tuple[str, ...],
     ) -> "ModelPredictionProposal":
-        """Predict the outcome of a competence action counterfactually.
-
-        This is an imagination query — it uses the ACTIVE private SLM to
-        predict what would happen *if* the organism executed ``competence_id``.
-        No ExperienceRecord is created.
-
-        Args:
-            competence_id: Opaque competence identifier (e.g. ``"competence.<opaque>"``).
-            context_tokens: Private cognitive context tokens.
-
-        Returns:
-            A ModelPredictionProposal with the predicted outcome token and
-            confidence class.
-
-        Raises:
-            ValueError: If no ACTIVE model exists, or bridge is unavailable,
-                or the organism is dead.
-        """
+        """Predict the outcome of a competence action counterfactually."""
         action_token = f"action.{competence_id}"
         return self.active_private_counterfactual(
             context_tokens,
@@ -640,19 +592,9 @@ class PrivateModelOrganismRuntime(ModeledOrganismRuntime):
         signal_references: "dict[str, str]",
         tick: int,
     ) -> "ProspectiveDecision | None":
-        """Model-based prospective admission among afforded, represented competences.
-
-        Counterfactual deliberation (L8) selects among competences that are
-        both currently afforded and represented in cognition.  When it
-        abstains, the base model-free executive admission still applies; no
-        path turns a readout directly into motor authority.
-        """
         self._last_prospective_decision = None
         self._last_prospective_query_count = 0
         self._last_prospective_cost = 0.0
-        # Executive Outcome Learning v1 §6: deliberation utility is never
-        # modulated by executive history; suppressed keys are simply not
-        # candidates.  The model-free fallback applies the full modulation.
         affordances = tuple(
             affordance
             for affordance in affordances
@@ -692,9 +634,6 @@ class PrivateModelOrganismRuntime(ModeledOrganismRuntime):
         if active is None:
             return None
 
-        # A sensorimotor competence becomes a prospective action only after
-        # its competence readout has actually entered the cognitive graph, and
-        # only while it is currently afforded.
         competence_readouts = cognition.readouts_for_family("primitive")
         afforded = {
             affordance.competence_id: affordance
@@ -704,8 +643,6 @@ class PrivateModelOrganismRuntime(ModeledOrganismRuntime):
         if not afforded:
             return None
 
-        # Counterfactual inference stays inside the same private token language
-        # used for observed training episodes.
         context = self._private_context_tokens_from_percepts(
             percepts,
             signal_references,
@@ -726,8 +663,6 @@ class PrivateModelOrganismRuntime(ModeledOrganismRuntime):
             nonlocal query_count
             from ..agency import CounterfactualPrediction
 
-            # Count an actual inference attempt, including one that fails
-            # inside the model gateway: computation was still requested.
             query_count += 1
             proposal = self.predict_competence_outcome(action_id, ctx)
             return CounterfactualPrediction(
@@ -757,19 +692,25 @@ class PrivateModelOrganismRuntime(ModeledOrganismRuntime):
 
         if outcome.reason != "selected" or outcome.candidate_id is None:
             return None
-        # Predicted outcomes influence choice only. Endogenous value is
-        # learned later from independently observed real outcomes.
         affordance = afforded[outcome.candidate_id]
         from ..agency import AdmissionRoute, ProspectiveDecision
 
         epistemic = self._executive_epistemic_value(outcome.candidate_id)
+        # ``expected_value`` is already the context-sensitive endogenous value
+        # scaled by evidence, model confidence and current need.  Preserve that
+        # actual reason for selection instead of replacing it with raw global
+        # disequilibrium.
+        homeostatic_relevance = max(
+            0.0,
+            min(1.0, float(outcome.expected_value or 0.0)),
+        )
         return ProspectiveDecision(
             competence_id=outcome.candidate_id,
             anticipated_effect_id=affordance.anticipated_effect_id,
             prediction_ref=affordance.prediction_ref,
             confidence=max(0.0, min(1.0, float(outcome.model_confidence or 0.0))),
             epistemic_relevance=0.0 if epistemic is None else max(0.0, min(1.0, epistemic)),
-            homeostatic_relevance=max(0.0, min(1.0, float(homeostatic_deviation))),
+            homeostatic_relevance=homeostatic_relevance,
             origin_refs=(
                 f"prospective.decision.{tick}.{outcome.candidate_id}",
                 affordance.affordance_id,
@@ -785,41 +726,64 @@ class PrivateModelOrganismRuntime(ModeledOrganismRuntime):
         baseline_deviation: float,
         tick: int,
     ) -> None:
-        """Schedule endogenous value learning from observed outcomes only."""
+        """Schedule contextual endogenous value from a factual action outcome.
+
+        The private predictor has one ``<OUTCOME>`` target and validation tests
+        it against ``episode.outcome_tokens[0]``.  Delayed value therefore
+        belongs to that same factual target identity.  Secondary simultaneous
+        changes remain in episodic evidence but do not each receive an
+        identical causal-value label.
+        """
         if (
             self._prospective_agency is None
             or episode.action_token is None
+            or episode.source_kind is not SourceKind.ACTION_OUTCOME
             or not episode.outcome_tokens
         ):
             return
+        from ..agency.value import context_key_for
+
+        value_context = context_key_for(episode.context_tokens)
+        outcome_id = str(episode.outcome_tokens[0])
         for horizon, discount in ((4, 1.0), (16, 0.85), (64, 0.65), (256, 0.40)):
             due_tick = int(tick) + horizon
-            for outcome_id in episode.outcome_tokens:
-                self._pending_outcome_value_credit.append(
-                    (due_tick, str(outcome_id), float(baseline_deviation), discount)
+            self._pending_outcome_value_credit.append(
+                (
+                    due_tick,
+                    outcome_id,
+                    value_context,
+                    float(baseline_deviation),
+                    discount,
                 )
+            )
         if len(self._pending_outcome_value_credit) > 4096:
             self._pending_outcome_value_credit.sort(key=lambda item: item[0])
             self._pending_outcome_value_credit = self._pending_outcome_value_credit[:4096]
 
     def _resolve_outcome_value_credit(self, *, tick: int) -> None:
-        """Resolve pending outcome-value credit traces at due ticks."""
         if not self._pending_outcome_value_credit or self._prospective_agency is None:
             return
         if not self._living_body_state.alive:
             self._pending_outcome_value_credit.clear()
             return
         current_deviation = self._homeostasis.deviation()
-        remaining: list[tuple[int, str, float, float]] = []
-        for due_tick, outcome_id, baseline, discount in self._pending_outcome_value_credit:
+        remaining: list[tuple[int, str, str, float, float]] = []
+        for (
+            due_tick,
+            outcome_id,
+            value_context,
+            baseline,
+            discount,
+        ) in self._pending_outcome_value_credit:
             if due_tick > tick:
-                remaining.append((due_tick, outcome_id, baseline, discount))
+                remaining.append((due_tick, outcome_id, value_context, baseline, discount))
                 continue
             intrinsic_value = (baseline - current_deviation) * discount
             self._prospective_agency.outcome_value_ledger.observe(
                 outcome_id,
                 intrinsic_value,
                 tick=tick,
+                context_key=value_context,
             )
         self._pending_outcome_value_credit = remaining
 
@@ -830,18 +794,10 @@ class PrivateModelOrganismRuntime(ModeledOrganismRuntime):
         include_observability: bool = True,
     ) -> RuntimeTickResult:
         result = super().tick(context=context, include_observability=include_observability)
-        # Resolve outcome-value credit traces at due ticks (L8).
-        # This must happen on every tick regardless of _capture_private_experience
-        # because prospective decisions may have been made before the flag was set.
         tick = result.tick
         self._resolve_outcome_value_credit(tick=tick)
 
         if self._capture_private_experience:
-            # WARN(invariant): The canonical runtime may complete a terminal tick and transition
-            # physiology to DEAD before returning its passive result.  Once
-            # death has occurred the organism must not mutate experience/model
-            # state.  Drop the pending causal bridge rather than fabricating
-            # post-mortem learning or weakening record_experience()'s invariant.
             if "death" in result.runtime_events:
                 self._pending_private_frame = None
                 self._pending_outcome_value_credit.clear()
@@ -865,8 +821,6 @@ class PrivateModelOrganismRuntime(ModeledOrganismRuntime):
                     self.generative_cognition.note_factual_outcome(
                         action_id=episode.action_token.removeprefix("action."),
                         outcome_tokens=episode.outcome_tokens,
-                        # One event is one factual source, not one per signal
-                        # reference (Cognitive Cycle v1 F2).
                         evidence_refs=(
                             (current.factual_ref,)
                             if current.factual_ref is not None
@@ -913,13 +867,9 @@ class PrivateModelOrganismRuntime(ModeledOrganismRuntime):
         config["capture_private_experience"] = self._capture_private_experience
         config["enable_prospective_agency"] = self._enable_prospective_agency
         if self._shared_fact_identity:
-            # Written only when enabled: a default checkpoint stays byte-identical.
             config["shared_fact_identity"] = True
         payload["private_model_config"] = config
 
-        # WARN(no-cross-restart-bridging): Persist agency state (OutcomeValueLedger only; pending traces are NOT
-        # checkpointed — they cannot bridge across a restart without fabricating
-        # a causal consequence that never happened in the restored timeline).
         if self._prospective_agency is not None:
             payload["prospective_agency"] = self._prospective_agency.checkpoint()
 
@@ -947,12 +897,7 @@ class PrivateModelOrganismRuntime(ModeledOrganismRuntime):
                 raise ValueError("invalid shared fact identity checkpoint flag")
             constructor["shared_fact_identity"] = value
         runtime = super().from_checkpoint(payload, **constructor)
-        # WARN: Never bridge t -> t+1 across a restart. The first post-restore tick
-        # establishes a new independent frame.
         runtime._pending_private_frame = None
-
-        # WARN: Restore agency OutcomeValueLedger. Pending outcome-value credit
-        # traces are NOT restored — no cross-restart causal bridging.
         runtime._pending_outcome_value_credit = []
         if runtime._prospective_agency is not None:
             raw_agency = payload.get("prospective_agency") if isinstance(payload, dict) else None
