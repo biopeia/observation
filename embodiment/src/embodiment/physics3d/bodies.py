@@ -30,6 +30,7 @@ from embodiment.physics3d.mechanics import (
     GROUND_MATERIAL,
 )
 from embodiment.physics3d.robotic_arm import ROBOTIC_ARM_SPEC, RoboticArmPhysics
+from embodiment.physics3d.spot import SPOT_INSPIRED_SPEC, SpotInspiredPhysics
 from embodiment.physics3d.vision import (
     VISION_BODY_KIND,
     VISION_TOTAL_RECEPTOR_COUNT,
@@ -60,6 +61,9 @@ class BodyDescriptor:
     # (receptors plus proprioceptive derivations); larger surfaces need more
     # room or body senses are silently squeezed out.
     sensory_capacity: int = 256
+    # Some articulated bodies require powered posture control and cannot
+    # reach equilibrium with all effectors disabled at construction time.
+    passive_settling: bool = True
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -162,6 +166,30 @@ CRAWLER_V1 = BodyDescriptor(
     observer_base_link_name=CRAWLER_SPEC.base_link_name,
 )
 
+SPOT_INSPIRED_V1 = BodyDescriptor(
+    body_kind=SPOT_INSPIRED_SPEC.body_kind,
+    display_name="Spot-inspired quadruped",
+    version=SPOT_INSPIRED_SPEC.state_schema_version,
+    motor_dof=SPOT_INSPIRED_SPEC.motor_dof,
+    receptor_count=SPOT_INSPIRED_SPEC.total_receptor_count,
+    effector_count=SPOT_INSPIRED_SPEC.effector_count,
+    receptor_ids=SPOT_INSPIRED_SPEC.receptor_ids(),
+    interoceptive_receptor_ids=SPOT_INSPIRED_SPEC.interoceptive_receptor_ids(),
+    effector_ids=SPOT_INSPIRED_SPEC.effector_ids(),
+    apparatus_factory=SpotInspiredPhysics,
+    ground_material=GROUND_MATERIAL,
+    observer_joint_specs=SPOT_INSPIRED_SPEC.joint_specs,
+    observer_contact_region_names=(
+        SPOT_INSPIRED_SPEC.base_link_name,
+        *SPOT_INSPIRED_SPEC.contact_link_names,
+    ),
+    observer_segments=SPOT_INSPIRED_SPEC.segments,
+    observer_joint_topology=SPOT_INSPIRED_SPEC.joint_topology,
+    observer_fixed_link_topology=SPOT_INSPIRED_SPEC.fixed_link_topology,
+    observer_base_link_name=SPOT_INSPIRED_SPEC.base_link_name,
+    passive_settling=False,
+)
+
 ASYMMETRIC_V1 = BodyDescriptor(
     body_kind=ASYMMETRIC_SPEC.body_kind,
     display_name="Asymmetric",
@@ -258,6 +286,7 @@ def vision_body_descriptor(apparatus_factory: Callable[[int], Any]) -> BodyDescr
 __all__ = [
     "ANTHROPOMORPHIC_V6",
     "CRAWLER_V1",
+    "SPOT_INSPIRED_V1",
     "ASYMMETRIC_V1",
     "HEXAPOD_V1",
     "ROBOTIC_ARM_V1",

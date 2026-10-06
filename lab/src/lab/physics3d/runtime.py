@@ -355,7 +355,14 @@ class Physics3DEmbodimentRuntime:
                 strict_anatomical_limits=False,
             )
         else:
-            self._settle_new_body()
+            if self.body_descriptor.passive_settling:
+                self._settle_new_body()
+            else:
+                # Powered quadrupeds cannot be expected to hold a standing
+                # pose with every actuator disabled. Preserve their declared
+                # spawn pose for tick 0; do not fake equilibrium by injecting
+                # controller torques during initialization.
+                self._settling_result = None
 
         # Physical body identity is part of every current physical checkpoint.
         if physical_state is None:
