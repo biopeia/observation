@@ -84,6 +84,16 @@ class ObservationDeltaEncoder:
         self._revisions: dict[str, int] = {}
         self._since_anchor: dict[str, int] = {}
 
+    def reset(self) -> None:
+        """Forget all channel bases so the next observation is a fresh anchor.
+
+        Transport sequence lives in ObservationBus and is intentionally not
+        reset here.  This method only clears run-scoped materialization state.
+        """
+        self._states.clear()
+        self._revisions.clear()
+        self._since_anchor.clear()
+
     def encode(self, event: Mapping[str, Any]) -> dict[str, Any]:
         current = deepcopy(dict(event))
         channel = str(current.get("type") or "")

@@ -230,6 +230,37 @@ export class MindStreams {
       this.consumeDecoderIssues();
       if (!data?.type) return;
 
+      if (data.type === 'observation_boundary') {
+        this.liveFrameReceived = false;
+        this.coherentIdentity = null;
+        this.liveDecoder.reset();
+        cancelCanonicalDevelopmentHydration();
+        this.developmentHydratedIdentity = null;
+        this.localMindActive = data.phase === 'begin';
+        if (this.instance) {
+          this.instance.close();
+          this.instance = null;
+        }
+        this.activeInstance = null;
+        this.activeRunId = null;
+        this.emitSourceState('waiting', {
+          source: data.phase === 'begin' ? 'physics3d' : null,
+          instanceId: null,
+          runId: data.phase === 'begin' ? data.run_id ?? null : null,
+          organismId: null,
+          bodyId: null,
+          embodimentId: null,
+          reason: data.phase === 'begin' ? 'run-starting' : 'run-ended',
+        });
+        this.onWaiting(
+          true,
+          data.phase === 'begin'
+            ? 'Physics3D run is starting — waiting for its first coherent frame…'
+            : 'Physics3D run ended.',
+        );
+        return;
+      }
+
       if (data.type === 'observed_frame' && data.source === 'physics3d') {
         this.liveFrameReceived = true;
         this.localMindActive = true;

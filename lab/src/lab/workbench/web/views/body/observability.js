@@ -6,6 +6,10 @@ function stateIdentity(state) {
   return `${physics.run_id}|${physics.body_ref ?? ''}|${physics.body_kind ?? ''}`;
 }
 
+function stateRunId(state) {
+  return state?.sources?.physics3d?.run_id ?? null;
+}
+
 function eventIdentity(event) {
   if (!event?.run_id) return null;
   return {
@@ -60,11 +64,13 @@ export class PhysicalObservationBoundary {
   constructor({ onIdentityChange } = {}) {
     this.onIdentityChange = onIdentityChange ?? (() => {});
     this.presentationIdentity = null;
+    this.presentationRunId = null;
     this.remountScheduled = false;
   }
 
   mount(state) {
     this.presentationIdentity = stateIdentity(state);
+    this.presentationRunId = stateRunId(state);
   }
 
   attach(viewer) {
@@ -75,8 +81,43 @@ export class PhysicalObservationBoundary {
     decoder.decode = (payload) => {
       const data = decode(payload);
       if (!data) return data;
+
+      if (data.type === 'observation_boundary') {
+        acceptedIdentity = null;
+        markStatus(
+          viewer,
+          data.phase === 'begin'
+            ? '○ New run — waiting for physical observation'
+            : '○ Run ended — waiting for a new run',
+          'stale',
+          'var(--amber, #f1fa8c)',
+        );
+        this.scheduleIdentityChange();
+        return null;
+      }
+
       const nextIdentity = eventIdentity(data);
       if (!nextIdentity) return data;
+
+      // /api/state may already know the new run while the SSE connection still
+      // has an older event in flight. Never let that first stale event establish
+      // a fresh presentation identity merely because the stream-local baseline
+      // has not yet been populated.
+      if (
+        acceptedIdentity === null &&
+        this.presentationRunId != null &&
+        nextIdentity.run_id !== this.presentationRunId
+      ) {
+        markStatus(
+          viewer,
+          '○ Physical identity changed — resetting presentation',
+          'stale',
+          'var(--amber, #f1fa8c)',
+        );
+        this.scheduleIdentityChange();
+        return null;
+      }
+
       const merged = mergeEventIdentity(acceptedIdentity, nextIdentity);
       if (!merged.conflict) {
         acceptedIdentity = merged.identity;
@@ -101,6 +142,7 @@ export class PhysicalObservationBoundary {
     // Forget the state-side baseline so the first subsequent poll establishes
     // the new identity instead of forcing a redundant second remount.
     this.presentationIdentity = null;
+    this.presentationRunId = null;
     queueMicrotask(() => {
       this.remountScheduled = false;
       this.onIdentityChange();
@@ -110,13 +152,19 @@ export class PhysicalObservationBoundary {
   update(viewer, state) {
     this.drainTransportIssues(viewer);
     const nextIdentity = stateIdentity(state);
+    const nextRunId = stateRunId(state);
     if (!nextIdentity) return false;
     if (this.presentationIdentity === null) {
       this.presentationIdentity = nextIdentity;
+      this.presentationRunId = nextRunId;
       return false;
     }
-    if (nextIdentity === this.presentationIdentity) return false;
+    if (nextIdentity === this.presentationIdentity) {
+      this.presentationRunId = nextRunId;
+      return false;
+    }
     this.presentationIdentity = nextIdentity;
+    this.presentationRunId = nextRunId;
     return true;
   }
 
@@ -148,6 +196,7 @@ export class PhysicalObservationBoundary {
 
   reset() {
     this.presentationIdentity = null;
+    this.presentationRunId = null;
     this.remountScheduled = false;
   }
 }

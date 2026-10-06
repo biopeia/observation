@@ -16,6 +16,7 @@ from lab.observation.world_scene import apply_world_event
 _DEFAULT_QUEUE_SIZE = 2048
 _DEFAULT_HISTORY_SIZE = 512
 _DEPENDENT_TYPES = COMPRESSIBLE_TYPES | {"world_scene"}
+_BOUNDARY_TYPE = "observation_boundary"
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,6 +65,11 @@ class ObservationBus:
     Events are presentation projections, not organism state. A monotonically
     increasing transport stream id is paired with serialized payload bytes at
     this boundary so SSE can resume without mutating observer JSON contracts.
+
+    Transport lives for the server lifetime. Materialized observation state is
+    explicitly run-scoped: begin_run/end_run invalidate current projections,
+    world materialization and delta bases without resetting the SSE sequence or
+    transport diagnostics.
     """
 
     def __init__(
@@ -88,10 +94,79 @@ class ObservationBus:
         self._sequence = 0
         self._world_scene: dict | None = None
         self._delta = ObservationDeltaEncoder(anchor_interval=anchor_interval)
+        self._active_run_id: str | None = None
+        self._run_boundaries = 0
         self._consumer_overflows = 0
         self._history_rebases = 0
         self._replay_truncations = 0
         self._client_disconnects = 0
+
+    def _clear_run_state_locked(self) -> None:
+        """Invalidate every live materialization owned by the current run."""
+        self._last_by_type.clear()
+        self._last_sequence_by_type.clear()
+        self._history.clear()
+        self._world_scene = None
+        self._delta.reset()
+        for consumer, based_channels in self._queues.items():
+            while True:
+                try:
+                    consumer.get_nowait()
+                except queue.Empty:
+                    break
+            based_channels.clear()
+
+    def _publish_boundary_locked(self, *, phase: str, run_id: str) -> int:
+        self._sequence += 1
+        stream_id = self._sequence
+        event = {
+            "type": _BOUNDARY_TYPE,
+            "phase": str(phase),
+            "run_id": str(run_id),
+        }
+        message = ObservationMessage(
+            stream_id=stream_id,
+            data=json.dumps(event, separators=(",", ":"), ensure_ascii=False).encode("utf-8"),
+            materialized_type=_BOUNDARY_TYPE,
+        )
+        self._last_by_type[_BOUNDARY_TYPE] = message
+        self._last_sequence_by_type[_BOUNDARY_TYPE] = stream_id
+        self._history.append(message)
+        for consumer, based_channels in self._queues.items():
+            based_channels.clear()
+            consumer.put_nowait(message)
+        return stream_id
+
+    def begin_run(self, run_id: str) -> int:
+        """Start a new run-scoped observation lifecycle.
+
+        Existing transport subscribers remain connected, but no materialized
+        observation, world scene, queued event or delta base from the previous
+        run is allowed to survive as current state.
+        """
+        identity = str(run_id).strip()
+        if not identity:
+            raise ValueError("run_id is required")
+        with self._lock:
+            if self._active_run_id == identity:
+                return self._sequence
+            self._clear_run_state_locked()
+            self._active_run_id = identity
+            self._run_boundaries += 1
+            return self._publish_boundary_locked(phase="begin", run_id=identity)
+
+    def end_run(self, run_id: str) -> int | None:
+        """End the active run and invalidate its current live presentation."""
+        identity = str(run_id).strip()
+        if not identity:
+            raise ValueError("run_id is required")
+        with self._lock:
+            if self._active_run_id != identity:
+                return None
+            self._clear_run_state_locked()
+            self._active_run_id = None
+            self._run_boundaries += 1
+            return self._publish_boundary_locked(phase="end", run_id=identity)
 
     def push(self, event: dict[str, Any]) -> int:
         with self._lock:
@@ -272,14 +347,21 @@ class ObservationBus:
     @property
     def has_data(self) -> bool:
         with self._lock:
-            return bool(self._last_by_type)
+            return self._active_run_id is not None and any(
+                event_type != _BOUNDARY_TYPE for event_type in self._last_by_type
+            )
+
+    @property
+    def active_run_id(self) -> str | None:
+        with self._lock:
+            return self._active_run_id
 
     @property
     def latest_sequence(self) -> int:
         with self._lock:
             return self._sequence
 
-    def transport_status(self) -> dict[str, int]:
+    def transport_status(self) -> dict[str, int | str | None]:
         """Observer-only aggregate health counters; no per-client history is exposed."""
         with self._lock:
             return {
@@ -291,4 +373,6 @@ class ObservationBus:
                 "history_size": len(self._history),
                 "history_capacity": self._history.maxlen or 0,
                 "queue_capacity": self._queue_size,
+                "active_run_id": self._active_run_id,
+                "run_boundaries": self._run_boundaries,
             }
