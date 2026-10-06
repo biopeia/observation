@@ -188,11 +188,16 @@ class _Handler(BaseHTTPRequestHandler):
       const pass = cognition.includes('—C') && cognition.includes('—P') && !cognition.includes('7P');
       result.dataset.status = pass ? 'pass' : 'fail';
       result.textContent = `${tick}|${cognition}`;
+      // The native EventSource intentionally reconnects indefinitely. Once
+      // the DOM assertion is captured, stop the page's network activity so
+      // headless Chrome can finish --dump-dom deterministically.
+      window.stop();
       return;
     }
     if (performance.now() >= deadline) {
       result.dataset.status = 'timeout';
       result.textContent = `${tick}|${cognition}`;
+      window.stop();
       return;
     }
     setTimeout(check, 50);
