@@ -98,10 +98,15 @@ def test_no_policy_path_points_at_nothing() -> None:
         if isinstance(section, dict)
         for p in section.get("paths", [])
     ]
+    adr = (ROOT / "docs/adr/ADR-0071-symbiont-documentation-design-system.md").read_text()
+    # The accepted ADR introduces this root-level path mapping before the
+    # dependent design-system PR lands, so it is intentionally absent here.
+    approved_future_path = "**Status:** Accepted" in adr and "root `DESIGN.md`" in adr
     dead = [
         pattern
         for pattern in sorted(set(patterns))
         if not pattern.startswith((".agents", ".claude", ".codex"))
+        and not (pattern == "DESIGN.md" and approved_future_path)
         and not list(
             ROOT.glob(pattern.replace("/**", "/*") if pattern.endswith("/**") else pattern)
         )
