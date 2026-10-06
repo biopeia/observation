@@ -61,6 +61,8 @@ class BodyDescriptor:
     # (receptors plus proprioceptive derivations); larger surfaces need more
     # room or body senses are silently squeezed out.
     sensory_capacity: int = 256
+    # Powered articulated bodies may not be able to settle with actuators off.
+    passive_settling: bool = True
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -184,6 +186,7 @@ SPOT_INSPIRED_V1 = BodyDescriptor(
     observer_joint_topology=SPOT_INSPIRED_SPEC.joint_topology,
     observer_fixed_link_topology=SPOT_INSPIRED_SPEC.fixed_link_topology,
     observer_base_link_name=SPOT_INSPIRED_SPEC.base_link_name,
+    passive_settling=False,
 )
 
 ASYMMETRIC_V1 = BodyDescriptor(
