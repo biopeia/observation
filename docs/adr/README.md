@@ -64,6 +64,7 @@ mindmap
       ADR-0024 Telemetría binaria y deltas
       ADR-0039 Integridad en telemetría espacial
       ADR-0067 Secciones revisionadas y observación pasiva
+      ADR-0072 Contratos de persistencia por clase de datos
 ```
 
 ---
@@ -157,6 +158,7 @@ mindmap
 | **[ADR-0039](ADR-0039-epistemic-integrity-in-visual-and-spatial-telemetry.md)** | Epistemic Integrity in Visual and Spatial Telemetry | Aceptado | Demarcación estricta entre la colocación visual del observador y la ausencia de coordenadas espaciales o mapas alocéntricos en el organismo. |
 | **[ADR-0044](ADR-0044-host-safety-and-lifecycle-invariants-in-the-constitution.md)** | Host-Safety and Lifecycle Invariants in the Constitution | Aceptado | Incorporar a la Constitución los invariantes permanentes de seguridad del anfitrión y de identidad del ciclo de vida (restore rechaza `DEAD`, clonar crea identidad nueva). |
 | **[ADR-0067](ADR-0067-revisioned-state-sections-and-passive-observation.md)** | Revisioned State Sections, Passive Observation and Binary Canonical Checkpoints | Accepted | State in owned, replaced-not-mutated sections with revisions; the observer compares revisions and the organism emits nothing; `checkpoint_hash` over a deterministic binary encoding. |
+| **[ADR-0072](ADR-0072-persistence-contracts-by-data-class.md)** | Persistence Contracts by Data Class | Accepted | Define persistence requirements by semantic data class before choosing a backend; no format migration or SQL selection is implied. |
 
 ### 9. Governance
 
