@@ -162,13 +162,22 @@ def _managed_runs(runs_dir: Path, organism_id: str) -> list[dict[str, Any]]:
             continue
         lab_manifest = _read_json(run_dir / "manifest.json")
         telemetry_root = run_dir / "telemetry"
+        # Attribute a run to an organism only from telemetry's own persisted
+        # scientific identity. A catalog ref/alias is not an organism_id.
+        telemetry_manifest = _read_json(telemetry_root / "manifest.json")
+        if telemetry_manifest.get("organism_id") != organism_id:
+            continue
+        reader = None
+        availability = "readable"
         try:
             reader = open_telemetry(telemetry_root)
         except (FileNotFoundError, ValueError, OSError):
-            continue
-        telemetry_manifest = _read_json(reader.root / "manifest.json")
-        if telemetry_manifest.get("organism_id") != organism_id:
-            continue
+            # The run is still relevant evidence because its telemetry manifest
+            # identifies the requested organism. Keep it in coverage instead of
+            # silently making longitudinal history look complete.
+            availability = "unreadable"
+        else:
+            telemetry_manifest = _read_json(reader.root / "manifest.json")
         matches.append(
             {
                 "run_id": str(lab_manifest.get("run_id") or run_dir.name),
@@ -177,6 +186,7 @@ def _managed_runs(runs_dir: Path, organism_id: str) -> list[dict[str, Any]]:
                 ),
                 "reader": reader,
                 "telemetry_manifest": telemetry_manifest,
+                "availability": availability,
             }
         )
     matches.sort(key=lambda item: (item["started_at"], item["run_id"]))
@@ -212,6 +222,22 @@ def build_development_history(
     coverage: list[dict[str, Any]] = []
     for run in runs:
         reader = run["reader"]
+        manifest = run["telemetry_manifest"]
+        if reader is None:
+            coverage.append(
+                {
+                    "run_id": run["run_id"],
+                    "started_at": run["started_at"] or None,
+                    "status": manifest.get("status"),
+                    "entries": None,
+                    "tick_min": None,
+                    "tick_max": None,
+                    "integrity": manifest.get("integrity"),
+                    "availability": "unreadable",
+                }
+            )
+            continue
+
         summaries = list(reader.iter_summaries())
         ticks = [
             int(item["tick"])
@@ -220,7 +246,6 @@ def build_development_history(
             and isinstance(item.get("tick"), int)
             and not isinstance(item.get("tick"), bool)
         ]
-        manifest = run["telemetry_manifest"]
         coverage.append(
             {
                 "run_id": run["run_id"],
@@ -230,6 +255,7 @@ def build_development_history(
                 "tick_min": min(ticks) if ticks else None,
                 "tick_max": max(ticks) if ticks else None,
                 "integrity": manifest.get("integrity"),
+                "availability": "readable",
             }
         )
         selected_by_run[run["run_id"]] = summaries
@@ -241,7 +267,7 @@ def build_development_history(
             break
         usable = [
             item
-            for item in selected_by_run[run["run_id"]]
+            for item in selected_by_run.get(run["run_id"], [])
             if isinstance(item, Mapping)
             and isinstance(item.get("tick"), int)
             and not isinstance(item.get("tick"), bool)
@@ -258,7 +284,8 @@ def build_development_history(
     for run in runs:
         run_id = run["run_id"]
         wanted = selected_ticks.get(run_id)
-        if not wanted:
+        reader = run["reader"]
+        if not wanted or reader is None:
             continue
         summaries = {
             int(item["tick"]): item
@@ -268,7 +295,7 @@ def build_development_history(
             and not isinstance(item.get("tick"), bool)
             and int(item["tick"]) in wanted
         }
-        for rich_state in run["reader"].iter_states(
+        for rich_state in reader.iter_states(
             start_tick=min(wanted),
             end_tick=max(wanted),
         ):
@@ -295,8 +322,10 @@ def build_development_history(
                 previous_snapshot_tick[run_id] = tick
                 previous_fingerprint[run_id] = fingerprint
 
-    statuses = {str(item.get("status") or "") for item in coverage}
-    complete = bool(coverage) and all(status == "closed" for status in statuses)
+    complete = bool(coverage) and all(
+        str(item.get("status") or "") == "closed" and item.get("availability") == "readable"
+        for item in coverage
+    )
     return {
         "schema_version": _HISTORY_SCHEMA_VERSION,
         "authority": _AUTHORITY,
