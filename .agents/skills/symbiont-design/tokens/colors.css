@@ -1,0 +1,26 @@
+:root{
+/* Paper — warm near-white grounds */
+--paper-0:#fbfaf6;--paper-1:#f5f3ec;--paper-2:#eeebe2;--paper-3:#e5e1d5;
+/* Rules — hairlines carry structure instead of boxes */
+--rule-1:#e4e0d4;--rule-2:#d2ccbc;--rule-3:#aba491;--rule-ink:#18202b;
+/* Ink — derived from the wordmark's blue-black */
+--ink-1:#18202b;--ink-2:#3a424d;--ink-3:#5c636c;--ink-4:#878c92;
+/* Night — instrument surfaces (diagrams, runtime, telemetry) */
+--night-0:#0e1317;--night-1:#151c21;--night-2:#1d262c;--night-rule:#2c373e;--night-ink-1:#e7ece9;--night-ink-2:#a7b5b0;--night-ink-3:#76857f;
+/* Domains — one hue per package boundary. -ink for text, -tint for grounds, -rule for lines */
+--dom-symbiont:oklch(0.52 0.11 152);--dom-symbiont-ink:oklch(0.40 0.09 152);--dom-symbiont-tint:oklch(0.955 0.025 152);--dom-symbiont-rule:oklch(0.80 0.06 152);
+--dom-embodiment:oklch(0.56 0.10 62);--dom-embodiment-ink:oklch(0.43 0.08 62);--dom-embodiment-tint:oklch(0.955 0.025 75);--dom-embodiment-rule:oklch(0.82 0.06 70);
+--dom-modality:oklch(0.52 0.12 252);--dom-modality-ink:oklch(0.41 0.11 252);--dom-modality-tint:oklch(0.955 0.02 252);--dom-modality-rule:oklch(0.80 0.06 252);
+--dom-environment:oklch(0.53 0.06 200);--dom-environment-ink:oklch(0.41 0.05 200);--dom-environment-tint:oklch(0.955 0.015 200);--dom-environment-rule:oklch(0.80 0.04 200);
+--dom-lab:oklch(0.50 0.10 300);--dom-lab-ink:oklch(0.41 0.09 300);--dom-lab-tint:oklch(0.955 0.02 300);--dom-lab-rule:oklch(0.80 0.05 300);
+/* Signal — reserved for integrity/limitation warnings. Never decorative. */
+--signal-warn:oklch(0.54 0.17 32);--signal-warn-ink:oklch(0.45 0.15 32);--signal-warn-tint:oklch(0.955 0.025 40);--signal-warn-rule:oklch(0.78 0.09 35);
+/* Brand (logo extremes) — for the mark and the thumbnail only */
+--brand-leaf:#36a56d;--brand-cell:#1f6fd1;
+/* Semantic aliases */
+--surface-page:var(--paper-0);--surface-aside:var(--paper-1);--surface-code:var(--paper-2);--surface-instrument:var(--night-0);
+--text-body:var(--ink-1);--text-secondary:var(--ink-2);--text-meta:var(--ink-3);--text-faint:var(--ink-4);
+--line-hair:var(--rule-1);--line-default:var(--rule-2);--line-strong:var(--rule-3);--line-ink:var(--rule-ink);
+--link:var(--dom-modality-ink);--link-hover:var(--ink-1);--focus-ring:var(--dom-modality);
+--selection:oklch(0.90 0.05 152);
+}

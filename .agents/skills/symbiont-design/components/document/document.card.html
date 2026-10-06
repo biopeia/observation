@@ -1,0 +1,23 @@
+<!-- @dsCard group="Components" viewport="900x720" name="Document structure" subtitle="DocHeader, SectionHeading, Lineage, SourceList" -->
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../../styles.css">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>body{padding:32px}</style></head>
+<body><div id="root"></div>
+<script type="text/babel">
+const { DocHeader, SectionHeading, Lineage, SourceList } = window.SymbiontDesignSystem_45c50a;
+function App(){return <div>
+<DocHeader docType="adr" id="ADR-0013" status="accepted" domains={["symbiont","embodiment"]}
+ title="Longitudinal re-embodiment and Symbiont/Body decoupling"
+ abstract="Physical death terminates the body, not the cognitive subject. A dormant Symbiont may be re-embodied into a new physical body, initiating a new embodiment epoch."
+ meta={[{label:"Introduced in",value:"v0.30.0 · Milestone H"},{label:"Evidence",value:"test_embodiment_v2_architecture.py",mono:true},{label:"Gate",value:"Architecture"}]}/>
+<SectionHeading number="2" title="Decision"/>
+<div style={{display:"flex",gap:48,flexWrap:"wrap"}}>
+<Lineage items={[{id:"ADR-0066",title:"MuJoCo physics engine and engine-independent vision",status:"accepted",date:"2026-10-04",relation:"supersedes decision 3 of"},{id:"ADR-0011",title:"Visual apparatus and perceptual topology",status:"partially-superseded"}]}/>
+<div style={{flex:1,minWidth:300}}><SourceList items={[{kind:"design",path:"docs/design/embodiment/embodiment-v2.md"},{kind:"code",path:"src/symbiont/core/embodiment/contract.py"},{kind:"test",path:"tests/experimental_integrity/test_five_domain_architecture.py"}]}/></div>
+</div>
+</div>}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script></body></html>

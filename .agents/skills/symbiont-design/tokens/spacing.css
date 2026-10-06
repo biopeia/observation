@@ -1,0 +1,10 @@
+:root{
+--space-0:0;--space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-5:24px;--space-6:32px;--space-7:48px;--space-8:64px;--space-9:96px;
+--measure:68ch;--measure-wide:88ch;--gutter:128px;--nav-w:272px;--toc-w:220px;
+--hair:1px;--rule-heavy:2px;
+--radius-0:0;--radius-1:2px;--radius-2:3px;
+--shadow-none:none;--shadow-pop:0 1px 0 var(--rule-1),0 8px 24px -12px rgba(24,32,43,.18);
+--ease:cubic-bezier(.2,.6,.2,1); /* @kind other */
+--dur-1:120ms; /* @kind other */
+--dur-2:220ms; /* @kind other */
+}

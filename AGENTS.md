@@ -28,3 +28,24 @@ of a design under `docs/design/`, first read the canonical
 [Design Status Register](docs/design/register.md) and keep its entry current.
 The register tracks design lifecycle; it does not override roadmap priority or
 owner/governance authorization.
+
+## Design system and UI work
+
+The root [DESIGN.md](DESIGN.md) is the source of truth for the Symbiont
+documentation interface. Before creating or changing a visual component in
+that scope, first use the `symbiont-design` skill and then read `DESIGN.md`
+completely. Use only tokens in its YAML front matter;
+follow its typographic scale without inventing intermediate sizes, use spacing
+in multiples of its 4px base, and treat its `Constraints` section as inviolable.
+Interactive elements need hover, focus, and disabled states. If the design
+does not specify a needed state or visual decision, report the gap and resolve
+it before implementation rather than inventing a treatment.
+
+If the specification is missing, incomplete, or does not define a needed
+decision, stop before making visual choices and report the gap. Do not infer or
+silently create tokens. The document describes a React component system;
+where that system is implemented, use strict TypeScript, functional components
+with named exports, Tailwind utility-first styling, one component per file, and
+an explicit `Props` interface. Do not impose these conventions on unrelated
+repository modules or treat this documentation design as authority for
+scientific apparatus or organism-runtime decisions.

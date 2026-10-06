@@ -1,0 +1,42 @@
+<!-- @dsCard group="Documentation site" viewport="1440x900" name="Symbiont docs" subtitle="Corpus, chapter, ADR, evidence and glossary — click the sidebar" -->
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Symbiont — documentation</title>
+<link rel="stylesheet" href="../../styles.css">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>
+.shell{display:grid;grid-template-columns:var(--nav-w) minmax(0,1fr) var(--toc-w);min-height:100vh}
+.shell-nav{position:sticky;top:0;height:100vh;overflow-y:auto;padding:24px 24px 40px 28px;border-right:1px solid var(--rule-1);background:var(--paper-0)}
+.shell-main{padding:48px clamp(24px,5vw,72px) 48px;max-width:calc(128px + 24px + 68ch + 144px);min-width:0}
+.shell-toc{position:sticky;top:0;height:100vh;padding:120px 24px 0 0}
+.sym-prose{margin-left:152px}
+.ic{font-size:.84em;background:var(--paper-2);padding:.1em .32em;border-radius:2px}
+@media (max-width:1180px){.shell{grid-template-columns:var(--nav-w) minmax(0,1fr)}.shell-toc{display:none}}
+@media (max-width:820px){.shell{grid-template-columns:minmax(0,1fr)}.shell-nav{display:none}.sym-prose{margin-left:0}}
+</style></head>
+<body><div id="root"></div>
+<script type="text/babel" src="Shell.jsx"></script>
+<script type="text/babel" src="ScreenIndex.jsx"></script>
+<script type="text/babel" src="ScreenChapter.jsx"></script>
+<script type="text/babel" src="ScreenAdr.jsx"></script>
+<script type="text/babel" src="ScreenEvidence.jsx"></script>
+<script type="text/babel" src="ScreenGlossary.jsx"></script>
+<script type="text/babel">
+const PAGES = {
+  index: { el: ScreenIndex, crumbs: ["symbiont", "docs", "index.md"], toc: [{ id: "path", number: "1", label: "Reading path" }, { id: "domains", number: "2", label: "Five domains" }, { id: "canonical", number: "3", label: "What is canonical here" }] },
+  c03: { el: ScreenChapter, crumbs: ["symbiont", "docs", "03-world-body-and-embodiment.md"], toc: [{ id: "body", number: "3.1", label: "Physical body" }, { id: "apparatus", number: "3.2", label: "Apparatus", level: 3 }, { id: "contract", number: "3.3", label: "Embodiment contract" }, { id: "schema", number: "3.4", label: "Body schema" }, { id: "survive", number: "3.5", label: "What should survive?" }] },
+  adr11: { el: ScreenAdr, crumbs: ["docs", "adr", "ADR-0011-visual-apparatus-and-perceptual-topology.md"], toc: [{ id: "context", number: "1", label: "Context" }, { id: "decision", number: "2", label: "Decision" }, { id: "consequences", number: "3", label: "Consequences" }] },
+  evidence: { el: ScreenEvidence, crumbs: ["lab", "research", "STATUS.md"], toc: [{ id: "results", number: "1", label: "Results" }, { id: "lifecycle", number: "2", label: "Evidence lifecycle" }, { id: "reproduce", number: "3", label: "Reproduce" }] },
+  glossary: { el: ScreenGlossary, crumbs: ["docs", "glossary.md"], toc: [{ id: "hier", number: "1", label: "Experimental hierarchy" }, { id: "life", number: "2", label: "Artifact status lifecycle" }, { id: "org", number: "3", label: "Organism vocabulary" }] },
+};
+function App() {
+  const [page, setPage] = React.useState(() => { const h = location.hash.slice(1); return PAGES[h] ? h : (localStorage.getItem("sym-docs-page") || "c03"); });
+  const go = (id) => { if (!PAGES[id]) return; setPage(id); localStorage.setItem("sym-docs-page", id); window.scrollTo(0, 0); };
+  const P = PAGES[page] || PAGES.c03; const El = P.el;
+  return <DocsShell page={page} onNavigate={go} crumbs={P.crumbs.map((l) => ({ label: l }))} toc={P.toc} activeToc={P.toc[0].id}><El onNavigate={go} /></DocsShell>;
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script></body></html>
