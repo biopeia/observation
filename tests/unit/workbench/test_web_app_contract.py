@@ -121,8 +121,12 @@ def test_mind_unmount_releases_streams_animation_and_observer():
         "_streams.close()",
         "_resizeObs.disconnect()",
         "resetPresentation()",
+        "resetMindDataState()",
     ):
         assert required in mind
+    assert mind.index("persistMindDevelopmentHistory({ force: true })") < mind.rindex(
+        "resetMindDataState()"
+    )
 
 
 def test_cognition_inspector_does_not_render_snapshot_data_with_inner_html():

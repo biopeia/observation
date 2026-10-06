@@ -47,14 +47,14 @@ body .rail{backdrop-filter:none;-webkit-backdrop-filter:none}
 .mind-live-head p,.mind-development-head p{margin:0;color:var(--ink-3);font:var(--fs-meta) var(--font-sans)}
 .mind-live-state{color:var(--dom-symbiont-ink);font:500 var(--fs-label) var(--font-mono);letter-spacing:var(--tracking-label);text-transform:uppercase}
 .mind-live-metrics{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:7px;margin-bottom:10px}
-.mind-live-metric{min-width:0;padding:9px 10px;border:1px solid var(--rule-1);border-radius:var(--radius-1);background:var(--paper-0)}
-.mind-live-metric-label{display:block;color:var(--ink-3);font:var(--fs-label) var(--font-mono);letter-spacing:var(--tracking-label);text-transform:uppercase}
-.mind-live-metric-value{display:block;margin-top:5px;font:400 1.25rem/1 var(--font-mono);color:var(--ink-1)}
-.mind-live-metric.violet .mind-live-metric-value{color:var(--dom-lab-ink)}
-.mind-live-metric.amber .mind-live-metric-value{color:var(--dom-embodiment-ink)}
-.mind-live-metric.cyan .mind-live-metric-value{color:var(--dom-modality-ink)}
-.mind-live-metric.mint .mind-live-metric-value{color:var(--dom-symbiont-ink)}
-.mind-live-metric.coral .mind-live-metric-value{color:var(--signal-warn-ink)}
+.mind-live-metrics .mind-live-metric{min-width:0;padding:9px 10px;border:1px solid var(--rule-1);border-radius:var(--radius-1);background:var(--paper-0)}
+.mind-live-metrics .mind-live-metric-label{display:block;color:var(--ink-3);font:var(--fs-label) var(--font-mono);letter-spacing:var(--tracking-label);text-transform:uppercase}
+.mind-live-metrics .mind-live-metric-value{display:block;margin-top:5px;font:400 1.25rem/1 var(--font-mono);color:var(--ink-1)}
+.mind-live-metrics .mind-live-metric.violet .mind-live-metric-value{color:var(--dom-lab-ink)}
+.mind-live-metrics .mind-live-metric.amber .mind-live-metric-value{color:var(--dom-embodiment-ink)}
+.mind-live-metrics .mind-live-metric.cyan .mind-live-metric-value{color:var(--dom-modality-ink)}
+.mind-live-metrics .mind-live-metric.mint .mind-live-metric-value{color:var(--dom-symbiont-ink)}
+.mind-live-metrics .mind-live-metric.coral .mind-live-metric-value{color:var(--signal-warn-ink)}
 .mind-live-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
 .mind-live-panel{min-height:190px;border:1px solid var(--rule-1);background:var(--paper-0);border-radius:var(--radius-0)}
 .mind-live-list,.mind-live-events{display:grid;gap:4px}

@@ -1,4 +1,9 @@
 /* Symbiont Lab — Mind view styles. */
+:root {
+  --on-night: #e7ece9;
+  --on-night-secondary: #a7b5b0;
+  --on-night-muted: #76857f;
+}
 .mind-tab-bar {
   background: var(--paper-1);
   border-bottom: 1px solid var(--rule-1);
@@ -158,9 +163,11 @@
   border-bottom: 1px solid rgba(98, 120, 136, 0.12);
   font-size: 9px;
 }
-.mind-inspector-metric-key { color: var(--muted); }
+.mind-inspector-metric-key { color: var(--ink-3); font-family: var(--font-mono); }
 .mind-inspector-metric-value {
   font-size: 9px;
+  font-family: var(--font-mono);
+  color: var(--ink-1);
   text-align: right;
   overflow-wrap: anywhere;
 }
@@ -168,38 +175,37 @@
 
 /* ── Cognition inspector primitives ──────────────────────────────── */
 .mind-inspector-line {
-  font-size: 8px;
-  line-height: 1.45;
-  color: var(--muted);
+  font: 8px/1.45 var(--font-mono);
+  color: var(--ink-3);
 }
-.mind-inspector-line strong { color: var(--text); }
+.mind-inspector-line strong { color: var(--ink-1); }
 .mind-inspector-divider {
   padding: 5px 0;
-  border-top: 1px solid rgba(98, 120, 136, 0.12);
+  border-top: 1px solid var(--rule-1);
 }
 .mind-inspector-stage {
   display: grid;
   grid-template-columns: 78px minmax(0, 1fr) 42px;
   gap: 6px;
   align-items: center;
-  font-size: 8px;
-  color: var(--muted);
+  font: 8px var(--font-mono);
+  color: var(--ink-3);
 }
 .mind-inspector-stage-meter {
   height: 3px;
-  background: rgba(98, 120, 136, 0.18);
-  border-radius: 2px;
+  background: var(--paper-3);
+  border-radius: var(--radius-1);
   overflow: hidden;
 }
 .mind-inspector-stage-fill {
   display: block;
   height: 100%;
-  background: var(--cyan);
+  background: var(--rule-ink);
 }
-.mind-inspector-stage-count { text-align: right; }
+.mind-inspector-stage-count { text-align: right; font-family: var(--font-mono); color: var(--ink-1); }
 .mind-inspector-objective {
   padding: 8px 0 10px;
-  border-top: 1px solid rgba(98, 120, 136, 0.16);
+  border-top: 1px solid var(--rule-1);
 }
 .mind-inspector-structure-button {
   display: flex;
@@ -208,21 +214,19 @@
   padding: 4px 0;
   border: 0;
   background: transparent;
-  color: var(--muted);
-  font-size: 8px;
+  color: var(--ink-3);
+  font: 8px var(--font-mono);
   cursor: pointer;
   text-align: left;
 }
-.mind-inspector-structure-button strong { color: var(--text); }
+.mind-inspector-structure-button strong { color: var(--ink-1); }
 .mind-cognition-summary-title {
-  color: var(--text);
-  font-size: 9px;
-  line-height: 1.45;
+  color: var(--on-night);
+  font: 600 9px/1.45 var(--font-mono);
 }
 .mind-cognition-summary-line {
-  color: var(--muted);
-  font-size: 8px;
-  line-height: 1.45;
+  color: var(--on-night-secondary);
+  font: 8px/1.45 var(--font-mono);
 }
 
 
@@ -232,51 +236,50 @@
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   overflow: hidden;
-  background: var(--bg-deep);
-  font-family: var(--sans);
+  background: var(--paper-0);
+  font-family: var(--font-sans);
 }
 .mind-tab-bar {
   display: flex;
-  gap: 4px;
-  padding: 8px 12px 0;
-  border-bottom: 1px solid var(--line);
-  background: var(--surface);
+  gap: 0;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--rule-1);
+  background: var(--paper-1);
   flex-shrink: 0;
 }
 .mind-tab {
-  padding: 7px 16px;
+  padding: 9px 16px;
   border: none;
   border-bottom: 2px solid transparent;
-  background: none;
-  color: var(--muted);
+  background: transparent;
+  color: var(--ink-3);
   cursor: pointer;
-  font-size: 13px;
-  font-weight: 500;
-  border-radius: 6px 6px 0 0;
-  transition: color 0.15s, border-color 0.15s;
+  font: 500 var(--fs-meta)/var(--lh-meta) var(--font-sans);
+  border-radius: 0;
+  transition: color var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease);
 }
 .mind-tab[aria-selected="true"] {
-  color: var(--cyan);
-  border-bottom-color: var(--cyan);
+  color: var(--ink-1);
+  background: var(--paper-0);
+  border-bottom: 2px solid var(--rule-ink);
 }
-.mind-tab:hover { color: var(--text); }
+.mind-tab:hover { color: var(--ink-1); background: var(--paper-2); }
 
 .mind-senses-panel,
 .mind-cognition-inspector {
-  border-right: 1px solid var(--line);
-  background: var(--surface);
+  border-right: 1px solid var(--rule-1);
+  background: var(--paper-0);
   overflow-y: auto;
   flex-direction: column;
   min-width: 0;
 }
 .mind-side-heading {
   padding: 10px 12px 8px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--muted);
+  font: 600 var(--fs-label) var(--font-mono);
+  color: var(--ink-3);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  border-bottom: 1px solid var(--line);
+  letter-spacing: var(--tracking-label);
+  border-bottom: 1px solid var(--rule-1);
   flex-shrink: 0;
 }
 .mind-side-list {
@@ -295,10 +298,10 @@
   padding: 0 14px;
   height: 32px;
   align-items: center;
-  border-top: 1px solid var(--line);
-  background: var(--surface);
-  font-size: 11px;
-  color: var(--muted);
+  border-top: 1px solid var(--rule-1);
+  background: var(--paper-1);
+  font: var(--fs-meta) var(--font-mono);
+  color: var(--ink-3);
   overflow: hidden;
   flex-shrink: 0;
 }
@@ -311,72 +314,93 @@
   gap: 8px;
   padding: 8px 12px;
   cursor: pointer;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--rule-1);
   font-size: 11px;
-  color: var(--text);
-  transition: background 0.1s;
+  color: var(--ink-1);
+  transition: background var(--dur-1) var(--ease);
 }
-.mind-sense-row:hover { background: rgba(80, 217, 255, 0.06); }
-.mind-sense-row.active { background: rgba(80, 217, 255, 0.10); }
-.mind-sense-icon { font-size: 15px; flex-shrink: 0; }
+.mind-sense-row:hover { background: var(--paper-2); }
+.mind-sense-row.active { background: var(--paper-2); border-left: 2px solid var(--rule-ink); }
+.mind-sense-icon { font-size: 14px; flex-shrink: 0; }
 .mind-sense-copy { flex: 1; overflow: hidden; }
 .mind-sense-copy strong {
   display: block;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-weight: 500;
+  color: var(--ink-1);
 }
 .mind-sense-copy small {
   display: block;
-  color: var(--muted);
+  color: var(--ink-3);
   font-size: 10px;
   margin-top: 1px;
 }
 .mind-sense-bar {
   height: 3px;
   margin-top: 4px;
-  border-radius: 2px;
-  background: rgba(80, 217, 255, 0.18);
+  border-radius: var(--radius-1);
+  background: var(--paper-3);
 }
 .mind-sense-fill {
   height: 100%;
-  border-radius: 2px;
+  border-radius: inherit;
+  background: var(--rule-ink);
   transition: width 0.3s;
 }
 
 .mind-ctrl-btn {
-  border: 1px solid var(--line);
-  background: rgba(8, 26, 42, 0.85);
-  color: var(--text);
-  border-radius: 6px;
-  padding: 4px 8px;
-  font-size: 13px;
+  border: 1px solid var(--rule-1);
+  background: var(--paper-0);
+  color: var(--ink-1);
+  border-radius: var(--radius-1);
+  padding: 4px 7px;
+  font: var(--fs-label) var(--font-mono);
+  letter-spacing: var(--tracking-label);
   cursor: pointer;
-  transition: background 0.15s;
+  transition: all var(--dur-1) var(--ease);
 }
-.mind-ctrl-btn:hover { background: rgba(80, 217, 255, 0.12); }
+.mind-ctrl-btn:hover {
+  background: var(--paper-2);
+  border-color: var(--rule-2);
+  color: var(--ink-1);
+}
 .mind-ctrl-btn.active {
-  border-color: var(--cyan);
-  color: var(--cyan);
+  background: var(--ink-1);
+  border-color: var(--ink-1);
+  color: var(--paper-0);
+  font-weight: 600;
+}
+.mind-cognition-inspector .mind-ctrl-btn {
+  border: 1px solid var(--rule-2);
+  background: var(--paper-1);
+  color: var(--ink-1);
+}
+.mind-cognition-inspector .mind-ctrl-btn:hover {
+  background: var(--paper-2);
+  border-color: var(--rule-ink);
+  color: var(--ink-1);
 }
 
 .mind-telem-item {
   padding: 0 12px;
-  border-right: 1px solid var(--line);
+  border-right: 1px solid var(--rule-1);
   white-space: nowrap;
 }
 .mind-telem-item:last-child { border-right: none; }
-.mind-telem-item b { color: var(--text); }
+.mind-telem-item b { color: var(--ink-1); font-weight: 500; }
 
 .mind-self-heading {
   font-size: 15px;
-  font-weight: 600;
-  color: var(--text);
+  font-weight: 400;
+  font-family: var(--font-serif);
+  color: var(--ink-1);
   margin: 0 0 8px;
 }
 .mind-self-body {
   font-size: 12px;
-  color: var(--muted);
+  color: var(--ink-3);
   margin: 0 0 20px;
   line-height: 1.5;
 }
@@ -387,20 +411,21 @@
   max-width: 900px;
 }
 .mind-self-card {
-  border: 1px solid var(--line);
-  border-radius: 9px;
+  border: 1px solid var(--rule-1);
+  border-radius: var(--radius-1);
   padding: 12px;
-  background: rgba(8, 26, 42, 0.72);
+  background: var(--paper-1);
 }
 .mind-self-card h4 {
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
   margin: 0 0 2px;
-  color: var(--text);
+  color: var(--ink-1);
 }
 .mind-self-card code {
   font-size: 9px;
-  color: var(--muted);
+  color: var(--ink-3);
+  font-family: var(--font-mono);
   word-break: break-all;
 }
 
@@ -410,20 +435,20 @@
   align-items: center;
   gap: 6px;
   font-size: 10px;
+  font-family: var(--font-mono);
   margin-top: 8px;
 }
-.mind-metric-row span { color: var(--muted); }
-.mind-metric-row progress { width: 100%; accent-color: var(--cyan); }
-.mind-metric-row strong { text-align: right; color: var(--text); }
+.mind-metric-row span { color: var(--ink-3); }
+.mind-metric-row progress { width: 100%; accent-color: var(--rule-ink); }
+.mind-metric-row strong { text-align: right; color: var(--ink-1); }
 
 .mind-section-title {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--muted);
+  font: 600 var(--fs-label) var(--font-mono);
+  color: var(--ink-3);
   text-transform: uppercase;
-  letter-spacing: 0.07em;
+  letter-spacing: var(--tracking-label);
   margin: 24px 0 10px;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--rule-1);
   padding-bottom: 4px;
 }
 
@@ -432,68 +457,73 @@
   grid-template-columns: 1fr auto;
   gap: 12px;
   align-items: center;
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  border: 1px solid var(--rule-1);
+  border-radius: var(--radius-1);
   padding: 10px 12px;
   margin-bottom: 8px;
-  background: rgba(8, 26, 42, 0.54);
+  background: var(--paper-1);
   font-size: 11px;
 }
 .mind-dep-row strong {
-  color: var(--text);
+  color: var(--ink-1);
   display: block;
   margin-bottom: 3px;
 }
-.mind-dep-row small { color: var(--muted); }
+.mind-dep-row small { color: var(--ink-3); }
 
 .mind-compass-hud {
   position: absolute;
   top: 14px;
   left: 14px;
-  background: rgba(8, 26, 42, 0.88);
-  border: 1px solid var(--line);
-  border-radius: 10px;
+  background: var(--night-1);
+  border: 1px solid var(--night-rule);
+  border-radius: var(--radius-1);
   padding: 14px;
   width: 230px;
   font-size: 11px;
-  color: var(--muted);
+  color: var(--on-night-secondary);
+  font-family: var(--font-mono);
 }
 .mind-compass-hud h3 {
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
   margin: 0 0 2px;
-  color: var(--text);
+  color: var(--on-night);
+  font-family: var(--font-mono);
 }
-.mind-compass-hud p { margin: 0 0 10px; font-size: 10px; }
+.mind-compass-hud p { margin: 0 0 10px; font-size: 10px; color: var(--on-night-secondary); }
 .mind-compass-badge {
   display: inline-block;
   padding: 2px 8px;
-  border-radius: 4px;
+  border-radius: var(--radius-1);
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.05em;
   margin-bottom: 10px;
+  border: 1px solid var(--night-rule);
 }
-.mind-compass-badge.familiar { background: rgba(113, 233, 186, 0.18); color: var(--mint); }
-.mind-compass-badge.moderate { background: rgba(255, 189, 84, 0.18); color: var(--amber); }
-.mind-compass-badge.alert { background: rgba(255, 127, 131, 0.18); color: var(--coral); }
+.mind-compass-badge.familiar { background: var(--night-2); color: var(--on-night); }
+.mind-compass-badge.moderate { background: var(--night-2); color: var(--on-night); }
+.mind-compass-badge.alert { background: var(--night-2); color: var(--on-night); }
 .mind-compass-metric { margin-top: 6px; }
 .mind-compass-metric-head { display: flex; justify-content: space-between; }
 .mind-compass-meter {
   height: 3px;
-  background: var(--line);
-  border-radius: 2px;
+  background: var(--night-rule);
+  border-radius: var(--radius-1);
   margin-top: 4px;
 }
 .mind-compass-meter-fill {
   height: 100%;
-  border-radius: 2px;
-  transition: width 0.4s, background 0.4s;
+  border-radius: var(--radius-1);
+  background: var(--on-night);
+  transition: width 0.4s;
 }
 .mind-compass-exp {
   font-size: 10px;
   margin-top: 10px;
   line-height: 1.4;
+  color: var(--on-night-secondary);
 }
 
 
@@ -502,32 +532,35 @@
   display: grid;
   gap: 2px;
   padding: 8px 10px;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--rule-1);
   font-size: 8px;
   line-height: 1.5;
-  color: var(--muted);
+  color: var(--ink-3);
+  font-family: var(--font-mono);
 }
-.mind-senses-summary strong { color: var(--text); }
+.mind-senses-summary strong { color: var(--ink-1); }
 .mind-senses-header {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 28px 34px 34px;
   gap: 4px;
   padding: 6px 8px;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--rule-1);
   font-size: 7px;
+  font-family: var(--font-mono);
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--ink-3);
 }
 .mind-identity-change {
   display: grid;
   gap: 2px;
   padding: 9px 0;
-  border-top: 1px solid rgba(98, 120, 136, 0.18);
+  border-top: 1px solid var(--rule-1);
   font-size: 8px;
   line-height: 1.55;
-  color: var(--muted);
+  color: var(--ink-3);
+  font-family: var(--font-mono);
 }
-.mind-identity-change strong { color: var(--text); }
+.mind-identity-change strong { color: var(--ink-1); }
 
 
 .mind-inspector-episode,
@@ -559,7 +592,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) 230px minmax(0, 1fr);
   gap: 1px;
-  background: var(--line);
+  background: var(--rule-1);
   min-width: 0;
   min-height: 0;
 }
@@ -568,25 +601,25 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  background: var(--bg-deep);
+  background: var(--paper-0);
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
 }
 .mind-identity-heading {
   padding: 10px 14px 9px;
-  border-bottom: 1px solid var(--line);
-  background: rgba(11, 25, 41, 0.82);
+  border-bottom: 1px solid var(--rule-1);
+  background: var(--paper-1);
 }
 .mind-identity-title {
   display: block;
-  font-size: 12px;
-  color: var(--text);
+  font: 600 12px var(--font-sans);
+  color: var(--ink-1);
 }
 .mind-identity-subtitle {
   display: block;
   margin-top: 2px;
-  color: var(--muted);
-  font-size: 10px;
+  color: var(--ink-3);
+  font: 10px var(--font-mono);
 }
 .mind-phenotype-svg {
   width: 100%;
@@ -600,15 +633,15 @@
   min-height: 0;
   overflow: auto;
   padding: 12px 14px 24px;
-  background: var(--bg-deep);
+  background: var(--paper-0);
 }
 .mind-identity-gap {
   min-width: 0;
   min-height: 0;
   overflow: auto;
-  background: rgba(7, 18, 30, 0.96);
-  border-left: 1px solid var(--line);
-  border-right: 1px solid var(--line);
+  background: var(--paper-1);
+  border-left: 1px solid var(--rule-1);
+  border-right: 1px solid var(--rule-1);
   padding: 12px 11px 18px;
 }
 
@@ -656,39 +689,85 @@
   left: 12px;
   z-index: 2;
   padding: 8px 10px;
-  border: 1px solid var(--night-rule);
+  border: 1px solid var(--rule-1);
   border-radius: var(--radius-1);
-  background: var(--night-1);
-  font-size: 9px;
-  line-height: 1.5;
-  color: var(--night-ink-2);
+  background: var(--paper-0);
+  font: 9px/1.5 var(--font-mono);
+  color: var(--ink-3);
   pointer-events: none;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+}
+.mind-cognition-summary strong,
+.mind-cognition-summary b {
+  color: var(--ink-1);
 }
 .mind-cognition-mode-controls {
   position: absolute;
   top: 12px;
   right: 12px;
-  z-index: 2;
+  z-index: 5;
   display: flex;
-  gap: 4px;
-  max-width: min(980px, calc(100% - 360px));
+  gap: 6px;
+  align-items: center;
+  max-width: min(980px, calc(100% - 300px));
   flex-wrap: wrap;
   justify-content: flex-end;
 }
-.mind-cognition-view-modes {
-  display: flex;
-  gap: 4px;
-  margin-right: 8px;
-  padding-right: 8px;
-  border-right: 1px solid var(--night-rule);
-}
+.mind-cognition-view-modes,
+.mind-cognition-embodiment-group,
 .mind-atlas-mode-group {
   display: flex;
   gap: 4px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  align-items: center;
+}
+.mind-cognition-view-modes {
+  padding-right: 6px;
+  border-right: 1px solid var(--rule-1);
+}
+.mind-cognition-mode-controls .mind-ctrl-btn {
+  border: 1px solid var(--rule-1);
+  background: var(--paper-0);
+  color: var(--ink-1);
+  border-radius: var(--radius-1);
+  padding: 4px 8px;
+  font: 500 10px/1.2 var(--font-mono);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all var(--dur-1) var(--ease);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+.mind-cognition-mode-controls .mind-ctrl-btn:hover {
+  background: var(--paper-2);
+  border-color: var(--rule-2);
+  color: var(--ink-1);
+}
+.mind-cognition-mode-controls .mind-ctrl-btn.active {
+  background: var(--ink-1);
+  border-color: var(--ink-1);
+  color: var(--paper-0);
+  font-weight: 600;
+}
+.mind-cognition-search-input {
+  background: var(--paper-0);
+  border: 1px solid var(--rule-1);
+  border-radius: var(--radius-1);
+  color: var(--ink-1);
+  font: 10px/1.2 var(--font-mono);
+  padding: 4px 8px;
+  width: 190px;
+  outline: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+.mind-cognition-search-input::placeholder {
+  color: var(--ink-4);
+  font-style: normal;
+}
+.mind-cognition-search-input:focus {
+  border-color: var(--rule-ink);
+  background: var(--paper-0);
 }
 .mind-atlas-timeline {
   position: absolute;
@@ -701,23 +780,24 @@
   gap: 7px;
   min-width: 360px;
   max-width: 48%;
-  padding: 5px 7px;
-  border: 1px solid var(--night-rule);
+  padding: 5px 8px;
+  border: 1px solid var(--rule-1);
   border-radius: var(--radius-1);
-  background: var(--night-1);
+  background: var(--paper-0);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
 }
 .mind-atlas-timeline-label {
-  font-size: 8px;
-  color: var(--night-ink-2);
+  font: 8px var(--font-mono);
+  color: var(--ink-3);
   min-width: 72px;
   white-space: nowrap;
 }
 .mind-atlas-timeline-input {
   flex: 1;
   min-width: 120px;
-  accent-color: var(--dom-modality);
+  accent-color: var(--rule-ink);
 }
 .mind-cognition-3d-note {
   position: absolute;
@@ -726,20 +806,43 @@
   z-index: 2;
   max-width: 360px;
   padding: 6px 8px;
-  border: 1px solid var(--night-rule);
+  border: 1px solid var(--rule-1);
   border-radius: var(--radius-1);
-  background: var(--night-1);
-  font-size: 8px;
-  line-height: 1.35;
-  color: var(--night-ink-2);
+  background: var(--paper-0);
+  font: 8px/1.35 var(--font-mono);
+  color: var(--ink-3);
   pointer-events: none;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
 }
 .mind-cognition-controls {
   position: absolute;
   bottom: 14px;
   right: 14px;
   display: flex;
-  gap: 6px;
+  gap: 4px;
+  z-index: 3;
+}
+.mind-cognition-controls .mind-ctrl-btn {
+  border: 1px solid var(--rule-1);
+  background: var(--paper-0);
+  color: var(--ink-1);
+  border-radius: var(--radius-1);
+  padding: 4px 8px;
+  font: 500 11px/1.2 var(--font-mono);
+  cursor: pointer;
+  transition: all var(--dur-1) var(--ease);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+.mind-cognition-controls .mind-ctrl-btn:hover {
+  background: var(--paper-2);
+  border-color: var(--rule-2);
+  color: var(--ink-1);
+}
+.mind-cognition-controls .mind-ctrl-btn.active {
+  background: var(--ink-1);
+  border-color: var(--ink-1);
+  color: var(--paper-0);
+  font-weight: 600;
 }
 
 .mind-overview-wrap,
@@ -747,7 +850,7 @@
   position: absolute;
   inset: 0;
   overflow: auto;
-  background: var(--bg-deep);
+  background: var(--paper-0);
   padding: 18px 20px 28px;
 }
 
@@ -759,9 +862,9 @@
   align-items: center;
   justify-content: center;
   gap: 16px;
-  background: var(--bg-deep);
-  color: var(--muted);
-  font-size: 14px;
+  background: var(--paper-0);
+  color: var(--ink-3);
+  font: 14px var(--font-sans);
   pointer-events: none;
 }
 .mind-wait-spinner {
@@ -777,8 +880,8 @@
 /* ── Mind identity / sensory extracted presentation ─────────────── */
 .mind-senses-empty {
   padding: 12px;
-  font-size: 10px;
-  color: var(--muted);
+  font: 10px var(--font-mono);
+  color: var(--ink-3);
 }
 .mind-sense-table-row {
   width: 100%;
@@ -788,14 +891,15 @@
   align-items: center;
   padding: 6px 8px;
   border: 0;
-  border-bottom: 1px solid rgba(98, 120, 136, 0.11);
+  border-bottom: 1px solid var(--rule-1);
   background: none;
-  color: var(--text);
-  font-size: 8px;
+  color: var(--ink-1);
+  font: 8px var(--font-mono);
   text-align: left;
   cursor: pointer;
+  transition: background var(--dur-1) var(--ease);
 }
-.mind-sense-table-row:hover { background: rgba(80, 217, 255, 0.05); }
+.mind-sense-table-row:hover { background: var(--paper-2); }
 .mind-sense-table-name {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -803,24 +907,25 @@
 }
 
 .mind-identity-gap-title {
-  font-size: 12px;
+  font: 600 12px var(--font-sans);
   margin: 0 0 3px;
-  color: var(--text);
+  color: var(--ink-1);
 }
 .mind-identity-gap-subtitle {
-  font-size: 9px;
-  line-height: 1.35;
-  color: var(--muted);
+  font: 9px/1.35 var(--font-mono);
+  color: var(--ink-3);
   margin: 0 0 12px;
 }
 .mind-identity-metric-card {
   padding: 8px 0;
-  border-top: 1px solid rgba(98, 120, 136, 0.18);
+  border-top: 1px solid var(--rule-1);
 }
 .mind-identity-metric-head {
-  font-size: 9px;
-  color: var(--muted);
+  font: var(--fs-label) var(--font-mono);
+  color: var(--ink-3);
   margin-bottom: 5px;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
 }
 .mind-identity-metric-values {
   display: grid;
@@ -830,32 +935,33 @@
 }
 .mind-identity-metric-left,
 .mind-identity-metric-right {
-  font-size: 13px;
+  font: 500 13px var(--font-mono);
 }
 .mind-identity-metric-left {
   text-align: right;
-  color: var(--cyan);
+  color: var(--dom-modality-ink);
 }
-.mind-identity-metric-right { color: var(--mint); }
+.mind-identity-metric-right { color: var(--dom-symbiont-ink); }
 .mind-identity-metric-arrow {
   font-size: 10px;
-  color: var(--muted);
+  color: var(--ink-4);
 }
 .mind-identity-metric-note {
-  font-size: 8px;
-  line-height: 1.3;
-  color: var(--muted);
+  font: 8px/1.3 var(--font-mono);
+  color: var(--ink-3);
   margin-top: 4px;
 }
 
 .mind-self-certainty {
   padding: 9px 0;
-  border-top: 1px solid rgba(98, 120, 136, 0.18);
+  border-top: 1px solid var(--rule-1);
 }
 .mind-self-certainty-title {
-  font-size: 9px;
-  color: var(--muted);
+  font: var(--fs-label) var(--font-mono);
+  color: var(--ink-3);
   margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
 }
 .mind-self-certainty-row {
   display: grid;
@@ -863,51 +969,50 @@
   gap: 5px;
   align-items: center;
   margin: 4px 0;
-  font-size: 8px;
+  font: 8px var(--font-mono);
 }
-.mind-self-certainty-name { color: var(--muted); }
+.mind-self-certainty-name { color: var(--ink-3); }
 .mind-self-certainty-bar {
   height: 3px;
-  background: rgba(98, 120, 136, 0.25);
-  border-radius: 2px;
+  background: var(--paper-3);
+  border-radius: var(--radius-1);
   overflow: hidden;
 }
 .mind-self-certainty-fill {
   height: 100%;
-  background: var(--mint);
+  background: var(--dom-symbiont-ink);
 }
 .mind-self-certainty-value {
-  font-size: 8px;
+  font: 8px var(--font-mono);
   text-align: right;
+  color: var(--ink-1);
 }
 
 .mind-self-opaque-note {
   margin-top: 7px;
   padding: 8px;
-  border: 1px solid rgba(255, 189, 84, 0.2);
-  border-radius: 7px;
-  background: rgba(255, 189, 84, 0.035);
-  font-size: 8px;
-  line-height: 1.4;
-  color: var(--muted);
+  border: 1px solid var(--rule-2);
+  border-radius: var(--radius-1);
+  background: var(--paper-2);
+  font: 8px/1.4 var(--font-mono);
+  color: var(--ink-3);
 }
 .mind-perceptual-self {
   margin: 8px 0 12px;
   padding: 9px 10px;
-  border: 1px solid rgba(80, 217, 255, 0.15);
-  border-radius: 8px;
-  background: rgba(80, 217, 255, 0.025);
+  border: 1px solid var(--rule-1);
+  border-radius: var(--radius-1);
+  background: var(--paper-1);
 }
 .mind-perceptual-self-title {
   display: block;
-  font-size: 10px;
-  color: var(--cyan);
+  font: 600 10px var(--font-sans);
+  color: var(--dom-modality-ink);
   margin-bottom: 3px;
 }
 .mind-perceptual-self-copy {
-  font-size: 8px;
-  line-height: 1.4;
-  color: var(--muted);
+  font: 8px/1.4 var(--font-mono);
+  color: var(--ink-3);
 }
 .mind-perceptual-self-dots {
   display: flex;
@@ -917,8 +1022,8 @@
 }
 .mind-self-schema-label {
   display: block;
-  font-size: 10px;
-  color: var(--mint);
+  font: 600 10px var(--font-sans);
+  color: var(--dom-symbiont-ink);
   margin: 3px 0 5px;
 }
 .mind-self-summary {
@@ -926,8 +1031,8 @@
   gap: 16px;
   flex-wrap: wrap;
   margin: 0 0 14px;
-  font-size: 11px;
-  color: var(--muted);
+  font: 11px var(--font-mono);
+  color: var(--ink-3);
 }
 .mind-self-portrait {
   width: 100%;
@@ -935,49 +1040,47 @@
   aspect-ratio: 1000 / 650;
   max-height: calc(100% - 62px);
   display: block;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: rgba(4, 14, 24, 0.55);
+  border: 1px solid var(--night-rule);
+  border-radius: var(--radius-1);
+  background: var(--night-0);
 }
 
 
 /* ── Cognition inspector extracted presentation ─────────────────── */
 .mind-inspector-group {
   margin: 9px 0;
-  border-top: 1px solid rgba(98, 120, 136, 0.14);
+  border-top: 1px solid var(--rule-1);
   padding-top: 4px;
 }
 .mind-inspector-group-summary {
   cursor: pointer;
-  font-size: 9px;
-  font-weight: 650;
-  color: var(--text);
+  font: 600 9px var(--font-mono);
+  color: var(--ink-1);
   padding: 4px 0;
 }
 .mind-inspector-title {
-  font-size: 12px;
-  font-weight: 650;
-  color: var(--text);
+  font: 600 12px var(--font-sans);
+  color: var(--ink-1);
   overflow-wrap: anywhere;
   margin-bottom: 3px;
 }
 .mind-inspector-subtitle {
-  font-size: 9px;
-  line-height: 1.45;
-  color: var(--muted);
+  font: 9px/1.45 var(--font-mono);
+  color: var(--ink-3);
   margin-bottom: 10px;
 }
 .mind-inspector-section-title {
   margin: 13px 0 6px;
-  font-size: 9px;
-  font-weight: 650;
-  color: var(--text);
+  font: 600 var(--fs-label) var(--font-mono);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--ink-3);
 }
 .mind-inspector-section-title-spaced { margin-top: 14px; }
 .mind-inspector-situation-title { margin-top: 4px; }
 .mind-inspector-empty {
-  font-size: 9px;
-  color: var(--muted);
+  font: 9px var(--font-mono);
+  color: var(--ink-3);
 }
 .mind-inspector-relation-button,
 .mind-inspector-path-button {
@@ -986,23 +1089,23 @@
   text-align: left;
   padding: 5px 6px;
   margin: 3px 0;
-  border-radius: 5px;
-  color: var(--muted);
-  font-size: 8px;
+  border-radius: var(--radius-1);
+  color: var(--ink-2);
+  font: 8px var(--font-mono);
   cursor: pointer;
+  border: 1px solid var(--rule-1);
+  background: var(--paper-1);
+  transition: all var(--dur-1) var(--ease);
 }
-.mind-inspector-relation-button {
-  border: 1px solid rgba(98, 120, 136, 0.16);
-  background: rgba(255, 255, 255, 0.015);
-}
-.mind-inspector-path-button {
-  border: 1px solid rgba(80, 217, 255, 0.16);
-  background: rgba(80, 217, 255, 0.025);
+.mind-inspector-relation-button:hover,
+.mind-inspector-path-button:hover {
+  background: var(--paper-2);
+  border-color: var(--rule-ink);
+  color: var(--ink-1);
 }
 .mind-inspector-path-copy {
-  font-size: 8px;
-  line-height: 1.5;
-  color: var(--muted);
+  font: 8px/1.5 var(--font-mono);
+  color: var(--ink-3);
   margin-bottom: 6px;
 }
 .mind-inspector-wide-button {
@@ -1017,51 +1120,59 @@
 .mind-inspector-evidence-note {
   margin: 8px 0 10px;
   padding: 7px;
-  border: 1px solid rgba(98, 120, 136, 0.14);
-  border-radius: 6px;
-  font-size: 8px;
-  line-height: 1.4;
-  color: var(--muted);
+  border: 1px solid var(--rule-1);
+  border-radius: var(--radius-1);
+  font: 8px/1.4 var(--font-mono);
+  color: var(--ink-3);
+  background: var(--paper-1);
 }
 .mind-inspector-sector-card {
   display: block;
   width: 100%;
   text-align: left;
-  padding: 8px 0;
+  padding: 6px 4px;
   border: 0;
-  border-top: 1px solid rgba(98, 120, 136, 0.16);
+  border-top: 1px solid var(--rule-1);
   background: transparent;
   color: inherit;
+  border-radius: var(--radius-1);
   cursor: pointer;
+  transition: background var(--dur-1) var(--ease);
+}
+.mind-inspector-sector-card:hover {
+  background: var(--paper-2);
 }
 .mind-inspector-sector-head {
   display: flex;
   justify-content: space-between;
   gap: 8px;
-  font-size: 9px;
+  font: 600 9px var(--font-mono);
+  color: var(--ink-1);
+}
+.mind-inspector-sector-head span {
+  font-weight: normal;
+  color: var(--ink-3);
 }
 .mind-inspector-sector-composition {
-  font-size: 8px;
-  color: var(--muted);
+  font: 8px var(--font-mono);
+  color: var(--ink-3);
   margin-top: 3px;
   line-height: 1.35;
 }
 .mind-inspector-sector-activity {
-  font-size: 8px;
-  color: var(--muted);
+  font: 8px var(--font-mono);
+  color: var(--ink-3);
   margin-top: 3px;
 }
 .mind-inspector-flow-summary {
-  font-size: 8px;
-  line-height: 1.45;
-  color: var(--muted);
+  font: 8px/1.45 var(--font-mono);
+  color: var(--ink-3);
 }
 .mind-inspector-history-row {
   padding: 4px 0;
-  border-top: 1px solid rgba(98, 120, 136, 0.10);
-  font-size: 8px;
-  color: var(--muted);
-  line-height: 1.35;
+  border-top: 1px solid var(--rule-1);
+  font: 8px/1.35 var(--font-mono);
+  color: var(--ink-3);
 }
 .mind-inspector-frontier-button {
   display: block;
@@ -1069,28 +1180,34 @@
   text-align: left;
   padding: 3px 5px;
   margin-top: 2px;
-  border: 0;
-  background: rgba(255, 189, 84, 0.025);
-  color: var(--muted);
-  font-size: 8px;
+  border: 1px solid var(--rule-1);
+  border-radius: var(--radius-1);
+  background: var(--paper-1);
+  color: var(--ink-2);
+  font: 8px var(--font-mono);
   cursor: pointer;
+  transition: all var(--dur-1) var(--ease);
+}
+.mind-inspector-frontier-button:hover {
+  background: var(--paper-2);
+  color: var(--ink-1);
+  border-color: var(--rule-ink);
 }
 .mind-inspector-usage {
   margin-top: 12px;
   padding-top: 8px;
-  border-top: 1px solid rgba(98, 120, 136, 0.12);
-  font-size: 8px;
-  line-height: 1.45;
-  color: var(--muted);
+  border-top: 1px solid var(--rule-1);
+  font: 8px/1.45 var(--font-mono);
+  color: var(--ink-3);
 }
 .mind-inspector-hint {
   margin-top: 12px;
   padding: 8px;
-  border: 1px solid rgba(80, 217, 255, 0.14);
-  border-radius: 6px;
-  font-size: 8px;
-  line-height: 1.45;
-  color: var(--muted);
+  border: 1px solid var(--rule-1);
+  border-radius: var(--radius-1);
+  background: var(--paper-1);
+  font: 8px/1.45 var(--font-mono);
+  color: var(--ink-3);
 }
 
 
@@ -1107,13 +1224,13 @@
 .mind-cognition-event-stream {
   position: absolute;
   z-index: 3;
-  border: 1px solid rgba(98, 120, 136, 0.24);
-  border-radius: 9px;
-  background: rgba(6, 14, 24, 0.90);
-  box-shadow: 0 14px 38px rgba(0, 0, 0, 0.22);
-  backdrop-filter: blur(7px);
-  -webkit-backdrop-filter: blur(7px);
-  color: var(--muted);
+  border: 1px solid var(--rule-1);
+  border-radius: var(--radius-1);
+  background: var(--paper-0);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  color: var(--ink-1);
 }
 
 .mind-cognition-right-rail {
@@ -1122,7 +1239,7 @@
   right: 12px;
   bottom: 54px;
   z-index: 3;
-  width: 248px;
+  width: 254px;
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -1159,26 +1276,28 @@
   gap: 8px;
   padding-bottom: 7px;
   margin-bottom: 7px;
-  border-bottom: 1px solid rgba(98, 120, 136, 0.14);
-  font-size: 9px;
-  color: var(--text);
+  border-bottom: 1px solid var(--rule-1);
+  font: 600 var(--fs-label) var(--font-mono);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--ink-1);
 }
 
 .mind-live-badge {
-  padding: 1px 5px;
-  border: 1px solid rgba(113, 233, 186, 0.24);
-  border-radius: 4px;
-  color: var(--mint);
-  background: rgba(113, 233, 186, 0.06);
-  font-size: 7px;
+  padding: 2px 5px;
+  border: 1px solid var(--rule-1);
+  border-radius: var(--radius-1);
+  color: var(--ink-1);
+  background: var(--paper-2);
+  font: 7px var(--font-mono);
   letter-spacing: 0.05em;
 }
 
 .mind-live-empty {
   padding: 7px 0;
-  font-size: 8px;
+  font: 8px var(--font-mono);
   line-height: 1.4;
-  color: var(--muted);
+  color: var(--ink-3);
 }
 
 .mind-live-focus-id {
@@ -1190,67 +1309,85 @@
 
 .mind-live-focus-id strong {
   display: block;
-  color: var(--text);
-  font-size: 10px;
+  color: var(--ink-1);
+  font: 600 11px var(--font-mono);
   overflow-wrap: anywhere;
 }
 
 .mind-live-focus-id small {
   display: block;
   margin-top: 2px;
-  color: var(--muted);
-  font-size: 8px;
+  color: var(--ink-3);
+  font: 8px var(--font-mono);
 }
 
 .mind-live-focus-dot {
-  width: 24px;
-  height: 24px;
-  flex: 0 0 24px;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
   border-radius: 50%;
-  border: 1px solid var(--cyan);
-  background: rgba(80, 217, 255, 0.16);
-  box-shadow: 0 0 12px rgba(80, 217, 255, 0.16);
+  border: 1px solid var(--rule-ink);
+  background: var(--paper-2);
+  box-shadow: none;
 }
-.mind-live-focus-dot.kind-concept { border-color: var(--violet); background: rgba(177, 132, 255, 0.14); }
-.mind-live-focus-dot.kind-predictor { border-color: var(--amber); background: rgba(255, 189, 84, 0.14); }
+.mind-live-focus-dot.kind-concept { border-color: var(--dom-modality-ink); background: var(--paper-2); }
+.mind-live-focus-dot.kind-predictor { border-color: var(--dom-embodiment-ink); background: var(--paper-2); }
 .mind-live-focus-dot.kind-readout,
-.mind-live-focus-dot.kind-motor_primitive { border-color: var(--mint); background: rgba(113, 233, 186, 0.14); }
+.mind-live-focus-dot.kind-motor_primitive { border-color: var(--dom-symbiont-ink); background: var(--paper-2); }
 
+.mind-cognition-live-focus .mind-live-metric,
 .mind-live-metric {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 3px 8px;
   align-items: center;
-  padding: 4px 0;
+  padding: 6px 8px;
+  margin: 3px 0;
   font-size: 8px;
+  border: 1px solid var(--rule-1);
+  background: var(--paper-1);
+  border-radius: var(--radius-1);
 }
 
-.mind-live-metric-label { color: var(--muted); }
-.mind-live-metric-value { color: var(--text); }
+.mind-cognition-live-focus .mind-live-metric-label,
+.mind-live-metric-label {
+  color: var(--ink-3);
+  font: var(--fs-label) var(--font-mono);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+.mind-cognition-live-focus .mind-live-metric-value,
+.mind-live-metric-value {
+  color: var(--ink-1);
+  font: 500 13px/1 var(--font-mono);
+  margin-top: 0;
+  text-align: right;
+}
 
 .mind-live-meter {
   grid-column: 1 / -1;
   display: block;
   height: 3px;
-  border-radius: 2px;
+  border-radius: var(--radius-1);
   overflow: hidden;
-  background: rgba(98, 120, 136, 0.17);
+  background: var(--paper-3);
 }
 
 .mind-live-meter-fill {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--cyan), var(--mint));
+  background: var(--rule-ink);
 }
 
 .mind-live-section-title {
   margin: 10px 0 5px;
   padding-top: 7px;
-  border-top: 1px solid rgba(98, 120, 136, 0.13);
-  color: var(--text);
-  font-size: 8px;
-  font-weight: 650;
+  border-top: 1px solid var(--rule-1);
+  color: var(--ink-3);
+  font: 600 var(--fs-label) var(--font-mono);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
 }
 
 .mind-live-processing {
@@ -1263,29 +1400,29 @@
   grid-template-columns: 74px minmax(0, 1fr) 34px;
   gap: 5px;
   align-items: center;
-  font-size: 7px;
-  color: rgba(140, 166, 188, 0.58);
+  font: 8px var(--font-mono);
+  color: var(--ink-3);
 }
 
-.mind-live-stage.active { color: var(--text); }
+.mind-live-stage.active { color: var(--ink-1); font-weight: 500; }
 
 .mind-live-stage > i {
   height: 3px;
   overflow: hidden;
-  border-radius: 2px;
-  background: rgba(98, 120, 136, 0.16);
+  border-radius: var(--radius-1);
+  background: var(--paper-3);
 }
 
 .mind-live-stage > i > em {
   display: block;
   height: 100%;
-  background: var(--cyan);
+  background: var(--rule-ink);
 }
 
 .mind-live-stage > b {
   text-align: right;
-  font-size: 7px;
-  font-weight: 500;
+  font: 500 8px var(--font-mono);
+  color: var(--ink-1);
 }
 
 .mind-live-related {
@@ -1298,44 +1435,45 @@
   justify-content: space-between;
   gap: 8px;
   padding: 3px 0;
-  font-size: 7px;
-  border-bottom: 1px solid rgba(98, 120, 136, 0.08);
+  font: 8px var(--font-mono);
+  border-bottom: 1px solid var(--rule-1);
 }
 
 .mind-live-related-row span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: var(--ink-3);
 }
 
 .mind-live-related-row b {
-  color: var(--text);
+  color: var(--ink-1);
   font-weight: 500;
 }
 
 .mind-live-event {
   display: grid;
-  grid-template-columns: 42px minmax(0, 1fr);
+  grid-template-columns: 46px minmax(0, 1fr);
   gap: 7px;
   align-items: start;
   padding: 4px 0;
-  border-bottom: 1px solid rgba(98, 120, 136, 0.08);
-  font-size: 7px;
+  border-bottom: 1px solid var(--rule-1);
+  font: 8px var(--font-mono);
   line-height: 1.35;
 }
 
-.mind-live-event-tick { color: rgba(140, 166, 188, 0.58); }
+.mind-live-event-tick { color: var(--dom-modality-ink); font-weight: 600; }
 .mind-live-event-text {
-  color: var(--muted);
+  color: var(--ink-2);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.mind-live-event.tone-learning .mind-live-event-text { color: var(--mint); }
+.mind-live-event.tone-learning .mind-live-event-text { color: var(--dom-symbiont-ink); font-weight: 500; }
 .mind-live-event.tone-warning .mind-live-event-text,
-.mind-live-event.tone-prediction-bad .mind-live-event-text { color: var(--coral); }
-.mind-live-event.tone-prediction-good .mind-live-event-text { color: var(--cyan); }
-.mind-live-event.tone-structure .mind-live-event-text { color: var(--violet); }
+.mind-live-event.tone-prediction-bad .mind-live-event-text { color: var(--signal-warn-ink); font-weight: 500; }
+.mind-live-event.tone-prediction-good .mind-live-event-text { color: var(--dom-symbiont-ink); }
+.mind-live-event.tone-structure .mind-live-event-text { color: var(--ink-3); }
 
 .mind-cognition-live-timeline {
   position: absolute;
@@ -1410,7 +1548,7 @@
 
 .mind-senses-summary-rich {
   padding: 10px 11px 9px;
-  background: rgba(80, 217, 255, 0.018);
+  background: var(--paper-1);
 }
 
 .mind-sensory-search {
@@ -1418,18 +1556,16 @@
   width: calc(100% - 16px);
   margin: 8px;
   padding: 7px 8px;
-  border: 1px solid rgba(98, 120, 136, 0.20);
-  border-radius: 6px;
+  border: 1px solid var(--rule-1);
+  border-radius: var(--radius-1);
   outline: none;
-  background: rgba(4, 14, 24, 0.54);
-  color: var(--text);
-  font: inherit;
-  font-size: 8px;
+  background: var(--paper-0);
+  color: var(--ink-1);
+  font: 8px var(--font-mono);
 }
 
 .mind-sensory-search:focus {
-  border-color: rgba(80, 217, 255, 0.42);
-  box-shadow: 0 0 0 2px rgba(80, 217, 255, 0.05);
+  border-color: var(--rule-ink);
 }
 
 .mind-sensory-filter-row {
@@ -1437,29 +1573,30 @@
   flex-wrap: wrap;
   gap: 4px;
   padding: 0 8px 8px;
-  border-bottom: 1px solid rgba(98, 120, 136, 0.13);
+  border-bottom: 1px solid var(--rule-1);
 }
 
 .mind-sensory-filter {
-  border: 1px solid rgba(98, 120, 136, 0.16);
-  border-radius: 5px;
+  border: 1px solid var(--rule-1);
+  border-radius: var(--radius-1);
   padding: 3px 5px;
-  background: transparent;
-  color: var(--muted);
-  font-size: 7px;
+  background: var(--paper-0);
+  color: var(--ink-3);
+  font: 7px var(--font-mono);
   cursor: pointer;
+  transition: all var(--dur-1) var(--ease);
 }
 
 .mind-sensory-filter:hover,
 .mind-sensory-filter.active {
-  color: var(--cyan);
-  border-color: rgba(80, 217, 255, 0.28);
-  background: rgba(80, 217, 255, 0.055);
+  color: var(--ink-1);
+  border-color: var(--rule-ink);
+  background: var(--paper-2);
 }
 
 .mind-sense-table-row.selected {
-  background: rgba(80, 217, 255, 0.08);
-  box-shadow: inset 2px 0 var(--cyan);
+  background: var(--paper-2);
+  box-shadow: inset 2px 0 var(--rule-ink);
 }
 
 .mind-sensory-wrap {
@@ -1472,8 +1609,8 @@
   gap: 0;
   padding: 0;
   overflow: hidden;
-  background: var(--bg-deep);
-  color: var(--muted);
+  background: var(--paper-0);
+  color: var(--ink-3);
 }
 
 .mind-sensory-header {
@@ -1484,8 +1621,8 @@
   gap: 16px;
   min-height: 58px;
   padding: 8px 12px 8px 16px;
-  border-bottom: 1px solid rgba(98, 120, 136, 0.16);
-  background: rgba(8, 18, 29, 0.82);
+  border-bottom: 1px solid var(--rule-1);
+  background: var(--paper-1);
 }
 
 .mind-sensory-heading {
@@ -1494,16 +1631,16 @@
 
 .mind-sensory-title {
   display: block;
-  color: var(--text);
-  font-size: 12px;
+  color: var(--ink-1);
+  font: 600 12px var(--font-sans);
   line-height: 1.15;
 }
 
 .mind-sensory-subtitle {
   display: block;
   margin-top: 3px;
-  color: var(--muted);
-  font-size: 8px;
+  color: var(--ink-3);
+  font: 8px var(--font-mono);
   white-space: nowrap;
 }
 
@@ -1518,7 +1655,7 @@
 .mind-sensory-metric {
   min-width: 62px;
   padding: 4px 7px 5px;
-  border-left: 1px solid rgba(98, 120, 136, 0.14);
+  border-left: 1px solid var(--rule-1);
 }
 
 .mind-sensory-metric small,
@@ -1527,17 +1664,16 @@
 }
 
 .mind-sensory-metric small {
-  color: rgba(140, 166, 188, 0.62);
-  font-size: 6.5px;
+  color: var(--ink-3);
+  font: var(--fs-label) var(--font-mono);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: var(--tracking-label);
 }
 
 .mind-sensory-metric b {
   margin-top: 2px;
-  color: var(--text);
-  font-size: 10px;
-  font-weight: 620;
+  color: var(--ink-1);
+  font: 500 10px var(--font-mono);
 }
 
 .mind-sensory-lenses {
@@ -1548,8 +1684,20 @@
 }
 
 .mind-sensory-lenses .mind-ctrl-btn {
-  padding: 5px 7px;
-  font-size: 7px;
+  padding: 4px 6px;
+  font-size: 8px;
+  border: 1px solid var(--rule-1);
+  background: var(--paper-0);
+  color: var(--ink-1);
+}
+.mind-sensory-lenses .mind-ctrl-btn:hover {
+  background: var(--paper-2);
+  border-color: var(--rule-2);
+}
+.mind-sensory-lenses .mind-ctrl-btn.active {
+  background: var(--ink-1);
+  border-color: var(--ink-1);
+  color: var(--paper-0);
 }
 
 .mind-sensory-stage {
@@ -1558,9 +1706,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) 250px;
   overflow: hidden;
-  background:
-    radial-gradient(circle at 42% 42%, rgba(80, 217, 255, 0.025), transparent 38%),
-    var(--bg-deep);
+  background: var(--paper-0);
 }
 
 .mind-sensory-map-svg {
@@ -1577,22 +1723,23 @@
   min-height: 0;
   overflow: auto;
   padding: 12px 12px 18px;
-  border-left: 1px solid rgba(98, 120, 136, 0.16);
-  background: rgba(6, 15, 25, 0.86);
+  border-left: 1px solid var(--rule-1);
+  background: var(--paper-1);
 }
 
 .mind-sensory-inspector-heading,
 .mind-sensory-inspector-section {
-  color: rgba(140, 166, 188, 0.58);
-  font-size: 7px;
-  letter-spacing: 0.08em;
+  color: var(--ink-3);
+  font: var(--fs-label) var(--font-mono);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
 }
 
 .mind-sensory-inspector-title {
   display: block;
   margin-top: 9px;
-  color: var(--text);
-  font-size: 11px;
+  color: var(--ink-1);
+  font: 600 11px var(--font-sans);
   overflow-wrap: anywhere;
 }
 
@@ -1600,18 +1747,17 @@
   display: inline-block;
   margin: 5px 0 8px;
   padding: 2px 5px;
-  border: 1px solid rgba(177, 132, 255, 0.24);
-  border-radius: 4px;
-  background: rgba(177, 132, 255, 0.05);
-  color: var(--violet);
-  font-size: 7px;
+  border: 1px solid var(--rule-2);
+  border-radius: var(--radius-1);
+  background: var(--paper-2);
+  color: var(--dom-lab-ink);
+  font: 7px var(--font-mono);
 }
 
 .mind-sensory-inspector-copy {
   margin: 0 0 10px;
-  color: var(--muted);
-  font-size: 8px;
-  line-height: 1.45;
+  color: var(--ink-3);
+  font: 8px/1.45 var(--font-mono);
 }
 
 .mind-sensory-inspector-row {
@@ -1619,28 +1765,26 @@
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
   padding: 5px 0;
-  border-top: 1px solid rgba(98, 120, 136, 0.10);
-  font-size: 8px;
+  border-top: 1px solid var(--rule-1);
+  font: 8px var(--font-mono);
 }
 
-.mind-sensory-inspector-row span { color: var(--muted); }
+.mind-sensory-inspector-row span { color: var(--ink-3); }
 .mind-sensory-inspector-row b {
-  color: var(--text);
-  font-size: 8px;
-  font-weight: 550;
+  color: var(--ink-1);
+  font: 500 8px var(--font-mono);
 }
 
 .mind-sensory-inspector-section {
   margin-top: 13px;
   padding-top: 9px;
-  border-top: 1px solid rgba(98, 120, 136, 0.16);
+  border-top: 1px solid var(--rule-1);
 }
 
 .mind-sensory-inspector-empty {
   padding: 12px 0;
-  color: var(--muted);
-  font-size: 8px;
-  line-height: 1.5;
+  color: var(--ink-3);
+  font: 8px/1.5 var(--font-mono);
 }
 
 .mind-sensory-path {
@@ -1648,19 +1792,20 @@
   width: 100%;
   margin-top: 3px;
   padding: 5px 6px;
-  border: 1px solid rgba(98, 120, 136, 0.12);
-  border-radius: 5px;
-  background: rgba(255,255,255,0.012);
-  color: var(--muted);
-  font-size: 7.5px;
+  border: 1px solid var(--rule-1);
+  border-radius: var(--radius-1);
+  background: var(--paper-0);
+  color: var(--ink-2);
+  font: 7.5px var(--font-mono);
   text-align: left;
   cursor: pointer;
+  transition: all var(--dur-1) var(--ease);
 }
 
 .mind-sensory-path:hover {
-  color: var(--cyan);
-  border-color: rgba(80, 217, 255, 0.22);
-  background: rgba(80, 217, 255, 0.035);
+  color: var(--ink-1);
+  border-color: var(--rule-ink);
+  background: var(--paper-2);
 }
 
 .mind-sensory-why {
@@ -1668,15 +1813,14 @@
   gap: 4px;
   margin-top: 13px;
   padding: 9px;
-  border: 1px solid rgba(80, 217, 255, 0.14);
-  border-radius: 6px;
-  background: rgba(80, 217, 255, 0.025);
-  font-size: 8px;
-  line-height: 1.45;
+  border: 1px solid var(--rule-1);
+  border-radius: var(--radius-1);
+  background: var(--paper-0);
+  font: 8px/1.45 var(--font-mono);
 }
 
-.mind-sensory-why strong { color: var(--text); }
-.mind-sensory-why span { color: var(--muted); }
+.mind-sensory-why strong { color: var(--ink-1); }
+.mind-sensory-why span { color: var(--ink-3); }
 
 .mind-sensory-timeline {
   min-width: 0;
@@ -1685,15 +1829,15 @@
   align-items: center;
   gap: 8px;
   padding: 6px 12px;
-  border-top: 1px solid rgba(98, 120, 136, 0.14);
-  border-bottom: 1px solid rgba(98, 120, 136, 0.10);
-  background: rgba(6, 15, 25, 0.82);
+  border-top: 1px solid var(--rule-1);
+  border-bottom: 1px solid var(--rule-1);
+  background: var(--paper-1);
 }
 
 .mind-sensory-timeline-label,
 .mind-sensory-timeline-now {
-  color: rgba(140, 166, 188, 0.58);
-  font-size: 7px;
+  color: var(--ink-3);
+  font: 7px var(--font-mono);
 }
 
 .mind-sensory-timeline-now { text-align: right; }
@@ -1713,12 +1857,11 @@
   max-width: 8px;
   height: 8%;
   border-radius: 1px 1px 0 0;
-  background: var(--cyan);
-  opacity: 0.62;
+  background: var(--rule-ink);
 }
 
-.mind-sensory-timeline-bar.learning { background: var(--mint); }
-.mind-sensory-timeline-bar.error { background: var(--coral); opacity: 0.9; }
+.mind-sensory-timeline-bar.learning { background: var(--dom-symbiont-ink); }
+.mind-sensory-timeline-bar.error { background: var(--signal-warn-ink); }
 
 .mind-sensory-detail {
   box-sizing: border-box;
@@ -1726,10 +1869,10 @@
   max-width: none;
   min-height: 26px;
   padding: 6px 12px 7px;
-  color: rgba(140, 166, 188, 0.58);
-  background: rgba(4, 11, 18, 0.72);
-  font-size: 7.5px;
-  line-height: 1.35;
+  color: var(--ink-3);
+  background: var(--paper-1);
+  border-top: 1px solid var(--rule-1);
+  font: 7.5px/1.35 var(--font-mono);
   text-align: left;
 }
 
@@ -1777,41 +1920,48 @@
   flex: 0 0 auto;
   overflow: auto;
   padding: 10px 12px;
-  border: 1px dashed var(--border);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--panel) 88%, transparent);
-  backdrop-filter: blur(8px);
+  border: 1px dashed var(--rule-2);
+  border-radius: var(--radius-1);
+  background: var(--paper-0);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
   z-index: 4;
   pointer-events: auto;
+  color: var(--ink-3);
 }
 .mind-cognition-generative-title {
   display: block;
   margin-bottom: 8px;
-  font-size: 12px;
-  letter-spacing: .04em;
+  font: 600 var(--fs-label) var(--font-mono);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
+  color: var(--ink-1);
+  border-bottom: 1px solid var(--rule-1);
+  padding-bottom: 4px;
 }
 .mind-cognition-generative-row {
   display: flex;
   justify-content: space-between;
   gap: 12px;
   padding: 2px 0;
-  font-size: 11px;
+  font: 8px var(--font-mono);
 }
 .mind-cognition-generative-key {
-  color: var(--muted);
+  color: var(--ink-3);
 }
 .mind-cognition-generative-value {
   max-width: 60%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-weight: 600;
+  font-weight: 500;
+  color: var(--ink-1);
 }
 .mind-cognition-generative-hypothesis {
   margin-top: 4px;
-  font-size: 10px;
-  color: var(--muted);
+  font: 8px var(--font-mono);
+  color: var(--ink-3);
 }
 
 .mind-generative-presence {
@@ -1827,19 +1977,18 @@
   gap: 2px;
 }
 .mind-generative-presence-copy strong {
-  font-size: 10px;
-  color: var(--text);
-  font-weight: 600;
+  font: 600 10px var(--font-mono);
+  color: var(--ink-1);
 }
 .mind-generative-presence-copy small {
-  color: var(--muted);
-  font-size: 8px;
+  color: var(--ink-3);
+  font: 8px var(--font-mono);
 }
 .mind-generative-orb {
   position: relative;
-  width: 34px;
-  height: 34px;
-  flex: 0 0 34px;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
   display: grid;
   place-items: center;
 }
@@ -1850,28 +1999,28 @@
 }
 .mind-generative-orb-ring {
   inset: 1px;
-  border: 1px solid rgba(113, 202, 255, .28);
+  border: 1px solid var(--rule-2);
 }
 .mind-generative-orb-core {
-  width: 12px;
-  height: 12px;
-  background: rgba(113, 202, 255, .14);
-  border: 1px solid rgba(113, 202, 255, .42);
+  width: 10px;
+  height: 10px;
+  background: var(--paper-2);
+  border: 1px solid var(--ink-3);
 }
 .mind-generative-orb.observed .mind-generative-orb-ring {
-  border-color: rgba(102, 230, 190, .74);
-  box-shadow: 0 0 0 4px rgba(102, 230, 190, .05);
+  border-color: var(--dom-symbiont-ink);
+  box-shadow: none;
 }
 .mind-generative-orb.observed .mind-generative-orb-core {
-  background: rgba(102, 230, 190, .58);
-  border-color: rgba(102, 230, 190, .92);
+  background: var(--dom-symbiont-ink);
+  border-color: var(--dom-symbiont-ink);
 }
 .mind-generative-orb.historical .mind-generative-orb-ring {
-  border-color: rgba(206, 173, 255, .52);
+  border-color: var(--rule-2);
 }
 .mind-generative-orb.historical .mind-generative-orb-core {
-  background: rgba(206, 173, 255, .34);
-  border-color: rgba(206, 173, 255, .72);
+  background: var(--paper-2);
+  border-color: var(--ink-3);
 }
 .mind-generative-history {
   display: grid;
@@ -1884,18 +2033,18 @@
 .mind-generative-history-mark {
   height: calc(4px + var(--generative-intensity, .1) * 12px);
   min-height: 3px;
-  border-radius: 2px;
-  background: rgba(113, 202, 255, .22);
+  border-radius: var(--radius-1);
+  background: var(--paper-2);
 }
 .mind-generative-history-mark.episode {
-  background: rgba(206, 173, 255, .46);
+  background: var(--ink-3);
 }
 .mind-generative-history-mark.productive {
-  background: rgba(102, 230, 190, .72);
+  background: var(--dom-symbiont-ink);
 }
 .mind-generative-history-mark.placeholder {
   height: 3px;
-  background: rgba(126, 151, 173, .12);
+  background: var(--paper-3);
 }
 .mind-generative-flow {
   min-height: 44px;
@@ -1910,27 +2059,27 @@
   height: 1px;
   flex: 1 1 22px;
   min-width: 10px;
-  background: rgba(113, 202, 255, .32);
+  background: var(--rule-1);
 }
 .mind-generative-state {
-  width: 27px;
-  height: 27px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   display: grid;
   place-items: center;
   flex: 0 0 auto;
-  font-size: 7px;
-  color: var(--text);
-  border: 1px solid rgba(113, 202, 255, .42);
-  background: rgba(113, 202, 255, .08);
+  font: 8px var(--font-mono);
+  color: var(--ink-1);
+  border: 1px solid var(--rule-1);
+  background: var(--paper-1);
 }
 .mind-generative-state.generated {
-  border-color: rgba(206, 173, 255, .62);
-  background: rgba(206, 173, 255, .12);
+  border-color: var(--rule-2);
+  background: var(--paper-2);
 }
 .mind-generative-state.hypothesis {
-  border-color: rgba(102, 230, 190, .72);
-  background: rgba(102, 230, 190, .13);
+  border-color: var(--rule-ink);
+  background: var(--paper-2);
   font-weight: 700;
 }
 .mind-generative-counters {
@@ -1941,27 +2090,27 @@
 .mind-generative-counter {
   min-width: 0;
   padding: 5px 3px;
-  border-top: 1px solid rgba(113, 202, 255, .12);
+  border-top: 1px solid var(--rule-1);
   text-align: center;
 }
 .mind-generative-counter strong {
   display: block;
-  font-size: 12px;
-  color: var(--text);
+  font: 500 12px var(--font-mono);
+  color: var(--ink-1);
 }
 .mind-generative-counter span {
   display: block;
   margin-top: 1px;
-  font-size: 7px;
-  color: var(--muted);
+  font: 7px var(--font-mono);
+  color: var(--ink-3);
 }
 .mind-generative-meta {
   display: flex;
   justify-content: space-between;
   gap: 8px;
   margin-top: 7px;
-  font-size: 8px;
-  color: var(--muted);
+  font: 8px var(--font-mono);
+  color: var(--ink-3);
 }
 .mind-generative-hypotheses {
   display: flex;
@@ -1970,24 +2119,23 @@
   margin-top: 8px;
 }
 .mind-generative-hypothesis-dot {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
-  border: 1px solid rgba(206, 173, 255, .62);
-  background: rgba(206, 173, 255, .22);
+  border: 1px solid var(--rule-2);
+  background: var(--paper-2);
 }
 .mind-generative-hypothesis-dot.status-supported {
-  border-color: rgba(102, 230, 190, .88);
-  background: rgba(102, 230, 190, .62);
+  border-color: var(--dom-symbiont-ink);
+  background: var(--dom-symbiont-ink);
 }
 .mind-generative-hypothesis-dot.status-contradicted,
 .mind-generative-hypothesis-dot.status-retired {
   opacity: .34;
 }
 .mind-generative-note {
-  color: var(--muted);
-  font-size: 8px;
-  line-height: 1.45;
+  color: var(--ink-3);
+  font: 8px/1.45 var(--font-mono);
   padding-top: 2px;
 }
 

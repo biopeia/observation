@@ -458,4 +458,8 @@ export function unmount() {
 
   _rootStyleBeforeMount = '';
   _appState = null;
+  // History has been persisted above; release the last observed snapshot and
+  // the rest of Mind's shared observer state while this route is unmounted.
+  // A later mount restores continuity from the persisted development cache.
+  resetMindDataState();
 }

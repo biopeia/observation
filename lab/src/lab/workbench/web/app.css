@@ -32,6 +32,9 @@
   --night-ink-1: #e7ece9;
   --night-ink-2: #a7b5b0;
   --night-ink-3: #76857f;
+  --on-night: #e7ece9;
+  --on-night-secondary: #a7b5b0;
+  --on-night-muted: #76857f;
 
   /* ── Domain hues (oklch) ────────────────────────────────────────── */
   --dom-symbiont: oklch(0.52 0.11 152);
