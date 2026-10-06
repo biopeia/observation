@@ -224,6 +224,38 @@ console.log(JSON.stringify(states));
     ]
 
 
+def test_coherent_live_stream_does_not_flicker_to_waiting_when_component_and_frame_organism_ids_differ() -> None:
+    module = (WEB / "views/mind/streams.js").as_uri()
+    out = _node(
+        f"""
+const {{MindStreams}} = await import({json.dumps(module)});
+class FakeEventSource {{
+  constructor() {{ globalThis.source = this; }}
+  addEventListener(_name, callback) {{ this.onmessage = callback; }}
+  close() {{}}
+}}
+globalThis.EventSource = FakeEventSource;
+const states = [];
+const stream = new MindStreams({{
+  onSourceState: (state) => states.push({{status:state.status, reason:state.reason, runId:state.runId, identityChanged:state.identityChanged}}),
+  hydrateDevelopment: false,
+}});
+stream.connectOrganism();
+const send = (payload) => globalThis.source.onmessage({{data:JSON.stringify(payload)}});
+send({{type:'observed_frame', source:'physics3d', run_id:'r1', organism_id:'symbiont:3d:123', tick:1, body:null, cognition:null, vitals:null, mind:{{tick:1}}}});
+for (const type of ['body','cognition','vitals']) send({{type, source:'physics3d', run_id:'r1', organism_id:'org-catalog-ref', tick:2}});
+send({{type:'mind_snapshot', source:'physics3d', run_id:'r1', organism_id:'symbiont:3d:123', tick:2, snapshot:{{tick:2}}, coherent_frame_follows:true}});
+send({{type:'observed_frame', source:'physics3d', run_id:'r1', organism_id:'symbiont:3d:123', tick:2, body:null, cognition:null, vitals:null, mind:{{tick:2}}}});
+console.log(JSON.stringify(states));
+""",
+    )
+
+    assert out == [
+        {"status": "live", "reason": None, "runId": "r1", "identityChanged": True},
+        {"status": "live", "reason": None, "runId": "r1", "identityChanged": False},
+    ]
+
+
 def test_slow_history_bootstrap_does_not_delay_or_overwrite_live_frame() -> None:
     module = (WEB / "views/mind/streams.js").as_uri()
     out = _node(

@@ -119,6 +119,32 @@ def test_bridge_uses_lab_known_identity_when_runtime_projection_omits_it() -> No
     assert by_type["mind_snapshot"]["body_id"] == "body-known"
 
 
+def test_bridge_locks_onto_runtime_symbiont_id_across_components() -> None:
+    sink = _Sink()
+    bridge = Physics3DObservationBridge(
+        sink,
+        run_id="run-known",
+        organism_id="org-fallback-ref",
+        body_id="body-known",
+    )
+    bridge.publish(
+        {"tick": 4, "alive": True, "symbiont_id": "symbiont:3d:canonical-id"},
+        physical_state={
+            "body_kind": "anthropomorphic-v6",
+            "joints": [],
+            "links": [],
+        },
+    )
+    bridge.publish_rich_state({"tick": 4, "runtime": {}, "cognition": {}})
+
+    by_type = {event["type"]: event for event in sink.events}
+    assert by_type["body"]["organism_id"] == "symbiont:3d:canonical-id"
+    assert by_type["cognition"]["organism_id"] == "symbiont:3d:canonical-id"
+    assert by_type["vitals"]["organism_id"] == "symbiont:3d:canonical-id"
+    assert by_type["mind_snapshot"]["organism_id"] == "symbiont:3d:canonical-id"
+    assert by_type["observed_frame"]["organism_id"] == "symbiont:3d:canonical-id"
+
+
 def test_slow_consumer_rebase_is_visible_and_counted() -> None:
     bus = ObservationBus(queue_size=1, history_size=8, anchor_interval=64)
     consumer = bus.subscribe()

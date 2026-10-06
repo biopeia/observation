@@ -17,9 +17,12 @@ function frameIdentity(frame) {
 }
 
 function sameCoherentIdentity(current, next) {
+  if (!current || !next) return false;
+  if (current.runId != null && next.runId != null) {
+    return current.runId === next.runId;
+  }
   return Boolean(
-    current &&
-    current.runId === next.runId &&
+    (current.runId == null || next.runId == null || current.runId === next.runId) &&
     (current.organismId == null || next.organismId == null || current.organismId === next.organismId),
   );
 }
@@ -283,19 +286,21 @@ export class MindStreams {
         const runId = data.run_id ?? null;
         const organismId = data.organism_id ?? null;
         const identity = { runId, organismId };
-        if (!sameCoherentIdentity(this.coherentIdentity, identity)) {
-          this.coherentIdentity = null;
-          this.emitSourceState('waiting', {
-            source: 'physics3d',
-            runId,
-            instanceId: data.instance_id ?? null,
-            organismId,
-            bodyId: data.body_id ?? null,
-            embodimentId: data.embodiment_id ?? null,
-            reason: 'awaiting-coherent-frame',
-          });
-        } else if (this.coherentIdentity.organismId == null && organismId != null) {
-          this.coherentIdentity.organismId = organismId;
+        if (this.sourceIdentity.status !== 'live' || this.sourceIdentity.runId !== runId) {
+          if (!sameCoherentIdentity(this.coherentIdentity, identity)) {
+            this.coherentIdentity = null;
+            this.emitSourceState('waiting', {
+              source: 'physics3d',
+              runId,
+              instanceId: data.instance_id ?? null,
+              organismId,
+              bodyId: data.body_id ?? null,
+              embodimentId: data.embodiment_id ?? null,
+              reason: 'awaiting-coherent-frame',
+            });
+          } else if (this.coherentIdentity.organismId == null && organismId != null) {
+            this.coherentIdentity.organismId = organismId;
+          }
         }
         if (this.instance) {
           this.instance.close();
@@ -315,15 +320,17 @@ export class MindStreams {
           bodyId: data.body_id ?? null,
           embodimentId: data.embodiment_id ?? null,
         };
-        if (!sameCoherentIdentity(this.coherentIdentity, identity)) {
-          this.coherentIdentity = null;
-          this.emitSourceState('waiting', {
-            source: 'physics3d',
-            ...identity,
-            reason: data.coherent_frame_follows ? 'awaiting-coherent-frame' : null,
-          });
-        } else if (this.coherentIdentity.organismId == null && identity.organismId != null) {
-          this.coherentIdentity.organismId = identity.organismId;
+        if (this.sourceIdentity.status !== 'live' || this.sourceIdentity.runId !== identity.runId) {
+          if (!sameCoherentIdentity(this.coherentIdentity, identity)) {
+            this.coherentIdentity = null;
+            this.emitSourceState('waiting', {
+              source: 'physics3d',
+              ...identity,
+              reason: data.coherent_frame_follows ? 'awaiting-coherent-frame' : null,
+            });
+          } else if (this.coherentIdentity.organismId == null && identity.organismId != null) {
+            this.coherentIdentity.organismId = identity.organismId;
+          }
         }
         if (this.instance) {
           this.instance.close();

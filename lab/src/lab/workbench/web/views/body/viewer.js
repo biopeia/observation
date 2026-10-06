@@ -1464,6 +1464,11 @@ export class BodyViewer {
     // only the lower-frequency `body` event cleared the waiting indicator.
     this.markBodyLive();
 
+    // Keep the displayed trace tick on the same dense stream as the rendered
+    // pose. The `body` snapshot is intentionally observation-rate limited, so
+    // using it here makes the UI appear to jump over simulation ticks.
+    if (data.tick !== undefined) this.queueUIUpdate('tick', String(data.tick));
+
     this.hasDensePoseStream = true;
     this.observeDenseProducer(tick, receivedAt, tickSpanMs);
     this.updateObserverSpatialOverlays(data);
@@ -1621,7 +1626,9 @@ export class BodyViewer {
     }
 
     // Queue UI updates (Throttling)
-    if (data.tick !== undefined) this.queueUIUpdate('tick', String(data.tick));
+    if (data.tick !== undefined && !this.hasDensePoseStream) {
+      this.queueUIUpdate('tick', String(data.tick));
+    }
     if (data.contact_count !== undefined) this.queueUIUpdate('contact_count', String(data.contact_count));
     if (data.ground_contact_count !== undefined) {
       this.queueUIUpdate('ground_contact_count', String(data.ground_contact_count));
