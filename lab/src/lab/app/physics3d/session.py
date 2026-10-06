@@ -89,41 +89,48 @@ class Physics3DSession:
         with self._lock:
             if self._thread is not None and self._thread.is_alive():
                 return False
-            # Every live observation session has a Lab-owned run identity.  A
+            # Every live observation session has a Lab-owned run identity. A
             # managed launch uses its durable run id; ad-hoc --physics3d mode
             # receives an ephemeral id so browser state can never be composed
             # across distinct process lifecycles merely because both are local.
             self._run_id = launch.run_id if launch is not None else f"local:{uuid.uuid4()}"
             self._bus.begin_run(self._run_id)
-            self._bridge = Physics3DObservationBridge(
-                self._bus,
-                run_id=self._run_id,
-                organism_id=launch.organism_ref if launch is not None else None,
-                body_id=launch.body_ref if launch is not None else None,
-            )
-            self._state = Physics3DSessionState.STARTING
-            self._exit_code = None
-            self._error = None
-            self._traceback = None
-            self._launch = launch
-            self._exit_cause = None
-            self._startup_phase = "launching"
-            thread = threading.Thread(
-                target=self._run,
-                args=(launch,),
-                daemon=True,
-                name="symbiont-lab-physics3d",
-            )
-            self._thread = thread
             try:
+                self._bridge = Physics3DObservationBridge(
+                    self._bus,
+                    run_id=self._run_id,
+                    organism_id=launch.organism_ref if launch is not None else None,
+                    body_id=launch.body_ref if launch is not None else None,
+                )
+                self._state = Physics3DSessionState.STARTING
+                self._exit_code = None
+                self._error = None
+                self._traceback = None
+                self._launch = launch
+                self._exit_cause = None
+                self._startup_phase = "launching"
+                thread = threading.Thread(
+                    target=self._run,
+                    args=(launch,),
+                    daemon=True,
+                    name="symbiont-lab-physics3d",
+                )
+                self._thread = thread
                 thread.start()
             except BaseException as exc:
                 self._state = Physics3DSessionState.FAILED
                 self._error = f"{type(exc).__name__}: {exc}"
                 self._traceback = traceback.format_exc()
-                self._bridge.close()
+                bridge = self._bridge
                 self._bridge = None
                 self._thread = None
+                if bridge is not None:
+                    try:
+                        bridge.close()
+                    except Exception:
+                        # Preserve the original startup failure; the run
+                        # lifecycle is still closed below.
+                        pass
                 self._bus.end_run(self._run_id)
                 raise
             return True
@@ -193,12 +200,16 @@ class Physics3DSession:
                 self._error = f"{type(exc).__name__}: {exc}"
                 self._traceback = traceback.format_exc()
         finally:
-            bridge.close()
-            if self._run_id is not None:
-                self._bus.end_run(self._run_id)
-            callback = self._on_terminal
-            if callback is not None:
-                callback()
+            try:
+                bridge.close()
+            finally:
+                try:
+                    if self._run_id is not None:
+                        self._bus.end_run(self._run_id)
+                finally:
+                    callback = self._on_terminal
+                    if callback is not None:
+                        callback()
 
     def request_stop(self) -> None:
         with self._lock:
