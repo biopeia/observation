@@ -61,7 +61,8 @@ class BodyDescriptor:
     # (receptors plus proprioceptive derivations); larger surfaces need more
     # room or body senses are silently squeezed out.
     sensory_capacity: int = 256
-    # Powered articulated bodies may not be able to settle with actuators off.
+    # Some articulated bodies require powered posture control and cannot
+    # reach equilibrium with all effectors disabled at construction time.
     passive_settling: bool = True
 
     def as_dict(self) -> dict[str, object]:
