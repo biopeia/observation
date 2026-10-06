@@ -30,6 +30,32 @@ def _read_json(path: Path) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
 
+def _telemetry_manifest_candidates(telemetry_root: Path) -> list[dict[str, Any]]:
+    """Return persisted telemetry manifests without assuming writer layout.
+
+    TelemetryV41Writer creates a generated child run directory below the root
+    supplied by Physics3D. Older/manual fixtures may place the manifest directly
+    at the supplied root. This helper inspects only those two supported levels;
+    it does not infer scientific identity from Lab catalog metadata.
+    """
+    paths = [telemetry_root / "manifest.json"]
+    if telemetry_root.is_dir():
+        try:
+            children = sorted(telemetry_root.iterdir(), key=lambda item: item.name, reverse=True)
+        except OSError:
+            children = []
+        paths.extend(child / "manifest.json" for child in children if child.is_dir())
+
+    manifests: list[dict[str, Any]] = []
+    for path in paths:
+        if not path.is_file():
+            continue
+        manifest = _read_json(path)
+        if manifest:
+            manifests.append(manifest)
+    return manifests
+
+
 def _number(value: Any) -> int | float | None:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return None
@@ -162,22 +188,36 @@ def _managed_runs(runs_dir: Path, organism_id: str) -> list[dict[str, Any]]:
             continue
         lab_manifest = _read_json(run_dir / "manifest.json")
         telemetry_root = run_dir / "telemetry"
-        # Attribute a run to an organism only from telemetry's own persisted
-        # scientific identity. A catalog ref/alias is not an organism_id.
-        telemetry_manifest = _read_json(telemetry_root / "manifest.json")
-        if telemetry_manifest.get("organism_id") != organism_id:
-            continue
         reader = None
         availability = "readable"
+        telemetry_manifest: dict[str, Any]
+
+        # Normal readable telemetry is authoritative about both its resolved
+        # v4.1 root and scientific organism identity. Do not assume the writer's
+        # manifest is stored directly under the Lab-provided telemetry root.
         try:
             reader = open_telemetry(telemetry_root)
         except (FileNotFoundError, ValueError, OSError):
-            # The run is still relevant evidence because its telemetry manifest
-            # identifies the requested organism. Keep it in coverage instead of
-            # silently making longitudinal history look complete.
+            # If verification/opening fails, retain the run only when a persisted
+            # telemetry manifest at a supported location independently identifies
+            # the requested organism. Catalog refs and aliases are not sufficient.
+            candidate_manifests = [
+                manifest
+                for manifest in _telemetry_manifest_candidates(telemetry_root)
+                if manifest.get("organism_id") == organism_id
+            ]
+            if not candidate_manifests:
+                continue
+            telemetry_manifest = max(
+                candidate_manifests,
+                key=lambda manifest: str(manifest.get("started_at_utc") or ""),
+            )
             availability = "unreadable"
         else:
             telemetry_manifest = _read_json(reader.root / "manifest.json")
+            if telemetry_manifest.get("organism_id") != organism_id:
+                continue
+
         matches.append(
             {
                 "run_id": str(lab_manifest.get("run_id") or run_dir.name),
