@@ -21,6 +21,7 @@ def test_spot_inspired_body_has_four_three_joint_legs_and_feet() -> None:
             joint.name for joint in SPOT_INSPIRED_SPEC.joint_specs
         }
         assert f"{leg}_foot" in SPOT_INSPIRED_SPEC.contact_link_names
+        assert ("body", f"{leg}_upper") in SPOT_INSPIRED_SPEC.structural_neighbour_names
 
     urdf = build_articulated_urdf(SPOT_INSPIRED_SPEC)
     assert urdf.count('type="revolute"') == 12
