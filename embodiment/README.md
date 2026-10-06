@@ -15,7 +15,9 @@ Import package: `embodiment`. Enforced by
 | Module | Contents |
 |---|---|
 | `embodiment.physics3d.humanoid` | anthropomorphic v6 body (PyBullet URDF, receptor contract) |
-| `embodiment.physics3d.articulated`, `alternative_bodies` | generic articulated bodies; crawler and asymmetric bodies |
+| `embodiment.physics3d.articulated` | generic articulated-body mechanics |
+| `embodiment.physics3d.crawler`, `spot` | crawler-v1 and Spot-inspired quadruped anatomy |
+| `embodiment.physics3d.asymmetric` | asymmetric body anatomy |
 | `embodiment.physics3d.bodies` | body descriptors and the registry class |
 | `embodiment.physics3d.vision` | vision body kind: the v6 body with a head mount (link, pose, receptor slots and ids); what fills the mount is injected |
 | `embodiment.physics3d.longitudinal` | bounded epoch summaries across embodiments |

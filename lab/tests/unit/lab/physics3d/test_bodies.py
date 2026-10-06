@@ -26,6 +26,8 @@ def test_default_registry_exposes_all_physics3d_morphologies() -> None:
         # ADR-0011: same morphology as v6 plus a visual apparatus.
         "anthropomorphic-v6-vision",
         "crawler-v1",
+        "spot-inspired-v1",
+        "spot-inspired-v1",
         "asymmetric-v1",
         "hexapod-v1",
         "robotic-arm-v1",
@@ -35,6 +37,9 @@ def test_default_registry_exposes_all_physics3d_morphologies() -> None:
     assert bodies["crawler-v1"].effector_count == 24
     # Four fixed feet are explicit somatic contact regions in crawler-v1.
     assert bodies["crawler-v1"].receptor_count == 65
+
+    assert bodies["spot-inspired-v1"].motor_dof == 12
+    assert bodies["spot-inspired-v1"].effector_count == 24
 
     assert bodies["asymmetric-v1"].motor_dof == 15
     assert bodies["asymmetric-v1"].effector_count == 30
@@ -56,7 +61,13 @@ def test_default_registry_exposes_all_physics3d_morphologies() -> None:
 
 
 def test_non_humanoid_body_contracts_remain_opaque_ordinals() -> None:
-    for body_kind in ("crawler-v1", "asymmetric-v1", "hexapod-v1", "robotic-arm-v1"):
+    for body_kind in (
+        "crawler-v1",
+        "spot-inspired-v1",
+        "asymmetric-v1",
+        "hexapod-v1",
+        "robotic-arm-v1",
+    ):
         descriptor = DEFAULT_BODY_REGISTRY.get(body_kind)
         assert descriptor.receptor_ids == tuple(
             f"rec.{i}" for i in range(descriptor.receptor_count)

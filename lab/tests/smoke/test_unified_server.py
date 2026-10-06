@@ -163,6 +163,7 @@ def test_physics3d_catalog_endpoints_are_available(tmp_path) -> None:
         body_kinds = set(catalog)
         assert "anthropomorphic-v6" in body_kinds
         assert "crawler-v1" in body_kinds
+        assert "spot-inspired-v1" in body_kinds
         assert "hexapod-v1" in body_kinds
         assert "robotic-arm-v1" in body_kinds
         crawler_model = catalog["crawler-v1"]["observer_model"]
