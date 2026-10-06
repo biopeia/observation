@@ -179,6 +179,38 @@ authorize a run.
    execution or a scientific experiment. A later campaign requires its own
    reviewed/frozen protocol and explicit authorization.
 
+### Owner disposition — 2026-10-06
+
+The project owner accepted the following bounded preparation recommendations:
+
+- The first descriptive stage is the existing owner-approved and frozen
+  [Crawler Passive Characterization v1](crawler-passive-characterization-v1.md):
+  canonical `crawler-v1`, flat ground, its pinned timestep/gravity and spawn
+  conditions, two fresh constructions, and descriptive observations only.
+  Reuse its exact protocol and authorization; this design does not extend
+  either. No calibration run is authorized by this disposition.
+- The complete read-only declared/effective inventory is recorded in
+  [`lab/research/physics3d/mujoco-effective-model-audit.md`](../../../lab/research/physics3d/mujoco-effective-model-audit.md)
+  with its machine-readable report. Keep `missing`, `implicit`, and
+  `provisional` findings explicit. Do not add mappings, velocity clamps, or
+  tune parameters in response to these findings.
+- For this first descriptive stage, record effective compiled solver/contact
+  values; do not change them or turn them into pass/fail requirements. The
+  already-frozen crawler protocol's stop rule and parameters remain unchanged.
+- The passive crawler/flat-ground contact observations remain descriptive.
+  Driven contact/material cases, additional morphologies/environments, and
+  vision characterization are deferred to separate scopes. Vision remains
+  provisional and is not part of this first stage.
+- No measured physical reference is currently specified. Accordingly, this
+  stage is apparatus characterization only and supports no physical-fidelity
+  or calibration claim. Any later empirical calibration needs an identified
+  reference source, its own owner/reviewer decisions, and a separately
+  reviewed/frozen protocol.
+
+These dispositions close preparation only for reusing the existing crawler
+characterization protocol. They do not freeze a broader calibration protocol
+or authorize any additional run, parameter change, or scientific campaign.
+
 ### Owner-supplied numeric choices (intentionally unset here)
 
 The owner/reviewer must provide and pin every numeric choice used in the
