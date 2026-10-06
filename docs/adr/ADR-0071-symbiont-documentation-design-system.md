@@ -4,7 +4,7 @@
 - **Date:** 2026-10-06
 - **Decision owner:** project owner
 - **Relates to:** ADR-0054, `DESIGN.md`, `.agents/skills/symbiont-design/`, `AGENTS.md`, `CLAUDE.md`
-- **Scope:** Visual identity and implementation guidance for the Symbiont documentation interface. This does not set visual or operational requirements for the organism, scientific apparatus, or Lab Workbench.
+- **Scope:** Visual identity, implementation guidance, and technical validation routing for the Symbiont documentation interface. This does not set visual or operational requirements for the organism, scientific apparatus, or Lab Workbench.
 
 ## Context
 
@@ -13,6 +13,10 @@ specifications, ADRs, experiments, evidence and reference material. The pending
 design-system work includes a root tokenized specification (`DESIGN.md`), CSS
 token bindings, reusable React examples and a documentation UI kit. The repository
 also provides the `symbiont-design` skill for work in this domain.
+The governed CI planner reads its path-impact matrix from the target branch. At
+the time of this decision, the root `DESIGN.md` and static implementation assets
+under `.agents/skills/symbiont-design/` had no suitable impact mapping, so their
+candidate PR could not receive a complete validation plan.
 
 The specification and examples initially diverged: the CSS exposed semantic and
 domain color variants absent from the YAML tokens; layout spacing differed from
@@ -42,6 +46,13 @@ implementation to drift from its own design contract.
 5. These requirements apply only to the documentation interface. They do not
    authorize visual changes to the organism, scientific apparatus, or Lab
    Workbench, nor do they establish scientific claims or experiment authority.
+6. The validation matrix explicitly maps `DESIGN.md` and
+   `.agents/skills/symbiont-design/**` to the documentation and `software_core`
+   CI lanes. This preserves documentation checks while ensuring that non-Markdown
+   examples receive a behavioral validation lane. Because CI evaluates impact
+   policy from the PR target branch, the matrix change must be published and
+   integrated before CI on a PR introducing previously unmapped paths can use
+   that mapping; the plan must not be bypassed or weakened to avoid this order.
 
 ## Alternatives considered
 
@@ -65,10 +76,15 @@ implementation to drift from its own design contract.
   component states remain specification gaps rather than invitations to guess.
 - This decision does not claim that a production documentation website or
   component library is deployed.
+- The new path mapping will trigger the planner's existing broad fallback when
+  the validation matrix itself changes. Subsequent design-system changes receive
+  the mapped documentation and software-core lanes, subject to other matched
+  policies.
 
 ## Acceptance
 
-The project owner accepted this bounded decision on 2026-10-06. Acceptance covers
-the documentation design authority, skill requirement and token-alignment work
-described here only. It does not approve broader visual redesign or runtime
-changes.
+The project owner accepted the original bounded decision on 2026-10-06 and
+explicitly authorized this amendment on 2026-10-06. Acceptance covers the
+documentation design authority, skill requirement, token alignment and the
+specific validation routing described here only. It does not approve broader
+visual redesign or runtime changes.

@@ -12,6 +12,12 @@ FROZEN = 0
 ci_lanes = ["docs"]
 paths = ["README.md", "docs/**", "symbiont/docs/**", "migration/**", "*/README.md", "AGENTS.md", "CLAUDE.md"]
 
+# Documentation design sources include executable/static UI examples. Keep the
+# docs lane and add a behavioral lane so non-Markdown design assets are validated.
+[design_system]
+ci_lanes = ["docs", "software_core"]
+paths = ["DESIGN.md", ".agents/skills/symbiont-design/**"]
+
 # Authority/governance material. Markdown-only changes stay documentation-only;
 # executable control-plane changes are widened by [ci_control] below.
 [governance]
