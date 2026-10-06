@@ -64,10 +64,10 @@ def make_handler(
                 "Content-Security-Policy",
                 "default-src 'self'; "
                 "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
-                "style-src 'self' 'unsafe-inline'; "
+                "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
                 "connect-src 'self'; "
                 "img-src 'self' data:; "
-                "font-src 'self'; "
+                "font-src 'self' https://fonts.gstatic.com; "
                 "object-src 'none'; "
                 "base-uri 'none'; "
                 "frame-ancestors 'none'",

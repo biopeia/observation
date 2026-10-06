@@ -17,7 +17,7 @@ export function motorSparkline({ label, history, key, epochEvents = [] }) {
   wrap.style.cssText = 'padding:10px 0 4px;';
 
   const title = el('div', '');
-  title.style.cssText = 'font-size:9px;letter-spacing:.045em;color:var(--muted);margin-bottom:6px;text-transform:uppercase;';
+  title.style.cssText = 'font-size:9px;letter-spacing:.045em;color:var(--ink-3);margin-bottom:6px;text-transform:uppercase;font-family:var(--font-mono);';
   title.textContent = label;
   wrap.appendChild(title);
 
@@ -27,7 +27,7 @@ export function motorSparkline({ label, history, key, epochEvents = [] }) {
 
   if (points.length < 2) {
     const empty = el('div', '');
-    empty.style.cssText = 'height:54px;display:flex;align-items:center;color:var(--muted);font-size:9px;border-top:1px solid rgba(98,120,136,.12);';
+    empty.style.cssText = 'height:54px;display:flex;align-items:center;color:var(--ink-3);font-size:9px;border-top:1px solid var(--rule-1, #ebe6d9);font-family:var(--font-mono);';
     empty.textContent = 'Insufficient temporal evidence';
     wrap.appendChild(empty);
     return wrap;
@@ -56,7 +56,7 @@ export function motorSparkline({ label, history, key, epochEvents = [] }) {
 
   svg.appendChild(svgNode('line', {
     x1: pad, y1: height - pad, x2: width - pad, y2: height - pad,
-    stroke: 'rgba(98,120,136,.18)', 'stroke-width': 1,
+    stroke: 'var(--rule-2, #ded9cc)', 'stroke-width': 1,
   }));
 
   for (const event of epochEvents) {
@@ -65,10 +65,10 @@ export function motorSparkline({ label, history, key, epochEvents = [] }) {
     const px = x(tick);
     svg.appendChild(svgNode('line', {
       x1: px, y1: 2, x2: px, y2: height - 2,
-      stroke: 'rgba(113,233,186,.28)', 'stroke-width': 1, 'stroke-dasharray': '3 3',
+      stroke: 'var(--rule-ink, #2f3842)', 'stroke-width': 1, 'stroke-dasharray': '3 3',
     }));
     const labelNode = svgNode('text', {
-      x: Math.min(width - 24, px + 3), y: 10, fill: 'rgba(143,164,179,.9)', 'font-size': 8,
+      x: Math.min(width - 24, px + 3), y: 10, fill: 'var(--ink-3, #5c636c)', 'font-size': 8, 'font-family': 'var(--font-mono)',
     });
     labelNode.textContent = `E${event.toEpoch}`;
     svg.appendChild(labelNode);
@@ -80,7 +80,7 @@ export function motorSparkline({ label, history, key, epochEvents = [] }) {
   svg.appendChild(svgNode('path', {
     d: path,
     fill: 'none',
-    stroke: PAL.mint,
+    stroke: 'var(--rule-ink, #2f3842)',
     'stroke-width': 1.6,
     'vector-effect': 'non-scaling-stroke',
   }));
@@ -94,7 +94,7 @@ export function embodimentTimeline({ epochs, currentEpoch }) {
   wrap.style.cssText = 'display:flex;gap:5px;align-items:stretch;margin:8px 0 10px;min-height:36px;';
   if (!epochs.length) {
     const empty = el('div', '');
-    empty.style.cssText = 'font-size:9px;color:var(--muted);';
+    empty.style.cssText = 'font-size:9px;color:var(--ink-3);font-family:var(--font-mono);';
     empty.textContent = 'No embodiment timeline recorded in this observation session yet.';
     wrap.appendChild(empty);
     return wrap;
@@ -104,12 +104,12 @@ export function embodimentTimeline({ epochs, currentEpoch }) {
   for (const epoch of epochs) {
     const age = Math.max(1, epoch.endTick - epoch.startTick);
     const segment = el('div', '');
-    segment.style.cssText = `flex:${Math.max(.08, age / total)} 1 0;min-width:46px;padding:7px 8px;border:1px solid ${epoch.epoch === currentEpoch ? 'rgba(113,233,186,.36)' : 'rgba(98,120,136,.16)'};border-radius:7px;background:${epoch.epoch === currentEpoch ? 'rgba(113,233,186,.035)' : 'rgba(255,255,255,.01)'};`;
+    segment.style.cssText = `flex:${Math.max(.08, age / total)} 1 0;min-width:46px;padding:7px 8px;border:1px solid ${epoch.epoch === currentEpoch ? 'var(--rule-ink, #2f3842)' : 'var(--rule-1, #ebe6d9)'};border-radius:var(--radius-1);background:${epoch.epoch === currentEpoch ? 'var(--paper-2, #ede9de)' : 'var(--paper-1, #f5f3ec)'};`;
     const name = el('strong', '');
-    name.style.cssText = 'display:block;font-size:9px;color:var(--text);';
+    name.style.cssText = 'display:block;font-size:9px;color:var(--ink-1);font-family:var(--font-mono);';
     name.textContent = `E${epoch.epoch}`;
     const ticks = el('span', '');
-    ticks.style.cssText = 'display:block;margin-top:4px;font-size:8px;color:var(--muted);';
+    ticks.style.cssText = 'display:block;margin-top:4px;font-size:8px;color:var(--ink-3);font-family:var(--font-mono);';
     ticks.textContent = `t${epoch.startTick.toLocaleString()}–${epoch.endTick.toLocaleString()}`;
     segment.append(name, ticks);
     wrap.appendChild(segment);

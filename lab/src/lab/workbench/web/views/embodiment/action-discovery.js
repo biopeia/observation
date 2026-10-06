@@ -34,11 +34,11 @@ function makeStageRail(stage) {
     const item = el('div', '');
     item.style.cssText = 'position:relative;text-align:center;padding-top:17px;min-width:0;';
     const line = el('div', '');
-    line.style.cssText = `position:absolute;top:6px;left:${index===0?'50%':'0'};right:${index===stages.length-1?'50%':'0'};height:1px;background:${reached?'rgba(113,233,186,.44)':'rgba(98,120,136,.22)'};`;
+    line.style.cssText = `position:absolute;top:6px;left:${index===0?'50%':'0'};right:${index===stages.length-1?'50%':'0'};height:1px;background:${reached?'var(--rule-ink, #2f3842)':'var(--rule-2, #ded9cc)'};`;
     const dot = el('div', '');
-    dot.style.cssText = `position:absolute;top:2px;left:50%;width:9px;height:9px;border-radius:50%;transform:translateX(-50%);border:1px solid ${reached?PAL.mint:'rgba(98,120,136,.5)'};background:${active?PAL.mint:'var(--panel, #081522)'};box-shadow:${active?'0 0 0 4px rgba(113,233,186,.08)':'none'};`;
+    dot.style.cssText = `position:absolute;top:2px;left:50%;width:9px;height:9px;border-radius:50%;transform:translateX(-50%);border:1px solid ${reached?'var(--rule-ink, #2f3842)':'var(--rule-2, #ded9cc)'};background:${active?'var(--rule-ink, #2f3842)':'var(--paper-1, #f5f3ec)'};box-shadow:${active?'0 0 0 2px var(--paper-0), 0 0 0 3px var(--rule-ink)':'none'};`;
     const text = el('span', '');
-    text.style.cssText = `font-size:8px;letter-spacing:.07em;color:${active?PAL.mint:'var(--muted)'};white-space:nowrap;`;
+    text.style.cssText = `font-size:8px;letter-spacing:.07em;color:${active?'var(--ink-1)':'var(--ink-3)'};white-space:nowrap;font-family:var(--font-mono);`;
     text.textContent = id === 'skill' ? 'SKILL · UNDEFINED' : label;
     item.append(line, dot, text);
     rail.appendChild(item);
@@ -48,30 +48,30 @@ function makeStageRail(stage) {
 
 function makeMeter(label, value, displayValue, trend = null) {
   const wrap = el('div', '');
-  wrap.style.cssText = 'padding:9px 0;border-bottom:1px solid rgba(98,120,136,.11);';
+  wrap.style.cssText = 'padding:9px 0;border-bottom:1px solid var(--rule-1, #ebe6d9);';
   const top = el('div', '');
   top.style.cssText = 'display:grid;grid-template-columns:1fr auto;gap:10px;align-items:baseline;';
   const name = el('span', '');
-  name.style.cssText = 'font-size:9px;color:var(--muted);';
+  name.style.cssText = 'font-size:9px;color:var(--ink-3);';
   name.textContent = label;
   const val = el('strong', '');
-  val.style.cssText = 'font-size:11px;color:var(--text);';
+  val.style.cssText = 'font-size:11px;color:var(--ink-1);font-family:var(--font-mono);';
   val.textContent = displayValue;
   top.append(name, val);
   wrap.appendChild(top);
 
   if (Number.isFinite(value)) {
     const track = el('div', '');
-    track.style.cssText = 'height:3px;margin-top:6px;border-radius:999px;background:rgba(98,120,136,.16);overflow:hidden;';
+    track.style.cssText = 'height:4px;margin-top:6px;border-radius:var(--radius-1);background:var(--paper-3, #e5e0d3);overflow:hidden;';
     const fill = el('div', '');
-    fill.style.cssText = `height:100%;width:${Math.max(0,Math.min(100,Math.round(value*100)))}%;border-radius:inherit;background:${PAL.mint};transition:width .35s ease;`;
+    fill.style.cssText = `height:100%;width:${Math.max(0,Math.min(100,Math.round(value*100)))}%;border-radius:inherit;background:var(--ink-1);transition:width .35s ease;`;
     track.appendChild(fill);
     wrap.appendChild(track);
   }
 
   if (trend) {
     const t = el('div', '');
-    t.style.cssText = 'margin-top:4px;font-size:8px;color:var(--muted);';
+    t.style.cssText = 'margin-top:4px;font-size:8px;color:var(--ink-3);font-family:var(--font-mono);';
     t.textContent = trendText(trend);
     wrap.appendChild(t);
   }
@@ -80,17 +80,17 @@ function makeMeter(label, value, displayValue, trend = null) {
 
 function makeCount(label, value, sub = '') {
   const card = el('div', '');
-  card.style.cssText = 'padding:10px 11px;border:1px solid rgba(98,120,136,.15);border-radius:8px;background:rgba(255,255,255,.012);min-width:0;';
+  card.style.cssText = 'padding:10px 11px;border:1px solid var(--rule-1, #ebe6d9);border-radius:var(--radius-1);background:var(--paper-1, #f5f3ec);min-width:0;';
   const valueNode = el('strong', '');
-  valueNode.style.cssText = 'display:block;font-size:18px;line-height:1;color:var(--text);';
+  valueNode.style.cssText = 'display:block;font-size:18px;line-height:1;color:var(--ink-1);font-family:var(--font-mono);';
   valueNode.textContent = String(value);
   const labelNode = el('div', '');
-  labelNode.style.cssText = 'margin-top:5px;font-size:9px;color:var(--muted);';
+  labelNode.style.cssText = 'margin-top:5px;font-size:9px;color:var(--ink-3);';
   labelNode.textContent = label;
   card.append(valueNode, labelNode);
   if (sub) {
     const subNode = el('div', '');
-    subNode.style.cssText = 'margin-top:3px;font-size:8px;color:rgba(143,164,179,.72);line-height:1.3;';
+    subNode.style.cssText = 'margin-top:3px;font-size:8px;color:var(--ink-4, #8b929c);line-height:1.3;font-family:var(--font-mono);';
     subNode.textContent = sub;
     card.appendChild(subNode);
   }
@@ -108,12 +108,12 @@ function statusLabel(observation) {
 function makeObservationBanner(model) {
   const banner = el('div', '');
   const live = model.observation.live && model.observation.coherent;
-  banner.style.cssText = `display:flex;align-items:center;justify-content:space-between;gap:12px;padding:7px 9px;margin:10px 0;border:1px solid ${live?'rgba(113,233,186,.16)':'rgba(98,120,136,.18)'};border-radius:8px;background:${live?'rgba(113,233,186,.025)':'rgba(98,120,136,.025)'};`;
+  banner.style.cssText = `display:flex;align-items:center;justify-content:space-between;gap:12px;padding:7px 9px;margin:10px 0;border:1px solid var(--rule-1, #ebe6d9);border-radius:var(--radius-1);background:var(--paper-1, #f5f3ec);`;
   const left = el('strong', '');
-  left.style.cssText = `font-size:9px;letter-spacing:.07em;color:${live?PAL.mint:'var(--muted)'};`;
+  left.style.cssText = `font-size:9px;letter-spacing:.07em;color:${live?'var(--rule-ink, #2f3842)':'var(--ink-3)'};font-family:var(--font-mono);`;
   left.textContent = statusLabel(model.observation);
   const right = el('span', '');
-  right.style.cssText = 'font-size:8px;color:var(--muted);';
+  right.style.cssText = 'font-size:8px;color:var(--ink-3);font-family:var(--font-mono);';
   right.textContent = [
     model.observation.source,
     model.observation.runId,
@@ -147,10 +147,10 @@ export function renderActionDiscovery(root) {
   heading.style.cssText = 'display:flex;align-items:flex-end;justify-content:space-between;gap:16px;';
   const titleWrap = el('div', '');
   const title = el('h2', '');
-  title.style.cssText = 'font-size:16px;margin:0 0 4px;';
+  title.style.cssText = 'font-size:16px;margin:0 0 4px;font-family:var(--font-serif);font-weight:400;color:var(--ink-1);';
   title.textContent = 'Action discovery';
   const copy = el('p', '');
-  copy.style.cssText = 'font-size:10px;color:var(--muted);margin:0;';
+  copy.style.cssText = 'font-size:10px;color:var(--ink-3);margin:0;';
   copy.textContent = 'How sensorimotor regularities become reusable control across embodiment changes.';
   titleWrap.append(title, copy);
   const context = el('div', '');
@@ -161,7 +161,7 @@ export function renderActionDiscovery(root) {
     embodiment.reacclimating ? 'REACCLIMATING' : null,
   ].filter(Boolean).forEach(text => {
     const chip = el('span', '');
-    chip.style.cssText = 'padding:5px 7px;border:1px solid rgba(98,120,136,.2);border-radius:999px;font-size:8px;letter-spacing:.05em;color:var(--muted);';
+    chip.style.cssText = 'padding:4px 7px;border:1px solid var(--rule-1, #ebe6d9);border-radius:var(--radius-1);background:var(--paper-1, #f5f3ec);font-size:8px;letter-spacing:.05em;color:var(--ink-3);font-family:var(--font-mono);';
     chip.textContent = text;
     context.appendChild(chip);
   });
@@ -248,7 +248,7 @@ export function renderActionDiscovery(root) {
   const hero = panelSection('Developmental stage', 'Observer interpretation only · no feedback, goals or thresholds are introduced into Symbiont.');
   hero.appendChild(makeStageRail(stage));
   const stageMeta = el('div', '');
-  stageMeta.style.cssText = 'font-size:8px;color:var(--muted);margin:-2px 0 10px;';
+  stageMeta.style.cssText = 'font-size:8px;color:var(--ink-3);margin:-2px 0 10px;font-family:var(--font-mono);';
   stageMeta.textContent = stage.id
     ? `Observer interpretation: ${stage.id.toUpperCase()} · confidence ${stage.confidence.toUpperCase()}`
     : 'Observer interpretation unavailable until observation is live and coherent.';
@@ -264,21 +264,21 @@ export function renderActionDiscovery(root) {
   );
 
   const agencyPanel = el('div', '');
-  agencyPanel.style.cssText = 'padding:12px;border:1px solid rgba(113,233,186,.16);border-radius:9px;background:rgba(113,233,186,.025);';
+  agencyPanel.style.cssText = 'padding:12px;border:1px solid var(--rule-1, #ebe6d9);border-radius:var(--radius-1);background:var(--paper-1, #f5f3ec);';
   const originLabel = el('div', '');
-  originLabel.style.cssText = 'font-size:8px;letter-spacing:.07em;color:var(--muted);';
+  originLabel.style.cssText = 'font-size:8px;letter-spacing:.07em;color:var(--ink-3);font-family:var(--font-mono);';
   originLabel.textContent = 'CURRENT MOTOR ORIGIN';
   const originValue = el('strong', '');
-  originValue.style.cssText = 'display:block;margin-top:5px;font-size:17px;color:var(--text);';
+  originValue.style.cssText = 'display:block;margin-top:5px;font-size:16px;color:var(--ink-1);font-family:var(--font-mono);';
   originValue.textContent = String(evidence.origin).toUpperCase();
   const agencyLabel = el('div', '');
-  agencyLabel.style.cssText = 'font-size:8px;letter-spacing:.07em;color:var(--muted);margin-top:12px;';
+  agencyLabel.style.cssText = 'font-size:8px;letter-spacing:.07em;color:var(--ink-3);margin-top:12px;font-family:var(--font-mono);';
   agencyLabel.textContent = 'LEARNED AGENCY';
   const agencyValue = el('strong', '');
-  agencyValue.style.cssText = `display:block;margin-top:5px;font-size:20px;color:${agency.status === 'active' ? PAL.mint : 'var(--text)'};`;
+  agencyValue.style.cssText = `display:block;margin-top:5px;font-size:18px;color:${agency.status === 'active' ? 'var(--rule-ink, #2f3842)' : 'var(--ink-1)'};font-family:var(--font-mono);`;
   agencyValue.textContent = agency.status.toUpperCase();
   const agencyCopy = el('p', '');
-  agencyCopy.style.cssText = 'margin:7px 0 0;font-size:9px;line-height:1.45;color:var(--muted);';
+  agencyCopy.style.cssText = 'margin:7px 0 0;font-size:9px;line-height:1.45;color:var(--ink-3);';
   agencyCopy.textContent =
     agency.status === 'active' ? 'Learned motor structure is participating in current output.' :
     agency.status === 'emerging' ? 'Reusable structure is visible, but learned control is not clearly driving output.' :
@@ -352,9 +352,9 @@ export function renderActionDiscovery(root) {
   root.appendChild(embodimentPanel);
 
   const details = el('details', '');
-  details.style.cssText = 'max-width:none;margin-top:12px;border:1px solid rgba(98,120,136,.14);border-radius:9px;background:rgba(255,255,255,.01);padding:10px 12px;';
+  details.style.cssText = 'max-width:none;margin-top:12px;border:1px solid var(--rule-1, #ebe6d9);border-radius:var(--radius-1);background:var(--paper-1, #f5f3ec);padding:10px 12px;';
   const summary = el('summary', '');
-  summary.style.cssText = 'cursor:pointer;font-size:9px;color:var(--muted);user-select:none;';
+  summary.style.cssText = 'cursor:pointer;font-size:9px;color:var(--ink-3);user-select:none;font-family:var(--font-mono);';
   summary.textContent = 'Raw evidence';
   const detailBody = el('div', '');
   detailBody.style.cssText = 'margin-top:8px;';

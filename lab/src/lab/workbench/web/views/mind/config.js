@@ -1,14 +1,14 @@
 export const PAL = {
-  cyan:   '#50d9ff',
-  violet: '#a777ff',
-  amber:  '#ffbd54',
-  coral:  '#ff7f83',
-  mint:   '#71e9ba',
-  muted:  '#627888',
-  text:   '#c8d8e4',
-  bg:     '#060e18',
-  surface:'#0b1929',
-  line:   '#1a2d40',
+  cyan:   'oklch(0.52 0.12 252)', // modality
+  violet: 'oklch(0.50 0.10 300)', // lab
+  amber:  'oklch(0.56 0.10 62)',  // embodiment
+  coral:  'oklch(0.54 0.17 32)',  // signal-warn
+  mint:   'oklch(0.52 0.11 152)', // symbiont
+  muted:  '#5c636c',              // ink-3
+  text:   '#18202b',              // ink-1
+  bg:     '#0e1317',              // night-0 (instrument)
+  surface:'#151c21',              // night-1 (instrument)
+  line:   '#2c373e',              // night-rule
 };
 
 // Observer-defined reference zones. Analytical overlays only.
