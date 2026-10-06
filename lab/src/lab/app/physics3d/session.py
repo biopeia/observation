@@ -94,6 +94,7 @@ class Physics3DSession:
             # receives an ephemeral id so browser state can never be composed
             # across distinct process lifecycles merely because both are local.
             self._run_id = launch.run_id if launch is not None else f"local:{uuid.uuid4()}"
+            self._bus.begin_run(self._run_id)
             self._bridge = Physics3DObservationBridge(
                 self._bus,
                 run_id=self._run_id,
@@ -123,6 +124,7 @@ class Physics3DSession:
                 self._bridge.close()
                 self._bridge = None
                 self._thread = None
+                self._bus.end_run(self._run_id)
                 raise
             return True
 
@@ -192,6 +194,8 @@ class Physics3DSession:
                 self._traceback = traceback.format_exc()
         finally:
             bridge.close()
+            if self._run_id is not None:
+                self._bus.end_run(self._run_id)
             callback = self._on_terminal
             if callback is not None:
                 callback()
