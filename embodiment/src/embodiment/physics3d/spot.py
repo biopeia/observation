@@ -66,7 +66,12 @@ for _name, _x, _y in _LEGS:
     _segments[_foot] = SegmentSpec(0.30, (0.16, 0.11, 0.06), (0, 0, -0.02), (0.08, 0.09, 0.10, 1))
     _fixed.append(FixedLinkTopology(_lower, _foot, (0, 0, -0.27)))
     _contacts.extend((_hip, _upper, _lower, _foot))
-    _neighbours.extend((("body", _hip), (_hip, _upper), (_upper, _lower), (_lower, _foot)))
+    # These simplified boxes overlap at the chassis even though the links are
+    # separated in the kinematic tree. Exclude that modeled self-contact so it
+    # cannot saturate the upper-link contact receptors before world contact.
+    _neighbours.extend(
+        (("body", _hip), ("body", _upper), (_hip, _upper), (_upper, _lower), (_lower, _foot))
+    )
 
 SPOT_INSPIRED_SPEC = ArticulatedBodySpec(
     body_kind="spot-inspired-v1",
