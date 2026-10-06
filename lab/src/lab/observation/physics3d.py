@@ -85,7 +85,11 @@ class Physics3DObservationBridge:
 
     def _identity(self, source: Mapping[str, Any], key: str) -> str | None:
         value = _optional_text(source, key)
+        if value is None and key == "organism_id":
+            value = _optional_text(source, "symbiont_id")
         if value is not None:
+            if key == "organism_id" and self._organism_id != value:
+                self._organism_id = value
             return value
         if key == "organism_id":
             return self._organism_id
@@ -313,7 +317,8 @@ class Physics3DObservationBridge:
             "joints": joints,
             "links": links,
         }
-        self._apply_known_identity(projected, physical_state)
+        identity_source = {**record, **physical_state}
+        self._apply_known_identity(projected, identity_source)
         if physical_state.get("base_position") is not None:
             projected["base_position"] = physical_state["base_position"]
         elif record.get("base_position") is not None:

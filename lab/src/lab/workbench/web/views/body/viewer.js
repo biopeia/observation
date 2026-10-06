@@ -544,12 +544,15 @@ export class BodyViewer {
     rim.position.set(1.5, 2.4, -3.5);
     this.scene.add(rim);
 
-    const gridHelper = new THREE.GridHelper(100, 200, 0x35495b, 0x22313d);
+    // A restrained floor treatment separates the body from the dark viewport
+    // without introducing photorealistic textures or visual noise.
+    const gridHelper = new THREE.GridHelper(60, 60, 0x405361, 0x2b3945);
     gridHelper.material.transparent = true;
-    gridHelper.material.opacity = 0.48;
+    gridHelper.material.opacity = 0.34;
+    gridHelper.position.y = 0.004;
     this.scene.add(gridHelper);
     this.gridHelper = gridHelper;
-    gridHelper.visible = false;
+    gridHelper.visible = true;
 
     const trajectoryGeometry = new THREE.BufferGeometry();
     const trajectoryMaterial = new THREE.LineBasicMaterial({
@@ -564,14 +567,13 @@ export class BodyViewer {
 
     const groundGeo = new THREE.PlaneGeometry(100, 100);
     const groundMat = new THREE.MeshStandardMaterial({
-      color: 0x18212c, transparent: true, opacity: 0.78, roughness: 1, metalness: 0,
+      color: 0x222d38, roughness: 1, metalness: 0,
     });
     const ground = new THREE.Mesh(groundGeo, groundMat);
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
     this.scene.add(ground);
     this.legacyGround = ground;
-    ground.visible = false;
 
     this.camera = new THREE.PerspectiveCamera(50, 1, 0.05, 50);
     this.camera.position.set(2.2, 1.7, 3.2);
@@ -1462,6 +1464,11 @@ export class BodyViewer {
     // only the lower-frequency `body` event cleared the waiting indicator.
     this.markBodyLive();
 
+    // Keep the displayed trace tick on the same dense stream as the rendered
+    // pose. The `body` snapshot is intentionally observation-rate limited, so
+    // using it here makes the UI appear to jump over simulation ticks.
+    if (data.tick !== undefined) this.queueUIUpdate('tick', String(data.tick));
+
     this.hasDensePoseStream = true;
     this.observeDenseProducer(tick, receivedAt, tickSpanMs);
     this.updateObserverSpatialOverlays(data);
@@ -1619,7 +1626,9 @@ export class BodyViewer {
     }
 
     // Queue UI updates (Throttling)
-    if (data.tick !== undefined) this.queueUIUpdate('tick', String(data.tick));
+    if (data.tick !== undefined && !this.hasDensePoseStream) {
+      this.queueUIUpdate('tick', String(data.tick));
+    }
     if (data.contact_count !== undefined) this.queueUIUpdate('contact_count', String(data.contact_count));
     if (data.ground_contact_count !== undefined) {
       this.queueUIUpdate('ground_contact_count', String(data.ground_contact_count));

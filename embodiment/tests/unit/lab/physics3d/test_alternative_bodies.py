@@ -11,6 +11,7 @@ from embodiment.physics3d.crawler import CRAWLER_SPEC, CrawlerPhysics
 from embodiment.physics3d.hexapod import HEXAPOD_SPEC, HexapodPhysics
 from embodiment.physics3d.humanoid import ANTHROPOMORPHIC_SPEC, HumanoidPhysics
 from embodiment.physics3d.robotic_arm import ROBOTIC_ARM_SPEC, RoboticArmPhysics
+from embodiment.physics3d.spot import SPOT_INSPIRED_SPEC, SpotInspiredPhysics
 
 
 @pytest.mark.parametrize("spec", [CRAWLER_SPEC, ASYMMETRIC_SPEC])
@@ -39,6 +40,7 @@ def test_alternative_body_contract_dimensions_are_self_consistent(spec) -> None:
 
 BODIES = [
     (CrawlerPhysics, CRAWLER_SPEC),
+    (SpotInspiredPhysics, SPOT_INSPIRED_SPEC),
     (AsymmetricPhysics, ASYMMETRIC_SPEC),
     (HumanoidPhysics, ANTHROPOMORPHIC_SPEC),
     (HexapodPhysics, HEXAPOD_SPEC),
