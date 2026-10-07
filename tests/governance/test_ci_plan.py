@@ -294,3 +294,90 @@ def test_adversarial_review_rejects_uncovered_path(monkeypatch) -> None:
 
     findings = ci_plan._audit_plan("base", plan)
     assert any("uncovered changed paths" in finding for finding in findings)
+
+
+def test_structured_docs_notation_yaml_allows_docs_only(monkeypatch) -> None:
+    plan = _plan(
+        monkeypatch,
+        ChangeClass.ORDINARY,
+        ["symbiont/docs/reference/notation.yaml"],
+        sections=("docs",),
+        lanes={"docs"},
+    )
+    assert plan.docs
+    assert not plan.code_quality
+    assert not plan.software_core
+    assert not plan.architecture_integrity
+    monkeypatch.setattr(
+        ci_plan,
+        "_load_matrix_at",
+        lambda _base: {"docs": {"paths": ["symbiont/docs/**"], "ci_lanes": ["docs"]}},
+    )
+    assert ci_plan._audit_plan("base", plan) == ()
+
+
+def test_structured_docs_coverage_yaml_allows_docs_only(monkeypatch) -> None:
+    plan = _plan(
+        monkeypatch,
+        ChangeClass.ORDINARY,
+        ["symbiont/docs/coverage.yaml"],
+        sections=("docs",),
+        lanes={"docs"},
+    )
+    assert plan.docs
+    assert not plan.code_quality
+    assert not plan.software_core
+    monkeypatch.setattr(
+        ci_plan,
+        "_load_matrix_at",
+        lambda _base: {"docs": {"paths": ["symbiont/docs/**"], "ci_lanes": ["docs"]}},
+    )
+    assert ci_plan._audit_plan("base", plan) == ()
+
+
+def test_non_doc_yaml_requires_behavioral_lane(monkeypatch) -> None:
+    monkeypatch.setattr(
+        ci_plan,
+        "_load_matrix_at",
+        lambda _base: {"subject": {"paths": ["symbiont/src/**"], "ci_lanes": ["docs"]}},
+    )
+    plan = ci_plan.CIPlan(
+        classification="ORDINARY",
+        code_quality=True,
+        docs=True,
+        governance=False,
+        software_core=False,
+        world=False,
+        observatory=False,
+        architecture_integrity=False,
+        runtime_contracts=False,
+        experiment_mechanics=False,
+        canonical_full=False,
+        physics3d=False,
+        modeling=False,
+        python_compat=False,
+        host_portability=False,
+        alpine=False,
+        protocol_mechanics=False,
+        performance=False,
+        budget_seconds=120,
+        changed_paths=("symbiont/src/symbiont/config.yaml",),
+        matrix_sections=("subject",),
+        selected_lanes=("docs",),
+        reasons=(),
+    )
+    findings = ci_plan._audit_plan("base", plan)
+    assert any("non-document change has no behavioral validation lane" in f for f in findings)
+
+
+def test_prose_markdown_retains_behavior(monkeypatch) -> None:
+    plan = _plan(
+        monkeypatch,
+        ChangeClass.ORDINARY,
+        ["symbiont/docs/00-foundations-and-epistemology.md"],
+        sections=("docs",),
+        lanes={"docs"},
+    )
+    assert plan.docs
+    assert not plan.code_quality
+    assert not plan.software_core
