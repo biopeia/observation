@@ -30,7 +30,7 @@ metrics:
     class: organism_internal
     definition: "Candidate informational entropy or perceptual variance used to rank candidates for causal attention allocation."
     unit: "1"
-    consumer: "component.causal-attention-budgeting"
+    consumer: "mechanism.causal-attention-budgeting"
 
   competence.directional_consistency:
     owner_domain: symbiont
