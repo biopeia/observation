@@ -41,7 +41,7 @@ Bundle integrity is a separate contract: the bundle manifest proves the packaged
 
 ## Continuity classes
 
-Every runtime field has exactly one continuity class, recorded with its owner, checkpoint field, restore path and re-embodiment behaviour in `src/symbiont/host/continuity.py` and validated against the live runtimes by its test:
+Every runtime field has exactly one continuity class, recorded with its owner, checkpoint field, restore path and re-embodiment behaviour in `symbiont/src/symbiont/host/continuity.py` and validated against the live runtimes by its test:
 
 - `MUST_PRESERVE` — acquired state that survives a same-organism restart intact.
 - `MUST_RESET` — transient process state that must not cross a process boundary, because carrying it would fabricate continuity that did not occur.
@@ -72,7 +72,7 @@ Inventing either would bridge a causal consequence that never happened in the re
 
 ## Causal provenance
 
-`src/symbiont/provenance.py` defines a transversal model built from `CausalRef` and `CausalEvent`. Every event can name a subject, immediate causes, produced references, the applied rule and bounded scalar parameters. Event identity is content-derived.
+`symbiont/src/symbiont/provenance.py` defines a transversal model built from `CausalRef` and `CausalEvent`. Every event can name a subject, immediate causes, produced references, the applied rule and bounded scalar parameters. Event identity is content-derived.
 
 The organism keeps a bounded recent ring plus a frontier for live references. The frontier is checkpointed, so a currently live state can remain locally explainable even after old ring events have rolled out. Durable history belongs to the laboratory's append-only journal and is outward-only: it must never feed causal information back into the organism.
 
@@ -102,9 +102,9 @@ Historical runs whose Body age was taken from the global tick document a known c
 - `docs/design/core/causal-provenance-v1.md`
 - `docs/design/embodiment/longitudinal-reembodiment-v1.md`
 - `docs/design/core/longitudinal-integrity-v1.md`
-- `src/symbiont/provenance.py`
-- `src/symbiont/host/continuity.py`
-- `src/symbiont/host/checkpoint.py`
-- `src/symbiont/core/orchestration/runtime.py::checkpoint`
-- `src/symbiont_lab/observation/provenance_journal.py`
-- `src/symbiont_lab/physics3d/runtime.py`
+- `symbiont/src/symbiont/provenance.py`
+- `symbiont/src/symbiont/host/continuity.py`
+- `symbiont/src/symbiont/host/checkpoint.py`
+- `symbiont/src/symbiont/core/orchestration/runtime.py::checkpoint`
+- `lab/src/lab/observation/provenance_journal.py`
+- `lab/src/lab/physics3d/runtime.py`

@@ -36,6 +36,6 @@ If an experiment observes better action after re-embodiment, the researcher must
 
 - `docs/design/embodiment/symbiont-body-temporal-separation-v1.md`
 - `docs/design/embodiment/longitudinal-reembodiment-v1.md`
-- `src/symbiont/core/domains/context.py`
-- `src/symbiont/core/orchestration/runtime.py`
-- `src/symbiont_lab/physics3d/runtime.py`
+- `symbiont/src/symbiont/core/domains/context.py`
+- `symbiont/src/symbiont/core/orchestration/runtime.py`
+- `lab/src/lab/physics3d/runtime.py`

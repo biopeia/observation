@@ -4,7 +4,7 @@ The laboratory exists to make Symbiont observable without becoming part of its c
 
 ## What the laboratory is allowed to know
 
-`symbiont_lab` can know experiment configuration, ground truth, body geometry, resource distance, evaluator metrics, full physical state and historical traces. The organism may know only a transformed subset of those facts through legitimate sensory or social channels.
+The `lab` domain can know experiment configuration, ground truth, body geometry, resource distance, evaluator metrics, full physical state and historical traces. The organism may know only a transformed subset of those facts through legitimate sensory or social channels.
 
 A visualization can therefore display more than the organism knows. The UI must make that difference legible rather than projecting observer semantics back into the subject.
 
@@ -28,8 +28,9 @@ The laboratory provenance journal receives causal events from outward-only subsc
 
 ### Principal implementation anchors
 
-- `src/symbiont_lab/observation/*`
-- `src/symbiont_lab/physics3d/*`
+- `lab/src/lab/observation/*`
+- `lab/src/lab/observatory/*`
+- `lab/src/lab/physics3d/*`
 - `docs/design/telemetry/physics3d-telemetry-v4.1.md`
 - `docs/design/observability/self-model-workbench-v1.md`
 - `docs/design/observatory/body-in-world-v1.md`

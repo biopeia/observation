@@ -26,7 +26,7 @@ A predictive candidate is evaluated in shadow mode, outside the active graph: it
 
 Structural plasticity (creation and pruning of nodes and edges) is bounded: the organism's memory usage is kept under control even after processing many different pairs over a long life, instead of growing boundlessly with residence time.
 
-When the laboratory needs to select candidates in a continuous stream without knowing the full horizon of observations in advance, it uses a Treap structure (randomized binary tree with priorities) to maintain an online selection with expected logarithmic complexity — this lives exclusively in `symbiont_lab`, never in the organism's cognition.
+When the laboratory needs to select candidates in a continuous stream without knowing the full horizon of observations in advance, it uses a Treap structure (randomized binary tree with priorities) to maintain an online selection with expected logarithmic complexity — this lives exclusively in `lab`, never in the organism's cognition.
 
 <a id="implementado"></a>
 
@@ -35,7 +35,7 @@ When the laboratory needs to select candidates in a continuous stream without kn
 - Lifecycle of predictive candidates (`candidate → supported / contradicted → retired`) in shadow mode — **[implemented]**.
 - Blocking of silent reactivation of a `retired` candidate after restart — **[implemented]**.
 - Structural plasticity with bounded memory usage independently of the resident's duration — **[implemented]**.
-- Causal streaming selection via Treap for laboratory statistical evaluation — **[implemented] [evaluator-only]**: exists only as a tool of `symbiont_lab`, never as a cognitive mechanism of the organism.
+- Causal streaming selection via Treap for laboratory statistical evaluation — **[implemented] [evaluator-only]**: exists only as a tool of `lab`, never as a cognitive mechanism of the organism.
 
 <a id="evidencia"></a>
 

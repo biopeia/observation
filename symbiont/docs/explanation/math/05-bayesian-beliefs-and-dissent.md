@@ -14,13 +14,13 @@ language: en
 
 > **Status:** IMPLEMENTED  
 > **Type:** ADAPTIVE FILTER WITH BAYESIAN MOTIVATION  
-> **Related modules:** `symbiont.core.beliefs`, [`symbiont.core.evidence`](../../../src/symbiont/core/cognition/evidence.py)
+> **Related modules:** [`symbiont.core.cognition.evidence`](../../../src/symbiont/core/cognition/evidence.py), [`symbiont.core.foundation.narrative`](../../../src/symbiont/core/foundation/narrative.py)
 
 ---
 
 ## 1. The Nature of Beliefs in Symbiont
 
-In Symbiont, a belief is not a deterministic label, but a subjective distribution that evolves in the face of noisy local perceptions (`symbiont.core.beliefs`).
+In Symbiont, a belief is not a deterministic label, but a subjective distribution that evolves in the face of noisy local perceptions (`symbiont.core.cognition.evidence`).
 
 The model pursues four operational properties:
 

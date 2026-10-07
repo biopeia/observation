@@ -14,7 +14,7 @@ language: en
 
 > **Status:** IMPLEMENTED  
 > **Type:** FORMAL SPECIFICATION OF BOUNDARIES AND CODE IDENTITIES  
-> **Related modules:** `symbiont.core.model`, `symbiont.environment.rng`, `symbiont.environment.world`
+> **Related modules:** `symbiont.core.orchestration.runtime`, `symbiont.foundation.epistemic`, `environment.genesis`
 
 ---
 

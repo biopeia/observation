@@ -30,9 +30,10 @@ Interoceptive channels expose limited organism-relevant physical state through t
 
 ### Principal implementation anchors
 
-- `src/symbiont/core/domains/perception.py`
-- `src/symbiont/sensory/system.py`
-- `src/symbiont/host/acclimation.py`
-- `src/symbiont/host/drift.py`
-- `src/symbiont/host/adaptive.py`
-- `src/symbiont/core/cognition/attention.py`
+- `symbiont/src/symbiont/core/domains/perception.py`
+- `symbiont/src/symbiont/sensory/system.py`
+- `symbiont/src/symbiont/host/acclimation.py`
+- `symbiont/src/symbiont/host/drift.py`
+- `symbiont/src/symbiont/host/adaptive.py`
+- `symbiont/src/symbiont/core/cognition/attention.py`
+- `modality/src/modality/*`

@@ -10,20 +10,20 @@ domain: "math"
 
 # Streaming Causal Selection, Treaps, and Statistical Evaluation Metrics
 
-> **Status:** IMPLEMENTED (`symbiont_lab.studies.common.causal_selection`, `symbiont.simulation.metrics`, `evaluation`)
+> **Status:** IMPLEMENTED (`lab.studies.common.causal_selection`, `lab.evaluation`)
 > **Type:** CODE IDENTITY (Treap, SplitMix64, Metrics) | ONLINE SELECTION HEURISTIC (Ex-Ante Known Finite Horizon)
 
-## 1. The Role of the Scientific Apparatus (`symbiont_lab`)
+## 1. The Role of the Scientific Apparatus (`lab`)
 
 In the Symbiont Lab architecture, the experimental apparatus is strictly decoupled from the organism:
 
 - **The Organism (`symbiont`):** Operates blindly regarding the labels of the world; it only observes local signals, maintains beliefs, and makes causal decisions.
-- **The Scientific Apparatus (`symbiont_lab`):** Possesses omniscience over the simulation (accesses the *Ground Truth* $y^* \in \{0, 1\}$), runs replication studies, applies paired counterfactual interventions, and rigorously evaluates the statistical performance of the organism without contaminating its inference process.
+- **The Scientific Apparatus (`lab`):** Possesses omniscience over the simulation (accesses the *Ground Truth* $y^* \in \{0, 1\}$), runs replication studies, applies paired counterfactual interventions, and rigorously evaluates the statistical performance of the organism without contaminating its inference process.
 
 This document formalizes the two mathematical cores of this apparatus:
 
-1. The **streaming causal selection** algorithm with exact quotas based on randomly balanced Cartesian trees (*Treaps*) ([`symbiont_lab.studies.common.causal_selection`](../../../../lab/src/lab/studies/common/causal_selection.py)).
-2. The battery of probabilistic calibration metrics, Brier Score, and decoupled confusion matrix decomposition (`symbiont.simulation.metrics` and `evaluation.py`).
+1. The **streaming causal selection** algorithm with exact quotas based on randomly balanced Cartesian trees (*Treaps*) ([`lab.studies.common.causal_selection`](../../../../lab/src/lab/studies/common/causal_selection.py)).
+2. The battery of probabilistic calibration metrics, Brier Score, and decoupled confusion matrix decomposition (`lab.evaluation`).
 
 ---
 

@@ -30,7 +30,7 @@ Physiology does not need to encode a hand-designed goal such as “stay alive”
 
 - `docs/design/embodiment/living-body-p0.md`
 - `symbiont/docs/explanation/04-digital-physiology.md`
-- `src/symbiont/core/embodiment/metabolism.py`
-- `src/symbiont/core/embodiment/homeostasis.py`
-- `src/symbiont/core/embodiment/physiology.py`
-- `src/symbiont/core/domains/physiology.py`
+- `symbiont/src/symbiont/core/embodiment/metabolism.py`
+- `symbiont/src/symbiont/core/embodiment/homeostasis.py`
+- `symbiont/src/symbiont/core/embodiment/physiology.py`
+- `symbiont/src/symbiont/core/domains/physiology.py`

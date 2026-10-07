@@ -16,7 +16,7 @@ The runtime uses `CognitiveBridge` as a major integration point between sensory 
 
 ## Self-model and metacognition
 
-The self-model accumulates information about the organism's own sensing and cognition, including reliability, cost and confidence-like quantities. These are internal estimates, not privileged access to laboratory truth. Metacognition therefore operates on the organism's own evidence about its processes.
+The self-model accumulates information about the organism's own sensing and cognition, including reliability, cost and confidence-like quantities (`self_model.py` and `host_self_model.py`). These are internal estimates, not privileged access to laboratory truth. Metacognition therefore operates as introspective self-evaluation on the organism's own evidence about its processes.
 
 ## Structural plasticity
 
@@ -28,10 +28,11 @@ Cognition is not synonymous with action. A cognitive state may never become an a
 
 ### Principal implementation anchors
 
-- `src/symbiont/cognition/graph.py`
-- `src/symbiont/cognition/learning.py`
-- `src/symbiont/core/cognition/bridge.py`
-- `src/symbiont/core/cognition/evidence.py`
-- `src/symbiont/core/cognition/self_model.py`
-- `src/symbiont/core/cognition/metacognition.py`
-- `src/symbiont/core/cognition/structural_*`
+- `symbiont/src/symbiont/cognition/graph.py`
+- `symbiont/src/symbiont/cognition/learning.py`
+- `symbiont/src/symbiont/core/cognition/bridge.py`
+- `symbiont/src/symbiont/core/cognition/evidence.py`
+- `symbiont/src/symbiont/core/cognition/self_model.py`
+- `symbiont/src/symbiont/core/cognition/host_self_model.py`
+- `symbiont/src/symbiont/core/cognition/structural_candidates.py`
+- `symbiont/src/symbiont/core/cognition/structural_planner.py`
