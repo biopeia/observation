@@ -2,7 +2,7 @@
 
 **Authority:** canonical register for the lifecycle and implementation status of
 design documents under `docs/design/`.
-**Last triaged:** 2026-10-04.
+**Last triaged:** 2026-10-07.
 **Owner:** Project owner.
 
 This register exists so design proposals remain discoverable without changing
@@ -87,7 +87,7 @@ imply scientific success. Where approval was not recorded, a completed or
 partial implementation is not retroactively treated as approved.
 
 | Design | Design state | Implementation state | Triage result / next action |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | [Adaptive Experience Replay v1](cognition/adaptive-experience-replay-v1.md) | Reviewed | Partial | Document reports an implemented foundation; reconcile stale `unclassified` metadata in a later doc cleanup. |
 | [Autonomous Experience Replay v1](cognition/autonomous-experience-replay-v1.md) | Reviewed | Partial | Document reports an implemented foundation; no broader scientific acceptance inferred. |
 | [Autonomous Replay Stopping v1](cognition/autonomous-replay-stopping-v1.md) | Reviewed | Implemented | Implementation stated complete; scientific gates remain pending execution. |
@@ -153,6 +153,9 @@ partial implementation is not retroactively treated as approved.
 | [Genome v3](genome/genome-v3.md) | Approved | Not started | Owner approved 2026-10-05 as a design proposal only. Candidate loci remain unvalidated; no Phase 2/schema implementation, migration, or activation is authorized pending Phase 1, empirical and governance gates plus explicit owner authorization. No scientific experiments are authorized. |
 | [Self-Model Workbench v1](observability/self-model-workbench-v1.md) | Reviewed | Implemented | Document marks implementation complete; Observatory remains passive. |
 | [Cognitive Panel Observability States v1](observability/cognitive-panel-observability-states-v1.md) | Proposed | Implemented | Nine named states for cognitive panels (absent, disabled, not ready, idle, empty, active, unavailable, stale, error). Lifecycle is derived from organism facts on the Lab side; implemented for the generative panel and for the empty states of the Mind data panels. Other subsystems publish no lifecycle status yet. |
+| [Observation Architecture — Current-State Assessment v1](observability/observation-architecture-current-state-assessment-v1.md) | Proposed | Partial | AS-IS forensic inventory at `c208afafc`; current production, transformations, consumers, identity/clocks, physical Body/Environment, physiology/re-embodiment, Body Schema/Self Model and remaining task list. Explicitly not the TO-BE and does not specify an envelope or transport. Captures full operational replacement as a proposed target constraint, with differential testing permitted only to classify changes (no parity/dual-running). See linked Design Inputs for the distilled requirements and gates. No API or implementation is authorized. |
+| [Observation Architecture — Design Inputs v1](observability/observation-architecture-design-inputs-v1.md) | Proposed | Partial | Substantive bridge from AS-IS evidence to a separate TO-BE. Architecture-owner disposition of 11 scoped constraints is recorded as passed in §3; §4.2 freezes bounded candidate evidence scope; §7.2 records minimum AS-IS evidence sufficiency for TO-BE entry as passed. Project owner authorized TO-BE authorship on 2026-10-07; that authorizes architecture-document drafting only. Domain-semantic assignments, final v1 records/publication, contract/transport and implementation remain unapproved. |
+| [Observation Architecture v1 — Target Design](observability/observation-architecture-target-design-v1.md) | Proposed | Not started | Project owner authorized authoring on 2026-10-07, not architecture approval or implementation. Proposed target separates domain-owned observation semantics/producers from observation-plane coordination and Lab projections; compares infrastructure ownership alternatives and records Option C only as a proposal. Record structures, datum authorities, final v1 scope, API/transport, implementation and cutover remain open. |
 | [Experience and World Architecture v1 Implementation Gap Specification](observability/symbiont-lab-experience-and-world-architecture-specification-v1-spec.md) | Reference | Not applicable | Gap analysis against target specification, not an independent implementation authorization. |
 | [Experience and World Architecture v1](observability/symbiont-lab-experience-and-world-architecture-specification-v1.md) | Proposed | Partial | Architecture specification spans implemented and proposed seams; use the gap analysis and roadmap for actual scope. |
 | [Body in World v1](observatory/body-in-world-v1.md) | Reviewed | Implemented | Document identifies the observation contract as implemented; maintain passive/read-only authority boundary. |
