@@ -1,0 +1,110 @@
+schema_version: 1
+
+# Canonical Metric Registry
+# Measurement semantics separated by authoritative class.
+# Rule: A lab metric never implies organism visibility or internal signal availability.
+# Classes:
+# - organism_internal: Endogenously computed and accessible by the organism.
+# - scientific_evaluation: External evaluation metrics computed exclusively by the scientific apparatus (lab).
+# - operational: Infrastructure, runtime resource, and serialization metrics.
+# - historical: Retired metrics from previous simulations preserved for provenance.
+
+metrics:
+
+  prediction.huber_loss:
+    owner_domain: symbiont
+    class: organism_internal
+    definition: "Smooth Huber loss computed over prediction error delta between one-step model prediction and observed target activation."
+    unit: "1"
+    consumer: "component.local-predictors"
+
+  prediction.predictive_gain:
+    owner_domain: symbiont
+    class: organism_internal
+    definition: "Normalized difference between persistence baseline error and candidate predictor error over a sliding sample buffer."
+    unit: "1"
+    consumer: "component.predictor-lifecycle"
+
+  attention.uncertainty:
+    owner_domain: symbiont
+    class: organism_internal
+    definition: "Candidate informational entropy or perceptual variance used to rank candidates for causal attention allocation."
+    unit: "1"
+    consumer: "component.causal-attention-budgeting"
+
+  competence.directional_consistency:
+    owner_domain: symbiont
+    class: organism_internal
+    definition: "Ratio of aligned state changes over total intervention trials evaluating motor competence reproducibility."
+    unit: "1"
+    consumer: "component.competence"
+
+  homeostasis.deviation:
+    owner_domain: symbiont
+    class: organism_internal
+    definition: "Euclidean or Manhattan distance from current somatic physiological state p_t to the viable homeostatic envelope boundary."
+    unit: "1"
+    consumer: "component.outcome-value"
+
+  drift.page_hinkley_statistic:
+    owner_domain: symbiont
+    class: organism_internal
+    definition: "Cumulative Page-Hinkley running difference detecting gradual drift and persistent regime shifts against an aging baseline."
+    unit: "1"
+    consumer: "mechanism.drift-detection"
+
+  study.causal_selection_threshold:
+    owner_domain: lab
+    class: scientific_evaluation
+    definition: "Dynamic empirical quantile score evaluated via Treap over historical candidate events for causal subset selection."
+    unit: "1"
+    interpretation: "Lab experimental apparatus index; strictly unobservable by the organism."
+
+  study.causal_selection_forced_rate:
+    owner_domain: lab
+    class: scientific_evaluation
+    definition: "Proportion of events whose admission was forced by budget exhaustion boundary conditions in online streaming selection."
+    unit: "1"
+    interpretation: "Quantifies boundary distortion in online budget enforcement protocols."
+
+  study.reproducibility_score:
+    owner_domain: lab
+    class: scientific_evaluation
+    definition: "Inter-run outcome trajectory concordance across identical PRNG seeds and varied physical substrates."
+    unit: "1"
+    interpretation: "Evaluates mechanical reproducibility and protocol integrity across experimental runs."
+
+  host.process_cpu_usage:
+    owner_domain: modality
+    class: operational
+    definition: "Percentage of CPU utilized by the resident organism runtime process on the host platform."
+    unit: "%"
+    consumer: "component.host-sensing"
+
+  checkpoint.serialization_bytes:
+    owner_domain: symbiont
+    class: operational
+    definition: "Payload size in bytes of the serialized organism checkpoint snapshot bundle."
+    unit: "bytes"
+    consumer: "component.checkpoint-persistence"
+
+  legacy.brier_score:
+    owner_domain: lab
+    class: historical
+    definition: "Mean squared error between estimated synthetic threat probability and simulation ground truth y* in {0, 1}."
+    unit: "1"
+    interpretation: "Historical simulation evaluator metric; retired in five-domain architecture migration."
+
+  legacy.expected_calibration_error:
+    owner_domain: lab
+    class: historical
+    definition: "Weighted absolute discrepancy between predicted confidence bins and empirical event occurrence in retired simulation."
+    unit: "1"
+    interpretation: "Historical calibration index; retired from active runtime."
+
+  legacy.threat_blind_spot_rate:
+    owner_domain: lab
+    class: historical
+    definition: "Frequency of false-negative classifications where ground-truth threats were predicted with high certainty as benign."
+    unit: "1"
+    interpretation: "Historical threat assessment index; retired from active runtime."

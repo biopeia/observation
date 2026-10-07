@@ -1,0 +1,180 @@
+schema_version: 1
+
+# Canonical Parameter Registry
+# Architectural and scientifically interpretable parameters proven against current implementation.
+# Source taxonomy:
+# - CODE: Verified against active production code in main.
+# - DESIGN: Defined in accepted design contracts.
+# - STUDY: Parameter of experimental protocol or evaluation apparatus.
+# - FORMAL: Formal specification parameter.
+
+parameters:
+
+  competence.minimum_support:
+    owner: component.competence
+    symbol: "N_supp"
+    dimension: count
+    unit: "1"
+    source: CODE
+    canonical_default: 2
+    range: "[2, 64]"
+    implementation:
+      path: symbiont/src/symbiont/actuation/competence.py
+      symbol: CompetenceGate.min_support
+    interpretation: "Minimum number of successful intervention attempts required before a motor competence can transition from candidate to emerging."
+
+  competence.minimum_consistency:
+    owner: component.competence
+    symbol: "C_min"
+    dimension: ratio
+    unit: "1"
+    source: CODE
+    canonical_default: 0.6
+    range: "(0.0, 1.0]"
+    implementation:
+      path: symbiont/src/symbiont/actuation/competence.py
+      symbol: CompetenceGate.min_consistency
+    interpretation: "Minimum directional consistency ratio required for competence establishment."
+
+  cognition.consolidation_interval_ticks:
+    owner: component.memory-consolidation
+    symbol: "T_cons"
+    dimension: time
+    unit: "ticks"
+    source: CODE
+    canonical_default: 32
+    range: "[1, inf)"
+    implementation:
+      path: symbiont/src/symbiont/cognition/limits.py
+      symbol: KernelLimits.consolidation_interval_ticks
+    interpretation: "Tick interval between slow memory consolidation phases converting episodic traces into durable graph mutations."
+
+  cognition.fast_consolidation_threshold:
+    owner: component.memory-consolidation
+    symbol: "theta_fast"
+    dimension: ratio
+    unit: "1"
+    source: CODE
+    canonical_default: 0.8
+    range: "[0.0, 1.0]"
+    implementation:
+      path: symbiont/src/symbiont/cognition/limits.py
+      symbol: KernelLimits.fast_consolidation_threshold
+    interpretation: "Reliability threshold for fast episodic consolidation bypass."
+
+  cognition.reacclimation_ticks:
+    owner: component.host-sensing
+    symbol: "T_reacc"
+    dimension: time
+    unit: "ticks"
+    source: CODE
+    canonical_default: 32
+    range: "[1, inf)"
+    implementation:
+      path: symbiont/src/symbiont/cognition/limits.py
+      symbol: KernelLimits.reacclimation_ticks
+    interpretation: "Somatic baseline stabilization period required following host re-embodiment or major sensor relocation."
+
+  cognition.max_nodes:
+    owner: component.cognitive-graph
+    symbol: "N_max"
+    dimension: count
+    unit: "1"
+    source: CODE
+    canonical_default: 768
+    range: "[1, inf)"
+    implementation:
+      path: symbiont/src/symbiont/cognition/limits.py
+      symbol: KernelLimits.max_nodes
+    interpretation: "Hard kernel ceiling on the maximum number of active nodes in the cognitive graph."
+
+  cognition.max_edges:
+    owner: component.cognitive-graph
+    symbol: "E_max"
+    dimension: count
+    unit: "1"
+    source: CODE
+    canonical_default: 6144
+    range: "[1, inf)"
+    implementation:
+      path: symbiont/src/symbiont/cognition/limits.py
+      symbol: KernelLimits.max_edges
+    interpretation: "Hard kernel ceiling on the maximum number of plastic edges in the cognitive graph."
+
+  learning.oja_eligibility_bound:
+    owner: mechanism.endogenous-plasticity
+    symbol: "B_elig"
+    dimension: bound
+    unit: "1"
+    source: CODE
+    canonical_default: 10.0
+    range: "(0.0, inf)"
+    implementation:
+      path: symbiont/src/symbiont/cognition/learning.py
+      symbol: ELIGIBILITY_BOUND
+    interpretation: "Saturating bound on synaptic eligibility traces to prevent unbounded growth during continuous activation."
+
+  learning.huber_delta:
+    owner: component.local-predictors
+    symbol: "delta_huber"
+    dimension: threshold
+    unit: "1"
+    source: CODE
+    canonical_default: 1.0
+    range: "(0.0, inf)"
+    implementation:
+      path: symbiont/src/symbiont/cognition/learning.py
+      symbol: huber_loss
+    interpretation: "Transition boundary between quadratic and linear penalty in Huber loss calculation for prediction errors."
+
+  drift.baseline_decay:
+    owner: mechanism.drift-detection
+    symbol: "alpha_drift"
+    dimension: rate
+    unit: "1"
+    source: CODE
+    canonical_default: 0.1
+    range: "(0.0, 1.0]"
+    implementation:
+      path: symbiont/src/symbiont/host/drift.py
+      symbol: DriftAwareBaseline
+    interpretation: "Exponential moving average decay factor for baseline mean tracking."
+
+  drift.regime_z_threshold:
+    owner: mechanism.drift-detection
+    symbol: "z_regime"
+    dimension: z_score
+    unit: "1"
+    source: CODE
+    canonical_default: 2.0
+    range: "(0.0, inf)"
+    implementation:
+      path: symbiont/src/symbiont/host/drift.py
+      symbol: DriftAwareBaseline
+    interpretation: "Z-score threshold for candidate regime shift classification."
+
+  drift.regime_run_length:
+    owner: mechanism.drift-detection
+    symbol: "L_regime"
+    dimension: count
+    unit: "1"
+    source: CODE
+    canonical_default: 3
+    range: "[1, inf)"
+    implementation:
+      path: symbiont/src/symbiont/host/drift.py
+      symbol: DriftAwareBaseline
+    interpretation: "Number of consecutive observations exceeding regime_z required to confirm a persistent regime shift."
+
+  checkpoint.schema_version:
+    owner: component.checkpoint-persistence
+    symbol: "V_chk"
+    dimension: version
+    unit: "1"
+    source: CODE
+    canonical_default: 14
+    range: "[1, inf)"
+    implementation:
+      path: symbiont/src/symbiont/host/checkpoint.py
+      symbol: CHECKPOINT_SCHEMA_VERSION
+    interpretation: "Current active serialization schema version for contract-defined organism state persistence."

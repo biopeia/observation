@@ -1,318 +1,1270 @@
-schema_version: 1
-generated_from: docs corpus supplied 2026-09-27
-sources:
-- path: CHANGELOG.md
-  area: history-development
-  lines: 1830
-- path: README.md
-  area: other
-  lines: 37
-- path: VERSIONING.md
-  area: history-development
-  lines: 39
-- path: adr/ADR-0001-two-package-boundary.md
-  area: architecture
-  lines: 32
-- path: adr/ADR-0002-ground-truth-isolation.md
-  area: architecture
-  lines: 26
-- path: adr/ADR-0003-attention-is-not-classification.md
-  area: architecture
-  lines: 22
-- path: adr/ADR-0004-separated-rng-streams.md
-  area: architecture
-  lines: 26
-- path: adr/ADR-0005-shadow-only-second-look.md
-  area: architecture
-  lines: 22
-- path: adr/ADR-0006-evidence-revision-identity.md
-  area: architecture
-  lines: 22
-- path: adr/ADR-0007-common-causal-eligibility.md
-  area: architecture
-  lines: 26
-- path: adr/README.md
-  area: architecture
-  lines: 17
-- path: architecture.md
-  area: architecture
-  lines: 29
-- path: design/archive/episodic-experience-memory-v1.md
-  area: cognition
-  lines: 204
-- path: design/archive/physics3d-telemetry-v3.md
-  area: observation-telemetry
-  lines: 245
-- path: design/archive/physics3d-telemetry-v4.md
-  area: observation-telemetry
-  lines: 212
-- path: design/archive/symbiont-world-v1.md
-  area: world-ecology
-  lines: 827
-- path: design/archive/symbiont-world-v2.md
-  area: world-ecology
-  lines: 208
-- path: design/cognition/adaptive-experience-replay-v1.md
-  area: cognition
-  lines: 96
-- path: design/cognition/autonomous-experience-replay-v1.md
-  area: cognition
-  lines: 145
-- path: design/cognition/autonomous-replay-stopping-v1.md
-  area: cognition
-  lines: 125
-- path: design/cognition/cognitive-atlas-v2-phase-a-audit.md
-  area: cognition
-  lines: 47
-- path: design/cognition/emergent-symbol-grounding-v1.md
-  area: cognition
-  lines: 66
-- path: design/cognition/episodic-experience-memory-v2.md
-  area: cognition
-  lines: 207
-- path: design/cognition/generative-cognition-v1.md
-  area: cognition
-  lines: 4733
-- path: design/cognition/generative-cognition-v1_implementation-gap-audit-against-main.md
-  area: cognition
-  lines: 3304
-- path: design/communication/autonomous-cultural-agency-v1.md
-  area: agency-action
-  lines: 85
-- path: design/communication/cultural-future.md
-  area: social-culture
-  lines: 465
-- path: design/communication/emergent-structured-communication-v1.md
-  area: social-culture
-  lines: 53
-- path: design/communication/structured-communication-characterization-v1.md
-  area: social-culture
-  lines: 86
-- path: design/core/agency-acquisition-and-executive-action-v1.md
-  area: agency-action
-  lines: 3891
-- path: design/core/agency-acquisition-and-executive-action-v1_implementation-audit.md
-  area: agency-action
-  lines: 283
-- path: design/core/causal-provenance-v1.md
-  area: other
-  lines: 205
-- path: design/core/executive-outcome-learning-v1.md
-  area: other
-  lines: 267
-- path: design/core/factorized-effect-representation-v1.md
-  area: agency-action
-  lines: 572
-- path: design/embodiment/embodiment-epoch-summary-v1.md
-  area: lifecycle-embodiment
-  lines: 279
-- path: design/embodiment/embodiment-memory-v1.md
-  area: lifecycle-embodiment
-  lines: 358
-- path: design/embodiment/embodiment-v2.md
-  area: lifecycle-embodiment
-  lines: 577
-- path: design/embodiment/living-body-p0.md
-  area: lifecycle-embodiment
-  lines: 516
-- path: design/embodiment/longitudinal-reembodiment-implementation-plan.md
-  area: lifecycle-embodiment
-  lines: 446
-- path: design/embodiment/longitudinal-reembodiment-v1.md
-  area: lifecycle-embodiment
-  lines: 407
-- path: design/embodiment/perception-and-embodiment.md
-  area: lifecycle-embodiment
-  lines: 1772
-- path: design/embodiment/physics3d-embodiment-v0.md
-  area: lifecycle-embodiment
-  lines: 961
-- path: design/embodiment/symbiont-body-temporal-separation-v1.md
-  area: lifecycle-embodiment
-  lines: 586
-- path: design/experimentation/adaptive-sensory-specialisation-experiments.md
-  area: perception
-  lines: 659
-- path: design/experimentation/experimental-decontamination-p0.md
-  area: experimentation
-  lines: 249
-- path: design/experimentation/experimental-decontamination-p1.md
-  area: experimentation
-  lines: 164
-- path: design/experimentation/experimental-decontamination-p2.md
-  area: experimentation
-  lines: 137
-- path: design/experimentation/experimental-organism-v1-freeze.md
-  area: experimentation
-  lines: 61
-- path: design/genome/endogenous-metaplastic-epigenetics-v1.md
-  area: genetics-lineage
-  lines: 129
-- path: design/genome/genome-v2.md
-  area: genetics-lineage
-  lines: 210
-- path: design/observability/self-model-workbench-v1.md
-  area: observation-telemetry
-  lines: 244
-- path: design/observatory/body-in-world-v1.md
-  area: lifecycle-embodiment
-  lines: 146
-- path: design/runtime/integrated-habitat-runtime-v1.md
-  area: other
-  lines: 73
-- path: design/sensorimotor/sensorimotor-development-v1.md
-  area: agency-action
-  lines: 459
-- path: design/sensorimotor/symbiont-actuation-v1.md
-  area: agency-action
-  lines: 863
-- path: design/telemetry/physics3d-telemetry-v4.1.md
-  area: observation-telemetry
-  lines: 475
-- path: design/telemetry/population-communication-telemetry-v1.md
-  area: social-culture
-  lines: 60
-- path: design/world/symbiont-world-v1-rationale.md
-  area: world-ecology
-  lines: 2683
-- path: design/world/symbiont-world-v3.md
-  area: world-ecology
-  lines: 1738
-- path: design/world/symbiont-world-v4.md
-  area: world-ecology
-  lines: 183
-- path: design/world/world-ecology-v1.md
-  area: world-ecology
-  lines: 132
-- path: design/world/world-ecology-v2.md
-  area: world-ecology
-  lines: 190
-- path: development/maintainability-baseline.md
-  area: history-development
-  lines: 75
-- path: development/pyright-inventory.md
-  area: history-development
-  lines: 1692
-- path: development/security-scanning.md
-  area: history-development
-  lines: 90
-- path: development/type-checking.md
-  area: history-development
-  lines: 60
-- path: explanation/01-anatomy-macro-boundaries.md
-  area: other
-  lines: 13
-- path: explanation/02-temporal-domains.md
-  area: other
-  lines: 13
-- path: explanation/03-anatomy-cognitive-tick.md
-  area: other
-  lines: 19
-- path: explanation/04-digital-physiology.md
-  area: other
-  lines: 13
-- path: explanation/05-endogenous-cognition.md
-  area: cognition
-  lines: 24
-- path: explanation/06-reproduction-and-lineage.md
-  area: genetics-lineage
-  lines: 11
-- path: explanation/07-social-ecology.md
-  area: world-ecology
-  lines: 20
-- path: explanation/08-perception-and-drift.md
-  area: perception
-  lines: 17
-- path: explanation/09-memory-consolidation.md
-  area: cognition
-  lines: 17
-- path: explanation/10-predictive-shadows.md
-  area: cognition
-  lines: 15
-- path: explanation/11-cultural-transmission.md
-  area: social-culture
-  lines: 15
-- path: explanation/concepts/01-what-is-a-symbiont.md
-  area: foundations
-  lines: 70
-- path: explanation/concepts/02-body-and-perception.md
-  area: perception
-  lines: 63
-- path: explanation/concepts/03-cognition-and-plasticity.md
-  area: cognition
-  lines: 61
-- path: explanation/concepts/04-attention-and-decision.md
-  area: perception
-  lines: 57
-- path: explanation/concepts/05-physiology.md
-  area: other
-  lines: 61
-- path: explanation/concepts/06-reproduction-and-lineage.md
-  area: genetics-lineage
-  lines: 61
-- path: explanation/concepts/07-ecology-and-sociability.md
-  area: world-ecology
-  lines: 61
-- path: explanation/concepts/08-predictive-development.md
-  area: cognition
-  lines: 60
-- path: explanation/concepts/09-methodology-and-limitations.md
-  area: foundations
-  lines: 54
-- path: explanation/concepts/README.md
-  area: other
-  lines: 35
-- path: explanation/concepts/SOURCES.md
-  area: other
-  lines: 124
-- path: explanation/math/01-fundamentals-and-epistemology.md
-  area: mathematics
-  lines: 199
-- path: explanation/math/02-perception-acclimation-and-relations.md
-  area: perception
-  lines: 248
-- path: explanation/math/03-drift-detection-and-regimes.md
-  area: perception
-  lines: 207
-- path: explanation/math/04-causal-attention-and-budgets.md
-  area: perception
-  lines: 124
-- path: explanation/math/05-bayesian-beliefs-and-dissent.md
-  area: mathematics
-  lines: 149
-- path: explanation/math/06-collective-consensus-and-trust.md
-  area: mathematics
-  lines: 182
-- path: explanation/math/07-agent-cognition-and-metacognition.md
-  area: cognition
-  lines: 176
-- path: explanation/math/08-self-model-and-adaptive-sensors.md
-  area: mathematics
-  lines: 150
-- path: explanation/math/09-endogenous-plasticity-and-recurrent-networks.md
-  area: mathematics
-  lines: 201
-- path: explanation/math/10-causal-selection-and-statistical-evaluation.md
-  area: experimentation
-  lines: 247
-- path: explanation/math/README.md
-  area: mathematics
-  lines: 95
-- path: glossary.md
-  area: other
-  lines: 46
-- path: history/roadmap-log.md
-  area: history-development
-  lines: 835
-- path: methodology/README.md
-  area: foundations
-  lines: 18
-- path: roadmap.md
-  area: project-planning
-  lines: 42
-- path: methodology/research-programme.md
-  area: foundations
-  lines: 1904
-- path: safety/README.md
-  area: foundations
-  lines: 27
+schema_version: 2
+legacy_sources:
+  generated_from: docs corpus supplied 2026-09-27
+  notes: Historical file coverage inventory from v1 preserved for provenance.
+units:
+  concept.organism:
+    kind: concept
+    title: Symbiont Living Organism
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/00-foundations-and-epistemology.md
+    - symbiont/docs/01-system-and-boundaries.md
+    adrs:
+    - docs/adr/ADR-0001-two-package-boundary.md
+    - docs/adr/ADR-0044-host-safety-and-lifecycle-invariants-in-the-constitution.md
+  concept.five-domain-boundary:
+    kind: concept
+    title: Five-Domain Architecture Separation
+    status: CURRENT
+    owner_domain: symbiont
+    participating_domains:
+    - embodiment
+    - modality
+    - environment
+    - lab
+    canonical_docs:
+    - symbiont/docs/01-system-and-boundaries.md
+    tests:
+    - tests/experimental_integrity/test_five_domain_architecture.py
+    adrs:
+    - docs/adr/ADR-0001-two-package-boundary.md
+    - docs/adr/ADR-0028-domain-architecture-and-sequential-tick-choreography.md
+    depends_on:
+    - concept.organism
+  concept.embodiment:
+    kind: concept
+    title: Physical Embodiment Decoupling
+    status: CURRENT
+    owner_domain: embodiment
+    participating_domains:
+    - symbiont
+    canonical_docs:
+    - symbiont/docs/03-world-body-and-embodiment.md
+    tests:
+    - tests/experimental_integrity/test_embodiment_domain_boundary.py
+    design:
+    - docs/design/embodiment/embodiment-v2.md
+    adrs:
+    - docs/adr/ADR-0013-longitudinal-reembodiment-and-body-decoupling.md
+    depends_on:
+    - concept.five-domain-boundary
+  concept.environment:
+    kind: concept
+    title: Spatial Environment Substrate
+    status: CURRENT
+    owner_domain: environment
+    canonical_docs:
+    - symbiont/docs/01-system-and-boundaries.md
+    tests:
+    - tests/experimental_integrity/test_environment_placement.py
+    adrs:
+    - docs/adr/ADR-0060-world-responsibility-and-naming.md
+    depends_on:
+    - concept.five-domain-boundary
+  concept.modality:
+    kind: concept
+    title: Perceptual and Host Sensing Modalities
+    status: CURRENT
+    owner_domain: modality
+    canonical_docs:
+    - symbiont/docs/04-perception-and-sensory-development.md
+    adrs:
+    - docs/adr/ADR-0017-host-least-privilege-and-non-remediation-safety.md
+    depends_on:
+    - concept.five-domain-boundary
+  concept.lab-apparatus:
+    kind: concept
+    title: Experimental and Evaluation Apparatus
+    status: CURRENT
+    owner_domain: lab
+    canonical_docs:
+    - symbiont/docs/12-scientific-observation-and-lab.md
+    - symbiont/docs/13-experimental-methodology.md
+    adrs:
+    - docs/adr/ADR-0034-content-addressed-immutable-scientific-archive.md
+    - docs/adr/ADR-0056-roadmap-planning-and-scientific-authority-separation.md
+    depends_on:
+    - concept.five-domain-boundary
+  concept.homeostasis:
+    kind: concept
+    title: Internal Viable Homeostatic Envelope
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/05-physiology-homeostasis.md
+    adrs:
+    - docs/adr/ADR-0035-canonical-somatic-physiology-unified-physical-truth.md
+    depends_on:
+    - concept.organism
+  concept.competence:
+    kind: concept
+    title: Motor Competence and Action Capability
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/07-agency-action-and-motor-learning.md
+    adrs:
+    - docs/adr/ADR-0014-single-motor-authority-and-executive-action.md
+    depends_on:
+    - concept.organism
+  concept.agency:
+    kind: concept
+    title: Executive Agency and Commitment
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/07-agency-action-and-motor-learning.md
+    adrs:
+    - docs/adr/ADR-0014-single-motor-authority-and-executive-action.md
+    - docs/adr/ADR-0022-factorized-effect-representation-and-agency-attribution.md
+    depends_on:
+    - concept.competence
+  concept.plasticity:
+    kind: concept
+    title: Synaptic and Structural Plasticity
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/08-learning-memory-and-plasticity.md
+    adrs:
+    - docs/adr/ADR-0031-synaptic-normalization-and-plasticity-stability-via-ojas-rule.md
+    depends_on:
+    - concept.organism
+  concept.legacy-five-variable-state-vector:
+    kind: concept
+    title: Legacy Five-Variable State Vector (R^5)
+    status: HISTORICAL
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/explanation/math/01-fundamentals-and-epistemology.md
+    depends_on:
+    - concept.organism
+  component.genome:
+    kind: component
+    title: Genome
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/01-system-and-boundaries.md
+    - symbiont/docs/10-social-cultural-lineage.md
+    implementation:
+    - symbiont/src/symbiont/genetics/genome.py
+    - symbiont/src/symbiont/cognition/genome.py
+    tests:
+    - symbiont/tests/unit/genetics/test_genome_v2.py
+    design:
+    - docs/design/genome/genome-v2.md
+    - docs/design/genome/genome-v3.md
+    master:
+      ids:
+      - SYM-GEN
+    depends_on:
+    - concept.organism
+    - component.genome-schema
+  component.genome-schema:
+    kind: component
+    title: Genome Schema
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/01-system-and-boundaries.md
+    implementation:
+    - symbiont/src/symbiont/genetics/schema.py
+    tests:
+    - symbiont/tests/unit/genetics/test_genome_v2.py
+    master:
+      ids:
+      - SYM-GSC
+    depends_on:
+    - concept.organism
+  component.germline:
+    kind: component
+    title: Germline
+    status: CURRENT
+    owner_domain: symbiont
+    participating_domains:
+    - lab
+    canonical_docs:
+    - symbiont/docs/10-social-cultural-lineage.md
+    implementation:
+    - symbiont/src/symbiont/genetics/germline.py
+    tests:
+    - symbiont/tests/unit/genetics/test_germline_expression_v2.py
+    - lab/tests/unit/core/test_germline_inheritance.py
+    adrs:
+    - docs/adr/ADR-0019-genome-v2-germline-immutability-and-epigenetics.md
+    master:
+      ids:
+      - SYM-GRM
+    depends_on:
+    - component.genome
+    - component.epigenetic-state
+  component.epigenetic-state:
+    kind: component
+    title: Epigenetic State
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/10-social-cultural-lineage.md
+    implementation:
+    - symbiont/src/symbiont/genetics/germline.py
+    design:
+    - docs/design/genome/endogenous-metaplastic-epigenetics-v1.md
+    adrs:
+    - docs/adr/ADR-0038-endogenous-metaplastic-regulation-three-layer-epigenetic-model.md
+    master:
+      ids:
+      - SYM-EPI-G
+    depends_on:
+    - component.genome
+  component.phenotype-expression:
+    kind: component
+    title: Phenotype Expression v1
+    status: DESIGN
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/01-system-and-boundaries.md
+    design:
+    - docs/design/genome/phenotype-expression-v1.md
+    adrs:
+    - docs/adr/ADR-0064-phenotype-expression-and-genome-decoupling.md
+    master:
+      ids:
+      - SYM-PHEX
+    depends_on:
+    - component.genome
+    - component.epigenetic-state
+  component.biological-phenotype:
+    kind: component
+    title: Biological Phenotype
+    status: DESIGN
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/01-system-and-boundaries.md
+    design:
+    - docs/design/genome/phenotype-expression-v1.md
+    adrs:
+    - docs/adr/ADR-0064-phenotype-expression-and-genome-decoupling.md
+    master:
+      ids:
+      - SYM-PHENO
+    depends_on:
+    - component.phenotype-expression
+  component.ontogeny-development:
+    kind: component
+    title: Ontogeny / Development
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/02-lifecycle-and-time.md
+    implementation:
+    - symbiont/src/symbiont/core/embodiment/ontogeny.py
+    tests:
+    - symbiont/tests/unit/core/test_ontogeny.py
+    master:
+      ids:
+      - SYM-DEV
+    depends_on:
+    - concept.organism
+    - component.genome
+  component.physiology:
+    kind: component
+    title: Physiology
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/05-physiology-homeostasis.md
+    implementation:
+    - symbiont/src/symbiont/core/domains/physiology.py
+    tests:
+    - symbiont/tests/unit/core/test_physiology.py
+    adrs:
+    - docs/adr/ADR-0035-canonical-somatic-physiology-unified-physical-truth.md
+    master:
+      ids:
+      - SYM-PHY
+    depends_on:
+    - concept.organism
+  component.homeostasis:
+    kind: component
+    title: Homeostasis
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/05-physiology-homeostasis.md
+    implementation:
+    - symbiont/src/symbiont/core/embodiment/homeostasis.py
+    tests:
+    - symbiont/tests/unit/core/test_homeostasis.py
+    master:
+      ids:
+      - SYM-HOM
+    depends_on:
+    - component.physiology
+    - concept.homeostasis
+  component.sensory-system:
+    kind: component
+    title: Sensory System
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/04-perception-and-sensory-development.md
+    implementation:
+    - symbiont/src/symbiont/sensory/system.py
+    - symbiont/src/symbiont/sensory/sensor.py
+    tests:
+    - symbiont/tests/unit/sensory/test_system.py
+    master:
+      ids:
+      - SYM-SENS
+    depends_on:
+    - concept.organism
+  component.perception:
+    kind: component
+    title: Perception
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/04-perception-and-sensory-development.md
+    implementation:
+    - symbiont/src/symbiont/core/domains/perception.py
+    tests:
+    - tests/experimental_integrity/test_perception_domain_boundary.py
+    master:
+      ids:
+      - SYM-PER
+    depends_on:
+    - component.sensory-system
+  component.cognitive-graph:
+    kind: component
+    title: Cognitive Graph
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/06-cognition-and-internal-organization.md
+    implementation:
+    - symbiont/src/symbiont/cognition/graph.py
+    tests:
+    - symbiont/tests/unit/cognition/test_graph.py
+    master:
+      ids:
+      - SYM-CG
+    depends_on:
+    - concept.organism
+  component.metaplasticity:
+    kind: component
+    title: Metaplasticity
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/08-learning-memory-and-plasticity.md
+    implementation:
+    - symbiont/src/symbiont/cognition/metaplasticity.py
+    - symbiont/src/symbiont/genetics/expression.py
+    tests:
+    - symbiont/tests/unit/cognition/test_metaplasticity.py
+    master:
+      ids:
+      - SYM-META
+    depends_on:
+    - component.cognitive-graph
+    - concept.plasticity
+  component.local-predictors:
+    kind: component
+    title: Local Predictors
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/06-cognition-and-internal-organization.md
+    implementation:
+    - symbiont/src/symbiont/cognition/learning.py
+    - symbiont/src/symbiont/core/cognition/predictors.py
+    tests:
+    - symbiont/tests/unit/cognition/test_learning.py
+    master:
+      ids:
+      - SYM-LP
+    depends_on:
+    - component.cognitive-graph
+  component.predictor-lifecycle:
+    kind: component
+    title: Predictor Lifecycle
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/06-cognition-and-internal-organization.md
+    implementation:
+    - symbiont/src/symbiont/core/cognition/bridge.py
+    tests:
+    - symbiont/tests/unit/core/test_cognition_bridge.py
+    adrs:
+    - docs/adr/ADR-0005-shadow-only-second-look.md
+    master:
+      ids:
+      - SYM-PROM
+    depends_on:
+    - component.local-predictors
+  component.agency-acquisition:
+    kind: component
+    title: Agency Acquisition
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/07-agency-action-and-motor-learning.md
+    implementation:
+    - symbiont/src/symbiont/actuation/acquisition.py
+    tests:
+    - symbiont/tests/unit/actuation/test_agency_before_competence.py
+    design:
+    - docs/design/core/agency-acquisition-and-executive-action-v1.md
+    master:
+      ids:
+      - SYM-AGA
+    depends_on:
+    - concept.agency
+  component.sensorimotor-transition:
+    kind: component
+    title: Sensorimotor Transition
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/07-agency-action-and-motor-learning.md
+    implementation:
+    - symbiont/src/symbiont/actuation/evidence.py
+    tests:
+    - symbiont/tests/unit/actuation/test_causal_evidence.py
+    master:
+      ids:
+      - SYM-SET
+    depends_on:
+    - component.agency-acquisition
+  component.motor-primitive:
+    kind: component
+    title: Motor Primitive
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/07-agency-action-and-motor-learning.md
+    implementation:
+    - symbiont/src/symbiont/actuation/sensorimotor.py
+    tests:
+    - symbiont/tests/unit/actuation/test_sensorimotor.py
+    master:
+      ids:
+      - SYM-MP
+    depends_on:
+    - component.sensorimotor-transition
+  component.competence:
+    kind: component
+    title: Competence
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/07-agency-action-and-motor-learning.md
+    implementation:
+    - symbiont/src/symbiont/actuation/competence.py
+    tests:
+    - symbiont/tests/unit/actuation/test_competence_convergence.py
+    master:
+      ids:
+      - SYM-COMP
+    depends_on:
+    - concept.competence
+    - component.motor-primitive
+  component.competence-binding:
+    kind: component
+    title: Competence Execution Binding
+    status: CURRENT
+    owner_domain: symbiont
+    participating_domains:
+    - embodiment
+    canonical_docs:
+    - symbiont/docs/07-agency-action-and-motor-learning.md
+    implementation:
+    - symbiont/src/symbiont/actuation/binding.py
+    tests:
+    - symbiont/tests/unit/agency/test_competence_availability.py
+    design:
+    - docs/design/embodiment/embodiment-v2.md
+    adrs:
+    - docs/adr/ADR-0026-statistical-binding-degradation-via-wilson-intervals.md
+    master:
+      ids:
+      - SYM-CBIND
+    depends_on:
+    - component.competence
+    - concept.embodiment
+  component.competence-composition:
+    kind: component
+    title: Competence Composition
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/07-agency-action-and-motor-learning.md
+    implementation:
+    - symbiont/src/symbiont/actuation/composition.py
+    tests:
+    - symbiont/tests/unit/actuation/test_sensorimotor_v2_architecture.py
+    master:
+      ids:
+      - SYM-COMPX
+    depends_on:
+    - component.competence
+  component.affordance:
+    kind: component
+    title: Affordance
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/07-agency-action-and-motor-learning.md
+    implementation:
+    - symbiont/src/symbiont/agency/affordance.py
+    - symbiont/src/symbiont/agency/affordances.py
+    tests:
+    - symbiont/tests/unit/agency/test_affordances.py
+    master:
+      ids:
+      - SYM-AFF
+    depends_on:
+    - component.competence
+  component.prospective-agency:
+    kind: component
+    title: Prospective Agency
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/07-agency-action-and-motor-learning.md
+    implementation:
+    - symbiont/src/symbiont/agency/prospective.py
+    tests:
+    - symbiont/tests/unit/agency/test_prospective.py
+    - lab/tests/unit/core/test_intention_domain.py
+    design:
+    - docs/design/core/agency-acquisition-and-executive-action-v1.md
+    master:
+      ids:
+      - SYM-PROS
+    depends_on:
+    - concept.agency
+    - component.affordance
+  component.intention:
+    kind: component
+    title: Intention
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/07-agency-action-and-motor-learning.md
+    implementation:
+    - symbiont/src/symbiont/agency/intention.py
+    tests:
+    - symbiont/tests/unit/core/test_intention_checkpoint.py
+    master:
+      ids:
+      - SYM-INT
+    depends_on:
+    - component.prospective-agency
+  component.commitment:
+    kind: component
+    title: Commitment
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/07-agency-action-and-motor-learning.md
+    implementation:
+    - symbiont/src/symbiont/actuation/commitment.py
+    tests:
+    - symbiont/tests/unit/core/test_action_domain_restore.py
+    master:
+      ids:
+      - SYM-CMT
+    depends_on:
+    - component.intention
+  component.executive-outcome-learning:
+    kind: component
+    title: Executive Outcome Learning
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/07-agency-action-and-motor-learning.md
+    implementation:
+    - symbiont/src/symbiont/agency/executive_outcome.py
+    tests:
+    - symbiont/tests/unit/agency/test_executive_outcome.py
+    design:
+    - docs/design/core/executive-outcome-learning-v1.md
+    master:
+      ids:
+      - SYM-EOL
+    depends_on:
+    - component.commitment
+    - component.outcome-value
+  component.outcome-value:
+    kind: component
+    title: Outcome Value
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/07-agency-action-and-motor-learning.md
+    implementation:
+    - symbiont/src/symbiont/agency/value.py
+    tests:
+    - symbiont/tests/unit/agency/test_value.py
+    master:
+      ids:
+      - SYM-OV
+    depends_on:
+    - concept.homeostasis
+  component.actuation:
+    kind: component
+    title: Actuation
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/07-agency-action-and-motor-learning.md
+    implementation:
+    - symbiont/src/symbiont/actuation/system.py
+    - symbiont/src/symbiont/actuation/attempt.py
+    tests:
+    - symbiont/tests/unit/actuation/test_system.py
+    adrs:
+    - docs/adr/ADR-0040-sensorimotor-loop-closure-and-prohibition-of-action-prefiltering.md
+    master:
+      ids:
+      - SYM-ACT
+    depends_on:
+    - component.commitment
+  component.episodic-memory:
+    kind: component
+    title: Episodic Experience Memory v2
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/08-learning-memory-and-plasticity.md
+    implementation:
+    - symbiont/src/symbiont/modeling/episodic.py
+    tests:
+    - symbiont/tests/unit/modeling/test_episodic.py
+    design:
+    - docs/design/cognition/episodic-experience-memory-v2.md
+    adrs:
+    - docs/adr/ADR-0025-dual-memory-architecture-episodic-traces-vs-consolidated-semantics.md
+    master:
+      ids:
+      - SYM-EPI-M
+    depends_on:
+    - concept.organism
+  component.experience-replay:
+    kind: component
+    title: Experience Replay
+    status: CURRENT
+    owner_domain: symbiont
+    participating_domains:
+    - lab
+    canonical_docs:
+    - symbiont/docs/08-learning-memory-and-plasticity.md
+    implementation:
+    - symbiont/src/symbiont/modeling/runtime.py
+    - lab/src/lab/physics3d/private_model_training.py
+    tests:
+    - symbiont/tests/unit/cognition/test_generative_replay.py
+    design:
+    - docs/design/cognition/adaptive-experience-replay-v1.md
+    adrs:
+    - docs/adr/ADR-0016-bounded-counterfactual-replay-and-mental-isolation.md
+    master:
+      ids:
+      - SYM-REPLAY
+    depends_on:
+    - component.episodic-memory
+  component.private-model:
+    kind: component
+    title: Private Model
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/08-learning-memory-and-plasticity.md
+    implementation:
+    - symbiont/src/symbiont/modeling/private_runtime.py
+    - symbiont/src/symbiont/modeling/gateway.py
+    tests:
+    - symbiont/tests/unit/modeling/test_private_modeling_contract.py
+    adrs:
+    - docs/adr/ADR-0008-experience-versus-world-execution.md
+    master:
+      ids:
+      - SYM-PM
+    depends_on:
+    - component.episodic-memory
+  component.generative-cognition:
+    kind: component
+    title: Generative Cognition v1
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/09-generative-cognition.md
+    implementation:
+    - symbiont/src/symbiont/cognition/generative/resident.py
+    tests:
+    - symbiont/tests/unit/cognition/test_generative_resident.py
+    design:
+    - docs/design/cognition/generative-cognition-v1.md
+    adrs:
+    - docs/adr/ADR-0037-reality-authority-and-epistemic-demarcation-of-imagination.md
+    master:
+      ids:
+      - SYM-GENC
+    depends_on:
+    - component.private-model
+  component.generative-hypothesis:
+    kind: component
+    title: Generative Hypothesis
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/09-generative-cognition.md
+    implementation:
+    - symbiont/src/symbiont/cognition/generative/hypothesis.py
+    tests:
+    - symbiont/tests/unit/cognition/test_generative_hypothesis.py
+    design:
+    - docs/design/cognition/generative-cognition-v1.md
+    master:
+      ids:
+      - SYM-HYP
+    depends_on:
+    - component.generative-cognition
+  component.counterfactual-rollout:
+    kind: component
+    title: Counterfactual / Rollout
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/09-generative-cognition.md
+    implementation:
+    - symbiont/src/symbiont/cognition/generative/counterfactual.py
+    - symbiont/src/symbiont/cognition/generative/rollout.py
+    tests:
+    - symbiont/tests/unit/cognition/test_generative_counterfactual.py
+    adrs:
+    - docs/adr/ADR-0016-bounded-counterfactual-replay-and-mental-isolation.md
+    master:
+      ids:
+      - SYM-CF
+    depends_on:
+    - component.generative-cognition
+    - component.private-model
+  component.memory-consolidation:
+    kind: component
+    title: Memory Consolidation
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/08-learning-memory-and-plasticity.md
+    implementation:
+    - symbiont/src/symbiont/core/cognition/consolidation.py
+    tests:
+    - symbiont/tests/unit/core/test_consolidation.py
+    adrs:
+    - docs/adr/ADR-0025-dual-memory-architecture-episodic-traces-vs-consolidated-semantics.md
+    master:
+      ids:
+      - SYM-MEM
+    depends_on:
+    - component.episodic-memory
+  component.epistemic-investigation:
+    kind: component
+    title: Epistemic Investigation
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/00-foundations-and-epistemology.md
+    implementation:
+    - symbiont/src/symbiont/core/cognition/evidence.py
+    - symbiont/src/symbiont/core/domains/epistemic.py
+    tests:
+    - symbiont/tests/unit/core/test_evidence_revision.py
+    design:
+    - docs/design/core/epistemic-ownership-and-claim-levels-v1.md
+    adrs:
+    - docs/adr/ADR-0006-evidence-revision-identity.md
+    master:
+      ids:
+      - SYM-EPIST
+    depends_on:
+    - concept.organism
+  component.causal-provenance:
+    kind: component
+    title: Causal Provenance v1
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/00-foundations-and-epistemology.md
+    implementation:
+    - symbiont/src/symbiont/provenance.py
+    tests:
+    - lab/tests/unit/test_causal_provenance.py
+    design:
+    - docs/design/core/causal-provenance-v1.md
+    adrs:
+    - docs/adr/ADR-0009-state-x-immutable-run-provenance.md
+    master:
+      ids:
+      - SYM-PROV
+    depends_on:
+    - concept.organism
+  component.epistemic-ownership:
+    kind: component
+    title: Epistemic Ownership & Claim Levels v1
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/00-foundations-and-epistemology.md
+    implementation:
+    - symbiont/src/symbiont/foundation/epistemic.py
+    design:
+    - docs/design/core/epistemic-ownership-and-claim-levels-v1.md
+    master:
+      ids:
+      - SYM-OWN
+    depends_on:
+    - component.epistemic-investigation
+  component.social-epistemology:
+    kind: component
+    title: Social Epistemology
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/10-social-cultural-lineage.md
+    implementation:
+    - symbiont/src/symbiont/modeling/runtime.py
+    tests:
+    - symbiont/tests/unit/test_autonomous_cultural_agency.py
+    - symbiont/tests/unit/test_cumulative_culture.py
+    adrs:
+    - docs/adr/ADR-0041-bounded-population-ecology-and-authorized-local-interaction.md
+    master:
+      ids:
+      - SYM-SOC
+    depends_on:
+    - component.epistemic-investigation
+  component.symbol-grounding:
+    kind: component
+    title: Emergent Symbol Grounding
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/10-social-cultural-lineage.md
+    implementation:
+    - symbiont/src/symbiont/modeling/symbols.py
+    tests:
+    - symbiont/tests/unit/test_symbols.py
+    design:
+    - docs/design/cognition/emergent-symbol-grounding-v1.md
+    adrs:
+    - docs/adr/ADR-0020-emergent-grounding-over-semantic-imposition.md
+    master:
+      ids:
+      - SYM-SYM
+    depends_on:
+    - concept.organism
+  component.structured-communication:
+    kind: component
+    title: Structured Communication
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/10-social-cultural-lineage.md
+    implementation:
+    - symbiont/src/symbiont/modeling/sequences.py
+    tests:
+    - symbiont/tests/unit/modeling/test_sequence_substrate.py
+    - symbiont/tests/unit/modeling/test_communication_telemetry.py
+    design:
+    - docs/design/communication/emergent-structured-communication-v1.md
+    master:
+      ids:
+      - SYM-COMM
+    depends_on:
+    - component.symbol-grounding
+  component.host-sensing:
+    kind: component
+    title: Host Sensing
+    status: CURRENT
+    owner_domain: symbiont
+    participating_domains:
+    - modality
+    canonical_docs:
+    - symbiont/docs/04-perception-and-sensory-development.md
+    implementation:
+    - symbiont/src/symbiont/host/acclimation.py
+    - modality/src/modality/host/contracts.py
+    tests:
+    - symbiont/tests/unit/host/test_acclimation.py
+    adrs:
+    - docs/adr/ADR-0017-host-least-privilege-and-non-remediation-safety.md
+    master:
+      ids:
+      - SYM-HOST
+    depends_on:
+    - concept.organism
+    - concept.modality
+  component.embodiment-history:
+    kind: component
+    title: Embodiment History / Continuity State
+    status: CURRENT
+    owner_domain: symbiont
+    participating_domains:
+    - embodiment
+    canonical_docs:
+    - symbiont/docs/03-world-body-and-embodiment.md
+    - symbiont/docs/11-persistence-provenance-and-reembodiment.md
+    implementation:
+    - symbiont/src/symbiont/core/embodiment/memory.py
+    tests:
+    - symbiont/tests/unit/core/test_embodiment_v2.py
+    design:
+    - docs/design/embodiment/embodiment-v2.md
+    adrs:
+    - docs/adr/ADR-0013-longitudinal-reembodiment-and-body-decoupling.md
+    - docs/adr/ADR-0036-hypothesis-driven-reactivation-of-embodiment-memory.md
+    master:
+      ids:
+      - SYM-EMB-H
+    depends_on:
+    - concept.embodiment
+    - concept.organism
+  component.longitudinal-integrity:
+    kind: component
+    title: Longitudinal Integrity v1
+    status: CURRENT
+    owner_domain: symbiont
+    participating_domains:
+    - lab
+    canonical_docs:
+    - symbiont/docs/11-persistence-provenance-and-reembodiment.md
+    implementation:
+    - symbiont/src/symbiont/host/continuity.py
+    tests:
+    - symbiont/tests/unit/host/test_strict_restore.py
+    - lab/tests/integration/test_reembodiment_continuity.py
+    design:
+    - docs/design/core/longitudinal-integrity-v1.md
+    master:
+      ids:
+      - SYM-LI
+    depends_on:
+    - concept.organism
+  component.lifecycle-continuity-contract:
+    kind: component
+    title: Lifecycle Continuity Contract v1
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/02-lifecycle-and-time.md
+    - symbiont/docs/11-persistence-provenance-and-reembodiment.md
+    implementation:
+    - symbiont/src/symbiont/core/orchestration/continuity.py
+    tests:
+    - tests/experimental_integrity/test_longitudinal_contract_declaration.py
+    design:
+    - docs/design/core/lifecycle-continuity-contract-v1.md
+    master:
+      ids:
+      - SYM-LCC
+    depends_on:
+    - concept.organism
+  component.checkpoint-persistence:
+    kind: component
+    title: Checkpoint / Persistence
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/11-persistence-provenance-and-reembodiment.md
+    implementation:
+    - symbiont/src/symbiont/host/checkpoint.py
+    tests:
+    - symbiont/tests/unit/host/test_checkpoint.py
+    - symbiont/tests/unit/host/test_strict_restore.py
+    adrs:
+    - docs/adr/ADR-0072-persistence-contracts-by-data-class.md
+    master:
+      ids:
+      - SYM-CHK
+    depends_on:
+    - component.lifecycle-continuity-contract
+  component.identity-lineage:
+    kind: component
+    title: Identity & Lineage
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/01-system-and-boundaries.md
+    - symbiont/docs/10-social-cultural-lineage.md
+    implementation:
+    - symbiont/src/symbiont/core/signals/identity.py
+    - symbiont/src/symbiont/core/lineage/inheritance.py
+    tests:
+    - symbiont/tests/unit/core/test_resident_genetic_inheritance.py
+    adrs:
+    - docs/adr/ADR-0033-endogenous-stress-induced-reproduction-and-clonal-lineage.md
+    master:
+      ids:
+      - SYM-LIN
+    depends_on:
+    - concept.organism
+  component.capacity-limits:
+    kind: component
+    title: Capacity & Infrastructure Limits
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/01-system-and-boundaries.md
+    implementation:
+    - symbiont/src/symbiont/foundation/limits.py
+    - symbiont/src/symbiont/capacity.py
+    tests:
+    - symbiont/tests/unit/cognition/test_limits.py
+    master:
+      ids:
+      - SYM-CAP
+    depends_on:
+    - concept.organism
+  mechanism.drift-detection:
+    kind: mechanism
+    title: Drift Detection and Regime Transition
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/explanation/math/03-drift-detection-and-regimes.md
+    implementation:
+    - symbiont/src/symbiont/host/drift.py
+    - symbiont/src/symbiont/host/rhythms.py
+    tests:
+    - symbiont/tests/unit/host/test_host_drift.py
+    - symbiont/tests/unit/host/test_rhythms.py
+    adrs:
+    - docs/adr/ADR-0032-multi-scale-temporal-domains-and-biological-rhythms.md
+    depends_on:
+    - component.sensory-system
+    - equation.drift-page-hinkley
+  mechanism.sensory-acclimation:
+    kind: mechanism
+    title: Sensory Acclimation and Continuous Calibration
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/explanation/math/02-perception-acclimation-and-relations.md
+    implementation:
+    - symbiont/src/symbiont/host/acclimation.py
+    - symbiont/src/symbiont/host/adaptive.py
+    tests:
+    - symbiont/tests/unit/host/test_acclimation.py
+    - symbiont/tests/unit/host/test_adaptive_senses.py
+    adrs:
+    - docs/adr/ADR-0029-collinearity-pruning-and-sensory-manifold-selection.md
+    depends_on:
+    - component.host-sensing
+  mechanism.causal-attention-budgeting:
+    kind: mechanism
+    title: Causal Attention Budget Allocation
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/explanation/math/04-causal-attention-and-budgets.md
+    implementation:
+    - symbiont/src/symbiont/core/cognition/attention.py
+    tests:
+    - symbiont/tests/unit/core/test_attention.py
+    adrs:
+    - docs/adr/ADR-0003-attention-is-not-classification.md
+    - docs/adr/ADR-0042-deterministic-causal-time-and-sensor-cost.md
+    depends_on:
+    - component.cognitive-graph
+    - equation.attention-budget-allocation
+  mechanism.evidence-revision:
+    kind: mechanism
+    title: Evidence Revision and Dissent Ledger
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/explanation/math/05-bayesian-beliefs-and-dissent.md
+    implementation:
+    - symbiont/src/symbiont/core/cognition/evidence.py
+    - symbiont/src/symbiont/core/foundation/narrative.py
+    tests:
+    - symbiont/tests/unit/core/test_evidence_revision.py
+    adrs:
+    - docs/adr/ADR-0006-evidence-revision-identity.md
+    - docs/adr/ADR-0030-bayesian-evidence-saturation-and-anti-fossilization-cap.md
+    depends_on:
+    - component.epistemic-investigation
+  mechanism.self-model-adaptation:
+    kind: mechanism
+    title: Self-Model Dynamics and Energy Adaptation
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/explanation/math/08-self-model-and-adaptive-sensors.md
+    implementation:
+    - symbiont/src/symbiont/core/cognition/self_model.py
+    - symbiont/src/symbiont/core/cognition/host_self_model.py
+    tests:
+    - symbiont/tests/unit/core/test_selfmodel.py
+    design:
+    - docs/design/observability/self-model-workbench-v1.md
+    depends_on:
+    - component.cognitive-graph
+    - equation.self-model-energy-dynamics
+  mechanism.endogenous-plasticity:
+    kind: mechanism
+    title: Endogenous Synaptic Plasticity and Recurrent Dynamics
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/explanation/math/09-endogenous-plasticity-and-recurrent-networks.md
+    implementation:
+    - symbiont/src/symbiont/cognition/learning.py
+    - symbiont/src/symbiont/core/cognition/plasticity_state.py
+    tests:
+    - symbiont/tests/unit/cognition/test_learning.py
+    adrs:
+    - docs/adr/ADR-0015-immutable-mathematical-kernel-and-data-plasticity.md
+    - docs/adr/ADR-0031-synaptic-normalization-and-plasticity-stability-via-ojas-rule.md
+    depends_on:
+    - component.cognitive-graph
+    - equation.oja-plasticity-update
+  mechanism.causal-selection-treap:
+    kind: mechanism
+    title: Causal Selection Treap and Online Statistics
+    status: CURRENT
+    owner_domain: lab
+    canonical_docs:
+    - symbiont/docs/explanation/math/10-causal-selection-and-statistical-evaluation.md
+    implementation:
+    - lab/src/lab/studies/common/causal_selection.py
+    adrs:
+    - docs/adr/ADR-0007-common-causal-eligibility.md
+    depends_on:
+    - concept.lab-apparatus
+    - algorithm.treap-causal-selection
+  equation.drift-page-hinkley:
+    kind: equation
+    title: Cumulative Page-Hinkley Drift Statistic
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/explanation/math/03-drift-detection-and-regimes.md
+    implementation:
+    - symbiont/src/symbiont/host/drift.py
+    tests:
+    - symbiont/tests/unit/host/test_host_drift.py
+    depends_on:
+    - component.sensory-system
+  equation.attention-budget-allocation:
+    kind: equation
+    title: Entropy-Regularized Attention Budget Softmax
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/explanation/math/04-causal-attention-and-budgets.md
+    implementation:
+    - symbiont/src/symbiont/core/cognition/attention.py
+    tests:
+    - symbiont/tests/unit/core/test_attention.py
+    depends_on:
+    - component.cognitive-graph
+  equation.oja-plasticity-update:
+    kind: equation
+    title: Normalized Oja Synaptic Weight Update
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/explanation/math/09-endogenous-plasticity-and-recurrent-networks.md
+    implementation:
+    - symbiont/src/symbiont/cognition/learning.py
+    tests:
+    - symbiont/tests/unit/cognition/test_learning.py
+    adrs:
+    - docs/adr/ADR-0031-synaptic-normalization-and-plasticity-stability-via-ojas-rule.md
+    depends_on:
+    - component.cognitive-graph
+  equation.self-model-energy-dynamics:
+    kind: equation
+    title: Metabolic Self-Model Energy and Reserve Dynamics
+    status: CURRENT
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/explanation/math/08-self-model-and-adaptive-sensors.md
+    implementation:
+    - symbiont/src/symbiont/core/cognition/self_model.py
+    tests:
+    - symbiont/tests/unit/core/test_selfmodel.py
+    depends_on:
+    - component.cognitive-graph
+  algorithm.splitmix64-prng:
+    kind: algorithm
+    title: Deterministic SplitMix64 PRNG Stream
+    status: CURRENT
+    owner_domain: environment
+    participating_domains:
+    - lab
+    canonical_docs:
+    - symbiont/docs/explanation/math/01-fundamentals-and-epistemology.md
+    implementation:
+    - environment/src/environment/rng.py
+    - lab/src/lab/studies/common/rng.py
+    adrs:
+    - docs/adr/ADR-0004-separated-rng-streams.md
+    depends_on:
+    - concept.five-domain-boundary
+  algorithm.treap-causal-selection:
+    kind: algorithm
+    title: Randomized Treap Search for Online Causal Indices
+    status: CURRENT
+    owner_domain: lab
+    canonical_docs:
+    - symbiont/docs/explanation/math/10-causal-selection-and-statistical-evaluation.md
+    implementation:
+    - lab/src/lab/studies/common/causal_selection.py
+    adrs:
+    - docs/adr/ADR-0007-common-causal-eligibility.md
+    depends_on:
+    - concept.lab-apparatus
+  mechanism.legacy-bayesian-beliefs:
+    kind: mechanism
+    title: Legacy Multi-Hypothesis Bayesian Beliefs
+    status: HISTORICAL
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/explanation/math/05-bayesian-beliefs-and-dissent.md
+    depends_on:
+    - concept.organism
+  mechanism.legacy-collective-consensus:
+    kind: mechanism
+    title: Legacy Multi-Agent Consensus and Trust Matrix
+    status: HISTORICAL
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/explanation/math/06-collective-consensus-and-trust.md
+    depends_on:
+    - concept.organism
+  mechanism.legacy-cyber-threat-metacognition:
+    kind: mechanism
+    title: Legacy Agent Threat Assessment and Metacognition Engine
+    status: HISTORICAL
+    owner_domain: symbiont
+    canonical_docs:
+    - symbiont/docs/explanation/math/07-agent-cognition-and-metacognition.md
+    depends_on:
+    - concept.organism
+  metric.legacy-threat-assessment:
+    kind: metric
+    title: Legacy Simulation Threat and Epistemic Indices
+    status: HISTORICAL
+    owner_domain: lab
+    canonical_docs:
+    - symbiont/docs/explanation/math/10-causal-selection-and-statistical-evaluation.md
+    depends_on:
+    - concept.lab-apparatus

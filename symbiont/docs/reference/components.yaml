@@ -1,0 +1,1285 @@
+schema_version: 1
+
+# Component Semantic Registry
+# Canonical authority, state ownership, lifecycle behavior, and responsibilities for all 48 SYM-* components.
+# Cross-references canonical units defined in symbiont/docs/coverage.yaml.
+
+components:
+
+  SYM-GEN:
+    coverage_unit: component.genome
+    name: "Genome"
+    authority:
+      owns: "heritable genetic representation and constitutional loci alleles"
+      may_decide:
+        - "genotype structure within schema constraints"
+      must_not:
+        - "contain acquired cognitive knowledge or learned competences"
+        - "contain concrete actuator or sensor semantic names"
+        - "encode hardware or infrastructure capacity limits"
+    state:
+      owner: symbiont
+      family: identity_longitudinal
+    lifecycle:
+      birth: initialize
+      checkpoint: preserve
+      restart: preserve
+      reembodiment: preserve
+      reproduction: inherit_allowed
+    inputs:
+      - "parental inheritance"
+      - "reproduction protocol"
+    outputs:
+      - "heritable genotype state"
+    consumers:
+      - component.germline
+      - component.ontogeny-development
+
+  SYM-GSC:
+    coverage_unit: component.genome-schema
+    name: "Genome Schema"
+    authority:
+      owns: "closed catalogue of valid loci, validation rules, and genetic representation constraints"
+      may_decide:
+        - "loci legality and value ranges"
+      must_not:
+        - "represent an individual genotype"
+    state:
+      owner: symbiont
+      family: infrastructure
+    lifecycle:
+      birth: initialize
+      checkpoint: not_applicable
+      restart: preserve
+      reembodiment: preserve
+      reproduction: not_applicable
+    inputs:
+      - "code versioning and contract definitions"
+    outputs:
+      - "loci specifications and validity constraints"
+    consumers:
+      - component.genome
+      - component.germline
+
+  SYM-GRM:
+    coverage_unit: component.germline
+    name: "Germline"
+    authority:
+      owns: "heritable reproductive transmission package and lineage boundary"
+      may_decide:
+        - "reproduction transmission eligibility"
+      must_not:
+        - "transport acquired cognitive memories, episodes, or learned competences"
+    state:
+      owner: symbiont
+      family: identity_longitudinal
+    lifecycle:
+      birth: initialize
+      checkpoint: preserve
+      restart: preserve
+      reembodiment: preserve
+      reproduction: inherit_allowed
+    inputs:
+      - "parental genome state"
+      - "epigenetic marks"
+    outputs:
+      - "child inheritance package"
+    consumers:
+      - component.identity-lineage
+
+  SYM-EPI-G:
+    coverage_unit: component.epigenetic-state
+    name: "Epigenetic State"
+    authority:
+      owns: "persistent regulatory modifications without genomic alteration"
+      may_decide:
+        - "heritable expression modulation within permitted protocols"
+      must_not:
+        - "convert cognitive experience directly into genetic loci"
+    state:
+      owner: symbiont
+      family: adaptive_longitudinal
+    lifecycle:
+      birth: initialize
+      checkpoint: preserve
+      restart: preserve
+      reembodiment: preserve
+      reproduction: conditional
+    inputs:
+      - "endogenous stress signals"
+      - "somatic regulatory state"
+    outputs:
+      - "epigenetic modulation marks"
+    consumers:
+      - component.germline
+      - component.metaplasticity
+
+  SYM-PHEX:
+    coverage_unit: component.phenotype-expression
+    name: "Phenotype Expression v1"
+    authority:
+      owns: "transformation from genotype and developmental context into expressed phenotype"
+      may_decide:
+        - "expression program execution"
+      must_not:
+        - "mix genotype with runtime configuration"
+    state:
+      owner: symbiont
+      family: adaptive_longitudinal
+    lifecycle:
+      birth: initialize
+      checkpoint: preserve
+      restart: preserve
+      reembodiment: preserve
+      reproduction: not_inherited
+    inputs:
+      - "component.genome"
+      - "developmental context"
+    outputs:
+      - "expressed biological phenotype"
+    consumers:
+      - component.biological-phenotype
+
+  SYM-PHENO:
+    coverage_unit: component.biological-phenotype
+    name: "Biological Phenotype"
+    authority:
+      owns: "expressed somatic and perceptual capabilities"
+      may_decide:
+        - "realized organism capacity baseline"
+      must_not:
+        - "bypass genome decoupling invariants"
+    state:
+      owner: symbiont
+      family: adaptive_longitudinal
+    lifecycle:
+      birth: initialize
+      checkpoint: preserve
+      restart: preserve
+      reembodiment: preserve
+      reproduction: not_inherited
+    inputs:
+      - "component.phenotype-expression"
+    outputs:
+      - "phenotypic capacity envelope"
+    consumers:
+      - component.sensory-system
+      - component.actuation
+
+  SYM-DEV:
+    coverage_unit: component.ontogeny-development
+    name: "Ontogeny / Development"
+    authority:
+      owns: "quantitative developmental milestones, tick maturation, and ontogeny stage"
+      may_decide:
+        - "developmental stage transitions"
+      must_not:
+        - "reset developmental age on re-embodiment or restart"
+    state:
+      owner: symbiont
+      family: adaptive_longitudinal
+    lifecycle:
+      birth: initialize
+      checkpoint: preserve
+      restart: preserve
+      reembodiment: preserve
+      reproduction: not_inherited
+    inputs:
+      - "organism ticks"
+      - "somatic growth signals"
+    outputs:
+      - "developmental maturity snapshot"
+    consumers:
+      - component.cognitive-graph
+      - component.agency-acquisition
+
+  SYM-PHY:
+    coverage_unit: component.physiology
+    name: "Physiology"
+    authority:
+      owns: "somatic physiological state and metabolic internal conditions"
+      may_decide:
+        - "internal energy and fatigue dynamics"
+      must_not:
+        - "claim authority over external physical world facts"
+    state:
+      owner: symbiont
+      family: adaptive_longitudinal
+    lifecycle:
+      birth: initialize
+      checkpoint: preserve
+      restart: preserve
+      reembodiment: preserve
+      reproduction: not_inherited
+    inputs:
+      - "metabolic expenditure"
+      - "host environmental readings"
+    outputs:
+      - "somatic physiological state vector"
+    consumers:
+      - component.homeostasis
+      - component.outcome-value
+
+  SYM-HOM:
+    coverage_unit: component.homeostasis
+    name: "Homeostasis"
+    authority:
+      owns: "measurement of deviation from viable physiological conditions"
+      may_decide:
+        - "homeostatic deviation indices D_t"
+      must_not:
+        - "act as an external reward oracle"
+        - "directly select or dictate motor actions"
+    state:
+      owner: symbiont
+      family: adaptive_longitudinal
+    lifecycle:
+      birth: initialize
+      checkpoint: preserve
+      restart: preserve
+      reembodiment: preserve
+      reproduction: not_inherited
+    inputs:
+      - "component.physiology state"
+      - "viable boundaries"
+    outputs:
+      - "homeostatic deviation signals"
+    consumers:
+      - component.outcome-value
+      - component.physiology
+
+  SYM-SENS:
+    coverage_unit: component.sensory-system
+    name: "Sensory System"
+    authority:
+      owns: "discovery, maintenance, and adaptation of sensory capabilities"
+      may_decide:
+        - "sensor discovery and transducer calibration"
+      must_not:
+        - "impose human semantic labels on sensory channels"
+    state:
+      owner: symbiont
+      family: adaptive_longitudinal
+    lifecycle:
+      birth: initialize
+      checkpoint: preserve
+      restart: preserve
+      reembodiment: rebind
+      reproduction: not_inherited
+    inputs:
+      - "host transducer readings"
+      - "modality contracts"
+    outputs:
+      - "calibrated sensory percept signals"
+    consumers:
+      - component.perception
+      - component.cognitive-graph
+
+  SYM-PER:
+    coverage_unit: component.perception
+    name: "Perception"
+    authority:
+      owns: "tick-level perceptual intake and relational observation formation"
+      may_decide:
+        - "perceptual representation and drift classification"
+      must_not:
+        - "access unmediated world ground truth"
+    state:
+      owner: symbiont
+      family: ephemeral
+    lifecycle:
+      birth: empty
+      checkpoint: reset
+      restart: reset
+      reembodiment: reset
+      reproduction: not_inherited
+    inputs:
+      - "component.sensory-system percepts"
+    outputs:
+      - "relational observation vector O_t"
+    consumers:
+      - component.cognitive-graph
+      - component.local-predictors
+
+  SYM-CG:
+    coverage_unit: component.cognitive-graph
+    name: "Cognitive Graph"
+    authority:
+      owns: "topological association graph of concepts, nodes, and plastic edges"
+      may_decide:
+        - "synaptic weight updates and structural edge mutations"
+      must_not:
+        - "exceed kernel capacity resource ceilings"
+    state:
+      owner: symbiont
+      family: adaptive_longitudinal
+    lifecycle:
+      birth: initialize
+      checkpoint: preserve
+      restart: preserve
+      reembodiment: preserve
+      reproduction: not_inherited
+    inputs:
+      - "perceptual activations"
+      - "synaptic plasticity modulations"
+    outputs:
+      - "internal cognitive state S_t"
+      - "concept activations"
+    consumers:
+      - component.metaplasticity
+      - component.local-predictors
+      - component.memory-consolidation
+
+  SYM-META:
+    coverage_unit: component.metaplasticity
+    name: "Metaplasticity"
+    authority:
+      owns: "learning rate regulation and synaptic plasticity state modulation"
+      may_decide:
+        - "neuromodulatory gains and learning thresholds"
+      must_not:
+        - "allow unbounded synaptic weight explosion"
+    state:
+      owner: symbiont
+      family: adaptive_longitudinal
+    lifecycle:
+      birth: initialize
+      checkpoint: preserve
+      restart: preserve
+      reembodiment: preserve
+      reproduction: not_inherited
+    inputs:
+      - "homeostatic deviation"
+      - "epigenetic state"
+    outputs:
+      - "plasticity modulatory factors"
+    consumers:
+      - component.cognitive-graph
+      - component.local-predictors
+
+  SYM-LP:
+    coverage_unit: component.local-predictors
+    name: "Local Predictors"
+    authority:
+      owns: "immediate local relations and shadow prediction candidates"
+      may_decide:
+        - "shadow prediction updates and predictive gain calculation"
+      must_not:
+        - "act as a global world model"
+    state:
+      owner: symbiont
+      family: adaptive_longitudinal
+    lifecycle:
+      birth: empty
+      checkpoint: preserve
+      restart: preserve
+      reembodiment: preserve
+      reproduction: not_inherited
+    inputs:
+      - "active concept context"
+      - "target activations"
+    outputs:
+      - "local predictions and shadow candidates"
+    consumers:
+      - component.predictor-lifecycle
+      - component.cognitive-graph
+
+  SYM-PROM:
+    coverage_unit: component.predictor-lifecycle
+    name: "Predictor Lifecycle"
+    authority:
+      owns: "promotion, degradation, and retirement of shadow predictors"
+      may_decide:
+        - "promotion of shadow predictor to active cognitive edge"
+      must_not:
+        - "promote candidates without out-of-sample empirical gain"
+    state:
+      owner: symbiont
+      family: adaptive_longitudinal
+    lifecycle:
+      birth: empty
+      checkpoint: preserve
+      restart: preserve
+      reembodiment: preserve
+      reproduction: not_inherited
+    inputs:
+      - "shadow prediction samples"
+      - "predictive gain metrics"
+    outputs:
+      - "promoted active predictors"
+      - "retired edges"
+    consumers:
+      - component.cognitive-graph
+
+  SYM-AGA:
+    coverage_unit: component.agency-acquisition
+    name: "Agency Acquisition"
+    authority:
+      owns: "developmental transition from reflexive babbling to directed agency"
+      may_decide:
+        - "agency acquisition maturity stage"
+      must_not:
+        - "assume mature motor competence before exploration evidence"
+    state:
+      owner: symbiont
+      family: adaptive_longitudinal
+    lifecycle:
+      birth: initialize
+      checkpoint: preserve
+      restart: preserve
+      reembodiment: preserve
+      reproduction: not_inherited
+    inputs:
+      - "exploratory motor attempts"
+      - "causal feedback signals"
+    outputs:
+      - "agency acquisition status"
+    consumers:
+      - component.sensorimotor-transition
+      - component.prospective-agency
+
+  SYM-SET:
+    coverage_unit: component.sensorimotor-transition
+    name: "Sensorimotor Transition"
+    authority:
+      owns: "empirical sensorimotor transition evidence and causal attribution traces"
+      may_decide:
+        - "causal intervention registration"
+      must_not:
+        - "fabricate causal evidence without motor attempt correlation"
+    state:
+      owner: symbiont
+      family: adaptive_longitudinal
+    lifecycle:
+      birth: empty
+      checkpoint: preserve
+      restart: preserve
+      reembodiment: preserve
+      reproduction: not_inherited
+    inputs:
+      - "motor attempt commitments"
+      - "perceptual consequence deltas"
+    outputs:
+      - "sensorimotor transition records"
+    consumers:
+      - component.motor-primitive
+      - component.competence
+
+  SYM-MP:
+    coverage_unit: component.motor-primitive
+    name: "Motor Primitive"
+    authority:
+      owns: "discovered opaque temporal motor chunks"
+      may_decide:
+        - "motor primitive chunk establishment"
+      must_not:
+        - "be conflated with mature competence or body-specific commands"
+    state:
+      owner: symbiont
+      family: adaptive_longitudinal
+    lifecycle:
+      birth: empty
+      checkpoint: preserve
+      restart: preserve
+      reembodiment: preserve
+      reproduction: not_inherited
+    inputs:
+      - "component.sensorimotor-transition"
+    outputs:
+      - "reusable motor primitive chunks"
+    consumers:
+      - component.competence
+
+  SYM-COMP:
+    coverage_unit: component.competence
+    name: "Competence"
+    authority:
+      owns: "acquired reusable capability library"
+      may_decide:
+        - "competence maturity status"
+      must_not:
+        - "assume executability on every embodiment"
+        - "become a body-specific binding"
+    state:
+      owner: symbiont
+      family: adaptive_longitudinal
+    lifecycle:
+      birth: empty
+      checkpoint: preserve
+      restart: preserve
+      reembodiment: preserve
+      reproduction: not_inherited
+    inputs:
+      - "causal sensorimotor evidence"
+    outputs:
+      - "reusable competence abstractions"
+    consumers:
+      - component.affordance
+      - component.competence-binding
+      - component.competence-composition
+
+  SYM-CBIND:
+    coverage_unit: component.competence-binding
+    name: "Competence Execution Binding"
+    authority:
+      owns: "binding mapping from abstract competence to concrete embodiment actuators"
+      may_decide:
+        - "binding validity and degradation via Wilson score"
+      must_not:
+        - "overwrite competence identity on re-embodiment"
+    state:
+      owner: symbiont
+      family: embodiment_local
+    lifecycle:
+      birth: empty
+      checkpoint: preserve
+      restart: preserve
+      reembodiment: rebind
+      reproduction: not_inherited
+    inputs:
+      - "component.competence"
+      - "embodiment actuator contracts"
+    outputs:
+      - "actuator execution mappings"
+    consumers:
+      - component.actuation
+
+  SYM-COMPX:
+    coverage_unit: component.competence-composition
+    name: "Competence Composition"
+    authority:
+      owns: "sequential and hierarchical composition of established competences"
+      may_decide:
+        - "composition validity and chained execution"
+      must_not:
+        - "compose unestablished candidate competences"
+    state:
+      owner: symbiont
+      family: adaptive_longitudinal
+    lifecycle:
+      birth: empty
+      checkpoint: preserve
+      restart: preserve
+      reembodiment: preserve
+      reproduction: not_inherited
+    inputs:
+      - "component.competence library"
+    outputs:
+      - "composed competence plans"
+    consumers:
+      - component.affordance
+      - component.prospective-agency
+
+  SYM-AFF:
+    coverage_unit: component.affordance
+    name: "Affordance"
+    authority:
+      owns: "evaluation of available actionable opportunities given current context"
+      may_decide:
+        - "contextual affordance availability"
+      must_not:
+        - "declare action execution before intention commitment"
+    state:
+      owner: symbiont
+      family: ephemeral
+    lifecycle:
+      birth: empty
+      checkpoint: reset
+      restart: reset
+      reembodiment: reset
+      reproduction: not_inherited
+    inputs:
+      - "current observation O_t"
+      - "component.competence library"
+    outputs:
+      - "action affordance candidates"
+    consumers:
+      - component.prospective-agency
+
+  SYM-PROS:
+    coverage_unit: component.prospective-agency
+    name: "Prospective Agency"
+    authority:
+      owns: "prospective evaluation of action alternatives and outcome estimation"
+      may_decide:
+        - "prospective action proposals"
+      must_not:
+        - "bypass executive outcome evaluation constraints"
+    state:
+      owner: symbiont
+      family: ephemeral
+    lifecycle:
+      birth: empty
+      checkpoint: reset
+      restart: reset
+      reembodiment: reset
+      reproduction: not_inherited
+    inputs:
+      - "affordance candidates"
+      - "outcome value expectations"
+    outputs:
+      - "prospective decision proposals"
+    consumers:
+      - component.intention
+
+  SYM-INT:
+    coverage_unit: component.intention
+    name: "Intention"
+    authority:
+      owns: "formation and lifecycle tracking of ActionIntent"
+      may_decide:
+        - "intent status and target outcome specification"
+      must_not:
+        - "directly actuate hardware before commitment"
+    state:
+      owner: symbiont
+      family: episode_bound
+    lifecycle:
+      birth: empty
+      checkpoint: preserve
+      restart: preserve
+      reembodiment: invalidate_authority
+      reproduction: not_inherited
+    inputs:
+      - "prospective decision proposal"
+    outputs:
+      - "active ActionIntent"
+    consumers:
+      - component.commitment
+
+  SYM-CMT:
+    coverage_unit: component.commitment
+    name: "Commitment"
+    authority:
+      owns: "irrevocable single-motor execution commitment (ActionCommitment)"
+      may_decide:
+        - "single motor authority arbitration"
+      must_not:
+        - "allow multiple concurrent unarbitrated motor authorities"
+    state:
+      owner: symbiont
+      family: ephemeral
+    lifecycle:
+      birth: empty
+      checkpoint: reset
+      restart: reset
+      reembodiment: reset
+      reproduction: not_inherited
+    inputs:
+      - "active ActionIntent"
+    outputs:
+      - "committed ActionCommitment"
+    consumers:
+      - component.actuation
+      - component.executive-outcome-learning
+
+  SYM-EOL:
+    coverage_unit: component.executive-outcome-learning
+    name: "Executive Outcome Learning"
+    authority:
+      owns: "learning of executive outcome fidelity and action consequences"
+      may_decide:
+        - "outcome attribution and execution success credit"
+      must_not:
+        - "alter historical committed intents retroactively"
+    state:
+      owner: symbiont
+      family: adaptive_longitudinal
+    lifecycle:
+      birth: empty
+      checkpoint: preserve
+      restart: preserve
+      reembodiment: preserve
+      reproduction: not_inherited
+    inputs:
+      - "ActionCommitment"
+      - "consequence observation delta"
+    outputs:
+      - "executive outcome learning ledger"
+    consumers:
+      - component.outcome-value
+      - component.competence
+
+  SYM-OV:
+    coverage_unit: component.outcome-value
+    name: "Outcome Value"
+    authority:
+      owns: "endogenous evaluation of action consequence value from homeostatic impact"
+      may_decide:
+        - "endogenous outcome valence"
+      must_not:
+        - "become an external scalar reward oracle"
+    state:
+      owner: symbiont
+      family: adaptive_longitudinal
+    lifecycle:
+      birth: empty
+      checkpoint: preserve
+      restart: preserve
+      reembodiment: preserve
+      reproduction: not_inherited
+    inputs:
+      - "component.homeostasis deviation delta"
+      - "executive outcomes"
+    outputs:
+      - "outcome value ledger"
+    consumers:
+      - component.prospective-agency
+
+  SYM-ACT:
+    coverage_unit: component.actuation
+    name: "Actuation"
+    authority:
+      owns: "execution emission of ActionAttempt over embodiment motor channels"
+      may_decide:
+        - "motor attempt dispatch"
+      must_not:
+        - "pre-filter or modify committed motor commands"
+    state:
+      owner: symbiont
+      family: ephemeral
+    lifecycle:
+      birth: empty
+      checkpoint: reset
+      restart: reset
+      reembodiment: reset
+      reproduction: not_inherited
+    inputs:
+      - "ActionCommitment"
+      - "execution binding"
+    outputs:
+      - "ActionAttempt dispatch"
+    consumers:
+      - component.sensorimotor-transition
+
+  SYM-EPI-M:
+    coverage_unit: component.episodic-memory
+    name: "Episodic Experience Memory v2"
+    authority:
+      owns: "sequential episodic experience records and lived history trace"
+      may_decide:
+        - "episode boundary management and retention"
+      must_not:
+        - "record ungrounded world ground truth"
+    state:
+      owner: symbiont
+      family: adaptive_longitudinal
+    lifecycle:
+      birth: empty
+      checkpoint: preserve
+      restart: preserve
+      reembodiment: preserve
+      reproduction: not_inherited
+    inputs:
+      - "lived tick observations"
+      - "action attempts"
+      - "outcomes"
+    outputs:
+      - "episodic experience traces"
+    consumers:
+      - component.experience-replay
+      - component.memory-consolidation
+      - component.private-model
+
+  SYM-REPLAY:
+    coverage_unit: component.experience-replay
+    name: "Experience Replay"
+    authority:
+      owns: "re-engagement of lived experience for offline model training and consolidation"
+      may_decide:
+        - "replay pressure and requested training budget plan"
+      must_not:
+        - "convert replayed memories into new factual observations"
+    state:
+      owner: symbiont
+      family: adaptive_longitudinal
+    lifecycle:
+      birth: empty
+      checkpoint: preserve
+      restart: preserve
+      reembodiment: preserve
+      reproduction: not_inherited
+    inputs:
+      - "component.episodic-memory traces"
+    outputs:
+      - "replayed experience batches for training substrate"
+    consumers:
+      - component.private-model
+      - component.memory-consolidation
+
+  SYM-PM:
+    coverage_unit: component.private-model
+    name: "Private Model"
+    authority:
+      owns: "predictive transition models: state + action -> probable next state"
+      may_decide:
+        - "candidate vs active model promotion"
+      must_not:
+        - "assert factual truth"
+        - "train on unsupported self-generated outcomes"
+    state:
+      owner: symbiont
+      family: adaptive_longitudinal
+    lifecycle:
+      birth: empty
+      checkpoint: preserve
+      restart: preserve
+      reembodiment: preserve
+      reproduction: not_inherited
+    inputs:
+      - "authorized experience corpus"
+      - "training requests"
+    outputs:
+      - "state transition predictions"
+    consumers:
+      - component.generative-cognition
+      - component.prospective-agency
+
+  SYM-GENC:
+    coverage_unit: component.generative-cognition
+    name: "Generative Cognition v1"
+    authority:
+      owns: "resident mental simulation workspace and counterfactual generation"
+      may_decide:
+        - "hypothesis generation agenda"
+      must_not:
+        - "promote hypotheses to observations"
+        - "execute motors directly"
+    state:
+      owner: symbiont
+      family: adaptive_longitudinal
+    lifecycle:
+      birth: empty
+      checkpoint: preserve
+      restart: preserve
+      reembodiment: preserve
+      reproduction: not_inherited
+    inputs:
+      - "component.private-model"
+      - "cognitive graph state"
+    outputs:
+      - "generative simulation branches"
+    consumers:
+      - component.generative-hypothesis
+      - component.counterfactual-rollout
+
+  SYM-HYP:
+    coverage_unit: component.generative-hypothesis
+    name: "Generative Hypothesis"
+    authority:
+      owns: "candidate non-factual relational hypotheses"
+      may_decide:
+        - "hypothesis candidate formulation"
+      must_not:
+        - "claim reality authority"
+    state:
+      owner: symbiont
+      family: episode_bound
+    lifecycle:
+      birth: empty
+      checkpoint: preserve
+      restart: preserve
+      reembodiment: preserve
+      reproduction: not_inherited
+    inputs:
+      - "component.generative-cognition"
+    outputs:
+      - "structured hypotheses with epistemic annotations"
+    consumers:
+      - component.epistemic-investigation
+
+  SYM-CF:
+    coverage_unit: component.counterfactual-rollout
+    name: "Counterfactual / Rollout"
+    authority:
+      owns: "counterfactual rollout trajectory evaluation"
+      may_decide:
+        - "rollout depth and branch termination"
+      must_not:
+        - "leak unobserved counterfactual state to fact ledgers"
+    state:
+      owner: symbiont
+      family: ephemeral
+    lifecycle:
+      birth: empty
+      checkpoint: reset
+      restart: reset
+      reembodiment: reset
+      reproduction: not_inherited
+    inputs:
+      - "candidate actions"
+      - "component.private-model"
+    outputs:
+      - "counterfactual trajectory estimations"
+    consumers:
+      - component.prospective-agency
+
+  SYM-MEM:
+    coverage_unit: component.memory-consolidation
+    name: "Memory Consolidation"
+    authority:
+      owns: "slow consolidation from episodic traces into permanent cognitive graph structures"
+      may_decide:
+        - "consolidation structural mutations"
+      must_not:
+        - "exceed structural mutation budgets per consolidation tick"
+    state:
+      owner: symbiont
+      family: adaptive_longitudinal
+    lifecycle:
+      birth: empty
+      checkpoint: preserve
+      restart: preserve
+      reembodiment: preserve
+      reproduction: not_inherited
+    inputs:
+      - "episodic memory records"
+      - "recurrent edge weights"
+    outputs:
+      - "consolidated concepts and durable graph structures"
+    consumers:
+      - component.cognitive-graph
+
+  SYM-EPIST:
+    coverage_unit: component.epistemic-investigation
+    name: "Epistemic Investigation"
+    authority:
+      owns: "post-action epistemic revision and hypothesis verification"
+      may_decide:
+        - "dissent records and evidence revisions"
+      must_not:
+        - "retroactively alter historical raw observations"
+    state:
+      owner: symbiont
+      family: adaptive_longitudinal
+    lifecycle:
+      birth: empty
+      checkpoint: preserve
+      restart: preserve
+      reembodiment: preserve
+      reproduction: not_inherited
+    inputs:
+      - "hypotheses"
+      - "actual outcome evidence"
+    outputs:
+      - "EvidenceRevisionLedger entries"
+    consumers:
+      - component.epistemic-ownership
+
+  SYM-PROV:
+    coverage_unit: component.causal-provenance
+    name: "Causal Provenance v1"
+    authority:
+      owns: "causal lineage and event derivation logs (ProvenanceLog)"
+      may_decide:
+        - "causal reference chain construction"
+      must_not:
+        - "allow breaks in causal reference integrity"
+    state:
+      owner: symbiont
+      family: identity_longitudinal
+    lifecycle:
+      birth: initialize
+      checkpoint: preserve
+      restart: preserve
+      reembodiment: preserve
+      reproduction: not_inherited
+    inputs:
+      - "causal events across all internal domains"
+    outputs:
+      - "unbroken causal event ledger"
+    consumers:
+      - component.checkpoint-persistence
+
+  SYM-OWN:
+    coverage_unit: component.epistemic-ownership
+    name: "Epistemic Ownership & Claim Levels v1"
+    authority:
+      owns: "formal demarcation of cognitive claim levels (Observation vs Model vs Imagination)"
+      may_decide:
+        - "claim level validation"
+      must_not:
+        - "allow derived model outputs to be claimed as factual observations"
+    state:
+      owner: symbiont
+      family: infrastructure
+    lifecycle:
+      birth: initialize
+      checkpoint: not_applicable
+      restart: preserve
+      reembodiment: preserve
+      reproduction: not_applicable
+    inputs:
+      - "internal cognitive state surfaces"
+    outputs:
+      - "verified claim level boundaries"
+    consumers:
+      - component.epistemic-investigation
+
+  SYM-SOC:
+    coverage_unit: component.social-epistemology
+    name: "Social Epistemology"
+    authority:
+      owns: "private peer observation, reciprocity, and social evidence ledger"
+      may_decide:
+        - "social interaction trust and partner models"
+      must_not:
+        - "force inherited social relationships into newborn offspring"
+    state:
+      owner: symbiont
+      family: adaptive_longitudinal
+    lifecycle:
+      birth: empty
+      checkpoint: preserve
+      restart: preserve
+      reembodiment: preserve
+      reproduction: not_inherited
+    inputs:
+      - "observed peer actions and communications"
+    outputs:
+      - "SocialEvidenceLedger state"
+    consumers:
+      - component.structured-communication
+
+  SYM-SYM:
+    coverage_unit: component.symbol-grounding
+    name: "Emergent Symbol Grounding"
+    authority:
+      owns: "emergent grounding ledger associating perceptual signals with discrete symbols"
+      may_decide:
+        - "symbol channel grounding associations"
+      must_not:
+        - "use pre-programmed external human meaning lookup tables"
+    state:
+      owner: symbiont
+      family: adaptive_longitudinal
+    lifecycle:
+      birth: empty
+      checkpoint: preserve
+      restart: preserve
+      reembodiment: preserve
+      reproduction: not_inherited
+    inputs:
+      - "communicative interactions"
+      - "local perceptual experience"
+    outputs:
+      - "SymbolGroundingLedger state"
+    consumers:
+      - component.structured-communication
+
+  SYM-COMM:
+    coverage_unit: component.structured-communication
+    name: "Structured Communication"
+    authority:
+      owns: "symbol sequence encoding, message framing, and transmission decisions"
+      may_decide:
+        - "sequence message emission and interpretation"
+      must_not:
+        - "assume universal symbol consensus without grounding exposure"
+    state:
+      owner: symbiont
+      family: adaptive_longitudinal
+    lifecycle:
+      birth: empty
+      checkpoint: preserve
+      restart: preserve
+      reembodiment: preserve
+      reproduction: not_inherited
+    inputs:
+      - "incoming symbol sequence messages"
+      - "component.symbol-grounding"
+    outputs:
+      - "SequenceDecisionRecord"
+      - "outgoing messages"
+    consumers:
+      - component.social-epistemology
+
+  SYM-HOST:
+    coverage_unit: component.host-sensing
+    name: "Host Sensing"
+    authority:
+      owns: "host sensor intake, reading validation, and continuous baseline acclimation"
+      may_decide:
+        - "host sensor reading acceptance"
+      must_not:
+        - "execute privileged host system modifications"
+    state:
+      owner: symbiont
+      family: adaptive_longitudinal
+    lifecycle:
+      birth: initialize
+      checkpoint: preserve
+      restart: preserve
+      reembodiment: rebind
+      reproduction: not_inherited
+    inputs:
+      - "modality host contracts"
+      - "raw readings"
+    outputs:
+      - "acclimated host readings"
+    consumers:
+      - component.sensory-system
+      - component.physiology
+
+  SYM-EMB-H:
+    coverage_unit: component.embodiment-history
+    name: "Embodiment History / Continuity State"
+    authority:
+      owns: "longitudinal history of prior embodiments, adaptations, and kinematics priors"
+      may_decide:
+        - "embodiment memory retention"
+      must_not:
+        - "treat the physical Body as part of the organism identity"
+    state:
+      owner: symbiont
+      family: identity_longitudinal
+    lifecycle:
+      birth: empty
+      checkpoint: preserve
+      restart: preserve
+      reembodiment: preserve
+      reproduction: not_inherited
+    inputs:
+      - "embodiment transition events"
+      - "body contract fingerprints"
+    outputs:
+      - "EmbodimentArchive"
+      - "EmbodimentPrior"
+    consumers:
+      - component.competence-binding
+      - component.sensory-system
+
+  SYM-LI:
+    coverage_unit: component.longitudinal-integrity
+    name: "Longitudinal Integrity v1"
+    authority:
+      owns: "enforcement of mechanical continuity obligations across lifecycle boundaries"
+      may_decide:
+        - "continuity verification status"
+      must_not:
+        - "claim functional transfer advantage solely from mechanical continuity"
+    state:
+      owner: symbiont
+      family: infrastructure
+    lifecycle:
+      birth: initialize
+      checkpoint: preserve
+      restart: preserve
+      reembodiment: preserve
+      reproduction: not_applicable
+    inputs:
+      - "checkpoint envelope"
+      - "lifecycle transitions"
+    outputs:
+      - "continuity verification proof"
+    consumers:
+      - component.checkpoint-persistence
+      - component.lifecycle-continuity-contract
+
+  SYM-LCC:
+    coverage_unit: component.lifecycle-continuity-contract
+    name: "Lifecycle Continuity Contract v1"
+    authority:
+      owns: "formal definition of organism identity preservation across birth, save, restart, and re-embodiment"
+      may_decide:
+        - "lifecycle transition legitimacy"
+      must_not:
+        - "confuse continuity with cloning or reduced transplant"
+    state:
+      owner: symbiont
+      family: infrastructure
+    lifecycle:
+      birth: initialize
+      checkpoint: preserve
+      restart: preserve
+      reembodiment: preserve
+      reproduction: not_applicable
+    inputs:
+      - "lifecycle transition requests"
+    outputs:
+      - "continuity operation contracts"
+    consumers:
+      - component.checkpoint-persistence
+      - component.identity-lineage
+
+  SYM-CHK:
+    coverage_unit: component.checkpoint-persistence
+    name: "Checkpoint / Persistence"
+    authority:
+      owns: "serialization and deserialization of contract-defined organism state (schema 14)"
+      may_decide:
+        - "strict save/restore normalization"
+      must_not:
+        - "redefine the semantics of the state it serializes"
+        - "silently migrate unsupported portable bundles"
+    state:
+      owner: symbiont
+      family: infrastructure
+    lifecycle:
+      birth: initialize
+      checkpoint: preserve
+      restart: preserve
+      reembodiment: preserve
+      reproduction: not_applicable
+    inputs:
+      - "contract-defined organism state"
+    outputs:
+      - "serialized checkpoint bundles"
+    consumers:
+      - component.lifecycle-continuity-contract
+
+  SYM-LIN:
+    coverage_unit: component.identity-lineage
+    name: "Identity & Lineage"
+    authority:
+      owns: "organism identity, parentage, generation, and transform history"
+      may_decide:
+        - "organism identity verification"
+      must_not:
+        - "generate a new organism identity on restart, migration, or re-embodiment"
+    state:
+      owner: symbiont
+      family: identity_longitudinal
+    lifecycle:
+      birth: initialize
+      checkpoint: preserve
+      restart: preserve
+      reembodiment: preserve
+      reproduction: inherit_allowed
+    inputs:
+      - "lineage history"
+      - "parent IDs"
+    outputs:
+      - "organism identity token"
+      - "generation counter"
+    consumers:
+      - component.checkpoint-persistence
+      - component.germline
+
+  SYM-CAP:
+    coverage_unit: component.capacity-limits
+    name: "Capacity & Infrastructure Limits"
+    authority:
+      owns: "computational and scalability security resource ceilings (OrganismLimits)"
+      may_decide:
+        - "resource allocation ceiling enforcement"
+      must_not:
+        - "convert infrastructure limits into heritable genetic loci"
+    state:
+      owner: symbiont
+      family: infrastructure
+    lifecycle:
+      birth: initialize
+      checkpoint: preserve
+      restart: preserve
+      reembodiment: preserve
+      reproduction: not_applicable
+    inputs:
+      - "runtime configuration"
+      - "infrastructure constraints"
+    outputs:
+      - "hard resource ceilings"
+    consumers:
+      - component.cognitive-graph
+      - component.episodic-memory
+      - component.sensory-system

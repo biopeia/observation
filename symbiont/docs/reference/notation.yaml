@@ -1,0 +1,211 @@
+schema_version: 1
+
+# Canonical Formal Notation Registry
+# Reconciled against Master Book IV (Ch 14-16), canonical chapters 00-14, and math compendium 01-10.
+# Core Invariant: A global symbol cannot have two different canonical meanings.
+
+symbols:
+  S_t:
+    meaning: "Complete canonical organism state at organism time t: S_t = (I_t, G_t, P_t, H_t, K_t, M_t, Q_t, V_t, L_t)."
+    scope: global
+    owner: formal-model
+    observable_by_symbiont: true
+    domain: symbiont
+    aliases:
+      - S(t)
+    forbidden_meanings:
+      - cognitive-state-only
+      - world-state
+
+  W_t:
+    meaning: "External world state at time t (complete physical environment truth)."
+    scope: global
+    owner: formal-model
+    observable_by_symbiont: false
+    domain: environment
+    aliases:
+      - W(t)
+    forbidden_meanings:
+      - organism-state
+      - observation
+
+  B_t:
+    meaning: "Physical body state, kinematics, joints, and hardware contacts at time t."
+    scope: global
+    owner: formal-model
+    observable_by_symbiont: false
+    domain: embodiment
+    aliases:
+      - B(t)
+    forbidden_meanings:
+      - organism-identity
+      - cognitive-body-schema
+
+  E_t:
+    meaning: "Embodiment coupling state between organism and body apparatus at time t."
+    scope: global
+    owner: formal-model
+    observable_by_symbiont: false
+    domain: embodiment
+    aliases:
+      - E(t)
+    forbidden_meanings:
+      - energy-scalar
+      - episodic-trace
+
+  O_t:
+    meaning: "Perceptual observation vector admitted and transduced by sensory system at tick t."
+    scope: global
+    owner: formal-model
+    observable_by_symbiont: true
+    domain: symbiont
+    aliases:
+      - o_t
+    forbidden_meanings:
+      - world-ground-truth
+      - internal-hypothesis
+
+  A_t:
+    meaning: "Executed organism action attempt or committed motor command dispatched at tick t."
+    scope: global
+    owner: formal-model
+    observable_by_symbiont: true
+    domain: symbiont
+    aliases:
+      - a_t
+    forbidden_meanings:
+      - affordance-candidate
+      - prospective-intention
+
+  X_t:
+    meaning: "Factual consequence experience event observed following action execution."
+    scope: global
+    owner: formal-model
+    observable_by_symbiont: true
+    domain: symbiont
+    aliases:
+      - X_(t+1)
+    forbidden_meanings:
+      - prediction-output
+      - counterfactual-rollout
+
+  K_t:
+    meaning: "Durable acquired knowledge, concept nodes, and structural cognitive graph state at tick t."
+    scope: global
+    owner: formal-model
+    observable_by_symbiont: true
+    domain: symbiont
+    aliases:
+      - K(t)
+    forbidden_meanings:
+      - global-organism-state
+      - raw-sensory-reading
+
+  H_t:
+    meaning: "Homeostatic viability substate and internal regulatory deviation context at tick t."
+    scope: global
+    owner: formal-model
+    observable_by_symbiont: true
+    domain: symbiont
+    aliases:
+      - H(t)
+    forbidden_meanings:
+      - generative-hypothesis
+      - heuristic
+
+  D_t:
+    meaning: "Aggregate homeostatic deviation scalar or distance vector from viable physiological bounds."
+    scope: global
+    owner: formal-model
+    observable_by_symbiont: true
+    domain: symbiont
+    aliases:
+      - D(t)
+    forbidden_meanings:
+      - external-reward
+      - motor-drive
+
+  e_t:
+    meaning: "Prediction error scalar or delta: e_t = L(y_hat_(t+1), y_(t+1)) against factual observation."
+    scope: global
+    owner: formal-model
+    observable_by_symbiont: true
+    domain: symbiont
+    aliases:
+      - error_t
+    forbidden_meanings:
+      - episodic-memory-trace
+      - event-identity
+      - natural-base-e
+
+  m_epi_t:
+    meaning: "Episodic memory record capturing lived experience tuple at tick t."
+    scope: global
+    owner: formal-model
+    observable_by_symbiont: true
+    domain: symbiont
+    aliases:
+      - episode_record
+    forbidden_meanings:
+      - prediction-error
+      - unmediated-world-truth
+
+  hyp_t:
+    meaning: "Candidate generative hypothesis in mental workspace: hyp_t = Generate(K_t, M_t, constraints)."
+    scope: global
+    owner: formal-model
+    observable_by_symbiont: true
+    domain: symbiont
+    aliases:
+      - H_cand
+    forbidden_meanings:
+      - factual-observation
+      - homeostatic-state
+
+  theta:
+    meaning: "General model parameter vector or configuration weights in transition models: M_theta(s, a)."
+    scope: global
+    owner: formal-model
+    observable_by_symbiont: true
+    domain: symbiont
+    aliases:
+      - \theta
+    forbidden_meanings:
+      - single-synaptic-weight
+      - temperature-scalar
+
+  w_ij:
+    meaning: "Synaptic weight of plastic edge connecting source node i to target node j in cognitive graph."
+    scope: global
+    owner: formal-model
+    observable_by_symbiont: true
+    domain: symbiont
+    aliases:
+      - w_(ij,t)
+    forbidden_meanings:
+      - general-model-parameter-vector
+      - world-state
+
+  tau:
+    meaning: "Continuous physical time coordinate: tau_n = tau_0 + sum(Delta_t_k)."
+    scope: global
+    owner: formal-model
+    observable_by_symbiont: true
+    domain: symbiont
+    aliases:
+      - \tau
+    forbidden_meanings:
+      - discrete-tick-index
+      - selection-rate-threshold
+
+  t:
+    meaning: "Discrete organism tick counter index (t in {0, 1, 2, ...})."
+    scope: global
+    owner: formal-model
+    observable_by_symbiont: true
+    domain: symbiont
+    aliases:
+      - n
+      - tick
+    forbidden_meanings:
+      - continuous-physical-time
