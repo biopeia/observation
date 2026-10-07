@@ -30,6 +30,7 @@ For re-embodiment, development and cultural transmission, one run is rarely enou
 
 - `docs/methodology/README.md`
 - `docs/design/experimentation/*`
-- `src/symbiont_lab/experiments/*`
-- `src/symbiont_lab/evaluation/*`
-- `src/symbiont_lab/kernel_characterization/*`
+- `lab/experiments/*`
+- `lab/src/lab/experiments/*`
+- `lab/src/lab/evaluation/*`
+- `lab/src/lab/kernel_characterization/*`

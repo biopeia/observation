@@ -40,6 +40,6 @@ Exploration is not merely random motor noise. The architecture contains dedicate
 - `docs/design/core/executive-outcome-learning-v1.md`
 - `docs/design/core/factorized-effect-representation-v1.md`
 - `docs/design/sensorimotor/sensorimotor-development-v1.md`
-- `src/symbiont/core/domains/action.py`
-- `src/symbiont/agency/*`
-- `src/symbiont/actuation/*`
+- `symbiont/src/symbiont/core/domains/action.py`
+- `symbiont/src/symbiont/agency/*`
+- `symbiont/src/symbiont/actuation/*`

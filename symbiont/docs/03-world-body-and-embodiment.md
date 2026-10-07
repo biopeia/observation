@@ -39,7 +39,8 @@ The answer is not “everything” or “nothing”. Persistence is mechanism-sp
 - `docs/design/embodiment/embodiment-v2.md`
 - `docs/design/embodiment/perception-and-embodiment.md`
 - `docs/design/embodiment/embodiment-memory-v1.md`
-- `src/symbiont/core/embodiment/body_schema.py`
-- `src/symbiont/core/embodiment/contract.py`
-- `src/symbiont_lab/physics3d/apparatus.py`
-- `src/symbiont_lab/physics3d/runtime.py`
+- `symbiont/src/symbiont/core/embodiment/body_schema.py`
+- `symbiont/src/symbiont/core/embodiment/contract.py`
+- `embodiment/src/embodiment/physics3d/*`
+- `lab/src/lab/integration/physics3d/apparatus.py`
+- `lab/src/lab/physics3d/runtime.py`

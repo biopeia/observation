@@ -22,7 +22,7 @@ route/symbol/anchor cited truly exists.
 | --- | --- | --- |
 | `normative` | `symbiont/docs/`, `docs/adr/`, `docs/design/`, `docs/methodology/research-programme.md` | definitions, boundaries, invariants |
 | `formal` | `symbiont/docs/14-mathematical-map.md` | mathematical backing |
-| `implementation` | `src/`, `observatory/` + tests | actually implemented behavior |
+| `implementation` | `symbiont/src/`, `lab/src/`, `embodiment/src/`, `environment/src/`, `modality/src/` + tests | actually implemented behavior |
 | `empirical` | `research/` + tests/studies | experimentally observed results |
 | `historical` | `docs/CHANGELOG.md`, `docs/history/` | historical context, not proof of current state |
 

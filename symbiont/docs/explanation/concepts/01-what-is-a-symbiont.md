@@ -20,8 +20,8 @@ A Symbiont is a digital organism: a software process that develops, maintains it
 
 The project explicitly distinguishes two roles that are never mixed:
 
-- **`symbiont`** — the organism, the subject of study: cognition, host perception, environment and life cycle.
-- **`symbiont_lab`** — the scientific apparatus: experiments, studies, results archive, evaluation and laboratory CLI.
+- **`symbiont`** — the organism, the subject of study: cognition, host perception, life cycle.
+- **`lab`** (along with `embodiment`, `environment`, `modality`) — the scientific apparatus: experiments, studies, simulation environments, evaluation and laboratory CLI.
 
 <a id="no-metafora"></a>
 
@@ -35,7 +35,7 @@ For example, "metabolism" does not mean "the program uses CPU" — it means that
 
 ## Mechanism
 
-The separation between organism and scientific apparatus is an architectural boundary, not a style convention. `symbiont` never imports `symbiont_lab`: the experimental truth (what is really a threat, what synthetic regime is active) belongs exclusively to the simulator and the evaluator. The organism's cognitive layers (agent, collective memory, reasoning engine) only receive local or collective observations and beliefs — never the truth label that the evaluator uses to measure them.
+The separation between organism and scientific apparatus is an architectural boundary, not a style convention. `symbiont` never imports `lab`: the experimental truth (what is really a threat, what synthetic regime is active) belongs exclusively to the simulator and the evaluator. The organism's cognitive layers (agent, collective memory, reasoning engine) only receive local or collective observations and beliefs — never the truth label that the evaluator uses to measure them.
 
 Inside the organism, development occurs as **data plasticity under an immutable kernel**: a closed core defines the legal node/edge types and the hard resource limits; a declarative genome configures the development of an individual within those limits; a plastic phenotype learns weights and bounded structure during the life of that individual. The organism changes its phenotype, never its implementation — it does not generate code, it does not edit its executable, it does not invent permissions nor learn to bypass kernel limits.
 
@@ -43,7 +43,7 @@ Inside the organism, development occurs as **data plasticity under an immutable 
 
 ## What is implemented
 
-- The two-package boundary (`symbiont` / `symbiont_lab`) — **[implemented]**.
+- The boundary between organism and scientific apparatus (`symbiont` / `lab`) — **[implemented]**.
 - Experimental truth isolation (`Observation` separated from `EvaluationEvent`) — **[implemented]**.
 - The immutable cognitive graph hard limits kernel — **[implemented]**.
 - The full list of functional analogies (metabolism, homeostasis, reproduction, ecology, etc.) against their biological counterparts, and their implementation status chapter by chapter — is developed in chapters 3 to 8 of this same series, not here.
@@ -52,7 +52,7 @@ Inside the organism, development occurs as **data plasticity under an immutable 
 
 ## Evidence
 
-The `symbiont` / `symbiont_lab` boundary and the experimental truth isolation are not just a statement of intent: they are protected by a structural test that parses the Abstract Syntax Tree (AST) of the entire `symbiont` package and fails if any import of `symbiont_lab` appears. The same test verifies that the signatures of `Agent.observe`, `ReasoningEngine.analyze` and `MetacognitionEngine.assess` do not accept evaluator truth parameters (`is_threat`, `truth_label`, `ground_truth`, `evaluator`).
+The `symbiont` / `lab` boundary and the experimental truth isolation are not just a statement of intent: they are protected by a structural test that parses the Abstract Syntax Tree (AST) of the entire `symbiont` package and fails if any import of `lab` appears. The same test verifies that the signatures of `Agent.observe`, `ReasoningEngine.analyze` and `MetacognitionEngine.assess` do not accept evaluator truth parameters (`is_threat`, `truth_label`, `ground_truth`, `evaluator`).
 
 The immutable cognitive graph limits kernel is a frozen `dataclass` (`frozen=True`): any attempt to modify it after construction fails at runtime, not just by code convention.
 

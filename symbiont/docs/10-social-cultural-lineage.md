@@ -29,6 +29,6 @@ Lineage records parent/descendant relationships and supports evolutionary experi
 - `docs/design/communication/*`
 - `docs/design/genome/genome-v2.md`
 - `docs/design/genome/endogenous-metaplastic-epigenetics-v1.md`
-- `src/symbiont/core/social/*`
-- `src/symbiont/genetics/*`
-- `src/symbiont/core/lineage/*`
+- `symbiont/src/symbiont/core/social/*`
+- `symbiont/src/symbiont/genetics/*`
+- `symbiont/src/symbiont/core/lineage/*`

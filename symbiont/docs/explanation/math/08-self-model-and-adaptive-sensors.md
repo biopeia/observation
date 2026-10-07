@@ -11,7 +11,7 @@ last_reviewed: null
 
 > **Status:** IMPLEMENTED  
 > **Type:** ENDOGENOUS ESTIMATION AND QUANTIZED PERSISTENCE SPECIFICATION  
-> **Related modules:** [`symbiont.core.selfmodel`](../../../src/symbiont/core/cognition/self_model.py)
+> **Related modules:** [`symbiont.core.cognition.self_model`](../../../src/symbiont/core/cognition/self_model.py), [`symbiont.core.cognition.host_self_model`](../../../src/symbiont/core/cognition/host_self_model.py)
 
 ---
 

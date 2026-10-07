@@ -32,10 +32,11 @@ A changing value is not enough. A useful study should show that experience chang
 
 ### Principal implementation anchors
 
-- `src/symbiont/core/cognition/consolidation.py`
-- `src/symbiont/modeling/episodic.py`
-- `src/symbiont/cognition/learning.py`
-- `src/symbiont/core/cognition/structural_*`
-- `src/symbiont/sensory/plasticity.py`
-- `src/symbiont/actuation/sensorimotor.py`
-- `src/symbiont/agency/executive_outcome.py`
+- `symbiont/src/symbiont/core/cognition/consolidation.py`
+- `symbiont/src/symbiont/modeling/episodic.py`
+- `symbiont/src/symbiont/cognition/learning.py`
+- `symbiont/src/symbiont/core/cognition/structural_candidates.py`
+- `symbiont/src/symbiont/core/cognition/structural_planner.py`
+- `symbiont/src/symbiont/sensory/plasticity.py`
+- `symbiont/src/symbiont/actuation/sensorimotor.py`
+- `symbiont/src/symbiont/agency/executive_outcome.py`

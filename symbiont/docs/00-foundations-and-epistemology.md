@@ -30,9 +30,9 @@ Any claim that Symbiont “knows” a semantic category must be justified by int
 
 ## Organism and laboratory
 
-`symbiont` and `symbiont_lab` serve different epistemic roles. The organism owns its bounded internal state and mechanisms. The laboratory may hold information the organism cannot access: ground truth, evaluation metrics, experiment configuration, external traces and presentation state. The laboratory may observe and evaluate; it must not silently teach the subject through evaluator-only information.
+`symbiont` and `lab` serve different epistemic roles across the repository's domains (`symbiont`, `lab`, `embodiment`, `environment`, `modality`). The organism owns its bounded internal state and mechanisms. The laboratory may hold information the organism cannot access: ground truth, evaluation metrics, experiment configuration, external traces and presentation state. The laboratory may observe and evaluate; it must not silently teach the subject through evaluator-only information.
 
-This separation is reinforced by architecture decisions such as the two-package boundary and ground-truth isolation, and by outward-only mechanisms such as causal provenance subscribers.
+This separation is reinforced by architecture decisions such as package boundaries and ground-truth isolation, and by outward-only mechanisms such as causal provenance subscribers.
 
 ## What this documentation does not claim
 
@@ -46,5 +46,5 @@ The scientific question is not whether the metaphors sound biological. It is whe
 - `docs/adr/ADR-0001-two-package-boundary.md`
 - `docs/adr/ADR-0002-ground-truth-isolation.md`
 - `symbiont/docs/explanation/concepts/01-what-is-a-symbiont.md`
-- `src/symbiont/core/orchestration/runtime.py::OrganismRuntime`
-- `src/symbiont/sensory/system.py::SensorySystem`
+- `symbiont/src/symbiont/core/orchestration/runtime.py::OrganismRuntime`
+- `symbiont/src/symbiont/sensory/system.py::SensorySystem`

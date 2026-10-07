@@ -14,7 +14,7 @@ language: en
 
 > **Status:** IMPLEMENTED  
 > **Type:** HEURISTIC DECISION RULES AND MULTIVARIATE METASCORE  
-> **Related modules:** `symbiont.core.model`, `symbiont.core.agent`, `symbiont.core.curiosity`, `symbiont.core.metacognition`
+> **Related modules:** `symbiont.agency.prospective`, `symbiont.agency.policy`, `symbiont.core.cognition.self_model`, `symbiont.core.cognition.host_self_model`
 
 ---
 
@@ -24,9 +24,9 @@ In Symbiont, each autonomous agent synthesizes continuous observations, builds l
 
 The design is structured in three levels:
 
-1. **Sensorimotor and Representational Level:** Discretization into ternary Hamming signatures and multivariate novelty detection (`symbiont.core.model`).
-2. **Inference and Decision Level:** Calculation of apparent risk, combined suspicion, curiosity, and drift adaptation via hysteresis (`symbiont.core.agent`).
-3. **Metacognitive Level:** Aggregation of epistemic pressures in the population and classification of qualitative certainty regimes (`symbiont.core.metacognition`).
+1. **Sensorimotor and Representational Level:** Discretization into ternary Hamming signatures and multivariate novelty detection (`symbiont.sensory`, `symbiont.agency`).
+2. **Inference and Decision Level:** Calculation of apparent risk, combined suspicion, curiosity, and drift adaptation via hysteresis (`symbiont.agency.prospective`, `symbiont.agency.policy`).
+3. **Metacognitive Level:** Aggregation of epistemic pressures in the population and classification of qualitative certainty regimes (`symbiont.core.cognition.self_model`, `symbiont.core.cognition.host_self_model`).
 
 > **Epistemological Note:**  
 > The equations in this chapter constitute **multilinear heuristic scoring models** empirically calibrated to balance exploration and stability in the simulation environment, not analytical deductions from formal statistical decision theory.
