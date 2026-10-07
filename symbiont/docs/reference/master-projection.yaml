@@ -1,0 +1,148 @@
+schema_version: 1
+
+# Master Projection Editorial Manifest
+# Governs the structural projection, book/chapter hierarchy, and catalog ordering
+# for the Symbiont Technical and Scientific Master Reference.
+# Invariant: Editorial ordering only; semantic authority remains in coverage.yaml and registries.
+
+publication:
+  title: "Symbiont"
+  subtitle: "Technical and Scientific Master Reference"
+  edition: "Living Master — Canonical Projection"
+  authority: "Canonical Architecture, Reference Registries and Scientific Corpus"
+
+books:
+  - id: foundations
+    title: "Book I — Foundations & Architecture"
+    description: "Epistemological demarcation, system boundaries, and longitudinal existence."
+    chapters:
+      - id: epistemology
+        title: "Foundations and Epistemology"
+        source: symbiont/docs/00-foundations-and-epistemology.md
+      - id: boundaries
+        title: "System and Boundaries"
+        source: symbiont/docs/01-system-and-boundaries.md
+      - id: lifecycle
+        title: "Existence, Lifecycle and Time"
+        source: symbiont/docs/02-lifecycle-and-time.md
+
+  - id: embodiment-physiology
+    title: "Book II — Embodiment & Physiological Substrates"
+    description: "Physical body decoupling, sensory developmental topology, and somatic energetics."
+    chapters:
+      - id: embodiment
+        title: "World, Body and Embodiment"
+        source: symbiont/docs/03-world-body-and-embodiment.md
+      - id: perception
+        title: "Perception and Sensory Development"
+        source: symbiont/docs/04-perception-and-sensory-development.md
+      - id: physiology
+        title: "Physiology, Homeostasis and Cost"
+        source: symbiont/docs/05-physiology-homeostasis.md
+
+  - id: cognition-agency
+    title: "Book III — Cognition, Agency & Generative Dynamics"
+    description: "Internal organization, motor learning, synaptic plasticity, and counterfactual simulation."
+    chapters:
+      - id: cognition
+        title: "Cognition and Internal Organisation"
+        source: symbiont/docs/06-cognition-and-internal-organization.md
+      - id: agency
+        title: "Agency, Action and Motor Learning"
+        source: symbiont/docs/07-agency-action-and-motor-learning.md
+      - id: learning
+        title: "Learning, Memory and Plasticity"
+        source: symbiont/docs/08-learning-memory-and-plasticity.md
+      - id: generative
+        title: "Generative Cognition"
+        source: symbiont/docs/09-generative-cognition.md
+
+  - id: lineage-observation
+    title: "Book IV — Lineage, Persistence & Observation Apparatus"
+    description: "Cultural processes, checkpoint contracts, and laboratory evaluation boundaries."
+    chapters:
+      - id: lineage
+        title: "Social, Cultural and Lineage Processes"
+        source: symbiont/docs/10-social-cultural-lineage.md
+      - id: persistence
+        title: "Persistence, Causal Provenance and Re-embodiment"
+        source: symbiont/docs/11-persistence-provenance-and-reembodiment.md
+      - id: observation
+        title: "Scientific Observation and the Laboratory"
+        source: symbiont/docs/12-scientific-observation-and-lab.md
+      - id: methodology
+        title: "Experimental Methodology"
+        source: symbiont/docs/13-experimental-methodology.md
+
+  - id: formal-map
+    title: "Book V — Mathematical Map & Formal Architecture"
+    description: "State vectors, formal transformations, and mathematical foundations."
+    chapters:
+      - id: math-map
+        title: "Mathematical Map"
+        source: symbiont/docs/14-mathematical-map.md
+
+component_catalog:
+  enabled: true
+  title: "Part VI — Canonical Component Catalog"
+  description: "Comprehensive semantic authority sheets for all 48 SYM-* components."
+  ordering:
+    - SYM-GEN
+    - SYM-GSC
+    - SYM-GRM
+    - SYM-EPI-G
+    - SYM-PHEX
+    - SYM-PHENO
+    - SYM-DEV
+    - SYM-PHY
+    - SYM-HOM
+    - SYM-SENS
+    - SYM-PER
+    - SYM-CG
+    - SYM-META
+    - SYM-LP
+    - SYM-PROM
+    - SYM-AGA
+    - SYM-SET
+    - SYM-MP
+    - SYM-COMP
+    - SYM-CBIND
+    - SYM-COMPX
+    - SYM-AFF
+    - SYM-PROS
+    - SYM-INT
+    - SYM-CMT
+    - SYM-EOL
+    - SYM-OV
+    - SYM-ACT
+    - SYM-EPI-M
+    - SYM-REPLAY
+    - SYM-PM
+    - SYM-GENC
+    - SYM-HYP
+    - SYM-CF
+    - SYM-MEM
+    - SYM-EPIST
+    - SYM-PROV
+    - SYM-OWN
+    - SYM-SOC
+    - SYM-SYM
+    - SYM-COMM
+    - SYM-HOST
+    - SYM-EMB-H
+    - SYM-LI
+    - SYM-LCC
+    - SYM-CHK
+    - SYM-LIN
+    - SYM-CAP
+
+registries:
+  parameters:
+    enabled: true
+    title: "Part VII — Architectural & Scientific Parameters"
+  metrics:
+    enabled: true
+    title: "Part VIII — Measurement Metrics by Epistemic Class"
+  notation:
+    enabled: true
+    title: "Part IX — Canonical Mathematical Notation"

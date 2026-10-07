@@ -1,0 +1,172 @@
+{
+  "source_digest": "3e73f6b6bef01800a7689415c6a615aac1ad9e9286944485588d0632ad42e5e6",
+  "counts": {
+    "canonical_files": 21,
+    "books": 5,
+    "chapters": 15,
+    "components": 48,
+    "parameters": 13,
+    "metrics": 14,
+    "notation_symbols": 17
+  },
+  "books": [
+    {
+      "id": "foundations",
+      "title": "Book I — Foundations & Architecture",
+      "chapter_count": 3,
+      "chapters": [
+        "epistemology",
+        "boundaries",
+        "lifecycle"
+      ]
+    },
+    {
+      "id": "embodiment-physiology",
+      "title": "Book II — Embodiment & Physiological Substrates",
+      "chapter_count": 3,
+      "chapters": [
+        "embodiment",
+        "perception",
+        "physiology"
+      ]
+    },
+    {
+      "id": "cognition-agency",
+      "title": "Book III — Cognition, Agency & Generative Dynamics",
+      "chapter_count": 4,
+      "chapters": [
+        "cognition",
+        "agency",
+        "learning",
+        "generative"
+      ]
+    },
+    {
+      "id": "lineage-observation",
+      "title": "Book IV — Lineage, Persistence & Observation Apparatus",
+      "chapter_count": 4,
+      "chapters": [
+        "lineage",
+        "persistence",
+        "observation",
+        "methodology"
+      ]
+    },
+    {
+      "id": "formal-map",
+      "title": "Book V — Mathematical Map & Formal Architecture",
+      "chapter_count": 1,
+      "chapters": [
+        "math-map"
+      ]
+    }
+  ],
+  "component_order": [
+    "SYM-GEN",
+    "SYM-GSC",
+    "SYM-GRM",
+    "SYM-EPI-G",
+    "SYM-PHEX",
+    "SYM-PHENO",
+    "SYM-DEV",
+    "SYM-PHY",
+    "SYM-HOM",
+    "SYM-SENS",
+    "SYM-PER",
+    "SYM-CG",
+    "SYM-META",
+    "SYM-LP",
+    "SYM-PROM",
+    "SYM-AGA",
+    "SYM-SET",
+    "SYM-MP",
+    "SYM-COMP",
+    "SYM-CBIND",
+    "SYM-COMPX",
+    "SYM-AFF",
+    "SYM-PROS",
+    "SYM-INT",
+    "SYM-CMT",
+    "SYM-EOL",
+    "SYM-OV",
+    "SYM-ACT",
+    "SYM-EPI-M",
+    "SYM-REPLAY",
+    "SYM-PM",
+    "SYM-GENC",
+    "SYM-HYP",
+    "SYM-CF",
+    "SYM-MEM",
+    "SYM-EPIST",
+    "SYM-PROV",
+    "SYM-OWN",
+    "SYM-SOC",
+    "SYM-SYM",
+    "SYM-COMM",
+    "SYM-HOST",
+    "SYM-EMB-H",
+    "SYM-LI",
+    "SYM-LCC",
+    "SYM-CHK",
+    "SYM-LIN",
+    "SYM-CAP"
+  ],
+  "parameters": [
+    "checkpoint.schema_version",
+    "cognition.consolidation_interval_ticks",
+    "cognition.fast_consolidation_threshold",
+    "cognition.max_edges",
+    "cognition.max_nodes",
+    "cognition.reacclimation_ticks",
+    "competence.minimum_consistency",
+    "competence.minimum_support",
+    "drift.baseline_decay",
+    "drift.regime_run_length",
+    "drift.regime_z_threshold",
+    "learning.huber_delta",
+    "learning.oja_eligibility_bound"
+  ],
+  "metrics_by_class": {
+    "historical": [
+      "legacy.brier_score",
+      "legacy.expected_calibration_error",
+      "legacy.threat_blind_spot_rate"
+    ],
+    "operational": [
+      "checkpoint.serialization_bytes",
+      "host.process_cpu_usage"
+    ],
+    "organism_internal": [
+      "attention.uncertainty",
+      "competence.directional_consistency",
+      "drift.page_hinkley_statistic",
+      "homeostasis.deviation",
+      "prediction.huber_loss",
+      "prediction.predictive_gain"
+    ],
+    "scientific_evaluation": [
+      "study.causal_selection_forced_rate",
+      "study.causal_selection_threshold",
+      "study.reproducibility_score"
+    ]
+  },
+  "notation_symbols": [
+    "A_t",
+    "B_t",
+    "D_t",
+    "E_t",
+    "H_t",
+    "K_t",
+    "O_t",
+    "S_t",
+    "W_t",
+    "X_t",
+    "e_t",
+    "hyp_t",
+    "m_epi_t",
+    "t",
+    "tau",
+    "theta",
+    "w_ij"
+  ]
+}
