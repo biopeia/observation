@@ -3,39 +3,53 @@ id: explanation.math.07-cognicion-agentes-y-metacognicion
 title: "07 Agent Cognition And Metacognition"
 document_type: explanation
 domain: math
-status: unclassified
+status: historical
 canonical: false
-implementation_status: unknown
+implementation_status: retired
 migrated_on: 2026-09-25
-last_reviewed: null
+last_reviewed: 2026-10-07
 language: en
 ---
 # Agent Cognition, Counterfactual Curiosity and Metacognition
 
-> **Status:** IMPLEMENTED  
-> **Type:** HEURISTIC DECISION RULES AND MULTIVARIATE METASCORE  
-> **Related modules:** `symbiont.agency.prospective`, `symbiont.agency.policy`, `symbiont.core.cognition.self_model`, `symbiont.core.cognition.host_self_model`
+> **Epistemic Classification:** [HISTORICAL] (Retired pre-five-domain synthetic cyber agent simulation)  
+> **Status:** RETIRED / HISTORICAL REFERENCE  
 
 ---
 
-## 1. Introduction to the Agent Cognitive Cycle
+> [!WARNING] [HISTORICAL SPECIFICATION] RETIRED PRE-FIVE-DOMAIN AGENT STACK
+> This entire document specifies the mathematical model of the **retired synthetic cyber agent simulator** (retired at the owner's request during the five-domain architecture migration, commit `137209355`).
+>
+> None of the following entities or formulas describe the current organism or exist in the active runtime:
+>
+> - `Agent.assess` and `believes_threat` (binary threat classification)
+> - `CuriosityPlanner` and shadow world counterfactual exploration
+> - `MetacognitionEngine`, population epistemic pressure $P_{\text{epistemic}}$, and metacognitive self-confidence $C_{\text{self}}$
+> - Apparent risk $R_{\text{raw}}$ and combined suspicion $S_{\text{comb}}$ over 5 fixed host features
+> - Ternary Hamming signatures $(L, M, H)^5$ ($3^5 = 243$ states)
+>
+> **Navigation Note:** The active organism's self-model operates under a strictly non-semantic, resource-driven contract (sampling cost, probe health, confidence, and logarithmic quantization) documented in [08-self-model-and-adaptive-sensors.md](08-self-model-and-adaptive-sensors.md) and implemented in [`symbiont/src/symbiont/core/cognition/self_model.py`](../../../src/symbiont/core/cognition/self_model.py) and [`host_self_model.py`](../../../src/symbiont/core/cognition/host_self_model.py). Those components are **not** an equivalent continuation of the retired cyber-threat equations presented here.
 
-In Symbiont, each autonomous agent synthesizes continuous observations, builds local normality models, formulates causal hypotheses, explores counterfactual questions via intrinsic curiosity, and issues evaluations on the state of its beliefs.
+---
 
-The design is structured in three levels:
+## 1. Introduction to the Historical Agent Cognitive Cycle [HISTORICAL]
 
-1. **Sensorimotor and Representational Level:** Discretization into ternary Hamming signatures and multivariate novelty detection (`symbiont.sensory`, `symbiont.agency`).
-2. **Inference and Decision Level:** Calculation of apparent risk, combined suspicion, curiosity, and drift adaptation via hysteresis (`symbiont.agency.prospective`, `symbiont.agency.policy`).
-3. **Metacognitive Level:** Aggregation of epistemic pressures in the population and classification of qualitative certainty regimes (`symbiont.core.cognition.self_model`, `symbiont.core.cognition.host_self_model`).
+In the historical Symbiont agent simulation, each autonomous agent synthesized continuous observations, built local normality models, formulated causal hypotheses, explored counterfactual questions via intrinsic curiosity, and issued evaluations on the state of its beliefs.
+
+The design was structured in three levels:
+
+1. **Sensorimotor and Representational Level:** Discretization into ternary Hamming signatures and multivariate novelty detection.
+2. **Inference and Decision Level:** Calculation of apparent risk, combined suspicion, curiosity, and drift adaptation via hysteresis.
+3. **Metacognitive Level:** Aggregation of epistemic pressures in the population and classification of qualitative certainty regimes.
 
 > **Epistemological Note:**  
-> The equations in this chapter constitute **multilinear heuristic scoring models** empirically calibrated to balance exploration and stability in the simulation environment, not analytical deductions from formal statistical decision theory.
+> The equations in this chapter constitute **multilinear heuristic scoring models** empirically calibrated for the retired simulation environment, not analytical deductions from formal statistical decision theory.
 
 ---
 
-## 2. Ternary Signature Algebra and Multivariate Novelty
+## 2. Ternary Signature Algebra and Multivariate Novelty [HISTORICAL]
 
-> **Classification:** CODE IDENTITY / INFORMATION COMPRESSION
+> **Classification:** [HISTORICAL] / RETIRED INFORMATION COMPRESSION
 
 Given the synthetic observation vector $\mathbf{x} = (x_1, x_2, x_3, x_4, x_5) \in [0, 1]^5$, a discrete signature is extracted via ternary partitioning (`fingerprint`):
 
@@ -71,9 +85,9 @@ The clipping at $z_{\max} = 8.0$ prevents an extreme one-dimensional perturbatio
 
 ---
 
-## 3. Intrinsic Curiosity and Counterfactuals in the Shadow Space
+## 3. Intrinsic Curiosity and Counterfactuals in the Shadow Space [HISTORICAL]
 
-> **Classification:** INFORMATIONAL RANKING HEURISTIC
+> **Classification:** [HISTORICAL] / RETIRED INFORMATIONAL RANKING HEURISTIC
 
 The organism generates counterfactual questions in a shadow space (*shadow world*) without acting on the real host (`CuriosityPlanner`).
 
@@ -107,9 +121,9 @@ $$\operatorname{Utility} = \min\left( 1.0, \; \frac{IG}{0.55 + \operatorname{Cos
 
 ---
 
-## 4. The Agent Decision Engine
+## 4. The Retired Agent Decision Engine [HISTORICAL]
 
-> **Classification:** MULTILINEAR DECISION RULE WITH HYSTERESIS
+> **Classification:** [HISTORICAL] / RETIRED MULTILINEAR DECISION RULE WITH HYSTERESIS
 
 On each tick, the agent integrates signals from multiple sources to decide whether to investigate and whether to classify the event as a threat (`Agent.assess`).
 
@@ -148,9 +162,9 @@ $$\text{Streak}_t = \begin{cases} \text{Streak}_{t-1} + 1 & \text{si DriftCandid
 
 ---
 
-## 5. Population Metacognition
+## 5. Population Metacognition in Retired Simulator [HISTORICAL]
 
-> **Classification:** GLOBAL EPISTEMIC AGGREGATION
+> **Classification:** [HISTORICAL] / RETIRED GLOBAL EPISTEMIC AGGREGATION
 
 `MetacognitionEngine` synthesizes a global indicator of the population's epistemic state:
 

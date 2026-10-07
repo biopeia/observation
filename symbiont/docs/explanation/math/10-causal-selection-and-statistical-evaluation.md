@@ -1,33 +1,43 @@
 ---
 migrated_on: 2026-09-25
 language: en
-last_reviewed: null
+last_reviewed: 2026-10-07
 canonical_id: "explanation.math.10-seleccion-causal-y-evaluacion-estadistica"
 document_type: "explanation"
 diataxis_kind: "explanation"
 domain: "math"
+status: "mixed"
 ---
 
 # Streaming Causal Selection, Treaps, and Statistical Evaluation Metrics
 
-> **Status:** IMPLEMENTED (`lab.studies.common.causal_selection`, `lab.evaluation`)
-> **Type:** CODE IDENTITY (Treap, SplitMix64, Metrics) | ONLINE SELECTION HEURISTIC (Ex-Ante Known Finite Horizon)
+> **Epistemic Classification:** BIFURCATED — §§1–4: [STUDY] + [CODE] | §§5–6: [HISTORICAL]  
+> **Status:** MIXED (Active scientific apparatus tooling in `lab` + historical simulation metrics)  
+> **Related modules:** [`lab.studies.common.causal_selection`](../../../../lab/src/lab/studies/common/causal_selection.py)
 
-## 1. The Role of the Scientific Apparatus (`lab`)
+---
+
+## 1. The Role of the Scientific Apparatus (`lab`) [STUDY]
+
+> [!NOTE] [STUDY] APPARATUS MATHEMATICS
+> This section describes scientific apparatus mathematics belonging to the `lab` domain, **not organism-internal cognition**. The organism operates without ground truth labels; the evaluator tools here are external laboratory instruments.
 
 In the Symbiont Lab architecture, the experimental apparatus is strictly decoupled from the organism:
 
 - **The Organism (`symbiont`):** Operates blindly regarding the labels of the world; it only observes local signals, maintains beliefs, and makes causal decisions.
-- **The Scientific Apparatus (`lab`):** Possesses omniscience over the simulation (accesses the *Ground Truth* $y^* \in \{0, 1\}$), runs replication studies, applies paired counterfactual interventions, and rigorously evaluates the statistical performance of the organism without contaminating its inference process.
+- **The Scientific Apparatus (`lab`):** Possesses omniscience over the simulation (accesses the *Ground Truth* $y^* \in \{0, 1\}$ in benchmark studies), runs replication studies, applies paired counterfactual interventions, and rigorously evaluates the statistical performance of the organism without contaminating its inference process.
 
-This document formalizes the two mathematical cores of this apparatus:
+This document formalizes the two mathematical components of this apparatus:
 
-1. The **streaming causal selection** algorithm with exact quotas based on randomly balanced Cartesian trees (*Treaps*) ([`lab.studies.common.causal_selection`](../../../../lab/src/lab/studies/common/causal_selection.py)).
-2. The battery of probabilistic calibration metrics, Brier Score, and decoupled confusion matrix decomposition (`lab.evaluation`).
+1. **[STUDY] + [CODE] Active Streaming Causal Selection:** The algorithm with exact quotas based on randomly balanced Cartesian trees (*Treaps*) ([`lab.studies.common.causal_selection`](../../../../lab/src/lab/studies/common/causal_selection.py)).
+2. **[HISTORICAL] Historical Calibration Metrics:** The battery of probabilistic calibration metrics, Brier Score, and decoupled confusion matrix decomposition used in pre-five-domain threat simulation studies.
 
 ---
 
-## 2. Streaming Causal Selection: The Online Knapsack Problem
+## 2. Streaming Causal Selection: The Online Knapsack Problem [STUDY] + [CODE]
+
+> **Epistemic Classification:** [STUDY] + [CODE]  
+> **Active Implementation:** [`lab.studies.common.causal_selection.online_indices`](../../../../lab/src/lab/studies/common/causal_selection.py#L118-L180)
 
 In comparative attention budget studies (v0.24, v0.27), the evaluator must compare different prioritization heuristics (based on risk, novelty, combined, or random) by assigning each exactly the same selection budget $K$ over a temporal sequence of $M$ eligible events.
 
@@ -50,7 +60,10 @@ The formal problem consists of:
 
 ---
 
-## 3. The Dynamic Order Statistic Treap with SplitMix64
+## 3. The Dynamic Order Statistic Treap with SplitMix64 [STUDY] + [CODE]
+
+> **Epistemic Classification:** [STUDY] + [CODE]  
+> **Active Implementation:** [`lab.studies.common.causal_selection.OrderStatisticHistory`](../../../../lab/src/lab/studies/common/causal_selection.py#L83-L106)
 
 To evaluate exact quantiles of the observed history without reordering memory arrays at each step ($O(n \log n)$ per insertion), Symbiont Lab implements a **Treap** ([`OrderStatisticHistory`](../../../../lab/src/lab/studies/common/causal_selection.py#L83-L106)).
 
@@ -118,7 +131,10 @@ $$\theta_{\text{causal}} = \operatorname{kth}(\text{root}, \text{index})_{\text{
 
 ---
 
-## 4. Streaming Selection Decision Algorithm
+## 4. Streaming Selection Decision Algorithm [STUDY] + [CODE]
+
+> **Epistemic Classification:** [STUDY] + [CODE]  
+> **Active Implementation:** [`lab.studies.common.causal_selection.online_indices`](../../../../lab/src/lab/studies/common/causal_selection.py#L118-L180)
 
 At each step $t \in \{1, \dots, M\}$ over the set of eligible events ([`online_indices`](../../../../lab/src/lab/studies/common/causal_selection.py#L118-L180)):
 
@@ -168,9 +184,16 @@ history.add(s_t)
 
 ---
 
-## 5. Probabilistic Simulation Evaluation Metrics
+> [!WARNING] [HISTORICAL] RETIRED SIMULATION EVALUATION METRICS
+> Sections 5 and 6 document historical evaluation metrics (Brier score over binary synthetic threats, ECE, decoupled threat confusion matrices, and blind-spot rates) used in the retired pre-five-domain agent simulation studies (`symbiont.simulation.evaluation`, archived in `lab/research/audits/historical/v024/`).
+>
+> They are preserved for provenance of historical benchmark results, but **do not describe active evaluation pipelines in `lab` or current organism cognition**.
 
-The evaluation apparatus (`symbiont.simulation.evaluation.Evaluator`) processes the organism's decisions by comparing them with the ground truth $y^* \in \{0, 1\}$.
+## 5. Probabilistic Simulation Evaluation Metrics [HISTORICAL]
+
+> **Epistemic Classification:** [HISTORICAL] (Retired pre-five-domain simulation evaluator)
+
+The historical evaluation apparatus (`symbiont.simulation.evaluation.Evaluator`) processed the agent's decisions by comparing them with the ground truth $y^* \in \{0, 1\}$.
 
 ### 5.1 Brier Score
 The Brier Score (`brier_score`) is a strictly proper scoring rule that measures the mean squared error of predicted probabilities:
@@ -198,13 +221,15 @@ $$ECE = \sum_{m=1}^{10} \frac{|B_m|}{N} \Big| \operatorname{conf}(B_m) - \operat
 
 ---
 
-## 6. Decoupling of Confusion Matrices (Attention vs. Classification)
+## 6. Decoupling of Confusion Matrices in Retired Studies [HISTORICAL]
 
-One of the fundamental design principles of Symbiont (ADR-0003) states that **attention does not equal threat classification**.
-- An organism may attend to a signal simply because it is novel or uncertain, concluding after investigating it that it is perfectly benign.
-- An organism may classify a signal as a threat based on prior memory without requiring a second look.
+> **Epistemic Classification:** [HISTORICAL] (Retired pre-five-domain simulation evaluator)
 
-Therefore, `EvaluationCounts` maintains two completely decoupled confusion matrices:
+In the historical agent studies, ADR-0003 established that **attention does not equal threat classification**.
+- An organism could attend to a signal simply because it was novel or uncertain, concluding after investigating it that it was benign.
+- An organism could classify a signal as a threat based on prior memory without requiring a second look.
+
+Therefore, the historical evaluator maintained two completely decoupled confusion matrices:
 
 ```text
                     MATRIZ DE ATENCIÓN                      MATRIZ DE CLASIFICACIÓN

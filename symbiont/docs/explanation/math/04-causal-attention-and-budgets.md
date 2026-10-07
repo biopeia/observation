@@ -5,13 +5,13 @@ diataxis_kind: "explanation"
 domain: "math"
 migrated_on: 2026-09-25
 language: en
-last_reviewed: null
+last_reviewed: 2026-10-07
 ---
 # Causal Attention Allocation and Finite Budget Optimization
 
-> **Status:** IMPLEMENTED  
-> **Type:** HEURISTIC POLICY AND RESOURCE ALLOCATION  
-> **Related modules:** [`symbiont.core.attention`](../../../src/symbiont/core/cognition/attention.py)
+> **Epistemic Classification:** [CODE] (Greedy knapsack heuristic, coefficient of variation dispersion, cost decoupling, and budget invariance)  
+> **Status:** ACTIVE SPECIFICATION  
+> **Related modules:** [`symbiont.core.cognition.attention`](../../../src/symbiont/core/cognition/attention.py)
 
 ---
 
@@ -79,7 +79,7 @@ $$u(c_i) = \begin{cases}
 
 ## 4. Formal Decoupling Between Consumption Cost and Ranking Cost
 
-> **Classification:** PROPOSITION / SAFETY INVARIANT
+> **Classification:** [CODE] / SAFETY INVARIANT
 
 A common weakness in systems with learned budgets is that an internal component learns that an action "costs zero" to deceive the scheduler and consume excessive resources.
 

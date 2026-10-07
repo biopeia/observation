@@ -5,12 +5,12 @@ diataxis_kind: "explanation"
 domain: "math"
 migrated_on: 2026-09-25
 language: en
-last_reviewed: null
+last_reviewed: 2026-10-07
 ---
 # Perception, Sensory Acclimation and Algebra of Relations
 
-> **Status:** IMPLEMENTED  
-> **Type:** CODE IDENTITY AND SELECTION HEURISTIC  
+> **Epistemic Classification:** [CODE] (Exact online statistical identities, lagged associations, and active selection heuristics)  
+> **Status:** ACTIVE SPECIFICATION  
 > **Related modules:** [`symbiont.host.acclimation`](../../../src/symbiont/host/acclimation.py), [`symbiont.host.adaptive`](../../../src/symbiont/host/adaptive.py)
 
 ---
@@ -28,7 +28,7 @@ In Symbiont, the perceptual apparatus does not assume a closed or preconfigured 
 
 ## 2. The Univariate Welford's Algorithm
 
-> **Classification:** PROPOSITION / EXACT ALGEBRAIC IDENTITY
+> **Classification:** [CODE] / EXACT ALGEBRAIC IDENTITY
 
 To estimate the sample mean $\bar{x}_n$ and the unbiased sample variance $s_n^2$ of an infinite sequence of observations $x_1, x_2, \dots, x_n \in \mathbb{R}$, the naive two-pass formulation:
 
@@ -98,7 +98,7 @@ which allows resuming Welford updates without discontinuities or numerical disto
 
 ## 3. Bivariate Welford's Algorithm for Online Correlation
 
-> **Classification:** PROPOSITION / NUMERICAL IDENTITY
+> **Classification:** [CODE] / NUMERICAL IDENTITY
 
 To discover relations between system capabilities (for example, between CPU usage and temperature or network traffic), the system uses [`PairAccumulator`](../../../src/symbiont/host/adaptive.py).
 
@@ -132,7 +132,7 @@ $$r(X, Y) = \begin{cases}
 
 ## 4. Temporal Dynamics: Synchronous vs. Lagged Association
 
-> **Classification:** DESCRIPTIVE HEURISTIC (TEMPORAL ASSOCIATION, NOT CAUSALITY)
+> **Classification:** [CODE] / DESCRIPTIVE HEURISTIC (TEMPORAL ASSOCIATION, NOT CAUSALITY)
 
 To measure temporal dependency without imposing external semantic models, each relation [`SensoryRelation`](../../../src/symbiont/host/adaptive.py) maintains three independent bivariate accumulators:
 
@@ -168,7 +168,7 @@ $$\text{Strength}(A, B) = \max\Big( |r_{\text{sync}}|, |r_{a_{t-1}, b_t}|, |r_{b
 
 ## 5. Sensory Dynamic Utility Function
 
-> **Classification:** INFORMATIONAL RANKING HEURISTIC
+> **Classification:** [CODE] / INFORMATIONAL RANKING HEURISTIC
 
 The organism must autonomously solve a sensory allocation problem: among hundreds of available operating system observation surfaces, which deserve routine sampling?
 
@@ -205,7 +205,7 @@ This heuristic weighting assigns $65\%$ to the amplitude of the sample range and
 
 ## 6. Selection and Collinear Redundancy Pruning
 
-> **Classification:** SPATIAL PRUNING HEURISTIC
+> **Classification:** [CODE] / SPATIAL PRUNING HEURISTIC
 
 Given a set of candidate senses sorted by decreasing utility $U_1 \ge U_2 \ge \dots \ge U_k$:
 
@@ -219,7 +219,7 @@ If declared redundant, $s_j$ is excluded from the main quota (active limit $K_{\
 
 ## 7. Sampling Scheduling: Deterministic Rotation and Eventual Coverage
 
-> **Classification:** PROPOSITION (UNDER STABLE CANDIDATES) / EXPLORATION HEURISTIC
+> **Classification:** [CODE] / EXPLORATION HEURISTIC
 
 To avoid *irreversible early blindness* (where a bad initial estimate permanently discards a signal that later becomes informative), the organism classifies the senses into three strata:
 

@@ -7,14 +7,14 @@ status: unclassified
 canonical: false
 implementation_status: unknown
 migrated_on: 2026-09-25
-last_reviewed: null
+last_reviewed: 2026-10-07
 language: en
 ---
 # Epistemological Fundamentals and Mathematical Framework of Symbiont
 
-> **Status:** IMPLEMENTED  
-> **Type:** FORMAL SPECIFICATION OF BOUNDARIES AND CODE IDENTITIES  
-> **Related modules:** `symbiont.core.orchestration.runtime`, `symbiont.foundation.epistemic`, `environment.genesis`
+> **Epistemic Classification:** [FORMAL] (Epistemic boundaries and non-interference invariant) | [CODE] (Deterministic identifiers and RNG seed derivation) | [HISTORICAL] (Retired 5-variable host vector)  
+> **Status:** ACTIVE SPECIFICATION  
+> **Related modules:** [`symbiont.host.adaptive`](../../../src/symbiont/host/adaptive.py), [`environment.rng`](../../../../environment/src/environment/rng.py), [`lab.studies.common.rng`](../../../../lab/src/lab/studies/common/rng.py)
 
 ---
 
@@ -36,28 +36,34 @@ The purpose of this mathematical framework is to formalize how an adaptive syste
 
 ### 2.1 Environment / Host Signal Space ($\mathcal{X}$)
 
-Let $\mathcal{X} \subseteq \mathbb{R}^D$ be the space of observable signals from the environment or host. For the canonical synthetic case ($D=5$), the observation vector at time $t$ is defined in `Observation`:
+> [!NOTE] [HISTORICAL RESIDUE]
+> The fixed 5-dimensional synthetic observation vector below $\mathbf{x}(t) = (x_{\text{cpu}}, \dots, x_{\text{persist}})^T \in [0, 1]^5$ represents the retired pre-five-domain synthetic host simulation. The active architecture ([`symbiont.host`](../../../src/symbiont/host)) operates over dynamic, open capability spaces without hardcoded semantic feature slots.
+
+For the historical synthetic case ($D=5$), the observation vector at time $t$ was defined as:
 
 $$\mathbf{x}(t) = \begin{pmatrix} x_{\text{cpu}}(t) \\ x_{\text{net}}(t) \\ x_{\text{file}}(t) \\ x_{\text{proc}}(t) \\ x_{\text{persist}}(t) \end{pmatrix} \in [0, 1]^5$$
 
 For the real host case ([`symbiont.host`](../../../src/symbiont/host)), the space is composed of a dynamic and open set of capabilities $C = \{c_1, c_2, \dots, c_K\}$, where each capability produces readings $x_{c_k}(t) \in \mathbb{R} \cup \{\emptyset\}$ associated with physical units and declarative privacy policies.
 
-### 2.2 Percept Space and Opaque Names ($\mathcal{S}$)
+### 2.2 Percept Space and Opaque Names ($\mathcal{S}$) [CODE]
 
 Cognition does not interact directly with file system paths, process names, or semantic platform identifiers. There is a measurable projection:
 
 $$\phi: \mathcal{X} \to \mathcal{S}$$
 
-where $\mathcal{S} \subseteq [-1, 1]^M$ is the space of normalized percepts. In the adaptive discovery subsystem, identifiers are transformed into opaque labels through a truncated deterministic hash:
+where $\mathcal{S} \subseteq [-1, 1]^M$ is the space of normalized percepts. In the adaptive discovery subsystem ([`symbiont.host.adaptive`](../../../src/symbiont/host/adaptive.py)), identifiers are transformed into opaque labels through a truncated deterministic hash:
 
 $$\text{sense\_id} = \operatorname{SHA-256}(\text{"symbiont-sense:"} \parallel c_k)_{[0:12]}$$
 
 > **Security and Cryptography Note (Design Heuristic):**  
 > Truncating SHA-256 to 12 hexadecimal characters (48 bits of entropy) **does not constitute a mathematical guarantee of anonymization in itself**. If the space of known capabilities is small (for example, standard `/proc` metrics), a dictionary attack can reverse the mapping. Its function in the architecture is to generate opaque identifiers to decouple the host's semantics from the organism's reasoning rules. True privacy protection comes from the isolation boundaries of the reading provider ([`symbiont.host.contracts`](../../../src/symbiont/host/contracts.py)), which restricts which observation surfaces can be queried.
 
-### 2.3 Epistemic States and Belief Space ($\mathcal{B}$)
+### 2.3 Epistemic States and Belief Space ($\mathcal{B}$) [HISTORICAL]
 
-The local belief state space for a sensory pattern is defined as a bounded manifold:
+> [!NOTE] [HISTORICAL FORMULATION]
+> The belief space $\mathcal{B} = [0, 1] \times [0, E_{\max}] \times [0, 1]$ with saturated evidence cap $E_{\max} = 32.0$ documents the retired pre-five-domain belief model of `beliefs.py` (see [05-bayesian-beliefs-and-dissent.md](05-bayesian-beliefs-and-dissent.md)). The active evidence revision layer in `symbiont.core.cognition.evidence` uses `EvidenceRevisionLedger` and `DissentRecord`.
+
+The historical local belief state space for a sensory pattern was defined as a bounded manifold:
 
 $$\mathcal{B} = \left\{ (p, e, c) \in [0, 1] \times [0, E_{\max}] \times [0, 1] \right\}$$
 
@@ -67,9 +73,9 @@ where:
 - $e \in [0, E_{\max}]$ is the accumulated evidence mass ($E_{\max} = 32.0$).
 - $c \in [0, 1]$ is the exponential memory of historical conflict and inconsistency.
 
-### 2.4 Evaluator Ground Truth Space ($\mathcal{Y}^*$)
+### 2.4 Evaluator Ground Truth Space ($\mathcal{Y}^*$) [STUDY / HISTORICAL]
 
-Exclusive to the simulator and the experimental laboratory ([`symbiont_lab`](../../../../lab/src/lab) and `symbiont.simulation`):
+Exclusive to the experimental laboratory ([`lab`](../../../../lab/src/lab)) and historical synthetic studies:
 
 $$\mathcal{Y}^* = \{0, 1\} \times \Omega_{\text{fam}}$$
 
@@ -79,7 +85,7 @@ where $y^* \in \{0, 1\}$ indicates whether the event is objectively a synthetic 
 
 ## 3. Structural Invariant of Epistemological Non-Interference
 
-> **Classification:** PROPOSITION / ARCHITECTURAL INVARIANT ENFORCED BY AST
+> **Classification:** [FORMAL] / ARCHITECTURAL INVARIANT ENFORCED BY AST
 
 Unlike a classical probabilistic theorem, Symbiont's isolation is a **deterministic property of non-interference and structural measurability**.
 
@@ -154,7 +160,7 @@ It is necessary to distinguish between a static code check and the full mathemat
 
 ## 4. Pseudorandom Stream Algebra and Causal Orthogonality
 
-> **Classification:** PROPOSITION / EXPERIMENTAL DESIGN SPECIFICATION
+> **Classification:** [CODE] / EXPERIMENTAL DESIGN SPECIFICATION
 
 In experimental studies, evaluating the impact of an intervention (e.g., varying the fraction of poisoned agents $\rho \in [0, 0.20]$ or introducing a drift regime) requires that the intervention **does not collaterally alter** the random number sequence assigned to other parts of the system.
 
@@ -164,7 +170,7 @@ an additional draw to select poisoned agents would shift the global pointer, cha
 
 ### 4.1 Deterministic Seed Derivation
 
-Symbiont solves this problem through a cryptographic derivation tree of independent seeds (`symbiont.environment.rng.derive_seed`):
+Symbiont and Symbiont Lab solve this problem through a cryptographic derivation tree of independent seeds ([`environment.rng.derive_world_seed`](../../../../environment/src/environment/rng.py) and [`lab.studies.common.rng.derive_seed`](../../../../lab/src/lab/studies/common/rng.py)):
 
 Given an experimental seed integer $S \in \mathbb{N}$ and a textual namespace $N \in \mathcal{S}_{\text{names}}$ (e.g., `"profiles"`, `"agents"`, `"reporters"`, `"schedule"`, `"observations"`, `"drift"`):
 

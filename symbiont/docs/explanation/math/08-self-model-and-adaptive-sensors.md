@@ -5,12 +5,12 @@ diataxis_kind: "explanation"
 domain: "math"
 migrated_on: 2026-09-25
 language: en
-last_reviewed: null
+last_reviewed: 2026-10-07
 ---
 # Organism Self-Model, Costs and Discrete Quantization
 
-> **Status:** IMPLEMENTED  
-> **Type:** ENDOGENOUS ESTIMATION AND QUANTIZED PERSISTENCE SPECIFICATION  
+> **Epistemic Classification:** [CODE] (EWMA sensor latency and health, idle decay with grace zone, logarithmic maturity, and 4-bit logarithmic cost quantization)  
+> **Status:** ACTIVE SPECIFICATION  
 > **Related modules:** [`symbiont.core.cognition.self_model`](../../../src/symbiont/core/cognition/self_model.py), [`symbiont.core.cognition.host_self_model`](../../../src/symbiont/core/cognition/host_self_model.py)
 
 ---

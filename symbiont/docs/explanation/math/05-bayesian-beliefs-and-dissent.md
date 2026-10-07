@@ -7,31 +7,34 @@ status: unclassified
 canonical: false
 implementation_status: unknown
 migrated_on: 2026-09-25
-last_reviewed: null
+last_reviewed: 2026-10-07
 language: en
 ---
 # Belief Dynamics, Epistemic Surprise, and Dissent Registration
 
-> **Status:** IMPLEMENTED  
-> **Type:** ADAPTIVE FILTER WITH BAYESIAN MOTIVATION  
+> **Epistemic Classification:** BIFURCATED — §§1–4: [HISTORICAL] | §5: [CODE]  
+> **Status:** MIXED (Historical reference model + active runtime dissent mechanism)  
 > **Related modules:** [`symbiont.core.cognition.evidence`](../../../src/symbiont/core/cognition/evidence.py), [`symbiont.core.foundation.narrative`](../../../src/symbiont/core/foundation/narrative.py)
 
 ---
 
-## 1. The Nature of Beliefs in Symbiont
+> [!WARNING] [HISTORICAL] RETIRED PRE-FIVE-DOMAIN BELIEF MODEL
+> Sections 1 to 4 document the retired pre–five-domain belief model (formerly implemented in `src/symbiont/core/cognition/beliefs.py` prior to the five-domain migration, commit `137209355`). It is preserved for historical, provenance, and mathematical reference, but **has no runtime consumer in the current organism**.
 
-In Symbiont, a belief is not a deterministic label, but a subjective distribution that evolves in the face of noisy local perceptions (`symbiont.core.cognition.evidence`).
+## 1. The Nature of Beliefs in Symbiont [HISTORICAL]
 
-The model pursues four operational properties:
+In the historical Symbiont agent stack, a belief was modeled as a subjective distribution that evolves in the face of noisy local perceptions.
+
+The model pursued four operational properties:
 
 1. **Smooth Accumulation:** As consistent evidence is observed, subjective certainty increases.
 2. **Reversibility:** If the host's behavior changes, the belief can cross the decision boundary ($p \ge 0.5 \leftrightarrow p < 0.5$).
 3. **Conflict Sensitivity:** If successive observations conflict with each other, certainty decays.
-4. **Dissent Preservation:** If a batch of evidence strongly disagrees with the established baseline, the disagreement is recorded immutably as an explicit historical event ([`symbiont.core.evidence`](../../../src/symbiont/core/cognition/evidence.py)).
+4. **Dissent Preservation:** If a batch of evidence strongly disagrees with the established baseline, the disagreement is recorded immutably as an explicit historical event (see active §5 below).
 
 ---
 
-## 2. The Update Model with Pseudo-Observations
+## 2. The Update Model with Pseudo-Observations [HISTORICAL]
 
 Each pattern or abstract signature $\text{fp}$ maps to a state `BeliefState`:
 
@@ -60,7 +63,7 @@ During the **unsaturated** phase ($E + w \le E_{\max}$), this rule is mathematic
 
 ---
 
-## 3. Conflict Dynamics and Surprise
+## 3. Conflict Dynamics and Surprise [HISTORICAL]
 
 Surprise measures the instantaneous absolute discrepancy:
 
@@ -83,7 +86,7 @@ $$\text{Reversal}_t = \mathbb{I}\Big( (P_{\text{prior}} \ge 0.5) \neq (P_{\text{
 
 ---
 
-## 4. Subjective Certainty Function and Dimensional Analysis
+## 4. Subjective Certainty Function and Dimensional Analysis [HISTORICAL]
 
 Certainty $\text{Certainty} \in [0, 1]$ in `BeliefState.certainty` is defined as:
 
@@ -118,7 +121,12 @@ To avoid pedagogical ambiguities, the compendium formalizes three orthogonal dim
 
 ---
 
-## 5. Standardized Batch Discrepancy and Dissent Registration
+## 5. Standardized Batch Discrepancy and Dissent Registration [CODE]
+
+> **Epistemic Classification:** [CODE]  
+> **Active Implementation:** [`symbiont.core.cognition.evidence.EvidenceRevisionLedger`](../../../src/symbiont/core/cognition/evidence.py), [`DissentRecord`](../../../src/symbiont/core/cognition/evidence.py)
+
+This section describes an active runtime mechanism of the organism's evidence and narrative revision pipeline.
 
 When the organism executes a high-resolution inspection (*second look*), it collects a batch of discrete readings $\mathcal{X}_{\text{batch}} = \{x_1, \dots, x_m\}$.
 

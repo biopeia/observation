@@ -3,24 +3,24 @@ id: explanation.math.09-plasticidad-endogena-y-redes-recurrentes
 title: Endogenous Plasticity, Recurrent Cognitive Graphs and Activation Dynamics
 document_type: explanation
 domain: math
-status: unclassified
+status: active
 canonical: false
-implementation_status: unknown
+implementation_status: implemented
 supersedes: []
 extends: []
 implements: []
 depends_on: []
 related_adrs: []
 migrated_on: 2026-09-25
-last_reviewed: null
-review_required: true
+last_reviewed: 2026-10-07
+review_required: false
 language: en
 ---
 # Endogenous Plasticity, Recurrent Cognitive Graphs and Activation Dynamics
 
-> **Status:** PARTIALLY IMPLEMENTED (v0.55/v0.56) / SPECIFIED (v0.57/v0.58)  
-> **Type:** RECURRENT NETWORK ARCHITECTURE AND LEARNING SPECIFICATION  
-> **Related modules:** [`symbiont.cognition.activation`](../../../src/symbiont/cognition/activation.py), [`symbiont.cognition.graph`](../../../src/symbiont/cognition/graph.py), [`symbiont.cognition.genome`](../../../src/symbiont/cognition/genome.py)
+> **Epistemic Classification:** [CODE] (Recurrent bipartite graph dynamics, tangential normalization, discrete Oja learning rule, and eligibility traces)  
+> **Status:** ACTIVE SPECIFICATION / FULLY IMPLEMENTED  
+> **Related modules:** [`symbiont.cognition.activation`](../../../src/symbiont/cognition/activation.py), [`symbiont.cognition.graph`](../../../src/symbiont/cognition/graph.py), [`symbiont.cognition.learning`](../../../src/symbiont/cognition/learning.py), [`symbiont.core.cognition.plasticity_state`](../../../src/symbiont/core/cognition/plasticity_state.py)
 
 ---
 
@@ -175,12 +175,13 @@ Bounding activations in $[-1, 1]^N$ demonstrates **confinement of the trajectory
 
 ---
 
-## 5. Local Learning Rules and Plasticity [SPECIFIED]
+## 5. Local Learning Rules and Plasticity [CODE]
 
-> **Classification:** LEARNING SPECIFICATION (ROADMAP v0.57)
+> **Classification:** [CODE]  
+> **Active Implementation:** [`symbiont.cognition.learning.apply_oja_update`](../../../src/symbiont/cognition/learning.py), [`update_eligibility`](../../../src/symbiont/cognition/learning.py), [`symbiont.core.cognition.plasticity_state.PlasticityState`](../../../src/symbiont/core/cognition/plasticity_state.py)
 
 ### 5.1 Stabilized Oja's Rule
-For associative edges between plastic nodes, the specification incorporates Oja's normalizing rule (1982):
+For associative edges between plastic nodes, the system implements Oja's normalizing rule (1982) via `apply_oja_update`:
 
 $$\Delta w_{ij}(t) = \eta_{ij} \cdot m(t) \cdot \Big[ a_i(t - d_{ij}) \cdot a_j(t) - a_j(t)^2 \cdot w_{ij}(t) \Big]$$
 
@@ -193,8 +194,8 @@ where:
 > However, in a recurrent network with finite discrete steps, multiplicative gates, and clipping, it does not mathematically guarantee that $\|\mathbf{w}\|_2 \le 1$ at every tick. The hard bound of weights in Symbiont comes from the kernel guard:
 > $$w_{ij} \in [-2.0, 2.0]$$
 
-### 5.2 Temporal Eligibility Traces [SPECIFIED]
-To associate previous activations with deferred consequences:
+### 5.2 Temporal Eligibility Traces [CODE]
+To associate previous activations with deferred consequences, `update_eligibility` computes:
 
 $$q_{ij}(t) = \lambda_{\text{elig}} \cdot q_{ij}(t-1) + a_i(t - d_{ij}) \cdot a_j(t)$$
 

@@ -5,12 +5,12 @@ diataxis_kind: "explanation"
 domain: "math"
 migrated_on: 2026-09-25
 language: en
-last_reviewed: null
+last_reviewed: 2026-10-07
 ---
 # Drift, Regime Shift, and Rhythm Modeling Detection
 
-> **Status:** IMPLEMENTED  
-> **Type:** CODE IDENTITY AND STOCHASTIC MODELING  
+> **Epistemic Classification:** [CODE] (EWMA dispersion estimators, regime shift quarantine buffer, frozen noise floor creep detection, and diurnal rhythms)  
+> **Status:** ACTIVE SPECIFICATION  
 > **Related modules:** [`symbiont.host.drift`](../../../src/symbiont/host/drift.py), [`symbiont.host.rhythms`](../../../src/symbiont/host/rhythms.py)
 
 ---
@@ -29,7 +29,7 @@ In a complex operating system or synthetic environment, signals do not behave as
 
 ## 2. Stochastic EWMA Filter for Adaptive Dispersion
 
-> **Classification:** CODE IDENTITY / WEIGHTED DISPERSION ESTIMATOR
+> **Classification:** [CODE] / WEIGHTED DISPERSION ESTIMATOR
 
 In the absence of active atypical deviations, the baseline is updated via an exponentially weighted moving average filter with learning rate $\lambda \in (0, 1]$ (default $\lambda = 0.10$):
 
@@ -53,7 +53,7 @@ This formulation algebraically guarantees non-negativity ($\sigma_t^2 \ge 0$) at
 
 ## 3. Standardized Deviation Score ($Z$-Score) and Heuristic Thresholds
 
-> **Classification:** STANDARDIZED DETECTION HEURISTIC
+> **Classification:** [CODE] / STANDARDIZED DETECTION HEURISTIC
 
 For each new observation $x_t$, before incorporating it into the baseline, the standardized score with respect to the previous state is calculated:
 
@@ -99,7 +99,7 @@ flowchart TD
 
 ## 4. Regime Shift Detection without Contamination
 
-> **Classification:** CODE IDENTITY / CONTAMINATION ISOLATION
+> **Classification:** [CODE] / CONTAMINATION ISOLATION
 
 The greatest danger in the adaptive estimation of baselines lies in two empirically identified failure modes:
 
@@ -118,7 +118,7 @@ Symbiont resolves both dilemmas through a **quarantine buffer with conditional b
 
 ## 5. Slow Creep Detection and the Frozen Floor Problem
 
-> **Classification:** CODE IDENTITY / DIVERGENCE WITH FROZEN DENOMINATOR
+> **Classification:** [CODE] / DIVERGENCE WITH FROZEN DENOMINATOR
 
 ### 5.1 The Sub-Threshold Creep Challenge
 Consider an imperceptible linear drift ramp:
@@ -193,7 +193,7 @@ When $|z_{\text{creep}}| \ge z_{\text{creep}} = 1.0$ for $K_{\text{creep}} = 8$ 
 
 ## 6. Rhythm Modeling and Cyclic Temporal Quantization
 
-> **Classification:** CONTEXT HEURISTIC WITHOUT ABSOLUTE TELEMETRY
+> **Classification:** [CODE] / CONTEXT HEURISTIC WITHOUT ABSOLUTE TELEMETRY
 
 To capture cyclic oscillations (e.g., diurnal vs. nocturnal load) without violating privacy by retaining real timestamps, [`RhythmModel`](../../../src/symbiont/host/rhythms.py) defines a temporal partition in quadrants:
 
