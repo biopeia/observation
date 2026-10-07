@@ -66,6 +66,11 @@ export class PhysicalObservationBoundary {
     this.presentationIdentity = null;
     this.presentationRunId = null;
     this.remountScheduled = false;
+    // A newly-created EventSource has no Last-Event-ID and the server replays
+    // the latest materialized boundary. Keep the last boundary across viewer
+    // remounts so replaying that same lifecycle marker cannot trigger an
+    // unbounded remount/reconnect loop.
+    this.lastBoundaryKey = null;
   }
 
   mount(state) {
@@ -83,6 +88,9 @@ export class PhysicalObservationBoundary {
       if (!data) return data;
 
       if (data.type === 'observation_boundary') {
+        const boundaryKey = `${data.phase ?? ''}|${data.run_id ?? ''}`;
+        if (boundaryKey === this.lastBoundaryKey) return null;
+        this.lastBoundaryKey = boundaryKey;
         acceptedIdentity = null;
         markStatus(
           viewer,

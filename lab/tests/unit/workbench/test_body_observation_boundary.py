@@ -69,6 +69,33 @@ console.log(JSON.stringify({{
     assert "resetting presentation" in out["status"]
 
 
+def test_replayed_run_boundary_does_not_remount_again_after_viewer_recreation() -> None:
+    module = (WEB / "views/body/observability.js").as_uri()
+    out = _node(
+        f"""
+const {{PhysicalObservationBoundary}} = await import({json.dumps(module)});
+let remounts = 0;
+const boundary = new PhysicalObservationBoundary({{onIdentityChange: () => remounts += 1}});
+const makeViewer = () => {{
+  const decoder = {{decode: (payload) => payload, takeIssue: () => null}};
+  return {{decoder, liveDecoder: decoder, statusEl: {{dataset: {{}}, style: {{}}, textContent: ''}}}};
+}};
+const first = makeViewer();
+boundary.mount({{sources:{{physics3d:{{run_id:'run-1', body_ref:'body-1', body_kind:'crawler-v1'}}}}}});
+boundary.attach(first);
+const original = first.decoder.decode({{type:'observation_boundary', phase:'begin', run_id:'run-1'}});
+await Promise.resolve();
+const afterRemount = makeViewer();
+boundary.attach(afterRemount);
+const replay = afterRemount.decoder.decode({{type:'observation_boundary', phase:'begin', run_id:'run-1'}});
+await Promise.resolve();
+console.log(JSON.stringify({{original, replay, remounts}}));
+""",
+    )
+
+    assert out == {"original": None, "replay": None, "remounts": 1}
+
+
 def test_partial_tick_identity_does_not_reset_observer_viewer() -> None:
     module = (WEB / "views/body/observability.js").as_uri()
     out = _node(
