@@ -173,8 +173,45 @@ def _budget_for(base: str, classification: ChangeClass) -> int:
     return int(raw)
 
 
+STRUCTURED_DOC_EXTENSIONS = (".yaml", ".yml")
+PROSE_DOC_EXTENSIONS = (".md", ".markdown")
+
+DOCUMENTATION_SURFACES_STRUCTURED = (
+    "symbiont/docs/",
+    "docs/",
+)
+
+DOCUMENTATION_SURFACES_PROSE = (
+    "symbiont/docs/",
+    "docs/",
+    "migration/",
+    ".agents/",
+    ".claude/",
+    ".codex/",
+    ".github/",
+    "lab/research/",
+    "lab/experiments/",
+    "lab/src/lab/observatory/",
+)
+
+ROOT_DOCUMENTS = frozenset({"README.md", "AGENTS.md", "CLAUDE.md", "DESIGN.md", "INSTRUCTIONS.md"})
+
+
+def _is_documentation_artifact(path: str) -> bool:
+    """Classify whether a changed path is an authorized documentation artifact."""
+    if path.endswith(STRUCTURED_DOC_EXTENSIONS):
+        return path.startswith(DOCUMENTATION_SURFACES_STRUCTURED) and not path.startswith(
+            "docs/governance/"
+        )
+    if path.endswith(PROSE_DOC_EXTENSIONS):
+        if path in ROOT_DOCUMENTS or path.endswith("/README.md"):
+            return True
+        return path.startswith(DOCUMENTATION_SURFACES_PROSE)
+    return False
+
+
 def _is_markdown(path: str) -> bool:
-    return path.endswith((".md", ".markdown"))
+    return path.endswith(PROSE_DOC_EXTENSIONS)
 
 
 def _control_plane_changed(paths: tuple[str, ...]) -> bool:
@@ -199,13 +236,13 @@ def _audit_plan(base: str, plan: CIPlan) -> tuple[str, ...]:
     if uncovered:
         findings.append("uncovered changed paths: " + ", ".join(uncovered))
 
-    non_markdown = [path for path in plan.changed_paths if not _is_markdown(path)]
-    if non_markdown and not (set(plan.selected_lanes) & BEHAVIORAL_LANES):
+    non_docs = [path for path in plan.changed_paths if not _is_documentation_artifact(path)]
+    if non_docs and not (set(plan.selected_lanes) & BEHAVIORAL_LANES):
         findings.append(
             "non-document change has no behavioral validation lane; impact policy must widen"
         )
 
-    if _control_plane_changed(plan.changed_paths) and non_markdown and not plan.canonical_full:
+    if _control_plane_changed(plan.changed_paths) and non_docs and not plan.canonical_full:
         findings.append("control-plane implementation changed without canonical_full fallback")
 
     if plan.classification == str(ChangeClass.FROZEN):
@@ -226,8 +263,8 @@ def build_plan(base: str, head: str) -> CIPlan:
     sections = _selected_matrix_sections(base, paths)
     lanes = _lanes_for_sections(base, sections)
 
-    markdown_only = bool(paths) and all(_is_markdown(path) for path in paths)
-    if markdown_only:
+    docs_only = bool(paths) and all(_is_documentation_artifact(path) for path in paths)
+    if docs_only:
         lanes.intersection_update({"docs", "governance"})
         lanes.add("docs")
     elif _control_plane_changed(paths):
@@ -238,7 +275,7 @@ def build_plan(base: str, head: str) -> CIPlan:
     selected = tuple(sorted(lanes))
     plan = CIPlan(
         classification=str(classification),
-        code_quality=bool(paths) and not markdown_only,
+        code_quality=bool(paths) and not docs_only,
         docs="docs" in lanes,
         governance="governance" in lanes,
         software_core="software_core" in lanes,
