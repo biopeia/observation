@@ -57,6 +57,8 @@ export class MindStreams {
     this.localMindActive = false;
     this.coherentIdentity = null;
     this.liveFrameReceived = false;
+    this.organismActivityReceived = false;
+    this.localRunActive = false;
     this.closed = true;
     this.developmentHydratedIdentity = null;
     this.sourceIdentity = {
@@ -133,15 +135,17 @@ export class MindStreams {
   connect() {
     this.closed = false;
     this.liveFrameReceived = false;
+    this.organismActivityReceived = false;
+    this.localRunActive = false;
     this.emitSourceState('waiting', { reason: 'connecting' });
     // History is optional presentation context. Do not make live telemetry
     // wait for this potentially expensive request before opening the stream.
     this.connectOrganism();
     this.connectFleet();
-    void this.bootstrapRecentHistory();
   }
 
   async bootstrapRecentHistory() {
+    if (this.closed || this.organismActivityReceived || this.localRunActive) return;
     try {
       const response = await fetch('/api/organism/history?limit=256', { cache: 'no-store' });
       if (!response.ok || this.closed) return;
@@ -226,6 +230,7 @@ export class MindStreams {
     this.organism.addEventListener('message', (event) => {
       let data;
       try { data = JSON.parse(event.data); } catch { return; }
+      this.organismActivityReceived = true;
       data = this.liveDecoder.decode(data);
       this.consumeDecoderIssues();
       if (!data?.type) return;
@@ -405,8 +410,13 @@ export class MindStreams {
       if (this.closed) return;
       if (response.ok) {
         const state = await response.json();
+        const organismStream = state?.sources?.organism_stream;
+        if (organismStream?.active_run_id) {
+          this.localRunActive = true;
+        }
         const observatory = state?.sources?.observatory;
         if (observatory && observatory.available === false) {
+          if (!this.localRunActive) void this.bootstrapRecentHistory();
           this.onWaiting(
             true,
             'Observatory is not available — local organism telemetry remains active.',
@@ -420,6 +430,10 @@ export class MindStreams {
     }
 
     if (this.closed) return;
+    // History is only a fallback for an idle local stream. A running local
+    // session already supplies current Mind snapshots, while its full recent
+    // history can be several megabytes and is otherwise discarded by the UI.
+    if (!this.localRunActive) void this.bootstrapRecentHistory();
 
     try {
       this.fleet = new EventSource('/fleet');

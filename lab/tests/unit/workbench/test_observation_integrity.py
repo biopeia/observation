@@ -277,6 +277,9 @@ const telemetry = [];
 const stream = new MindStreams({{onTelemetry: (event, meta) => telemetry.push({{tick:event.tick, historical:!!meta.historical}})}});
 stream.connect();
 const source = globalThis.created.find(x => x.url === '/api/organism');
+// Force an already-in-flight history response to exercise the stale-replay
+// guard independently of the deferred bootstrap optimization.
+void stream.bootstrapRecentHistory();
 const live = {{type:'observed_frame', source:'physics3d', run_id:'r1', organism_id:'o1', tick:2,
   body:{{type:'body', tick:2}}, cognition:null, vitals:null}};
 source.onmessage({{data:JSON.stringify(live)}});
@@ -288,6 +291,38 @@ console.log(JSON.stringify({{connected:!!source, telemetry}}));
     )
 
     assert out == {"connected": True, "telemetry": [{"tick": 2, "historical": False}]}
+
+
+def test_active_mind_stream_skips_recent_history_bootstrap() -> None:
+    module = (WEB / "views/mind/streams.js").as_uri()
+    out = _node(
+        f"""
+const {{MindStreams}} = await import({json.dumps(module)});
+class FakeEventSource {{
+  constructor(url) {{ this.url=url; globalThis.created.push(this); }}
+  addEventListener(_name, callback) {{ this.onmessage=callback; }}
+  close() {{ this.closed=true; }}
+}}
+globalThis.created=[];
+globalThis.EventSource=FakeEventSource;
+let historyRequests=0;
+globalThis.fetch=async (url) => {{
+  if (url.includes('/history')) historyRequests += 1;
+  return {{ok:true, json:async()=>({{sources:{{
+    organism_stream:{{active_run_id:'run-a'}},
+    observatory:{{available:false}},
+  }}}})}};
+}};
+const stream=new MindStreams({{hydrateDevelopment:false}});
+stream.connect();
+await new Promise(resolve=>setTimeout(resolve, 250));
+const result={{historyRequests, localRunActive:stream.localRunActive}};
+stream.close();
+console.log(JSON.stringify(result));
+"""
+    )
+
+    assert out == {"historyRequests": 0, "localRunActive": True}
 
 
 def test_multiple_observatory_instances_are_not_selected_by_array_order() -> None:
