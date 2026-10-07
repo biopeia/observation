@@ -1,6 +1,6 @@
 # Observation Architecture v1 — Target Design
 
-**Status:** Proposed; architecture-owner review pending.  
+**Status:** Approved with refinements (architecture-owner disposition, 2026-10-07).
 **Authoring authorization:** Project owner, 2026-10-07. This authorizes this target-architecture document only.  
 **Implementation state:** Not started; no implementation is authorized.  
 **Source inputs:** [Current-State Assessment](observation-architecture-current-state-assessment-v1.md) and [Design Inputs](observation-architecture-design-inputs-v1.md).  
@@ -8,11 +8,11 @@
 
 ## 1. Purpose and decision boundary
 
-This document proposes the architecture that replaces the current Lab-mediated operational observation path. It deliberately does not preserve legacy payloads, endpoints, replay behavior, snapshots, or frontend assumptions as compatibility contracts. The current implementation is evidence about source paths and failure modes, not a template for the target.
+This document defines the architecture direction and boundaries approved to replace the current Lab-mediated operational observation path. It deliberately does not preserve legacy payloads, endpoints, replay behavior, snapshots, or frontend assumptions as compatibility contracts. The current implementation is evidence about source paths and failure modes, not a template for the target.
 
 The target is **observation-oriented and event-delivered where consumers need live changes, not event-owned**. A semantic observation is distinct from its event delivery, snapshot inclusion, materialized/query projection, and UI representation. This design establishes architectural boundaries and leaves exact record schemas, delivery mechanics, endpoints and implementation for later gates.
 
-The design remains Proposed. The architecture-owner disposition in Design Inputs accepts scoped constraints; it does not approve this target architecture. No datum-level authority, final v1 publication set, protocol, implementation or cutover is approved here.
+The architecture owner approved this target architecture with refinements on 2026-10-07. That approval covers the architecture direction and boundaries recorded here only. It does not approve datum-level authority, final v1 publication, semantic record schemas, an envelope, event/snapshot/replay/delivery specifications, endpoints, transport, implementation or cutover.
 
 ## 2. Goals
 
@@ -115,11 +115,11 @@ The following constraints govern subsequent design. They derive from the accepte
 8. **Passive external observation.** Observation remains read-only with bounded cost, isolated backpressure/failure and no observer-to-organism causal feedback. Organism-owned interoception/regulation is a distinct path.
 9. **Full replacement.** The target creates no permanent legacy adapters, aliases, dual publication or compatibility promise. Differential comparison is allowed to classify intentional and unintended changes, not to require parity.
 
-## 6. Proposed ownership boundary for the Observation Plane
+## 6. Approved ownership boundary for the Observation Plane
 
-### 6.1 Alternatives
+### 6.1 Alternatives considered
 
-Three viable infrastructure boundaries remain under target review:
+Three viable infrastructure boundaries were considered before the owner disposition:
 
 | Option | Boundary | Benefits | Costs/risks |
 |---|---|---|---|
@@ -127,11 +127,15 @@ Three viable infrastructure boundaries remain under target review:
 | B. Independent shared infrastructure | A standalone shared service/package owns coordination, materialization and delivery. | Separates observation infrastructure from Lab and could serve multiple hosts. | Adds deployment/dependency surface before multi-host need is established; may centralize concepts prematurely. |
 | C. Domain producers with Lab coordination | Domains own semantic observation production; Lab owns operational composition, materialization and delivery for its consumers. | Preserves authority while reusing current Lab operational boundary; can later extract infrastructure without changing source semantics. | Requires explicit domain-facing observation contracts and careful limits on Lab composition; remains a Lab-hosted operational plane. |
 
-### 6.2 Proposed direction (not approved)
+### 6.2 Approved v1 boundary — Option C
 
-**Proposal:** use Option C for the first operational target increment: source domains define and produce their own observations; Lab coordinates and serves only the observations needed by its retained operational consumers, plus explicitly Lab-derived claims. Keep infrastructure extraction as a deployment choice, not a prerequisite for semantic separation.
+**Decision — APPROVED FOR OBSERVATION ARCHITECTURE V1:** use Option C: source domains define and produce their own observations; Lab owns operational coordination, materialization and delivery for its consumers, plus explicitly Lab-derived claims. Infrastructure extraction into a standalone service/package is deferred until demonstrated deployment or multi-host value justifies it. Do not create an independent Observation service merely for conceptual purity.
 
-This is a proposal, not an architecture-owner disposition. It is motivated by the accepted domain boundaries, the absence of demonstrated need for a standalone service, and reversibility: an in-process Lab coordinator can later be moved without transferring semantic authority. Before approval, review that Lab composition cannot leak evaluator/ground-truth labels into organism-facing paths or feed observation-derived semantics back into the organism.
+This boundary does not authorize APIs or code changes. Lab coordination must not imply ownership of Symbiont, Embodiment, Modality or Environment semantics. Lab may create only its own attributed analytical meaning. The boundary is reversible at the infrastructure-host level without transferring semantic authority.
+
+### 6.3 Domain-owned observation boundary
+
+Each source domain should expose an intentional, bounded observation producer/port for retained claims. The Lab must not reconstruct canonical observations by inspecting arbitrary private runtime objects. This is a target architectural boundary, not authorization to add ports or APIs yet.
 
 ## 7. Cross-cutting models required by this architecture
 
@@ -161,7 +165,7 @@ Consumers must be able to distinguish applicable states such as not observed, un
 
 ## 8. Coherence and operational access
 
-The architecture requires an explicit consistency promise only for consumers that demonstrate a need for it. The target should not preserve `ObservedFrame` as a structure merely because it exists today; preserve the requirement it evidences: some consumers may need a coherent multi-source cut.
+Coherence is consumer-driven; the architecture does not provide a globally coherent snapshot by default. `ObservedFrame` is neither retained as a target type nor treated as a consistency oracle. It is evidence that some consumers may need a composed current-state view.
 
 The proposed model is to distinguish:
 
@@ -169,7 +173,7 @@ The proposed model is to distinguish:
 - **composed views**, which state which inputs/revisions were combined and whether the view is coherent, partial or unresolved;
 - **identity-dependent joins**, which are unavailable when a required identity link conflicts or is unresolved, without suppressing their independent inputs.
 
-Before specifying snapshots/watermarks, each retained consumer must state the maximum acceptable skew or consistency requirement and the source clocks/revisions involved. If no defensible common cut exists, expose a partial/asynchronous view rather than claiming coherence. Snapshot atomicity, watermarks, history bounds, replay and gap recovery remain to be specified after record readiness; no current frame/replay guarantee is inherited.
+Before specifying any composed view, each retained consumer must state its participating observations, clocks/revisions, maximum acceptable skew, missing/partial behavior, and whether unresolved identity blocks composition. If no defensible common cut exists, expose the view as partial, asynchronous or unresolved rather than manufacturing coherence. Snapshot atomicity, watermarks, history bounds, replay and gap recovery remain later specification work; no current frame/replay guarantee is inherited.
 
 ## 9. Consumers and projections
 
@@ -188,6 +192,35 @@ The bounded frozen evidence scope is a test set, not an approved publication lis
 | Lab prediction-error band | Architecture stress case only; not approved for publication and may be excluded if need/semantics/readiness do not justify it. |
 
 Required cross-cutting identity, time, conditional provenance and run context are evaluated separately from these semantic families. This document does not freeze any field or final v1 family.
+
+### 9.1 Candidate semantic-record boundaries (proposed; domain review pending)
+
+The architecture owner authorized this bounded next activity: propose semantic boundaries for the frozen families and identify context that is conditional rather than part of the semantic claim. These are design candidates, not approved records, schemas, fields or publication commitments. A semantic record may group values that jointly express one domain-owned claim under one contract; it is not restricted to one primitive value.
+
+| Frozen candidate | Proposed claim boundary | Primary authority candidate | Boundary/context rule | Required disposition before record freeze |
+|---|---|---|---|---|
+| Physical pose/kinematics | Keep body pose and joint kinematics as distinguishable claim groups unless the Embodiment semantic contract demonstrates they form one coherent claim. Do not include force, contact or work by implication. | Embodiment | Subject is an explicitly identified Body/part. Measurement source, physical contract version, frame, units, sampling interval and relevant simulation/embodiment clocks are explicit context. | Embodiment semantic owner must approve claim grouping and contract semantics; Physics3D conformance and identity context remain required. |
+| Environment resource state | A claim concerns one identified Environment resource or a clearly bounded resource-state set under one Environment revision. Do not combine organism perception, nursery support or study intervention with Environment state. | Environment | Environment instance/revision and resource identity must be explicit; apparatus/session-local entity keys are not canonical resource identities. | Environment semantic owner must approve the resource claim and stable subject/link rules; units and source mapping remain evidence requirements. |
+| Organism physiology state | A claim covers only a coherent group of physiological state values with the same semantic authority and lifecycle. Separate external embodied-work/resource inputs and apparatus measurements from resulting physiology state. Do not revive a heterogeneous `vitals` record. | Unresolved between Symbiont and Embodiment, potentially split by state | Organism/Body/EmbodimentEpisode association, applicable clock, units and re-embodiment lifecycle are conditional context and cannot be inferred from a shared container. | Domain-semantic owner(s) must determine ownership, lifecycle and grouping for each retained value before record freeze. |
+| Symbiont affordance state | A claim represents affordance state produced within the Symbiont model for an explicitly bounded organism-in-context, not Environment opportunity or a Lab-computed affordance. | Symbiont | Include the relevant embodiment/context identity and domain clock; lineage may cross domains without transferring authority to Lab. | Symbiont semantic owner must confirm meaning, scope, clock and material inputs/lineage. |
+| Lab prediction-error band | A Lab-created classification claim for a specified input value/window and classifier revision. Keep distinct from the underlying prediction error and from any Symbiont knowledge. | Lab | Subject is the analyzed observation/prediction context; input identity, window/clock and classifier revision are required when material. This remains a stress case only. | Lab owner must justify an operational consumer and finite-value/classifier behavior; otherwise exclude from v1. |
+
+The table proposes boundaries, not final atomicity. If domain review shows a row contains multiple claims or lifecycles, split it. If it cannot be interpreted with explicit context and lineage, narrow or defer it. A record may include identity, time, measurement-source or provenance references from other roles, provided those references are explicitly attributed and do not become hidden semantic claims.
+
+### 9.2 Conditional cross-cutting context
+
+Cross-cutting context is attached only where needed to interpret or associate a claim; it is not a universal payload checklist and does not itself assign source authority.
+
+| Context | Required when | Design constraint |
+|---|---|---|
+| Subject identity and links | Claim names an organism, Body, Environment instance, resource, signal, run or other entity; a consumer composes claims across namespaces. | Preserve identifier kind/namespace, issuer and asserter as needed. Explicit links are required for cross-namespace joins; unresolved/conflicting links invalidate only dependent composition. |
+| Domain clock/revision | Meaning depends on when a source state was valid, sampled, derived or applied. | Use a typed clock/revision reference; distinguish source time from transport order. State cross-clock relations when material. |
+| Measurement source and physical contract | Claim is measured/simulated or depends on physical units, frames, anatomy, sampling or integration. | Attribute apparatus separately from semantic authority and reference the contract that defines the quantity. |
+| Derivation lineage/configuration | Claim is derived and inputs, transformation, effective configuration or application boundary materially affect interpretation. | Preserve/resolve all material parents and transformation identity; do not publish every intermediate merely to make lineage explicit. |
+| Run/orchestration context | Operational interpretation or consumer association depends on a managed run/session. | Keep orchestration identity distinct from source subject identity; do not use a Lab run reference to silently assert domain identity. |
+| Availability/completeness | Absence, unsupported capability, partial acquisition, stale state or delivery loss changes interpretation. | Represent the relevant condition explicitly in the later record/access specification rather than relying on consumer-specific omission rules. |
+
+The candidate boundary activity is not complete until the proposed groups and conditional context have been reviewed against their domain semantics. Architecture approval does not substitute for those domain-semantic dispositions.
 
 ## 10. Non-interference and operational isolation
 
@@ -226,11 +259,37 @@ Passing these criteria would support a cutover proposal; it would not itself aut
 - Role distinctions, five-domain authority model for this design, event-delivered/not event-owned direction, identity conflict behavior, full replacement, operational/scientific separation, and non-interference are accepted as scoped inputs in Design Inputs §3.
 - Candidate evidence scope is frozen in Design Inputs §4.2, but final semantic publication scope is not.
 
-### Proposed target direction requiring review
+### Architecture-owner disposition — 2026-10-07
 
-- Domain-owned observation semantics and producers, coordinated/materialized/served by Lab for its operational consumers (Option C in §6).
-- Semantic observation as primary model; delivery/snapshot/query/projection as derived access mechanisms.
-- Explicit partial/asynchronous composed views where a defensible coherent cut is unavailable.
+The architecture owner **approved the target architecture with refinements** on 2026-10-07. The accepted scope is architecture direction and boundaries only; it does not approve record schemas, datum-level authority assignments, final publication scope, event/snapshot/replay/delivery schemas, endpoints, transport, implementation, deployment, legacy deletion, cutover or scientific use.
+
+The approved decisions are:
+
+1. Adopt the five-layer source-to-consumer structure in §4.2 and the distinction among semantic authority, measurement source, producer, host/coordinator and consumer.
+2. Treat semantic observation as the primary operational unit; deliver events only where required, without implying event sourcing, a durable log, broker or universal stream.
+3. Let a semantic record express one primary claim/authority/epistemic interpretation, while permitting a coherent group of values; explicit context may have separately attributed origins.
+4. Adopt **Option C for v1**: domain-owned semantics and observation production with Lab-owned operational coordination, materialization and delivery. Defer a standalone service/package until demonstrated deployment or multi-host value.
+5. Require intentional domain observation boundaries; Lab must not reconstruct canonical claims by inspecting arbitrary private runtime objects. This is an architecture boundary, not API authorization.
+6. Use explicit identity kinds, issuer/asserter, links, conflict visibility and fail-closed dependent joins; independent observations remain valid.
+7. Use typed domain time and explicit material cross-clock relations; do not invent a universal tick.
+8. Preserve material derivation lineage and effective transformation/configuration where needed for interpretation; intermediate values need not all be public.
+9. Require backend-neutral physical semantics for retained physical families, with Physics3D as the first conformance implementation; the multi-backend gate remains dormant until a second backend exists.
+10. Make coherence consumer-driven, not a global snapshot guarantee. Consumers must specify participants, clocks/revisions, skew, partial behavior and identity requirements; expose partial/asynchronous/unresolved views rather than manufacturing coherence.
+11. Distinguish relevant availability/completeness conditions; exact vocabulary is later specification work.
+12. Treat operational consumers as consumers of source observations plus explicit Lab derivations; do not permit hidden assumptions or implicit joins.
+13. Permit Lab analytical claims only for a legitimate operational need, with explicit meaning, known inputs, material revision, clear Lab attribution, and no presentation as organism knowledge. The prediction-error band remains a stress case only.
+14. Require demonstrated observational non-interference under the Constitution.
+15. Keep operational observation separate from durable scientific evidence.
+16. Fully replace the existing operational path; legacy interfaces are not compatibility commitments. Differential comparison is validation only.
+17. Ratify the bounded families in §9 as a design test set, not a publication catalog.
+
+Accordingly, target architecture status is **Approved** for the scope above. The next authorized activity is candidate semantic-record boundary/context design and domain-semantic review. Record-level readiness, final v1 records, transport, implementation and cutover remain separate gates.
+
+### Approved direction and remaining record work
+
+- Option C is approved for v1 as stated in §6.2. Standalone infrastructure extraction is deferred pending demonstrated need.
+- Semantic observation is the primary operational model; delivery/snapshot/query/projection are access or composition mechanisms.
+- Coherence is consumer-driven. Partial/asynchronous/unresolved composition is required where a defensible coherent cut cannot be supported.
 
 ### Deliberately unresolved
 
@@ -241,8 +300,7 @@ Passing these criteria would support a cutover proposal; it would not itself aut
 - Physical quantity catalog and Physics3D conformance results.
 - Physiology ownership and re-embodiment fate for each retained state.
 - Public representation of causal conversions and their effective configuration provenance.
-- Observation Plane ownership approval and whether its host is Lab or extracted infrastructure.
-- Which consumers require coherent cuts and their skew/consistency bounds.
+- Concrete consumer requirements for any composed view, including participants, clocks/revisions, skew and partial behavior.
 - Availability vocabulary, operational retention, materialization, replay/gap recovery and delivery guarantees.
 - Concrete privacy/access policy, performance budgets, tests, endpoint/transport and cutover plan.
 
@@ -270,10 +328,8 @@ An unresolved issue may narrow or defer a family; it must not be filled by assum
 The sequence is intentionally staged:
 
 ```text
-Proposed target architecture
-    → architecture-owner review/disposition
-    → refine target architecture from review
-    → candidate semantic record definitions and domain-owner review
+Approved target architecture
+    → candidate semantic-record boundaries/context and domain-owner review
     → record-level evidence/interpretability and final v1 scope
     → Envelope Readiness
     → event/snapshot/materialization/replay/delivery/transport specification
@@ -282,7 +338,7 @@ Proposed target architecture
     → separately approved full replacement/cutover
 ```
 
-Architecture approval does not approve records, transport or implementation. Record readiness does not authorize code. Implementation validation does not imply scientific acceptance.
+Target architecture approval does not require final datum-level authority or record readiness, and does not approve records, transport or implementation. Record readiness does not authorize code. Implementation validation does not imply scientific acceptance.
 
 ## 15. Checklist
 
@@ -290,14 +346,14 @@ Work one bounded item at a time. `Current focus` is explicitly marked; it is not
 
 - [x] **DONE (2026-10-07) — Record target-design authorization and boundaries.** Project owner authorized authoring this architecture document only. No record/API, endpoint, transport, implementation or cutover authorization is implied.
 - [x] **DONE (2026-10-07) — Perform internal consistency review of the target draft.** Clarified that source domains own semantic state while apparatus/sensors are measurement sources or producers, and that the observation model is canonical only within the operational plane, not a replacement for domain state or scientific evidence. This is document review, not owner disposition.
-- [ ] **IN PROGRESS — Review and disposition the proposed target architecture.** Review the layer boundaries, Option C infrastructure proposal, coherence approach and replacement gates. Record accepted/revised/rejected choices and scope; do not infer approval from the authorization to author.
-- [ ] **QUEUED — Define candidate semantic record boundaries and conditional context.** Use only the frozen evidence scope; each record must state one primary semantic claim and explicit cross-cutting context. Obtain domain-semantic dispositions for retained source-domain claims.
-- [ ] **QUEUED — Complete record-level evidence and interpretability review.** Resolve or exclude ambiguous identity, clocks, units/frames, availability and derivation/configuration lineage; freeze final v1 semantic scope only after gates pass.
-- [ ] **QUEUED — Establish Envelope Readiness.** Demonstrate representative cases, consumer sufficiency, coherent/partial view requirements, scientific separation and non-interference against the proposed models.
+- [x] **DONE (2026-10-07) — Record architecture-owner disposition of the target architecture.** Approved with refinements: Option C for v1, domain-owned observation boundaries, semantic observation as primary unit, consumer-driven coherence, explicit identity/time/lineage, and full replacement. Approval is limited to architecture direction/boundaries; record schemas, datum authority, final publication, transport, implementation and cutover remain unapproved.
+- [ ] **IN PROGRESS — Define candidate semantic-record boundaries and conditional context.** §9.1–§9.2 records bounded proposals against the frozen evidence scope. Obtain the necessary domain-semantic dispositions; do not infer final schemas, datum authority or publication from these boundary proposals.
+- [ ] **QUEUED — Establish record readiness and final v1 scope.** Complete record-level evidence and interpretability review: resolve or exclude ambiguous identity, clocks, units/frames, availability and derivation/configuration lineage; confirm consumer need; remove, split or defer unresolved records. This precedes Envelope Readiness.
+- [ ] **QUEUED — Establish Envelope Readiness.** Demonstrate representative cases, consumer sufficiency, consumer-driven coherent/partial view requirements, scientific separation and non-interference against the approved models.
 - [ ] **QUEUED — Specify event, snapshot, materialization, replay, gap recovery and transport.** Begin only after record semantics and Envelope Readiness are dispositioned. Do not revive the superseded Symbiont Telemetry Event API without an explicit reopening decision.
 - [ ] **QUEUED — Prepare implementation and cutover proposal.** Separate authorization, implementation validation, consumer migration, legacy deletion and operational cutover.
 
-**Current focus:** Review and disposition the proposed target architecture. This document remains Proposed; the TO-BE authoring authorization does not constitute architecture approval or implementation permission.
+**Current focus:** Define candidate semantic-record boundaries and conditional context in §9.1–§9.2 and obtain domain-semantic dispositions. The architecture is approved only for its direction and boundaries; this focus does not authorize record schemas, transport, implementation or cutover.
 
 ### Dormant future gate
 
