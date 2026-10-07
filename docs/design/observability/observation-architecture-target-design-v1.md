@@ -83,7 +83,7 @@ Observation-plane coordination and access
 Lab projections and operational consumers
 ```
 
-1. **Source domains and apparatus** own their canonical state, external-world state, or measurement mechanism according to their domain contracts. Physics3D/MuJoCo is an apparatus implementation, not a sixth authority domain.
+1. **Source domains** own their canonical state and semantic definitions. **Apparatus and sensors** simulate or measure values under an applicable domain contract; they are attributed measurement sources/producers, not additional authority domains. Physics3D/MuJoCo is an apparatus implementation, not a sixth authority domain.
 2. **Domain-owned observation production** exposes bounded, intentional observations of domain state. It is not a raw object dump and must not require the Lab to reach into private runtime internals.
 3. **Semantic observation records** express claims with an unambiguous primary semantic authority and epistemic interpretation. Explicit context (identity, time, measurement source, provenance) may be supplied by other roles, but must be attributed rather than hidden in the claim.
 4. **Observation-plane coordination and access** composes eligible observations for operational consumers, manages the declared consistency/availability guarantees, and offers the access patterns justified by those consumers. It does not become the semantic owner of source observations.
@@ -91,7 +91,7 @@ Lab projections and operational consumers
 
 ### 4.3 Semantic observation is not delivery
 
-The semantic observation model is the source of truth for operational observations. An observation may be:
+The semantic observation model is the canonical representation **within the operational observation plane**; it does not supersede source-domain state or durable scientific evidence. An observation may be:
 
 - delivered live as an event/update when a retained consumer requires it;
 - included in a coherent or explicitly partial snapshot;
@@ -289,6 +289,7 @@ Architecture approval does not approve records, transport or implementation. Rec
 Work one bounded item at a time. `Current focus` is explicitly marked; it is not inferred from the first unchecked item. Keep one sequential item `IN PROGRESS` at most. New evidence or out-of-scope defects discovered while working should be added to the relevant checklist/future-analysis notes without silently widening the active item.
 
 - [x] **DONE (2026-10-07) — Record target-design authorization and boundaries.** Project owner authorized authoring this architecture document only. No record/API, endpoint, transport, implementation or cutover authorization is implied.
+- [x] **DONE (2026-10-07) — Perform internal consistency review of the target draft.** Clarified that source domains own semantic state while apparatus/sensors are measurement sources or producers, and that the observation model is canonical only within the operational plane, not a replacement for domain state or scientific evidence. This is document review, not owner disposition.
 - [ ] **IN PROGRESS — Review and disposition the proposed target architecture.** Review the layer boundaries, Option C infrastructure proposal, coherence approach and replacement gates. Record accepted/revised/rejected choices and scope; do not infer approval from the authorization to author.
 - [ ] **QUEUED — Define candidate semantic record boundaries and conditional context.** Use only the frozen evidence scope; each record must state one primary semantic claim and explicit cross-cutting context. Obtain domain-semantic dispositions for retained source-domain claims.
 - [ ] **QUEUED — Complete record-level evidence and interpretability review.** Resolve or exclude ambiguous identity, clocks, units/frames, availability and derivation/configuration lineage; freeze final v1 semantic scope only after gates pass.
