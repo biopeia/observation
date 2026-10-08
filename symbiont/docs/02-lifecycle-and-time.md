@@ -20,9 +20,9 @@ Physics3D has its own integration rate. The current MuJoCo-backed `Physics3DEmbo
 
 M2 makes the physical span of one embodied cycle explicit:
 
-[
+\[
 \Delta t_p = \texttt{time\_step}\times\texttt{physics\_substeps\_per\_tick}.
-]
+\]
 
 The apparatus supplies that value as an Embodiment-owned `PhysicalDuration`. Orchestration may carry it to `PhysiologyDomain`, but Cognition does not consume it. Thermal relaxation, fatigue recovery and autonomous repair use this duration; changing physics resolution therefore no longer changes those somatic dynamics merely because the scheduler made more or fewer calls.
 
