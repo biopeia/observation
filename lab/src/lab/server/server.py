@@ -53,6 +53,7 @@ def make_server(
     port: int = 8765,
     *,
     observation_bus: ObservationBus | None = None,
+    observation_plane: ObservationPlane | None = None,
     observatory_dir: Path | None = None,
     physics3d: bool = False,
     physics_state_root: Path | None = None,
@@ -61,7 +62,7 @@ def make_server(
         raise ValueError("UnifiedLabServer refuses to bind outside 127.0.0.1")
 
     stream = observation_bus or ObservationBus()
-    semantic_plane = ObservationPlane()
+    semantic_plane = observation_plane or ObservationPlane()
     coordinator = RunCoordinator()
     observatory_source = ObservatorySource(observatory_dir)
     run_store = Physics3DRunStore(physics_state_root or DEFAULT_LAB_STATE_ROOT)
@@ -172,6 +173,12 @@ def make_server(
                 "has_data": stream.has_data,
                 "latest_sequence": stream.latest_sequence,
                 "transport": stream.transport_status(),
+            },
+            "semantic_observations": {
+                "available": True,
+                "current": len(semantic_plane.current()),
+                "latest_sequence": semantic_plane.latest_sequence,
+                "consumer_overflows": semantic_plane.consumer_overflows,
             },
             "observatory": {
                 "configured": observatory_dir is not None,
