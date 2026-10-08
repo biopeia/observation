@@ -185,6 +185,7 @@ def make_handler(
                     {
                         "wire_contract": "observation-semantic-wire-v1",
                         "latest_sequence": observation_plane.latest_sequence,
+                        "oldest_replay_sequence": observation_plane.oldest_replay_sequence,
                         "items": items,
                     },
                 )
@@ -195,7 +196,21 @@ def make_handler(
                     return
                 query = parse_qs(parsed.query, keep_blank_values=False)
                 family = str((query.get("family") or [""])[0]).strip() or None
-                stream_semantic_observations(self, observation_plane, family=family)
+                raw_after = str((query.get("after") or [""])[0]).strip()
+                try:
+                    after = int(raw_after) if raw_after else None
+                except ValueError:
+                    self._json(400, {"error": "invalid observation watermark"})
+                    return
+                if after is not None and after < 0:
+                    self._json(400, {"error": "invalid observation watermark"})
+                    return
+                stream_semantic_observations(
+                    self,
+                    observation_plane,
+                    family=family,
+                    after_sequence=after,
+                )
                 return
             if path == "/api/organism":
                 self._stream_organism()
