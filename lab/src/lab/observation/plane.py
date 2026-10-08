@@ -164,6 +164,12 @@ class ObservationPlane:
     def clear(self) -> None:
         with self._lock:
             self._current.clear()
+            for consumer in self._subscribers:
+                while True:
+                    try:
+                        consumer.get_nowait()
+                    except queue.Empty:
+                        break
 
 
 __all__ = [
