@@ -102,9 +102,7 @@ class WorldRuntimeState:
             sample = resource_pool_observation(self.population.environment, cell)
             if sample is None:
                 continue
-            self.observation_plane.publish(
-                resource_state_observation(sample, world_id=world_id)
-            )
+            self.observation_plane.publish(resource_state_observation(sample, world_id=world_id))
 
     def _record_metrics(self, tick: int, record: Any | None) -> None:
         oids = self.population.organism_ids
