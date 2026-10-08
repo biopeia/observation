@@ -967,6 +967,7 @@ class Physics3DEmbodimentRuntime:
         state["body_pose_semantics"] = body_pose_semantics()
         state["joint_kinematics_semantics"] = joint_kinematics_semantics()
         state["body_physiology"] = self.organism.living_body_state.operational_observation()
+        state["symbiont_affordance_observation"] = self.organism.affordance_observation
         state["locomotion_resource"] = self.resource.checkpoint()
         state["lab_world"] = resolve_environment(None, self.environment_recipe)
         contact_counts = self._contact_counts()
