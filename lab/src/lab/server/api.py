@@ -9,13 +9,13 @@ from typing import Any, Callable
 from urllib.parse import parse_qs, urlparse
 
 from lab.observation.bus import ObservationBus
-from lab.observation.plane import ObservationPlane
-from lab.observation.wire import plane_message_payload
 from lab.observation.observatory import (
     ObservatorySource,
     observatory_package_root,
     valid_instance_id,
 )
+from lab.observation.plane import ObservationPlane
+from lab.observation.wire import plane_message_payload
 from lab.server.sse import CLIENT_ERRORS as _CLIENT_ERRORS
 from lab.server.sse import (
     stream_fleet,
