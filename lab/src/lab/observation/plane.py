@@ -250,6 +250,14 @@ class ObservationPlane:
                     )
                 )
                 return subscription
+            if oldest is None and resume < self._sequence:
+                consumer.put_nowait(
+                    PlaneRebaseRequired(
+                        sequence=self._sequence,
+                        reason="replay_unavailable",
+                    )
+                )
+                return subscription
             if oldest is not None and resume < oldest - 1:
                 consumer.put_nowait(
                     PlaneRebaseRequired(
