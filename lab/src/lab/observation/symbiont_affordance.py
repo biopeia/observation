@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from symbiont.agency.affordance import AffordanceObservation
 from lab.observation.body_pose import LAB_PRODUCER, LAB_RUN_ISSUER
 from lab.observation.semantic import (
     AcquisitionBasis,
@@ -21,6 +20,7 @@ from lab.observation.semantic import (
     SubjectScope,
     TransformationRef,
 )
+from symbiont.agency.affordance import AffordanceObservation
 
 SYMBIONT_RUNTIME = ActorRef("component", "symbiont.organism_runtime")
 ACTION_DOMAIN_SOURCE = ActorRef("component", "symbiont.action_domain")
