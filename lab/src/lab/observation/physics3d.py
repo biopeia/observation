@@ -131,6 +131,7 @@ class Physics3DObservationBridge:
         *,
         physical_state: Mapping[str, object],
         physics_step: int,
+        simulation_time_s: float,
     ) -> None:
         """Publish canonical Body Pose only when source semantics are explicit.
 
@@ -181,6 +182,7 @@ class Physics3DObservationBridge:
                 orientation_xyzw=tuple(float(value) for value in base_orientation),
                 sample_kind="physics_step",
                 sample_value=int(physics_step),
+                sample_time_s=float(simulation_time_s),
                 contract_revision=str(semantics.get("contract_revision") or "v1"),
             )
         except (TypeError, ValueError):
@@ -273,6 +275,7 @@ class Physics3DObservationBridge:
         self._publish_canonical_body_pose(
             physical_state=physical_state,
             physics_step=physics_step,
+            simulation_time_s=simulation_time_s,
         )
         base_position = physical_state.get("base_position")
         if isinstance(base_position, (list, tuple)) and len(base_position) == 3:
