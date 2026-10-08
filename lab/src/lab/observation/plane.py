@@ -122,9 +122,7 @@ class ObservationPlane:
         if family is None:
             return values
         return tuple(
-            message
-            for message in values
-            if message.observation.family.qualified_name == family
+            message for message in values if message.observation.family.qualified_name == family
         )
 
     def current(
