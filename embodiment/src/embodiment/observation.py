@@ -30,6 +30,76 @@ def _quat_xyzw(
 
 
 @dataclass(frozen=True, slots=True)
+class JointKinematicState:
+    """One Body-local joint state.
+
+    joint_id is opaque outside the Body contract. It is not a universal anatomy
+    label and does not survive Body replacement unless the issuing Body contract
+    explicitly preserves it.
+    """
+
+    joint_id: str
+    position_rad: float
+    velocity_rad_s: float
+
+    def __post_init__(self) -> None:
+        joint_id = self.joint_id.strip()
+        if not joint_id:
+            raise ValueError("joint_id must not be empty")
+        position = float(self.position_rad)
+        velocity = float(self.velocity_rad_s)
+        if not isfinite(position) or not isfinite(velocity):
+            raise ValueError("joint kinematics must be finite")
+        object.__setattr__(self, "joint_id", joint_id)
+        object.__setattr__(self, "position_rad", position)
+        object.__setattr__(self, "velocity_rad_s", velocity)
+
+
+@dataclass(frozen=True, slots=True)
+class JointKinematicsSample:
+    """Canonical Embodiment Joint Kinematics v1 snapshot.
+
+    All entries are co-sampled for one Body. Position is radians and velocity
+    radians/second. The source must prove that unit/type contract before
+    constructing this value.
+    """
+
+    body_id: str
+    joints: tuple[JointKinematicState, ...]
+    sample_kind: str
+    sample_value: int | float | str
+    sample_time_s: float | None = None
+    contract_revision: str = "v1"
+
+    def __post_init__(self) -> None:
+        body_id = self.body_id.strip()
+        sample_kind = self.sample_kind.strip()
+        revision = self.contract_revision.strip()
+        if not body_id:
+            raise ValueError("body_id must not be empty")
+        if not sample_kind:
+            raise ValueError("sample_kind must not be empty")
+        if not revision:
+            raise ValueError("contract_revision must not be empty")
+        joints = tuple(self.joints)
+        if not joints:
+            raise ValueError("joints must not be empty")
+        if any(not isinstance(item, JointKinematicState) for item in joints):
+            raise ValueError("joints must contain JointKinematicState values")
+        joint_ids = tuple(item.joint_id for item in joints)
+        if len(set(joint_ids)) != len(joint_ids):
+            raise ValueError("joint ids must be unique within one Body sample")
+        if self.sample_time_s is not None and not isfinite(float(self.sample_time_s)):
+            raise ValueError("sample_time_s must be finite when provided")
+        object.__setattr__(self, "body_id", body_id)
+        object.__setattr__(self, "joints", joints)
+        object.__setattr__(self, "sample_kind", sample_kind)
+        object.__setattr__(self, "contract_revision", revision)
+        if self.sample_time_s is not None:
+            object.__setattr__(self, "sample_time_s", float(self.sample_time_s))
+
+
+@dataclass(frozen=True, slots=True)
 class BodyPoseSample:
     """Canonical Embodiment Body Pose v1 base-Body sample.
 
@@ -84,4 +154,4 @@ class BodyPoseSample:
         )
 
 
-__all__ = ["BodyPoseSample"]
+__all__ = ["BodyPoseSample", "JointKinematicState", "JointKinematicsSample"]
