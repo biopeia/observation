@@ -61,7 +61,11 @@ class ResourcePoolObservation:
             raise ValueError("q must be an integer")
         if isinstance(self.r, bool) or not isinstance(self.r, int):
             raise ValueError("r must be an integer")
-        if isinstance(self.world_tick, bool) or not isinstance(self.world_tick, int) or self.world_tick < 0:
+        if (
+            isinstance(self.world_tick, bool)
+            or not isinstance(self.world_tick, int)
+            or self.world_tick < 0
+        ):
             raise ValueError("world_tick must be a non-negative integer")
         resources = tuple(self.resources)
         if any(not isinstance(item, ResourcePoolItem) for item in resources):
