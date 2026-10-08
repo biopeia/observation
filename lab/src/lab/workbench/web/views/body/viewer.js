@@ -181,12 +181,12 @@ export class BodyViewer {
     this.hasSemanticPhysiologyStream = false;
     this.hasSemanticAffordanceStream = false;
     this.semanticAffordances = [];
-    this.lastMindSnapshot = {};
+    this.lastMindSnapshot = null;
     this.hasSemanticJointStream = false;
     this.hasSemanticPhysiologyStream = false;
     this.hasSemanticAffordanceStream = false;
     this.semanticAffordances = [];
-    this.lastMindSnapshot = {};
+    this.lastMindSnapshot = null;
     this.resizeObs = null;
     this.cameraControls = null;
     this.segmentPickRaycaster = new THREE.Raycaster();
@@ -1479,6 +1479,13 @@ export class BodyViewer {
         data?.type === 'observation_plane_control' &&
         data?.status === 'rebase_required'
       ) {
+        this.poseFrames.length = 0;
+        this.semanticRunId = null;
+        this.hasSemanticPoseStream = false;
+        this.hasSemanticJointStream = false;
+        this.hasSemanticPhysiologyStream = false;
+        this.hasSemanticAffordanceStream = false;
+        this.semanticAffordances = [];
         for (const item of data.items ?? []) this.handleSemanticObservation(item);
         return;
       }
