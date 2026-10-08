@@ -7,8 +7,6 @@ experience and SLM state remain inside the canonical organism runtime.
 
 from __future__ import annotations
 
-from embodiment.physics3d.observation_contract import body_pose_semantics
-
 import math
 import secrets
 import time
@@ -17,6 +15,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Mapping
 
+from embodiment.physics3d.observation_contract import body_pose_semantics
 from environment.physics3d.environments import (
     build_environment,
     nursery_support_amount,
