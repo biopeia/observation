@@ -199,7 +199,6 @@ class Physics3DObservationBridge:
 
         self._observation_plane.publish(body_pose_observation(sample, run_id=self._run_id))
 
-
     def _publish_canonical_joint_kinematics(
         self,
         *,
@@ -255,9 +254,7 @@ class Physics3DObservationBridge:
         except (KeyError, TypeError, ValueError):
             return
 
-        self._observation_plane.publish(
-            joint_kinematics_observation(sample, run_id=self._run_id)
-        )
+        self._observation_plane.publish(joint_kinematics_observation(sample, run_id=self._run_id))
 
 
     def _publish_canonical_body_physiology(
@@ -461,7 +458,6 @@ class Physics3DObservationBridge:
             event["contacts"] = contacts
         self._sink.push(event)
 
-
     def _publish_canonical_affordance(
         self,
         *,
@@ -475,9 +471,7 @@ class Physics3DObservationBridge:
         if not isinstance(sample, AffordanceObservation):
             return
         self._organism_id = sample.organism_id
-        self._observation_plane.publish(
-            affordance_observation(sample, run_id=self._run_id)
-        )
+        self._observation_plane.publish(affordance_observation(sample, run_id=self._run_id))
 
     def publish_domain_observations(
         self,
