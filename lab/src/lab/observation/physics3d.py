@@ -7,8 +7,9 @@ import uuid
 from dataclasses import asdict, is_dataclass
 from typing import Any, Mapping, Protocol
 
-from embodiment.observation import BodyPoseSample
+from embodiment.observation import BodyPoseSample, JointKinematicState, JointKinematicsSample
 from lab.observation.body_pose import body_pose_observation
+from lab.observation.joint_kinematics import joint_kinematics_observation
 from lab.observation.contracts import ObservedFrame
 from lab.observation.plane import ObservationPlane
 from lab.observation.projection import mind_snapshot_from_rich_state, runtime_tick_events
@@ -189,6 +190,66 @@ class Physics3DObservationBridge:
 
         self._observation_plane.publish(body_pose_observation(sample, run_id=self._run_id))
 
+
+    def _publish_canonical_joint_kinematics(
+        self,
+        *,
+        physical_state: Mapping[str, object],
+        physics_step: int,
+        simulation_time_s: float,
+    ) -> None:
+        """Publish one co-sampled Body-local revolute-joint snapshot."""
+
+        if self._observation_plane is None:
+            return
+
+        semantics = physical_state.get("joint_kinematics_semantics")
+        if not isinstance(semantics, Mapping):
+            return
+        if semantics.get("joint_type") != "revolute":
+            return
+        if semantics.get("position_unit") != "rad":
+            return
+        if semantics.get("velocity_unit") != "rad/s":
+            return
+        if semantics.get("identity_scope") != "body_local":
+            return
+
+        body_id = self._identity(physical_state, "body_id")
+        raw_joints = physical_state.get("joints")
+        if body_id is None or not isinstance(raw_joints, (list, tuple)) or not raw_joints:
+            return
+
+        joints: list[JointKinematicState] = []
+        try:
+            for item in raw_joints:
+                if not isinstance(item, Mapping):
+                    return
+                index = int(item["joint_index"])
+                position = float(item["position"])
+                velocity = float(item["velocity"])
+                joints.append(
+                    JointKinematicState(
+                        joint_id=f"{body_id}:joint:{index}",
+                        position_rad=position,
+                        velocity_rad_s=velocity,
+                    )
+                )
+            sample = JointKinematicsSample(
+                body_id=body_id,
+                joints=tuple(joints),
+                sample_kind="physics_step",
+                sample_value=int(physics_step),
+                sample_time_s=float(simulation_time_s),
+                contract_revision=str(semantics.get("contract_revision") or "v1"),
+            )
+        except (KeyError, TypeError, ValueError):
+            return
+
+        self._observation_plane.publish(
+            joint_kinematics_observation(sample, run_id=self._run_id)
+        )
+
     def publish_pose_frame(
         self,
         *,
@@ -203,6 +264,17 @@ class Physics3DObservationBridge:
         """Publish one lightweight observer-only physical pose frame."""
         if self._stop.is_set():
             return
+
+        self._publish_canonical_body_pose(
+            physical_state=physical_state,
+            physics_step=physics_step,
+            simulation_time_s=simulation_time_s,
+        )
+        self._publish_canonical_joint_kinematics(
+            physical_state=physical_state,
+            physics_step=physics_step,
+            simulation_time_s=simulation_time_s,
+        )
 
         descriptor = _body_descriptor_for_state(physical_state)
         joint_specs = descriptor.observer_joint_specs
