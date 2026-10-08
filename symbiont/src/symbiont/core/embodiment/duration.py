@@ -13,8 +13,8 @@ class PhysicalDuration(float):
     """Continuous metric physical time elapsed in the physical substrate (T_p) in seconds."""
 
     def __new__(cls, value: float | int = 0.0) -> PhysicalDuration:
-        if isinstance(value, bool) or not isinstance(value, (int, float)):
-            raise TypeError("PhysicalDuration requires a numeric duration")
+        if not (type(value) in (int, float) or isinstance(value, cls)):
+            raise TypeError("PhysicalDuration requires a plain numeric duration")
         val = float(value)
         if not math.isfinite(val):
             raise ValueError(f"PhysicalDuration must be finite: {val}")
