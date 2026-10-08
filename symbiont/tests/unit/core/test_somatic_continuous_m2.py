@@ -28,7 +28,11 @@ def test_m2_reference_duration_preserves_legacy_single_step_exactly() -> None:
     config = controller.config
     work = 0.20
 
-    expected_fatigue = state.fatigue + work * config.fatigue_work_gain - config.fatigue_recovery_rate
+    expected_fatigue = (
+        state.fatigue
+        + work * config.fatigue_work_gain
+        - config.fatigue_recovery_rate
+    )
     expected_temperature = (
         state.temperature
         + (config.thermal_setpoint - state.temperature) * config.thermal_relaxation_rate
