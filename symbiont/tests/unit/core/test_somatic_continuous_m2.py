@@ -111,7 +111,7 @@ def test_zero_physical_duration_rejects_nonzero_work() -> None:
         )
 
 
-def test_organism_tick_rejects_untyped_physical_duration() -> None:
+def test_organism_runtime_rejects_untyped_physical_duration() -> None:
     runtime = OrganismRuntime(
         discover_senses=False,
         bootstrap_semantic_senses=False,
@@ -120,4 +120,4 @@ def test_organism_tick_rejects_untyped_physical_duration() -> None:
         min_samples=1,
     )
     with pytest.raises(TypeError, match="PhysicalDuration"):
-        runtime.tick(physical_duration=0.01)  # type: ignore[arg-type]
+        runtime.set_physical_duration_for_tick(0.01)  # type: ignore[arg-type]
