@@ -17,10 +17,12 @@ from embodiment.observation import (
 from lab.observation.body_physiology import body_physiology_observation
 from lab.observation.body_pose import body_pose_observation
 from lab.observation.joint_kinematics import joint_kinematics_observation
+from lab.observation.symbiont_affordance import affordance_observation
 from lab.observation.contracts import ObservedFrame
 from lab.observation.plane import ObservationPlane
 from lab.observation.projection import mind_snapshot_from_rich_state, runtime_tick_events
 from lab.observation.world_scene import WorldScenePublisher, project_world_scene
+from symbiont.agency.affordance import AffordanceObservation
 
 
 def _body_descriptor_for_state(physical_state: Mapping[str, object]):
@@ -459,6 +461,24 @@ class Physics3DObservationBridge:
             event["contacts"] = contacts
         self._sink.push(event)
 
+
+    def _publish_canonical_affordance(
+        self,
+        *,
+        physical_state: Mapping[str, object],
+    ) -> None:
+        """Publish the source-owned ActionDomain affordance set without projection."""
+
+        if self._observation_plane is None:
+            return
+        sample = physical_state.get("symbiont_affordance_observation")
+        if not isinstance(sample, AffordanceObservation):
+            return
+        self._organism_id = sample.organism_id
+        self._observation_plane.publish(
+            affordance_observation(sample, run_id=self._run_id)
+        )
+
     def publish(self, snapshot: Any, *, physical_state: dict[str, object]) -> None:
         if self._stop.is_set():
             return
@@ -540,6 +560,7 @@ class Physics3DObservationBridge:
             physical_state=physical_state,
             organism_tick=organism_tick,
         )
+        self._publish_canonical_affordance(physical_state=physical_state)
         if physical_state.get("base_position") is not None:
             projected["base_position"] = physical_state["base_position"]
         elif record.get("base_position") is not None:
