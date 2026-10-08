@@ -317,6 +317,35 @@ class LivingBodyState:
         if self.alive:
             self.age_ticks += 1
 
+    def operational_observation(self) -> dict[str, object]:
+        """Export the bounded Body-local physiological state for passive observation.
+
+        Reserve/capacity are model amounts. This method deliberately makes no
+        claim that they are joules or any other physical energy unit.
+        """
+
+        return {
+            "schema_version": 1,
+            "reserve": {
+                "amount": float(self.energy_reserve),
+                "capacity": float(self.max_energy),
+                "fraction": float(self.energy_reserve / self.max_energy),
+                "quantity_kind": "model_amount",
+            },
+            "structural_integrity": float(self.structural_integrity),
+            "temperature": float(self.temperature),
+            "fatigue": float(self.fatigue),
+            "growth_progress": float(self.growth_progress),
+            "senescence": float(self.senescence),
+            "age_ticks": int(self.age_ticks),
+            "vital_state": self.vital_state.value,
+            "death_tick": None if self.death_tick is None else int(self.death_tick),
+            "structures": [
+                state.checkpoint()
+                for _structure_id, state in sorted(self.structure_states.items())
+            ],
+        }
+
     def checkpoint(self) -> dict[str, object]:
         return {
             "schema_version": 3,
