@@ -191,7 +191,11 @@ class BodyPhysiologySample:
                 raise ValueError(f"{name} must be within [0, 1]")
             object.__setattr__(self, name, value)
 
-        if isinstance(self.age_ticks, bool) or not isinstance(self.age_ticks, int) or self.age_ticks < 0:
+        if (
+            isinstance(self.age_ticks, bool)
+            or not isinstance(self.age_ticks, int)
+            or self.age_ticks < 0
+        ):
             raise ValueError("age_ticks must be a non-negative Body-local tick")
         if self.death_tick is not None and (
             isinstance(self.death_tick, bool)
