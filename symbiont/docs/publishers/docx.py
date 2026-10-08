@@ -232,6 +232,11 @@ class DocxBuilder:
         headers: list[str],
         rows: list[list[Any]],
         col_widths: list[int] | None = None,
+        cell_padding_y: int = 80,
+        cell_padding_x: int = 140,
+        cell_font_size: int = 18,
+        cell_spacing_y: int = 50,
+        append_space_after: bool = True,
     ) -> None:
         num_cols = len(headers)
         if num_cols == 0 and rows:
@@ -256,9 +261,9 @@ class DocxBuilder:
                 f'<w:shd w:val="clear" w:color="auto" w:fill="F1F5F9"/>'
                 f"</w:tcPr>"
                 f"<w:p>"
-                f'<w:pPr><w:spacing w:before="60" w:after="60"/></w:pPr>'
+                f'<w:pPr><w:spacing w:before="{cell_spacing_y}" w:after="{cell_spacing_y}"/></w:pPr>'
                 f"<w:r>"
-                f'<w:rPr><w:b/><w:sz w:val="19"/><w:color w:val="334155"/></w:rPr>'
+                f'<w:rPr><w:b/><w:sz w:val="{cell_font_size + 1}"/><w:color w:val="334155"/></w:rPr>'
                 f'<w:t xml:space="preserve">{escape_xml(h)}</w:t>'
                 f"</w:r>"
                 f"</w:p>"
@@ -283,9 +288,9 @@ class DocxBuilder:
                     f'<w:shd w:val="clear" w:color="auto" w:fill="{shd_fill}"/>'
                     f"</w:tcPr>"
                     f"<w:p>"
-                    f'<w:pPr><w:spacing w:before="50" w:after="50"/></w:pPr>'
+                    f'<w:pPr><w:spacing w:before="{cell_spacing_y}" w:after="{cell_spacing_y}"/></w:pPr>'
                     f"<w:r>"
-                    f'<w:rPr><w:sz w:val="18"/><w:color w:val="1E293B"/></w:rPr>'
+                    f'<w:rPr><w:sz w:val="{cell_font_size}"/><w:color w:val="1E293B"/></w:rPr>'
                     f'<w:t xml:space="preserve">{escape_xml(val)}</w:t>'
                     f"</w:r>"
                     f"</w:p>"
@@ -306,10 +311,10 @@ class DocxBuilder:
             f'<w:right w:val="none"/>'
             f"</w:tblBorders>"
             f"<w:tblCellMar>"
-            f'<w:top w:w="80" w:type="dxa"/>'
-            f'<w:bottom w:w="80" w:type="dxa"/>'
-            f'<w:left w:w="140" w:type="dxa"/>'
-            f'<w:right w:w="140" w:type="dxa"/>'
+            f'<w:top w:w="{cell_padding_y}" w:type="dxa"/>'
+            f'<w:bottom w:w="{cell_padding_y}" w:type="dxa"/>'
+            f'<w:left w:w="{cell_padding_x}" w:type="dxa"/>'
+            f'<w:right w:w="{cell_padding_x}" w:type="dxa"/>'
             f"</w:tblCellMar>"
             f"</w:tblPr>"
             f"<w:tblGrid>{grid_cols}</w:tblGrid>"
@@ -318,7 +323,8 @@ class DocxBuilder:
             f"</w:tbl>"
         )
         self.body_elements.append(tbl_xml)
-        self.body_elements.append('<w:p><w:pPr><w:spacing w:after="140"/></w:pPr></w:p>')
+        if append_space_after:
+            self.body_elements.append('<w:p><w:pPr><w:spacing w:after="140"/></w:pPr></w:p>')
 
 
 def render_markdown_block(builder: DocxBuilder, block: MarkdownBlock) -> None:
@@ -417,7 +423,16 @@ def render_component_sheet(builder: DocxBuilder, sheet: ComponentSheet) -> None:
         ["Consumed Metrics", metrics_str],
     ]
 
-    builder.add_table(headers, rows, col_widths=col_widths)
+    builder.add_table(
+        headers,
+        rows,
+        col_widths=col_widths,
+        cell_padding_y=35,
+        cell_padding_x=120,
+        cell_font_size=17,
+        cell_spacing_y=20,
+        append_space_after=False,
+    )
 
 
 def render_parameters_section(builder: DocxBuilder, parameters: list[ParameterEntry]) -> None:
@@ -729,9 +744,9 @@ def build_docx(projection: MasterProjection, output_path: Path) -> Path:
         '<w:ftr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">\n'
         "  <w:p>\n"
         '    <w:pPr><w:jc w:val="center"/></w:pPr>\n'
-        '    <w:r><w:rPr><w:sz w:val="18"/><w:color w:val="64748B"/></w:rPr><w:t>Page </w:t></w:r>\n'
+        '    <w:r><w:rPr><w:sz w:val="18"/><w:color w:val="64748B"/></w:rPr><w:t xml:space="preserve">Page </w:t></w:r>\n'
         '    <w:fldSimple w:instr="PAGE"/>\n'
-        '    <w:r><w:rPr><w:sz w:val="18"/><w:color w:val="64748B"/></w:rPr><w:t> of </w:t></w:r>\n'
+        '    <w:r><w:rPr><w:sz w:val="18"/><w:color w:val="64748B"/></w:rPr><w:t xml:space="preserve"> of </w:t></w:r>\n'
         '    <w:fldSimple w:instr="NUMPAGES"/>\n'
         "  </w:p>\n"
         "</w:ftr>"
