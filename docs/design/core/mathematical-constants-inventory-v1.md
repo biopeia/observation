@@ -419,7 +419,7 @@ flowchart TD
 | **C1. Full Forensic Coverage** | Every active numeric constant in `symbiont/` identified with source lines, units, and roles. | **PASS** | 77 runtime constants cataloged across 11 subsystems in Section 4. |
 | **C2. Taxonomy Conformance** | Every entry classified into one of 3 runtime classes and assigned one of 6 runtime roles. | **PASS** | 100% compliance verified in summary matrix (Section 6). |
 | **C3. Separation of Analytical Quantities** | Asymptotic/theoretical quantities strictly segregated from runtime parameters. | **PASS** | Section 5 defines $W_\infty$ and $N_{\text{eff}}^{\text{geom}}$ as analytical properties outside runtime code. |
-| **C4. Zero Runtime Mutation** | Strictly zero changes to runtime code, configurations, or tests. | **PASS** | `git diff` against `main` contains exclusively documentation files. |
+| **C4. Zero Runtime Mutation (M0 closure)** | M0 itself introduced zero runtime changes. | **PASS** | Historical M0 closure invariant. Later governed phases may extend this live catalog when they introduce or retire runtime parameters; those later runtime changes do not retroactively alter the observational nature of M0. |
 | **C5. Prioritized Scientific Debt** | All `STUDY` and `DEPRECATE` rulings formally registered and mapped to subsequent roadmap phases. | **PASS** | Section 7 establishes the formal mapping to Phases M1 through M5. |
 
 ### 8.2 Milestone Disposition
