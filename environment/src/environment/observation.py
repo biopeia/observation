@@ -1,21 +1,19 @@
-"""W1 local observation pipeline (docs/design/archive/symbiont-world-v1.md §12.1).
+"""Passive Environment observation boundaries.
 
-No real fields/resources exist yet (deferred to W2's Genesis ground truth).
-This only exercises ObservableSource -> WorldObservation end to end with a
-single synthetic, opaque signal: local occupancy density around a body.
+The legacy local-observation path remains for organism-facing opaque signals.
+The resource-state contract below exposes Environment-owned logical pool state
+for passive external observation without materializing new World state.
 """
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from hashlib import sha256
-import math
 
 from environment.contracts import WorldObservation
 from environment.genesis import WorldEnvironment
 from environment.topology import BodyPlacement, HexCoord, HexTopology, OccupancyGrid
-
-
 
 
 @dataclass(frozen=True, slots=True)
@@ -76,6 +74,7 @@ class ResourcePoolObservation:
             raise ValueError("contract_revision must not be empty")
         object.__setattr__(self, "resources", resources)
         object.__setattr__(self, "contract_revision", revision)
+
 
 def opaque_signal_id(label: str) -> str:
     """Stable hash of an apparatus-only label. The label itself never
