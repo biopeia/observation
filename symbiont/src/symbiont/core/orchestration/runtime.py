@@ -139,6 +139,7 @@ from ..social.relations import (
     SocialPresence,
     SocialRelation,
 )
+from .cycle import CycleStep
 from .sense_requirements import resolve_sense_requirements, restored_sense_options
 
 
@@ -537,7 +538,7 @@ class OrganismRuntime:
         )
         self._attention_budget = attention_budget
         self._investigate_ticks = investigate_ticks
-        self._tick_count = tick_count
+        self._tick_count = CycleStep(tick_count)
         self._organism_id = (
             str(organism_id) if organism_id is not None else f"org_{uuid.uuid4().hex[:16]}"
         )
@@ -2447,7 +2448,7 @@ class OrganismRuntime:
                 protocol=self._epigenetic_protocol,
             )
 
-        self._tick_count = context.symbiont_tick
+        self._tick_count = CycleStep(context.symbiont_tick)
         self._embodiment_domain.complete_context(context)
         self._physiology_domain.advance_body_age(self._living_body_state)
         self._lifecycle_domain.record_journal(

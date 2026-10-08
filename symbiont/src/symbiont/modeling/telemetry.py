@@ -181,7 +181,9 @@ class CommunicationTelemetry:
         max_events: int = MAX_TELEMETRY_EVENTS,
         max_events_per_tick: int = 256,
         max_age_ticks: int | None = None,
+        retention_cycles: int | None = None,
     ) -> None:
+        effective_retention = retention_cycles if retention_cycles is not None else max_age_ticks
         if (
             isinstance(max_events, bool)
             or not isinstance(max_events, int)
@@ -195,15 +197,16 @@ class CommunicationTelemetry:
             or not 1 <= max_events_per_tick <= max_events
         ):
             raise ValueError("telemetry capacity exceeds bound")
-        if max_age_ticks is not None and (
-            isinstance(max_age_ticks, bool)
-            or not isinstance(max_age_ticks, int)
-            or max_age_ticks < 0
+        if effective_retention is not None and (
+            isinstance(effective_retention, bool)
+            or not isinstance(effective_retention, int)
+            or effective_retention < 0
         ):
-            raise ValueError("max_age_ticks must be non-negative")
+            raise ValueError("retention_cycles must be non-negative")
         self.max_events = max_events
         self.max_events_per_tick = max_events_per_tick
-        self.max_age_ticks = max_age_ticks
+        self.max_age_ticks = effective_retention
+        self.retention_cycles = effective_retention
         self._events: deque[CommunicationEvent] = deque()
         self._grounding: deque[GroundingEvent] = deque()
         self._event_ids: set[str] = set()
@@ -287,6 +290,7 @@ class CommunicationTelemetry:
             "max_events": self.max_events,
             "max_events_per_tick": self.max_events_per_tick,
             "max_age_ticks": self.max_age_ticks,
+            "retention_cycles": self.retention_cycles,
             "events": [event.to_dict() for event in self._events],
             "grounding_events": [event.to_dict() for event in self._grounding],
             "history_truncated": self._truncated,
@@ -296,10 +300,14 @@ class CommunicationTelemetry:
     def restore(cls, payload: Mapping[str, Any]) -> "CommunicationTelemetry":
         if not isinstance(payload, Mapping) or payload.get("schema_version") != cls.SCHEMA_VERSION:
             raise ValueError("unsupported telemetry checkpoint")
+        retention = payload.get("retention_cycles")
+        if retention is None:
+            retention = payload.get("max_age_ticks")
         telemetry = cls(
             max_events=payload["max_events"],
             max_events_per_tick=payload["max_events_per_tick"],
-            max_age_ticks=payload.get("max_age_ticks"),
+            max_age_ticks=retention,
+            retention_cycles=retention,
         )
         events = payload.get("events", [])
         grounding = payload.get("grounding_events", [])
