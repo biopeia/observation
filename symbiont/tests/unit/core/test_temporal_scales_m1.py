@@ -151,7 +151,7 @@ def test_g_m1_3_scale_separation_cycle_vs_experiential():
 # G-M1.4: Checkpoint Continuity (Restore of snapshot preserves separated scales)
 # ---------------------------------------------------------------------------
 def test_g_m1_4_checkpoint_continuity_separated_scales():
-    """Snapshot roundtrip preserves exact separated scale markers (T_s, T_s^body, T_e)."""
+    """Roundtrips preserve T_s, body-local cycle count, and typed T_e evidence."""
     rt = OrganismRuntime(
         organism_id="sym_m1_ckpt",
         living_body_state=LivingBodyState(
@@ -189,12 +189,21 @@ def test_g_m1_4_checkpoint_continuity_separated_scales():
     assert restored.living_body_state.age_ticks == 15
     assert isinstance(restored.tick_count, CycleStep)
 
+    evidence = PairwisePredictiveEvidence(source_id="source", target_id="target")
+    for value in (0.1, 0.2, 0.3):
+        evidence.observe(value, value * 2.0)
+    evidence_payload = evidence.checkpoint(include_replay=True)
+    restored_evidence = PairwisePredictiveEvidence.restore(evidence_payload)
+    assert restored_evidence.observations == EvidenceCount(3)
+    assert isinstance(restored_evidence.observations, EvidenceCount)
+    assert restored_evidence.checkpoint(include_replay=True) == evidence_payload
+
 
 # ---------------------------------------------------------------------------
-# G-M1.5: Deterministic Replay (Bitwise trace equality)
+# G-M1.5: Deterministic Replay (identical deterministic configuration/input)
 # ---------------------------------------------------------------------------
 def test_g_m1_5_deterministic_replay_trace_equality():
-    """Bitwise trace equality across identical runs."""
+    """Identical deterministic configuration and inputs yield identical checkpoints."""
     def run_trajectory():
         rt = OrganismRuntime(
             organism_id="org_replay_seed_42",
@@ -221,10 +230,10 @@ def test_g_m1_5_deterministic_replay_trace_equality():
 
 
 # ---------------------------------------------------------------------------
-# G-M1.6: Zero Equation Drift (Delta behavior == 0)
+# G-M1.6: Bounded Equation Preservation (touched M1 mechanisms)
 # ---------------------------------------------------------------------------
 def test_g_m1_6_zero_equation_drift():
-    """Verify exact numerical preservation of predictive credit and self-model math."""
+    """Verify exact numerical preservation for the behavior-bearing mechanisms touched by M1."""
     # 1. Predictive credit formulas
     ev = PairwisePredictiveEvidence(source_id="a", target_id="b")
     # Feed 4 observations
@@ -312,3 +321,50 @@ def test_g_m1_7_semantic_equivalence_and_backwards_compatibility():
     t_restored_modern = CommunicationTelemetry.restore(modern_payload)
     assert t_restored_modern.retention_cycles == 128
     assert t_restored_modern.max_age_ticks == 128
+
+
+# ---------------------------------------------------------------------------
+# M1.1 hardening: temporal scalar constructors fail closed
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize("bad", [True, False, 1.5, 3.9, "4", None])
+def test_cycle_step_rejects_ambiguous_non_integer_inputs(bad):
+    with pytest.raises(TypeError):
+        CycleStep(bad)
+
+
+@pytest.mark.parametrize("bad", [True, False, 1.5, 3.9, "4", None])
+def test_evidence_count_rejects_ambiguous_non_integer_inputs(bad):
+    with pytest.raises(TypeError):
+        EvidenceCount(bad)
+
+
+@pytest.mark.parametrize("bad", [True, False, "0.1", None])
+def test_physical_duration_rejects_non_numeric_inputs(bad):
+    with pytest.raises(TypeError):
+        PhysicalDuration(bad)
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
+def test_physical_duration_rejects_non_finite_inputs(bad):
+    with pytest.raises(ValueError):
+        PhysicalDuration(bad)
+
+
+def test_telemetry_constructor_rejects_conflicting_retention_aliases():
+    with pytest.raises(ValueError, match="must match"):
+        CommunicationTelemetry(max_age_ticks=64, retention_cycles=128)
+
+
+def test_telemetry_restore_rejects_conflicting_retention_aliases():
+    payload = {
+        "schema_version": CommunicationTelemetry.SCHEMA_VERSION,
+        "max_events": 1000,
+        "max_events_per_tick": 256,
+        "max_age_ticks": 64,
+        "retention_cycles": 128,
+        "events": [],
+        "grounding_events": [],
+        "history_truncated": False,
+    }
+    with pytest.raises(ValueError, match="conflicting"):
+        CommunicationTelemetry.restore(payload)
