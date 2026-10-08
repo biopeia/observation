@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from embodiment.observation import BodyPoseSample
-
 from lab.observation.semantic import (
     AcquisitionBasis,
     ActorRef,
