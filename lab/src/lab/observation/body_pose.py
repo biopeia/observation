@@ -11,6 +11,7 @@ from lab.observation.semantic import (
     DomainTimeRef,
     IdentityAssertion,
     IdentityRef,
+    OrchestrationContext,
     SemanticClaim,
     SemanticContractRef,
     SemanticFamily,
@@ -23,7 +24,11 @@ PHYSICS3D_SOURCE = ActorRef("apparatus", "physics3d.mujoco")
 LAB_PRODUCER = ActorRef("component", "lab.observation.physics3d")
 
 
-def body_pose_observation(sample: BodyPoseSample) -> SemanticObservation[BodyPoseSample]:
+def body_pose_observation(
+    sample: BodyPoseSample,
+    *,
+    run_id: str | None = None,
+) -> SemanticObservation[BodyPoseSample]:
     body_identity = IdentityRef(
         kind="body",
         value=sample.body_id,
@@ -60,6 +65,21 @@ def body_pose_observation(sample: BodyPoseSample) -> SemanticObservation[BodyPos
         ),
         asserter=EMBODIMENT_AUTHORITY,
         producer=LAB_PRODUCER,
+        orchestration=(
+            OrchestrationContext(
+                run_identity=IdentityAssertion(
+                    identity=IdentityRef(
+                        kind="run",
+                        value=run_id,
+                        issuer=LAB_PRODUCER,
+                        lifetime="lab_run",
+                    ),
+                    asserter=LAB_PRODUCER,
+                )
+            )
+            if run_id is not None
+            else None
+        ),
         domain_time=(
             DomainTimeRef(
                 domain=AuthorityDomain.EMBODIMENT,
