@@ -22,6 +22,16 @@ PHYSICS3D_BODY_POSE_SEMANTICS: Mapping[str, str] = MappingProxyType(
     }
 )
 
+PHYSICS3D_JOINT_KINEMATICS_SEMANTICS: Mapping[str, str] = MappingProxyType(
+    {
+        "joint_type": "revolute",
+        "position_unit": "rad",
+        "velocity_unit": "rad/s",
+        "identity_scope": "body_local",
+        "contract_revision": "v1",
+    }
+)
+
 
 def body_pose_semantics() -> dict[str, str]:
     """Return a fresh canonical declaration suitable for exported physical state."""
@@ -29,4 +39,15 @@ def body_pose_semantics() -> dict[str, str]:
     return dict(PHYSICS3D_BODY_POSE_SEMANTICS)
 
 
-__all__ = ["PHYSICS3D_BODY_POSE_SEMANTICS", "body_pose_semantics"]
+def joint_kinematics_semantics() -> dict[str, str]:
+    """Return the current Physics3D revolute-joint conformance declaration."""
+
+    return dict(PHYSICS3D_JOINT_KINEMATICS_SEMANTICS)
+
+
+__all__ = [
+    "PHYSICS3D_BODY_POSE_SEMANTICS",
+    "PHYSICS3D_JOINT_KINEMATICS_SEMANTICS",
+    "body_pose_semantics",
+    "joint_kinematics_semantics",
+]
