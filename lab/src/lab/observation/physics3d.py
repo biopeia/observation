@@ -188,7 +188,9 @@ class Physics3DObservationBridge:
         except (TypeError, ValueError):
             return
 
-        self._observation_plane.publish(body_pose_observation(sample))
+        self._observation_plane.publish(
+            body_pose_observation(sample, run_id=self._run_id)
+        )
 
     def publish_pose_frame(
         self,
