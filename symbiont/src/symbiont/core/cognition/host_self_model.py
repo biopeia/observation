@@ -24,7 +24,8 @@ _recency_class = DEFAULT_EPISTEMIC_CONVENTIONS.classify_recency
 SELF_MODEL_EWMA_ALPHA = DEFAULT_EPISTEMIC_CONVENTIONS.ewma_alpha
 MIN_SELF_MODEL_ATTEMPTS = DEFAULT_EPISTEMIC_CONVENTIONS.established_signal_min_samples
 LOW_HEALTH_INVESTIGATION_THRESHOLD = 0.15
-IDLE_GRACE_TICKS = 20
+UNOBSERVED_CYCLES_GRACE = 20
+IDLE_GRACE_TICKS = UNOBSERVED_CYCLES_GRACE  # Backward-compatible alias for Phase M1
 _QUALITY_HEALTH: dict[ReadingQuality, float] = {
     ReadingQuality.NOMINAL: 1.0,
     ReadingQuality.DEGRADED: 0.6,
@@ -53,7 +54,7 @@ def _ewma(previous: float, observation: float, alpha: float = SELF_MODEL_EWMA_AL
 
 
 def _idle_decayed(value: float, neutral: float, idle_ticks: int) -> float:
-    steps = max(0, idle_ticks - IDLE_GRACE_TICKS)
+    steps = max(0, idle_ticks - UNOBSERVED_CYCLES_GRACE)
     if steps == 0:
         return value
     return neutral + (value - neutral) * ((1 - SELF_MODEL_EWMA_ALPHA) ** steps)

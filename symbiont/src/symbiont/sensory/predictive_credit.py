@@ -4,6 +4,8 @@ import math
 from dataclasses import asdict, dataclass
 from typing import Any, Mapping
 
+from .evidence import EvidenceCount
+
 SELECTION_SCHEMA_VERSION = 2
 MAX_SELECTION_PAIRS = 256
 MIN_SELECTION_OBSERVATIONS = 8
@@ -17,7 +19,7 @@ class PairwisePredictiveEvidence:
 
     source_id: str
     target_id: str
-    observations: int = 0
+    observations: EvidenceCount = EvidenceCount(0)
     effective_weight: float = 0.0
     sum_x: float = 0.0
     sum_y: float = 0.0
@@ -65,7 +67,7 @@ class PairwisePredictiveEvidence:
                 1.0 - alpha
             ) * self.baseline_error_ewma + alpha * baseline_error
 
-        self.observations += 1
+        self.observations = EvidenceCount(self.observations + 1)
         self.effective_weight = _SELECTION_FORGETTING * self.effective_weight + 1.0
         self.sum_x = _SELECTION_FORGETTING * self.sum_x + x
         self.sum_y = _SELECTION_FORGETTING * self.sum_y + y
@@ -110,7 +112,7 @@ class PairwisePredictiveEvidence:
         evidence = cls(
             source_id=payload.get("source_id"),
             target_id=payload.get("target_id"),
-            observations=raw_observations,
+            observations=EvidenceCount(raw_observations),
             effective_weight=payload.get(
                 "effective_weight",
                 min(float(raw_observations), 1.0 / (1.0 - _SELECTION_FORGETTING)),

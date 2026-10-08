@@ -11,6 +11,7 @@ from .contract import (
     PerceptualSurface,
     TimingContract,
 )
+from .duration import PhysicalDuration
 from .dynamics import (
     EvidenceProvenance,
     PredictionResidual,
@@ -53,6 +54,7 @@ __all__ = [
     "EvidenceProvenance",
     "PerceptualChannel",
     "PerceptualSurface",
+    "PhysicalDuration",
     "PortBinding",
     "PredictionResidual",
     "ReachabilityModel",

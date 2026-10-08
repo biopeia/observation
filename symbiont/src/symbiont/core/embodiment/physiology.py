@@ -114,9 +114,10 @@ class BodyStructureState:
 class LivingBodyState:
     """Single persistent owner of one Body physiological state.
 
-    ``age_ticks`` and ``death_tick`` are Body-local biological time. They are
-    deliberately independent from the persistent Symbiont historical tick.
-    Cognition never receives these field names directly.
+    ``age_ticks`` and ``death_tick`` are Body-local biological cycle counts (T_s^body).
+    They are deliberately independent from the persistent Symbiont historical scheduler
+    cycle (T_s). Cognition never receives these field names directly.
+    Continuous physical wear integration is deferred to Phase M2.
     """
 
     energy_reserve: float = 1.0
