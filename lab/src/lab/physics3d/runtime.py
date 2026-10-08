@@ -62,6 +62,7 @@ from symbiont.core.embodiment import (
     TimingContract,
     archive_episode_checkpoint,
 )
+from symbiont.core.embodiment.duration import PhysicalDuration
 from symbiont.core.embodiment.metabolism import MetabolicLedger
 from symbiont.core.embodiment.physiology import LivingBodyState, VitalState
 from symbiont.core.embodiment.transition import (
@@ -1452,6 +1453,9 @@ class Physics3DEmbodimentRuntime:
                 body_id=self.body_identity,
             ),
             include_observability=include_observability,
+            physical_duration=PhysicalDuration(
+                self.time_step * self.physics_substeps_per_tick
+            ),
         )
         # Observer-only reference for evaluator-side studies; never read back.
         self.last_organism_result = result
