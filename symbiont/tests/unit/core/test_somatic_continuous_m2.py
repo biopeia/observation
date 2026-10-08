@@ -8,6 +8,7 @@ from symbiont.core.embodiment.duration import PhysicalDuration
 from symbiont.core.embodiment.homeostasis import HomeostaticController
 from symbiont.core.embodiment.metabolism import MetabolicLedger
 from symbiont.core.embodiment.physiology import LivingBodyState
+from symbiont.core.orchestration.runtime import OrganismRuntime
 
 
 def _controller_state() -> tuple[LivingBodyState, MetabolicLedger, HomeostaticController]:
@@ -104,3 +105,15 @@ def test_zero_physical_duration_rejects_nonzero_work() -> None:
             embodied_work=0.01,
             physical_duration=PhysicalDuration(0.0),
         )
+
+
+def test_organism_tick_rejects_untyped_physical_duration() -> None:
+    runtime = OrganismRuntime(
+        discover_senses=False,
+        bootstrap_semantic_senses=False,
+        interoception_enabled=False,
+        investigate_ticks=0,
+        min_samples=1,
+    )
+    with pytest.raises(TypeError, match="PhysicalDuration"):
+        runtime.tick(physical_duration=0.01)  # type: ignore[arg-type]
