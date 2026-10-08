@@ -11,8 +11,8 @@ from embodiment.observation import (
     BodyPhysiologySample,
     BodyPoseSample,
     BodyStructurePhysiologyState,
-    JointKinematicState,
     JointKinematicsSample,
+    JointKinematicState,
 )
 from lab.observation.body_physiology import body_physiology_observation
 from lab.observation.body_pose import body_pose_observation
