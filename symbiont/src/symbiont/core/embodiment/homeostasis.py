@@ -126,9 +126,7 @@ class HomeostaticController:
             raise ValueError("embodied_work must be finite and non-negative")
 
         reference_duration = self.config.somatic_reference_duration_s
-        duration = (
-            reference_duration if physical_duration is None else float(physical_duration)
-        )
+        duration = reference_duration if physical_duration is None else float(physical_duration)
         if not math.isfinite(duration) or duration < 0.0:
             raise ValueError("physical_duration must be finite and non-negative")
         if duration == 0.0 and embodied_work > 0.0:
@@ -140,11 +138,7 @@ class HomeostaticController:
         # rates over the historical 1/24 s reference interval. This preserves the
         # old default trajectory exactly while making subdivision additive.
         fatigue_gain = min(1.0, embodied_work * self.config.fatigue_work_gain)
-        recovery = (
-            self.config.fatigue_recovery_rate
-            * duration_ratio
-            * (2.0 if resting else 1.0)
-        )
+        recovery = self.config.fatigue_recovery_rate * duration_ratio * (2.0 if resting else 1.0)
         self._body_state.fatigue = max(
             0.0,
             min(1.0, self._body_state.fatigue + fatigue_gain - recovery),
