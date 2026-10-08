@@ -183,6 +183,14 @@ class CommunicationTelemetry:
         max_age_ticks: int | None = None,
         retention_cycles: int | None = None,
     ) -> None:
+        if (
+            retention_cycles is not None
+            and max_age_ticks is not None
+            and retention_cycles != max_age_ticks
+        ):
+            raise ValueError(
+                "retention_cycles and legacy max_age_ticks must match when both are provided"
+            )
         effective_retention = retention_cycles if retention_cycles is not None else max_age_ticks
         if (
             isinstance(max_events, bool)
@@ -301,8 +309,13 @@ class CommunicationTelemetry:
         if not isinstance(payload, Mapping) or payload.get("schema_version") != cls.SCHEMA_VERSION:
             raise ValueError("unsupported telemetry checkpoint")
         retention = payload.get("retention_cycles")
+        legacy_retention = payload.get("max_age_ticks")
+        if retention is not None and legacy_retention is not None and retention != legacy_retention:
+            raise ValueError(
+                "telemetry checkpoint has conflicting retention_cycles and max_age_ticks"
+            )
         if retention is None:
-            retention = payload.get("max_age_ticks")
+            retention = legacy_retention
         telemetry = cls(
             max_events=payload["max_events"],
             max_events_per_tick=payload["max_events_per_tick"],

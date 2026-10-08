@@ -211,10 +211,10 @@ The M1 milestone is closed only when all seven invariants pass technical verific
 | **G-M1.1: Cognitive Isolation** | $T_p \not\rightarrow \text{Cognition}$ | Static AST import check asserting no module in `symbiont.cognition` imports physical duration or physics interfaces. |
 | **G-M1.2: Host Non-Leakage** | $\text{host wall-time} \not\rightarrow \text{organism state}$ | Determinism regression test asserting identical trajectory across arbitrary synthetic CPU sleep delays. |
 | **G-M1.3: Scale Separation** | $T_s \neq T_e$ | Contract test demonstrating that idling cycles ($\Delta T_s > 0$) with zero observations do not advance $T_e$. |
-| **G-M1.4: Checkpoint Continuity** | $\text{Restore}(\text{Snapshot}(T_s, T_e, T_d)) \equiv \text{Current}$ | Snapshot roundtrip test asserting exact preservation of all separated scale markers without loss or aliasing. |
-| **G-M1.5: Deterministic Replay** | $\forall \text{seed}, \text{Run}_1 \equiv \text{Run}_2$ | Bitwise trace equality test comparing execution logs across multiple runs under identical seeds. |
-| **G-M1.6: Zero Equation Drift** | $\Delta \text{behavior} \equiv 0$ | Numerical regression test verifying that all somatic, sensory, cognitive, and policy outputs remain numerically identical to the pre-M1 baseline. |
-| **G-M1.7: Semantic Equivalence & Backwards Compatibility** | $\text{serialize}_{\text{before}} \leftrightarrow \text{serialize}_{\text{after}}$ | Checkpoint and payload roundtrip test proving that all typed primitives, aliases, and renamed fields maintain exact bi-directional serialization compatibility. |
+| **G-M1.4: Checkpoint Continuity** | Separated persisted markers retain exact values and types across their owning serialization boundaries. | Organism checkpoint roundtrip for $T_s$ and body-local biological cycles plus `PairwisePredictiveEvidence` checkpoint roundtrip for typed $T_e$. |
+| **G-M1.5: Deterministic Replay** | Identical deterministic configuration and input history produce identical checkpoints and tick traces. | Independent-run equality under identical deterministic setup. This bounded gate does not claim universal quantification over every possible seed. |
+| **G-M1.6: Bounded Equation Preservation** | Behavior-bearing equations touched by M1 retain their pre-M1 numerical semantics. | Numerical regression over predictive-credit accumulation and renamed grace-period semantics; broader causal equivalence remains a separate governed evidence suite. |
+| **G-M1.7: Semantic Equivalence & Backwards Compatibility** | Typed primitives preserve primitive JSON representation and legacy aliases remain unambiguous. | Roundtrip tests plus fail-closed rejection of contradictory legacy/new telemetry retention fields. |
 
 ---
 
@@ -227,10 +227,10 @@ All seven Phase M1 invariant gates have been implemented and verified via automa
 | **G-M1.1** | Cognitive Isolation | $T_p \not\rightarrow \text{Cognition}$ | `test_g_m1_1_cognitive_isolation_ast` | **PASSED** | Static AST inspection across all modules in `symbiont.cognition` and `symbiont.core.cognition` confirms zero imports of `PhysicalDuration`, `duration`, `mujoco`, or `physics3d`. |
 | **G-M1.2** | Host Non-Leakage | $\text{wall-time} \not\rightarrow \text{state}$ | `test_g_m1_2_host_non_leakage_across_synthetic_delays` | **PASSED** | Trajectories run under arbitrary synthetic host CPU sleep delays produce bitwise-identical checkpoints (`assert ckpt1 == ckpt2`). |
 | **G-M1.3** | Scale Separation | $T_s \neq T_e$ | `test_g_m1_3_scale_separation_cycle_vs_experiential` | **PASSED** | Advancing scheduler cycles ($T_s$) with zero sensor observations leaves `PairwisePredictiveEvidence.observations` ($T_e$) strictly stationary at 0 until observations arrive. |
-| **G-M1.4** | Checkpoint Continuity | $\text{Restore}(\text{Snapshot}) \equiv \text{Current}$ | `test_g_m1_4_checkpoint_continuity_separated_scales` | **PASSED** | Snapshot roundtrip preserves exact values of $T_s$ (`saved_at_tick`), $T_s^{\text{body}}$ (`living_body.age_ticks`), and resumes typing without aliasing. |
-| **G-M1.5** | Deterministic Replay | $\forall \text{seed}, \text{Run}_1 \equiv \text{Run}_2$ | `test_g_m1_5_deterministic_replay_trace_equality` | **PASSED** | Identical random seeds produce bitwise-identical tick results and checkpoints across independent runs. |
-| **G-M1.6** | Zero Equation Drift | $\Delta \text{behavior} \equiv 0$ | `test_g_m1_6_zero_equation_drift` | **PASSED** | Predictive credit weights follow analytical geometric sum $W_k = \sum_{j=0}^{k-1} 0.97^j$ exactly ($3.822773$ at $k=4$), and host grace constant preserves $20$. |
-| **G-M1.7** | Semantic Equivalence & Backwards Compatibility | $\text{serialize}_{\text{before}} \leftrightarrow \text{serialize}_{\text{after}}$ | `test_g_m1_7_semantic_equivalence_and_backwards_compatibility` | **PASSED** | `CycleStep`, `EvidenceCount`, and `PhysicalDuration` serialize seamlessly to standard JSON/integers/floats; `CommunicationTelemetry` maintains bidirectional compatibility across `retention_cycles` and legacy `max_age_ticks`. |
+| **G-M1.4** | Checkpoint Continuity | Persisted temporal markers preserve exact value/type at their owning boundary | `test_g_m1_4_checkpoint_continuity_separated_scales` | **PASSED** | Organism checkpoint roundtrip preserves $T_s$ and $T_s^{\text{body}}$; predictive-evidence checkpoint roundtrip preserves typed $T_e$ as `EvidenceCount`. |
+| **G-M1.5** | Deterministic Replay | Identical deterministic configuration/input $\Rightarrow$ identical result | `test_g_m1_5_deterministic_replay_trace_equality` | **PASSED** | Independent runs under the same deterministic setup produce identical checkpoints. No universal all-seeds claim is made by this gate. |
+| **G-M1.6** | Bounded Equation Preservation | Touched M1 behavior-bearing mechanisms preserve numerical semantics | `test_g_m1_6_zero_equation_drift` | **PASSED** | Predictive-credit accumulation remains the same geometric recursion and host grace remains exactly 20. Full causal-equivalence snapshots are governed separately. |
+| **G-M1.7** | Semantic Equivalence & Backwards Compatibility | Primitive serialization remains stable; aliases are fail-closed when contradictory | `test_g_m1_7_semantic_equivalence_and_backwards_compatibility` + M1.1 alias-conflict tests | **PASSED** | Typed primitives serialize as native JSON numbers; legacy/new telemetry retention aliases roundtrip when equal and are rejected when contradictory. |
 
 ### Summary of Source-Level Implementation
 
@@ -240,3 +240,29 @@ All seven Phase M1 invariant gates have been implemented and verified via automa
 4. **Host Self-Model Semantics:** Renamed `IDLE_GRACE_TICKS` to `UNOBSERVED_CYCLES_GRACE` with backward-compatible alias in [`symbiont.core.cognition.host_self_model`](../../../symbiont/src/symbiont/core/cognition/host_self_model.py).
 5. **Telemetry Buffer Semantics:** Supported `retention_cycles` with bidirectional `max_age_ticks` serialization in [`symbiont.modeling.telemetry`](../../../symbiont/src/symbiont/modeling/telemetry.py).
 6. **Living Body State Semantics:** Formalized Body-local biological cycle count ($T_s^{\text{body}}$) docstrings in [`LivingBodyState`](../../../symbiont/src/symbiont/core/embodiment/physiology.py).
+
+---
+
+## 8. M1.1 Temporal Contract Hardening
+
+A post-M1 review identified that the initial nominal types and evidence wording were more permissive than the semantic boundary they were intended to enforce. M1.1 hardens the baseline without changing any behavioral equation.
+
+### 8.1 Fail-closed temporal scalar construction
+
+- `CycleStep` accepts only non-negative integer cycle counts. Boolean, string, and fractional inputs are rejected rather than silently coerced.
+- `EvidenceCount` / `SampleCount` accept only non-negative integer observation counts. Boolean, string, and fractional inputs are rejected.
+- `PhysicalDuration` accepts only finite numeric durations and rejects booleans, strings, NaN, infinities, and negative values.
+
+These checks prevent cross-scale ambiguity from being hidden by Python numeric coercion.
+
+### 8.2 Fail-closed telemetry migration alias
+
+`CommunicationTelemetry` continues to accept legacy `max_age_ticks` and canonical `retention_cycles`, but when both are supplied they MUST carry the same value. Conflicting constructor arguments or checkpoint fields are rejected instead of selecting one silently.
+
+### 8.3 Evidence-scope clarification
+
+The focused M1 contract suite establishes the bounded invariants documented above. It does **not** by itself constitute the broader causal-equivalence suite across established, private-model, promotion, re-embodiment, and developed-cognition snapshots. Those governed equivalence snapshots remain a separate evidence surface and must not be inferred from G-M1.1–G-M1.7.
+
+M1.1 therefore strengthens the implementation and narrows claims to the evidence actually exercised; it does not alter temperature, fatigue, memory decay, maturity, agency, or any M2–M4 equation.
+
+Publication of M1.1 uses the repository's governed CI branch contract; the candidate branch must match an enabled `ci.yml` push prefix so validation is attached to the candidate SHA before review.
