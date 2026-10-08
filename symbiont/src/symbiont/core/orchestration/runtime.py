@@ -1274,6 +1274,12 @@ class OrganismRuntime:
         )
 
     @property
+    def affordance_observation(self):
+        """Canonical passive Symbiont-owned affordance-set observation."""
+
+        return self._action_domain.operational_affordance_observation(tick=self._tick_count)
+
+    @property
     def agency_observation(self) -> dict[str, Any]:
         """Passive outward view of agency acquisition and executive state."""
         return self._action_domain.observation_view(tick=self._tick_count)

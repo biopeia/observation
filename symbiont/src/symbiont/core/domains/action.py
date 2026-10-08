@@ -58,7 +58,7 @@ from ...actuation.state import SensorimotorV2Snapshot
 from ...actuation.surface import ActuatorSurface
 from ...actuation.system import ActuatorSystem
 from ...actuation.types import Actuation, MotorIntent
-from ...agency.affordance import ActionAffordance
+from ...agency.affordance import ActionAffordance, AffordanceObservation
 from ...agency.affordances import AffordanceResolver
 from ...agency.availability import CompetenceAvailability, derive_availability
 from ...agency.executive_outcome import CausalRevisionState, ExecutiveKey, ExecutiveModulation
@@ -2706,6 +2706,15 @@ class ActionDomain:
                 }
             )
         return rows
+
+    def operational_affordance_observation(self, *, tick: int) -> AffordanceObservation:
+        """Return source-owned current affordances without Lab reconstruction."""
+
+        return AffordanceObservation(
+            organism_id=self.organism_id,
+            organism_tick=int(tick),
+            affordances=tuple(self.last_affordances),
+        )
 
     def observation_view(self, *, tick: int) -> dict[str, Any]:
         """Bounded passive projection for Observatory; never read back by cognition."""

@@ -40,7 +40,8 @@ from lab.observation.observatory import (
 from lab.observation.observatory import (
     read_journal as _canonical_read_journal,
 )
-from lab.server.sse import stream_fleet, stream_instance
+from lab.observation.wire import plane_message_payload
+from lab.server.sse import stream_fleet, stream_instance, stream_semantic_observations
 
 _STATIC_ROOT = Path(__file__).resolve().parent
 _STATIC_CONTENT_TYPES = {
@@ -98,6 +99,48 @@ class _Handler(BaseHTTPRequestHandler):
                 self.wfile.write(body)
                 return
             self._serve_json(payload)
+        elif path == "/api/observations":
+            world = self.server.world_state
+            plane = getattr(world, "observation_plane", None) if world is not None else None
+            if plane is None:
+                self.send_error(503)
+                return
+            query = parse_qs(parsed.query)
+            family = str((query.get("family") or [""])[0]).strip() or None
+            self._serve_json(
+                {
+                    "wire_contract": "observation-semantic-wire-v1",
+                    "latest_sequence": plane.latest_sequence,
+                    "oldest_replay_sequence": plane.oldest_replay_sequence,
+                    "items": [
+                        plane_message_payload(message)
+                        for message in plane.current_messages(family=family)
+                    ],
+                }
+            )
+        elif path == "/api/observations/stream":
+            world = self.server.world_state
+            plane = getattr(world, "observation_plane", None) if world is not None else None
+            if plane is None:
+                self.send_error(503)
+                return
+            query = parse_qs(parsed.query)
+            family = str((query.get("family") or [""])[0]).strip() or None
+            raw_after = str((query.get("after") or [""])[0]).strip()
+            try:
+                after = int(raw_after) if raw_after else None
+            except ValueError:
+                self.send_error(400)
+                return
+            if after is not None and after < 0:
+                self.send_error(400)
+                return
+            stream_semantic_observations(
+                self,
+                plane,
+                family=family,
+                after_sequence=after,
+            )
         elif path == "/fleet":
             self._stream_fleet()
         elif path.startswith("/instance/") and path.endswith("/stream"):

@@ -660,6 +660,18 @@ def run(
                 )
 
             if body_render_due and viewer is not None:
+                publish_domain_observations = getattr(
+                    viewer,
+                    "publish_domain_observations",
+                    None,
+                )
+                if callable(publish_domain_observations):
+                    publish_domain_observations(
+                        body_id=runtime.body_identity,
+                        body_physiology=runtime.organism.living_body_state.operational_observation(),
+                        affordance_sample=runtime.organism.affordance_observation,
+                        organism_tick=runtime.tick_count,
+                    )
                 episodic_state = rich_state.get("episodic_memory", {})
                 if not isinstance(episodic_state, dict):
                     episodic_state = {}
