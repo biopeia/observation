@@ -11,8 +11,8 @@ class CycleStep(int):
     """Discrete integer iteration of the organism control cycle (T_s)."""
 
     def __new__(cls, value: int = 0) -> CycleStep:
-        if isinstance(value, bool) or not isinstance(value, int):
-            raise TypeError("CycleStep requires an integer cycle count")
+        if not (type(value) is int or isinstance(value, cls)):
+            raise TypeError("CycleStep requires a plain integer cycle count")
         if value < 0:
             raise ValueError(f"CycleStep cannot be negative: {value}")
         return super().__new__(cls, value)
