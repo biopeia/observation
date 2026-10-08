@@ -111,6 +111,7 @@ class _Handler(BaseHTTPRequestHandler):
                 {
                     "wire_contract": "observation-semantic-wire-v1",
                     "latest_sequence": plane.latest_sequence,
+                    "oldest_replay_sequence": plane.oldest_replay_sequence,
                     "items": [
                         plane_message_payload(message)
                         for message in plane.current_messages(family=family)
@@ -125,7 +126,21 @@ class _Handler(BaseHTTPRequestHandler):
                 return
             query = parse_qs(parsed.query)
             family = str((query.get("family") or [""])[0]).strip() or None
-            stream_semantic_observations(self, plane, family=family)
+            raw_after = str((query.get("after") or [""])[0]).strip()
+            try:
+                after = int(raw_after) if raw_after else None
+            except ValueError:
+                self.send_error(400)
+                return
+            if after is not None and after < 0:
+                self.send_error(400)
+                return
+            stream_semantic_observations(
+                self,
+                plane,
+                family=family,
+                after_sequence=after,
+            )
         elif path == "/fleet":
             self._stream_fleet()
         elif path.startswith("/instance/") and path.endswith("/stream"):
