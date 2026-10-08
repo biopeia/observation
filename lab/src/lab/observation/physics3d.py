@@ -16,11 +16,11 @@ from embodiment.observation import (
 )
 from lab.observation.body_physiology import body_physiology_observation
 from lab.observation.body_pose import body_pose_observation
-from lab.observation.joint_kinematics import joint_kinematics_observation
-from lab.observation.symbiont_affordance import affordance_observation
 from lab.observation.contracts import ObservedFrame
+from lab.observation.joint_kinematics import joint_kinematics_observation
 from lab.observation.plane import ObservationPlane
 from lab.observation.projection import mind_snapshot_from_rich_state, runtime_tick_events
+from lab.observation.symbiont_affordance import affordance_observation
 from lab.observation.world_scene import WorldScenePublisher, project_world_scene
 from symbiont.agency.affordance import AffordanceObservation
 
