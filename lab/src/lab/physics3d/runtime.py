@@ -1,4 +1,4 @@
-\nfrom embodiment.physics3d.observation_contract import body_pose_semantics\n"""Canonical Symbiont runtime embodied in a simulated physical body.
+"""Canonical Symbiont runtime embodied in a simulated physical body.
 
 The physics engine is an apparatus: it supplies physical senses and executes delivered
 opaque motor actuation. Cognition, BodySchema, physiology, metabolism, private
@@ -6,6 +6,8 @@ experience and SLM state remain inside the canonical organism runtime.
 """
 
 from __future__ import annotations
+
+from embodiment.physics3d.observation_contract import body_pose_semantics
 
 import math
 import secrets
