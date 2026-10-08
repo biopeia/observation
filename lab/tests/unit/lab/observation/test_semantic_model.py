@@ -360,3 +360,34 @@ def test_primary_domain_time_must_match_claim_authority() -> None:
                 ),
             ),
         )
+
+
+def test_cross_domain_time_is_allowed_only_as_explicit_context() -> None:
+    organism = identity("organism", "organism.alpha", SYMBIONT_RUNTIME)
+    observation = SemanticObservation(
+        claim=SemanticClaim(
+            family=family(AuthorityDomain.SYMBIONT, "affordance"),
+            subject=SubjectScope(kind="organism", identities=(organism,)),
+            epistemic_kind="domain_derived_state",
+            value=("grasp",),
+        ),
+        acquisition=AcquisitionBasis(method="action_model_derivation"),
+        asserter=SYMBIONT_RUNTIME,
+        producer=SYMBIONT_RUNTIME,
+        domain_time=(
+            DomainTimeRef(
+                domain=AuthorityDomain.SYMBIONT,
+                kind="organism_cycle",
+                value=2,
+            ),
+        ),
+        context_time=(
+            DomainTimeRef(
+                domain=AuthorityDomain.EMBODIMENT,
+                kind="embodiment_cycle",
+                value=9,
+            ),
+        ),
+    )
+
+    assert observation.context_time[0].domain is AuthorityDomain.EMBODIMENT
