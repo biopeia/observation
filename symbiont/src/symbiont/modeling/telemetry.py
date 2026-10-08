@@ -310,11 +310,7 @@ class CommunicationTelemetry:
             raise ValueError("unsupported telemetry checkpoint")
         retention = payload.get("retention_cycles")
         legacy_retention = payload.get("max_age_ticks")
-        if (
-            retention is not None
-            and legacy_retention is not None
-            and retention != legacy_retention
-        ):
+        if retention is not None and legacy_retention is not None and retention != legacy_retention:
             raise ValueError(
                 "telemetry checkpoint has conflicting retention_cycles and max_age_ticks"
             )
