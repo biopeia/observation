@@ -256,7 +256,6 @@ class Physics3DObservationBridge:
 
         self._observation_plane.publish(joint_kinematics_observation(sample, run_id=self._run_id))
 
-
     def _publish_canonical_body_physiology(
         self,
         *,
