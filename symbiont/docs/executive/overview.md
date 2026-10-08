@@ -1,97 +1,88 @@
 # Executive Architecture Overview
 
 <!-- Epistemic Demarcation: Executive Synthesis Layer -->
-<!-- Invariant: This document provides transversal architectural synthesis and navigation for the Symbiont system. It does not introduce new components or alter architectural invariants. Canonical authority resides in symbiont/docs/ and symbiont/docs/reference/. -->
+<!-- Invariant: This document provides transversal architectural synthesis and navigation. It does not introduce new components, relations, or scientific authority. Canonical authority resides in symbiont/docs/ and symbiont/docs/reference/. -->
 
 ## 1. Introduction
 
-Symbiont is an autonomous, longitudinal digital organism whose inherited constitution, acquired cognition, agency, memory, and persistent identity remain distinct from the physical body, the environment, and the laboratory apparatus that observe or host it.
+Symbiont is a longitudinal computational subject whose organism-owned state, cognition, agency, memory, and identity remain distinct from the physical body, the environment, and the laboratory apparatus.
 
-The architecture enforces strict boundaries across five repository domains:
-- **`symbiont`**: Owns the subject's internal state, cognitive graph, developmental clocks, and agency.
-- **`environment`**: Provides the spatial, causal environment without embedding internal organism state.
-- **`embodiment`**: Implements physical kinematics, morphology, and actuation coupling without owning organism identity.
-- **`modality`**: Handles sensory signal transduction between surfaces and computational channels.
-- **`lab`**: Observes, records, and evaluates the subject using ground truth inaccessible to the organism.
+The repository is separated into five domains:
+- **`symbiont`** owns organism state and mechanisms.
+- **`environment`** owns external environmental state and dynamics.
+- **`embodiment`** owns physical coupling and body-specific receptor/effector contracts, not organism identity.
+- **`modality`** exposes bounded transduction channels.
+- **`lab`** observes, records, and evaluates using information that may be inaccessible to the organism.
 
-For foundational demarcation rules, see [Foundations and Epistemology](../00-foundations-and-epistemology.md) and the reviewer guide in [quick-start.md](quick-start.md).
+For the authoritative boundary model, see [System and Boundaries](../01-system-and-boundaries.md). For reading guidance, see [quick-start.md](quick-start.md).
 
 ---
 
 ## 2. Symbiont in One Page
 
-The organism's lifecycle and cognitive capabilities are organized across five transversal functional layers:
+The table below is a human-oriented grouping of canonical components. The groups are editorial synthesis only; component ownership and authority remain defined by [components.yaml](../reference/components.yaml).
 
 | Layer | Executive Architecture Definition | Primary Canonical Components |
 |:---|:---|:---|
-| **IDENTITY** | One continuous computational subject persisting across birth, checkpoint, restart, state restore, and physical re-embodiment without cognitive amnesia. | `SYM-LIN` (Lineage), `SYM-CHK` (Checkpoint), `SYM-LI` (Longitudinal Integrity), `SYM-LCC` (Continuity Contract) |
-| **CONSTITUTION** | Genome, germline, epigenetic modulations, somatic physiology, and developmental state define biological boundaries and energetic limits — never acquired semantics. | `SYM-GEN` (Genome), `SYM-GERM` (Germline), `SYM-EPI` (Epigenetics), `SYM-ONT` (Ontogeny), `SYM-PHYS` (Physiology), `SYM-HOM` (Homeostasis) |
-| **COGNITION** | Sensory surfaces, opaque signals, cognitive graph, local predictors, episodic memory, private models, and generative rollouts transform lived experience without treating hypotheses as facts. | `SYM-SENS` (Sensory), `SYM-PER` (Perception), `SYM-CG` (Cognitive Graph), `SYM-LP` (Predictors), `SYM-EPI-M` (Episodic Memory), `SYM-PM` (Private Model), `SYM-GENC` (Generative Cognition) |
-| **AGENCY** | Environmental affordances, prospective evaluation, intention, motor commitment, and actuation convert learned competences into physical attempts whose consequences are observed and learned. | `SYM-COMP` (Competence), `SYM-CBIND` (Binding), `SYM-AFF` (Affordance), `SYM-PROS` (Prospective Agency), `SYM-INT` (Intention), `SYM-CMT` (Commitment), `SYM-ACT` (Actuation) |
-| **CONTINUITY** | Acquired competences, autobiographical memory, identity, and longitudinal state survive morphology changes; body-specific bindings are revalidated rather than mistaken for the subject. | `SYM-EMB-H` (Embodiment History), `SYM-SET` (Transitions), `SYM-AGA` (Agency Acquisition), `SYM-EOL` (Outcome Learning), `SYM-MEM` (Memory Consolidation) |
+| **IDENTITY** | Longitudinal identity, checkpoint continuity, and lineage remain organism-owned across restart and re-embodiment. | `SYM-LIN`, `SYM-CHK`, `SYM-LI`, `SYM-LCC` |
+| **CONSTITUTION** | Genome, germline, epigenetic state, phenotype expression, development, physiology, and homeostasis constrain what the organism can become without embedding acquired semantics. | `SYM-GEN`, `SYM-GSC`, `SYM-GRM`, `SYM-EPI-G`, `SYM-PHEX`, `SYM-PHENO`, `SYM-DEV`, `SYM-PHY`, `SYM-HOM` |
+| **COGNITION** | Sensory intake, perception, cognitive graph, predictors, episodic memory, private models, and generative processes transform organism-accessible evidence while keeping hypotheses distinct from facts. | `SYM-SENS`, `SYM-PER`, `SYM-CG`, `SYM-LP`, `SYM-PROM`, `SYM-EPI-M`, `SYM-PM`, `SYM-GENC`, `SYM-HYP`, `SYM-CF` |
+| **AGENCY** | Competence, affordances, prospective agency, intention, commitment, binding, actuation, sensorimotor evidence, and outcome learning connect learned capability to physical attempts and observed consequences. | `SYM-COMP`, `SYM-CBIND`, `SYM-AFF`, `SYM-PROS`, `SYM-INT`, `SYM-CMT`, `SYM-ACT`, `SYM-SET`, `SYM-AGA`, `SYM-EOL`, `SYM-OV` |
+| **CONTINUITY & LEARNING** | Memory, replay, embodiment history, metaplasticity, and longitudinal state preserve acquired organisation without treating a body-specific binding as organism identity. | `SYM-META`, `SYM-REPLAY`, `SYM-MEM`, `SYM-EMB-H`, `SYM-LI` |
 
 ---
 
-## 3. Canonical Organism Flow
+## 3. Traceable Organism Relationship View
 
-The diagram below synthesizes the end-to-end execution loop of the organism during an active lifecycle tick ($t \to t+1$).
+This diagram intentionally shows only a **selected subset of direct component relationships already declared in** [components.yaml](../reference/components.yaml). It is not a new execution specification, it omits many valid edges, and it does not imply that every relation shown executes synchronously in one tick.
 
-It derives directly from the component contracts declared in [components.yaml](../reference/components.yaml) and the runtime choreography defined in [System and Boundaries](../01-system-and-boundaries.md):
+The physical Body is deliberately not represented as a `SYM-*` component. Physical realization crosses the Embodiment/Body boundary described in [System and Boundaries](../01-system-and-boundaries.md).
 
 ```mermaid
-flowchart TD
-    subgraph Regulatory ["Physiological Substrate"]
-        PHYS["SYM-PHYS: Physiology"] --> HOM["SYM-HOM: Homeostasis"]
-        HOM -->|"Viability Deviations"| PROS
-    end
+flowchart LR
+    PHY["SYM-PHY: Physiology"] --> HOM["SYM-HOM: Homeostasis"]
+    HOM --> OV["SYM-OV: Outcome Value"]
 
-    subgraph SensoryCognitive ["Sensory & Cognitive Cycle"]
-        SENS["SYM-SENS: Sensory Surfaces"] -->|"Opaque Signals"| PER["SYM-PER: Perception"]
-        PER -->|"Feature Bindings"| CG["SYM-CG: Cognitive Graph"]
-        PER -->|"Local State"| LP["SYM-LP: Local Predictors"]
-        CG & LP -->|"Lived Context"| EPIM["SYM-EPI-M: Episodic Memory"]
-        CG & LP -->|"State Dynamics"| PM["SYM-PM: Private Model"]
-        EPIM & PM -->|"Candidate States"| GENC["SYM-GENC: Generative Cognition"]
-    end
+    SENS["SYM-SENS: Sensory System"] --> PER["SYM-PER: Perception"]
+    PER --> CG["SYM-CG: Cognitive Graph"]
+    PER --> LP["SYM-LP: Local Predictors"]
+    LP --> CG
 
-    subgraph AgencyAction ["Agency & Action Cycle"]
-        GENC -->|"Context"| AFF["SYM-AFF: Affordance"]
-        AFF -->|"Executable Actions"| PROS["SYM-PROS: Prospective Agency"]
-        PROS -->|"Evaluated Action"| INT["SYM-INT: Intention"]
-        INT -->|"Selected Action"| CMT["SYM-CMT: Commitment"]
-        CMT -->|"Motor Commands"| ACT["SYM-ACT: Actuation"]
-    end
+    PM["SYM-PM: Private Model"] --> GENC["SYM-GENC: Generative Cognition"]
+    PM --> PROS["SYM-PROS: Prospective Agency"]
 
-    subgraph OutcomeLearning ["Consequence & Learning Loop"]
-        ACT -->|"Physical Attempt"| BODY["SYM-BODY: Physical Body Substrate"]
-        BODY -->|"Closed Loop"| SET["SYM-SET: Sensorimotor Transition"]
-        SET -->|"Observed Consequence"| AGA["SYM-AGA: Agency Acquisition"]
-        SET & AGA -->|"Verified Delta"| EOL["SYM-EOL: Executive Outcome Learning"]
-        EOL -->|"Consequence Value"| OV["SYM-OV: Outcome Value"]
-        OV & EOL -->|"Synaptic Plasticity"| MEM["SYM-MEM: Memory Consolidation"]
-        MEM -->|"Consolidated Graph"| CG
-        MEM -->|"Updated Traces"| EPIM
-    end
+    COMP["SYM-COMP: Competence"] --> AFF["SYM-AFF: Affordance"]
+    COMP --> CBIND["SYM-CBIND: Competence Binding"]
+    AFF --> PROS
+    OV --> PROS
+    PROS --> INT["SYM-INT: Intention"]
+    INT --> CMT["SYM-CMT: Commitment"]
+    CMT --> ACT["SYM-ACT: Actuation"]
+    CBIND --> ACT
+
+    ACT --> SET["SYM-SET: Sensorimotor Transition"]
+    SET --> COMP
+    CMT --> EOL["SYM-EOL: Executive Outcome Learning"]
+    EOL --> OV
+    EOL --> COMP
 ```
 
-### Flow Walkthrough
+### How to read the view
 
-1. **Sensory Ingestion**: External physical stimuli are captured as uninterpreted, opaque sensor channels (`SYM-SENS`) and structured into perceptual percepts (`SYM-PER`).
-2. **Cognitive Updating**: Perceptual bindings update the internal associative graph (`SYM-CG`) while fast local predictors (`SYM-LP`) evaluate expected sensor transitions.
-3. **Internal Simulation**: Long-term episodic traces (`SYM-EPI-M`) and forward dynamics models (`SYM-PM`) feed generative rollouts (`SYM-GENC`) without confusing simulated hypotheses with reality.
-4. **Action Selection**: Available environmental affordances (`SYM-AFF`) are evaluated prospectively (`SYM-PROS`) against homeostatic viability boundaries (`SYM-HOM`). The organism forms an explicit intention (`SYM-INT`) and locks in motor commitment (`SYM-CMT`).
-5. **Actuation & Consequence Closure**: Motor commands are executed through somatic bindings (`SYM-ACT`). Once the physical body completes movement, the sensorimotor transition (`SYM-SET`) closes the feedback loop.
-6. **Empirical Learning & Consolidation**: Agency acquisition (`SYM-AGA`) and outcome learning (`SYM-EOL`) compute prediction errors against observed consequences, generating outcome values (`SYM-OV`) that trigger long-term memory consolidation (`SYM-MEM`) into the cognitive graph and episodic store.
+- **Perception and prediction**: `SYM-SENS` feeds `SYM-PER`; perception supplies both cognitive-graph and local-predictor consumers.
+- **Prospection**: `SYM-PM`, `SYM-AFF`, and `SYM-OV` are direct inputs/consumers around `SYM-PROS`; generative cognition consumes the private model but generated hypotheses remain non-factual.
+- **Executive action**: prospective agency feeds intention, intention feeds commitment, and commitment plus the current execution binding permit actuation.
+- **Learning closure**: actuation is consumed by sensorimotor transition; executive outcome learning consumes commitment and observed consequence deltas, then contributes to outcome value and competence learning.
+- **Embodiment boundary**: the actual physical attempt and its sensed consequences occur through Embodiment and Body. Those external entities are intentionally not relabelled as `SYM-*` components.
 
 ---
 
 ## 4. Architectural Boundaries and Registries
 
-To inspect authoritative declarations, code links, and formal specifications, consult the reference registries:
-
-- **Component Registry**: [components.yaml](../reference/components.yaml) — Formal definition of all 48 `SYM-*` components, state families, and authority constraints (`owns`, `may_decide`, `must_not`).
-- **Parameter Registry**: [parameters.yaml](../reference/parameters.yaml) — Calibrated thresholds, learning rates, and decay constants.
-- **Metric Registry**: [metrics.yaml](../reference/metrics.yaml) — Operational and longitudinal evaluation metrics across epistemic categories.
-- **Notation Registry**: [notation.yaml](../reference/notation.yaml) — Disambiguated mathematical symbols.
-- **Coverage Inventory**: [coverage.yaml](../coverage.yaml) — Traceability between requirements, ADRs, tests, and source code.
-- **Permanent Invariants**: [docs/governance/constitution.md](../../../docs/governance/constitution.md) — Permanent architectural rules, host safety constraints, and epistemic demarcation.
+Authoritative declarations live in:
+- **[components.yaml](../reference/components.yaml)** — all 48 `SYM-*` components, state families, lifecycle, authority, inputs, outputs, and consumers.
+- **[parameters.yaml](../reference/parameters.yaml)** — canonical quantitative parameters.
+- **[metrics.yaml](../reference/metrics.yaml)** — measurement semantics partitioned by epistemic class.
+- **[notation.yaml](../reference/notation.yaml)** — formal symbols and forbidden meanings.
+- **[coverage.yaml](../coverage.yaml)** — traceability to implementation, tests, designs, ADRs, dependencies, and Master IDs.
+- **[docs/governance/constitution.md](../../../docs/governance/constitution.md)** — permanent architectural and epistemic invariants.

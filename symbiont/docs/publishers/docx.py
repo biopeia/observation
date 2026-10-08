@@ -413,15 +413,19 @@ class DocxBuilder:
 
         rId_svg = f"rIdSvg_{digest}"
         rId_png = f"rIdPng_{digest}"
+        # Relationship targets are resolved relative to word/document.xml, so
+        # they must retain the media/ prefix. Stripping it produces a valid ZIP
+        # package with broken OPC relationships (word/mermaid_*.{svg,png}
+        # instead of word/media/mermaid_*.{svg,png}).
         self.extra_rels.append((
             rId_svg,
             "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image",
-            svg_name[6:],
+            svg_name,
         ))
         self.extra_rels.append((
             rId_png,
             "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image",
-            png_name[6:],
+            png_name,
         ))
 
         self.bookmark_counter += 1

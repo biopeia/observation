@@ -454,3 +454,64 @@ def test_22_mermaid_fails_closed_when_version_mismatch(monkeypatch: pytest.Monke
     )
     with pytest.raises(MermaidEnvironmentError, match="version mismatch"):
         verify_mmdc_binary()
+
+
+def test_23_mermaid_relationship_targets_resolve(
+    default_projection: MasterProjection, tmp_path: Path
+) -> None:
+    """23. Every OpenXML image relationship resolves to an existing package part."""
+    import posixpath
+
+    docx_file = tmp_path / "test-master-media.docx"
+    build_docx(default_projection, docx_file)
+
+    rel_ns = {"r": "http://schemas.openxmlformats.org/package/2006/relationships"}
+    with zipfile.ZipFile(docx_file, "r") as zf:
+        names = set(zf.namelist())
+        rel_root = ET.fromstring(zf.read("word/_rels/document.xml.rels"))
+        image_rels = [
+            rel
+            for rel in rel_root.findall("r:Relationship", rel_ns)
+            if rel.attrib.get("Type", "").endswith("/image")
+        ]
+        assert image_rels, "Expected at least one embedded image relationship"
+
+        for rel in image_rels:
+            target = rel.attrib["Target"]
+            resolved = posixpath.normpath(posixpath.join("word", target))
+            assert resolved in names, (
+                f"Broken image relationship {rel.attrib.get('Id')}: "
+                f"Target={target!r} resolves to missing package part {resolved!r}"
+            )
+
+
+def test_24_mermaid_visible_in_rendered_pdf(tmp_path: Path) -> None:
+    """24. Publication PDF contains a rendered Mermaid image, not only source/fallback text."""
+    from publish_master import run_pipeline
+
+    soffice = find_soffice()
+    if not soffice:
+        pytest.skip("LibreOffice soffice not available")
+    if not shutil.which("mmdc"):
+        pytest.skip("mmdc (Mermaid CLI) not available")
+    if not shutil.which("pdfimages"):
+        pytest.skip("pdfimages not available")
+
+    out_dir = tmp_path / "master_mermaid_qa"
+    assert run_pipeline(output_dir=out_dir, generate_pdf=True) == 0
+
+    pdf_file = out_dir / "Symbiont-Master.pdf"
+    proc = subprocess.run(
+        ["pdfimages", "-list", str(pdf_file)],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    # pdfimages emits two header lines followed by one line per rasterized/vector image.
+    image_lines = [
+        line
+        for line in proc.stdout.splitlines()
+        if line.strip() and line.lstrip()[:1].isdigit()
+    ]
+    assert image_lines, "No rendered images found in publication PDF"
