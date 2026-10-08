@@ -24,8 +24,8 @@ def _quat_xyzw(
     if len(result) != 4 or not all(isfinite(item) for item in result):
         raise ValueError("orientation_xyzw must contain four finite values")
     norm_sq = sum(item * item for item in result)
-    if norm_sq <= 0.0:
-        raise ValueError("orientation_xyzw must be non-zero")
+    if abs(norm_sq - 1.0) > 1e-5:
+        raise ValueError("orientation_xyzw must be a unit quaternion")
     return result
 
 
