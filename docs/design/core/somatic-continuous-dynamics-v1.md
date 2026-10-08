@@ -53,7 +53,7 @@ M2.1 does not claim that normalized temperature is a physical temperature or tha
 \boxed{\text{Physics3D / Embodiment owns }T_p}
 \]
 
-Physics3D computes the interval from substep duration and count and supplies a typed `PhysicalDuration` at the `OrganismRuntime.tick()` boundary.
+Physics3D computes the interval from substep duration and count and registers a typed `PhysicalDuration` through `OrganismRuntime.set_physical_duration_for_tick()` immediately before the organism cycle. The value is transient execution context consumed once by Physiology; it is not part of the cognitive `tick()` API.
 
 Permitted:
 
@@ -69,7 +69,7 @@ T_p\not\rightarrow\text{Cognition}.
 
 `PhysicalDuration` is not checkpointed as acquired organism state. A new embodiment may legitimately provide a different physical integration interval.
 
-For runtimes with no explicit physical apparatus, omission of the duration selects the historical reference interval, preserving pre-M2 behavior rather than introducing host wall time.
+For runtimes with no explicit physical apparatus, absence of a registered duration selects the historical reference interval, preserving pre-M2 behavior rather than introducing host wall time. `PrivateModelOrganismRuntime` requires no physical-time parameter and remains unaware of `PhysicalDuration`.
 
 ## 4. Mathematical migration
 
@@ -191,8 +191,7 @@ This test intentionally excludes metabolism replenishment, cognition, ontogeny, 
 | --- | --- | --- |
 | reference interval | `core/embodiment/physiology_config.py` | reference-equivalence test |
 | physical-duration type | `core/embodiment/duration.py` | M1.1 fail-closed contract |
-| duration carrier | `core/orchestration/runtime.py` | typed tick boundary |
-| private runtime | `modeling/private_runtime.py` | forwards the same boundary input |
+| duration carrier | `core/orchestration/runtime.py` | transient typed registration consumed once per cycle |
 | physiology ownership | `core/domains/physiology.py` | only Homeostasis consumes duration |
 | continuous equations | `core/embodiment/homeostasis.py` | M2 unit/G1 tests |
 | Physics3D binding | `lab/physics3d/runtime.py` | duration = time_step × substeps |
