@@ -6,12 +6,18 @@ Cognition and Foundation must never import or consume this scale.
 
 from __future__ import annotations
 
+import math
+
 
 class PhysicalDuration(float):
     """Continuous metric physical time elapsed in the physical substrate (T_p) in seconds."""
 
-    def __new__(cls, value: float | int | str = 0.0) -> PhysicalDuration:
+    def __new__(cls, value: float | int = 0.0) -> PhysicalDuration:
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise TypeError("PhysicalDuration requires a numeric duration")
         val = float(value)
+        if not math.isfinite(val):
+            raise ValueError(f"PhysicalDuration must be finite: {val}")
         if val < 0.0:
             raise ValueError(f"PhysicalDuration cannot be negative: {val}")
         return super().__new__(cls, val)
