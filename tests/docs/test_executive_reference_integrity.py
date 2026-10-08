@@ -20,7 +20,10 @@ COMPONENTS_PATH = ROOT / "symbiont/docs/reference/components.yaml"
 SYM_RE = re.compile(r"\bSYM-[A-Z0-9]+(?:-[A-Z0-9]+)*\b")
 MERMAID_BLOCK_RE = re.compile(r"```mermaid\n(.*?)\n```", re.DOTALL)
 NODE_RE = re.compile(r'\b([A-Za-z][A-Za-z0-9_]*)\["(SYM-[A-Z0-9-]+):[^"]*"\]')
-EDGE_RE = re.compile(r"^\s*([A-Za-z][A-Za-z0-9_]*)[^-\n]*-->\s*([A-Za-z][A-Za-z0-9_]*)", re.MULTILINE)
+EDGE_RE = re.compile(
+    r"^\s*([A-Za-z][A-Za-z0-9_]*)(?:\[[^\]]*\])?\s*-->\s*([A-Za-z][A-Za-z0-9_]*)",
+    re.MULTILINE,
+)
 
 
 def _components() -> dict[str, dict]:
