@@ -12,6 +12,7 @@ from typing import Any, Callable
 from lab.app.physics3d.runs import Physics3DLaunchSpec
 from lab.observation.bus import ObservationBus
 from lab.observation.physics3d import Physics3DObservationBridge
+from lab.observation.plane import ObservationPlane
 
 
 class Physics3DSessionState(str, Enum):
@@ -67,11 +68,13 @@ class Physics3DSession:
         self,
         observation_bus: ObservationBus,
         *,
+        observation_plane: ObservationPlane | None = None,
         runner: Callable[..., int] | None = None,
         on_terminal: Callable[[], None] | None = None,
     ) -> None:
         self._lock = threading.Lock()
         self._bus = observation_bus
+        self._observation_plane = observation_plane
         self._runner = runner
         self._on_terminal = on_terminal
         self._bridge: Physics3DObservationBridge | None = None
@@ -95,12 +98,15 @@ class Physics3DSession:
             # across distinct process lifecycles merely because both are local.
             self._run_id = launch.run_id if launch is not None else f"local:{uuid.uuid4()}"
             self._bus.begin_run(self._run_id)
+            if self._observation_plane is not None:
+                self._observation_plane.clear()
             try:
                 self._bridge = Physics3DObservationBridge(
                     self._bus,
                     run_id=self._run_id,
                     organism_id=launch.organism_ref if launch is not None else None,
                     body_id=launch.body_ref if launch is not None else None,
+                    observation_plane=self._observation_plane,
                 )
                 self._state = Physics3DSessionState.STARTING
                 self._exit_code = None
@@ -206,6 +212,8 @@ class Physics3DSession:
                 try:
                     if self._run_id is not None:
                         self._bus.end_run(self._run_id)
+                    if self._observation_plane is not None:
+                        self._observation_plane.clear()
                 finally:
                     callback = self._on_terminal
                     if callback is not None:
