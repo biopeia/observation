@@ -21,7 +21,9 @@ from lab.observation.semantic import (
 
 EMBODIMENT_AUTHORITY = ActorRef("domain", "embodiment")
 PHYSICS3D_SOURCE = ActorRef("apparatus", "physics3d.mujoco")
+PHYSICS3D_RUNTIME = ActorRef("component", "physics3d.embodiment_runtime")
 LAB_PRODUCER = ActorRef("component", "lab.observation.physics3d")
+LAB_RUN_ISSUER = ActorRef("component", "lab.run_lifecycle")
 
 
 def body_pose_observation(
@@ -32,7 +34,7 @@ def body_pose_observation(
     body_identity = IdentityRef(
         kind="body",
         value=sample.body_id,
-        issuer=EMBODIMENT_AUTHORITY,
+        issuer=PHYSICS3D_RUNTIME,
         lifetime="physical_body",
     )
     subject = SubjectScope(
@@ -40,7 +42,7 @@ def body_pose_observation(
         identities=(
             IdentityAssertion(
                 identity=body_identity,
-                asserter=EMBODIMENT_AUTHORITY,
+                asserter=PHYSICS3D_RUNTIME,
             ),
         ),
     )
@@ -63,7 +65,7 @@ def body_pose_observation(
             method="physical_state_sample",
             measurement_source=PHYSICS3D_SOURCE,
         ),
-        asserter=EMBODIMENT_AUTHORITY,
+        asserter=PHYSICS3D_RUNTIME,
         producer=LAB_PRODUCER,
         orchestration=(
             OrchestrationContext(
@@ -71,10 +73,10 @@ def body_pose_observation(
                     identity=IdentityRef(
                         kind="run",
                         value=run_id,
-                        issuer=LAB_PRODUCER,
+                        issuer=LAB_RUN_ISSUER,
                         lifetime="lab_run",
                     ),
-                    asserter=LAB_PRODUCER,
+                    asserter=LAB_RUN_ISSUER,
                 )
             )
             if run_id is not None
