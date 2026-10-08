@@ -10,9 +10,9 @@ from pathlib import Path
 from typing import Any
 
 from lab.observation.bus import ObservationBus
+from lab.observation.observatory import ObservatorySource
 from lab.observation.plane import ObservationPlane
 from lab.observation.wire import plane_message_payload
-from lab.observation.observatory import ObservatorySource
 
 SSE_POLL_SECONDS = 1.0
 SSE_HEARTBEAT_SECONDS = 15.0
