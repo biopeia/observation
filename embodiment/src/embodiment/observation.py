@@ -100,6 +100,128 @@ class JointKinematicsSample:
 
 
 @dataclass(frozen=True, slots=True)
+class BodyStructurePhysiologyState:
+    """Body-local modeled structural state."""
+
+    structure_id: str
+    integrity: float
+    wear: float
+    damage: float
+    repair_progress: float
+    functional_capacity: float
+
+    def __post_init__(self) -> None:
+        structure_id = self.structure_id.strip()
+        if not structure_id:
+            raise ValueError("structure_id must not be empty")
+        object.__setattr__(self, "structure_id", structure_id)
+        for name in (
+            "integrity",
+            "wear",
+            "damage",
+            "repair_progress",
+            "functional_capacity",
+        ):
+            value = float(getattr(self, name))
+            if not isfinite(value) or not 0.0 <= value <= 1.0:
+                raise ValueError(f"{name} must be within [0, 1]")
+            object.__setattr__(self, name, value)
+
+
+@dataclass(frozen=True, slots=True)
+class BodyPhysiologySample:
+    """Canonical Embodiment Body-local modeled physiology v1.
+
+    Reserve/capacity are explicit model amounts, not asserted physical-energy
+    units. Ratios and bounded state dimensions remain dimensionless.
+    """
+
+    body_id: str
+    reserve_amount: float
+    reserve_capacity: float
+    reserve_fraction: float
+    reserve_quantity_kind: str
+    structural_integrity: float
+    temperature: float
+    fatigue: float
+    growth_progress: float
+    senescence: float
+    age_ticks: int
+    vital_state: str
+    death_tick: int | None = None
+    structures: tuple[BodyStructurePhysiologyState, ...] = ()
+    contract_revision: str = "v1"
+
+    def __post_init__(self) -> None:
+        body_id = self.body_id.strip()
+        quantity_kind = self.reserve_quantity_kind.strip()
+        vital_state = self.vital_state.strip()
+        revision = self.contract_revision.strip()
+        if not body_id:
+            raise ValueError("body_id must not be empty")
+        if quantity_kind != "model_amount":
+            raise ValueError("reserve quantity kind must be model_amount")
+        if not vital_state:
+            raise ValueError("vital_state must not be empty")
+        if not revision:
+            raise ValueError("contract_revision must not be empty")
+
+        amount = float(self.reserve_amount)
+        capacity = float(self.reserve_capacity)
+        fraction = float(self.reserve_fraction)
+        if not isfinite(amount) or not isfinite(capacity) or capacity <= 0.0:
+            raise ValueError("reserve amount/capacity must be finite and capacity positive")
+        if not 0.0 <= amount <= capacity:
+            raise ValueError("reserve amount must be within [0, capacity]")
+        if not isfinite(fraction) or not 0.0 <= fraction <= 1.0:
+            raise ValueError("reserve_fraction must be within [0, 1]")
+        expected = amount / capacity
+        if abs(expected - fraction) > 1e-9:
+            raise ValueError("reserve_fraction contradicts amount/capacity")
+
+        for name in (
+            "structural_integrity",
+            "temperature",
+            "fatigue",
+            "growth_progress",
+            "senescence",
+        ):
+            value = float(getattr(self, name))
+            if not isfinite(value) or not 0.0 <= value <= 1.0:
+                raise ValueError(f"{name} must be within [0, 1]")
+            object.__setattr__(self, name, value)
+
+        if isinstance(self.age_ticks, bool) or not isinstance(self.age_ticks, int) or self.age_ticks < 0:
+            raise ValueError("age_ticks must be a non-negative Body-local tick")
+        if self.death_tick is not None and (
+            isinstance(self.death_tick, bool)
+            or not isinstance(self.death_tick, int)
+            or self.death_tick < 0
+        ):
+            raise ValueError("death_tick must be a non-negative Body-local tick")
+        if vital_state == "dead" and self.death_tick is None:
+            raise ValueError("dead Body requires death_tick")
+        if self.death_tick is not None and self.death_tick > self.age_ticks:
+            raise ValueError("death_tick cannot exceed Body-local age")
+
+        structures = tuple(self.structures)
+        if any(not isinstance(item, BodyStructurePhysiologyState) for item in structures):
+            raise ValueError("structures must contain BodyStructurePhysiologyState values")
+        ids = tuple(item.structure_id for item in structures)
+        if len(set(ids)) != len(ids):
+            raise ValueError("structure ids must be unique")
+
+        object.__setattr__(self, "body_id", body_id)
+        object.__setattr__(self, "reserve_amount", amount)
+        object.__setattr__(self, "reserve_capacity", capacity)
+        object.__setattr__(self, "reserve_fraction", fraction)
+        object.__setattr__(self, "reserve_quantity_kind", quantity_kind)
+        object.__setattr__(self, "vital_state", vital_state)
+        object.__setattr__(self, "contract_revision", revision)
+        object.__setattr__(self, "structures", structures)
+
+
+@dataclass(frozen=True, slots=True)
 class BodyPoseSample:
     """Canonical Embodiment Body Pose v1 base-Body sample.
 
@@ -154,4 +276,10 @@ class BodyPoseSample:
         )
 
 
-__all__ = ["BodyPoseSample", "JointKinematicState", "JointKinematicsSample"]
+__all__ = [
+    "BodyPhysiologySample",
+    "BodyPoseSample",
+    "BodyStructurePhysiologyState",
+    "JointKinematicState",
+    "JointKinematicsSample",
+]
