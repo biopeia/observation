@@ -20,15 +20,15 @@ The equations therefore depended on scheduler-call count rather than the physica
 
 The canonical Physics3D runtime already has a deterministic interval:
 
-[
-Delta t_p = `time_step` 	imes `physics_substeps_per_tick`
-]
+\[
+\Delta t_p = `time_step` \times `physics_substeps_per_tick`
+\]
 
 with the historical default
 
-[
-Delta t_{ref} = rac{1}{240}	imes 10 = rac{1}{24};s.
-]
+\[
+\Delta t_{\mathrm{ref}} = \frac{1}{240}\times 10 = \frac{1}{24}\;\mathrm{s}.
+\]
 
 M2.1 makes that interval an explicit Embodiment-owned input to somatic physiology. It is never exposed to Cognition.
 
@@ -49,24 +49,23 @@ M2.1 does not claim that normalized temperature is a physical temperature or tha
 
 ## 3. Ownership and data flow
 
-[
-oxed{	ext{Physics3D / Embodiment owns }T_p}
-]
+\[
+\boxed{\text{Physics3D / Embodiment owns }T_p}
+\]
 
 Physics3D computes the interval from substep duration and count and supplies a typed `PhysicalDuration` at the `OrganismRuntime.tick()` boundary.
 
 Permitted:
 
-[
-	ext{Physics3D}ightarrow	ext{Orchestration carrier}ightarrow	ext{PhysiologyDomain}ightarrow	ext{HomeostaticController}
-]
+\[
+\text{Physics3D}\rightarrow\text{Orchestration carrier}\rightarrow\text{PhysiologyDomain}\rightarrow\text{HomeostaticController}
+\]
 
 Prohibited:
 
-[
-T_p
-otightarrow	ext{Cognition}.
-]
+\[
+T_p\not\rightarrow\text{Cognition}.
+\]
 
 `PhysicalDuration` is not checkpointed as acquired organism state. A new embodiment may legitimately provide a different physical integration interval.
 
@@ -78,23 +77,23 @@ For runtimes with no explicit physical apparatus, omission of the duration selec
 
 Legacy:
 
-[
+\[
 T_{n+1}=T_n+(T^*-T_n)r_T.
-]
+\]
 
 Define
 
-[
-k_T = -rac{ln(1-r_T)}{Delta t_{ref}}.
-]
+\[
+k_T = -\frac{\ln(1-r_T)}{\Delta t_{\mathrm{ref}}}.
+\]
 
 Then:
 
-[
-T_{relaxed}(t+Delta t)
+\[
+T_{\mathrm{relaxed}}(t+\Delta t)
 =
-T^*+(T(t)-T^*)e^{-k_TDelta t}.
-]
+T^*+(T(t)-T^*)e^{-k_T\Delta t}.
+\]
 
 This has the semigroup property and exactly reproduces the legacy relaxation step when the duration equals the reference interval.
 
@@ -102,55 +101,55 @@ This has the semigroup property and exactly reproduces the legacy relaxation ste
 
 `embodied_work` is treated as an interval quantity with uniform forcing inside that interval. Let
 
-[
-phi(x)=rac{1-e^{-x}}{x}.
-]
+\[
+\phi(x)=\frac{1-e^{-x}}{x}.
+\]
 
 The work scale is
 
-[
-S_W(Delta t)=
-rac{phi(k_TDelta t)}
-{phi(k_TDelta t_{ref})}.
-]
+\[
+S_W(\Delta t)=
+\frac{\phi(k_T\Delta t)}
+{\phi(k_T\Delta t_{\mathrm{ref}})}.
+\]
 
 Then
 
-[
-T(t+Delta t)=T_{relaxed}(t+Delta t)+g_T W S_W(Delta t).
-]
+\[
+T(t+\Delta t)=T_{\mathrm{relaxed}}(t+\Delta t)+g_T W S_W(\Delta t).
+\]
 
-At the historical reference interval, (S_W=1), preserving the legacy work contribution exactly.
+At the historical reference interval, \(S_W=1\), preserving the legacy work contribution exactly.
 
 ### 4.3 Fatigue
 
 The current recovery term is a fixed decrement rather than proportional relaxation. M2 preserves that semantics and converts it into a physical-time rate:
 
-[
-F(t+Delta t)
+\[
+F(t+\Delta t)
 =
-clip_{[0,1]}
-left(
-F(t)+g_F W-r_Frac{Delta t}{Delta t_{ref}}m_{rest}
-ight)
-]
+\operatorname{clip}_{[0,1]}
+\left(
+F(t)+g_F W-r_F\frac{\Delta t}{\Delta t_{\mathrm{ref}}}m_{\mathrm{rest}}
+\right)
+\]
 
-where (m_{rest}=2) while resting and (1) otherwise.
+where \(m_{\mathrm{rest}}=2\) while resting and \(1\) otherwise.
 
 No exponential fatigue law is asserted without evidence.
 
 ### 4.4 Autonomous repair
 
-[
-Delta I
+\[
+\Delta I
 =
-minleft(
+\min\left(
 1-I,
-r_Irac{Delta t}{Delta t_{ref}},
-r_{I,max}rac{Delta t}{Delta t_{ref}},
-E_{available}
-ight).
-]
+r_I\frac{\Delta t}{\Delta t_{\mathrm{ref}}},
+r_{I,\max}\frac{\Delta t}{\Delta t_{\mathrm{ref}}},
+E_{\mathrm{available}}
+\right).
+\]
 
 The maintenance ledger remains the limiting resource. M2.1 does not reinterpret it as SI energy.
 
@@ -158,9 +157,9 @@ The maintenance ledger remains the limiting resource. M2.1 does not reinterpret 
 
 At
 
-[
-Delta t_p=Delta t_{ref}=rac{1}{24}s
-]
+\[
+\Delta t_p=\Delta t_{\mathrm{ref}}=\frac{1}{24}\;\mathrm{s}
+\]
 
 the migrated equations must reproduce the pre-M2 single-step result for thermal relaxation, thermal work forcing, fatigue gain/recovery, and autonomous repair.
 
@@ -180,9 +179,9 @@ Execute the same somatic path with 4, 8, and 16 partitions of the same interval.
 
 Acceptance for the isolated deterministic integrator:
 
-[
-|T_A-T_B|,;|F_A-F_B|,;|I_A-I_B|le 10^{-12}.
-]
+\[
+|T_A-T_B|,\;|F_A-F_B|,\;|I_A-I_B|\le 10^{-12}.
+\]
 
 This test intentionally excludes metabolism replenishment, cognition, ontogeny, and scheduler opportunity effects.
 
@@ -196,7 +195,7 @@ This test intentionally excludes metabolism replenishment, cognition, ontogeny, 
 | private runtime | `modeling/private_runtime.py` | forwards the same boundary input |
 | physiology ownership | `core/domains/physiology.py` | only Homeostasis consumes duration |
 | continuous equations | `core/embodiment/homeostasis.py` | M2 unit/G1 tests |
-| Physics3D binding | `lab/physics3d/runtime.py` | duration = time_step x substeps |
+| Physics3D binding | `lab/physics3d/runtime.py` | duration = time_step × substeps |
 | Gate G1 | `symbiont/tests/unit/core/test_somatic_continuous_m2.py` | reference equivalence + partition invariance |
 
 ## 8. Explicitly deferred
