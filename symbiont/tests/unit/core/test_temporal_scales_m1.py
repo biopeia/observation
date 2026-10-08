@@ -368,3 +368,14 @@ def test_telemetry_restore_rejects_conflicting_retention_aliases():
     }
     with pytest.raises(ValueError, match="conflicting"):
         CommunicationTelemetry.restore(payload)
+
+
+def test_temporal_scalar_types_reject_cross_scale_values():
+    with pytest.raises(TypeError):
+        CycleStep(EvidenceCount(3))
+    with pytest.raises(TypeError):
+        EvidenceCount(CycleStep(3))
+    with pytest.raises(TypeError):
+        PhysicalDuration(CycleStep(3))
+    with pytest.raises(TypeError):
+        PhysicalDuration(EvidenceCount(3))
