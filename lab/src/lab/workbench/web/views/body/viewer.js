@@ -177,6 +177,16 @@ export class BodyViewer {
     this.semanticSse = null;
     this.semanticRunId = null;
     this.hasSemanticPoseStream = false;
+    this.hasSemanticJointStream = false;
+    this.hasSemanticPhysiologyStream = false;
+    this.hasSemanticAffordanceStream = false;
+    this.semanticAffordances = [];
+    this.lastMindSnapshot = {};
+    this.hasSemanticJointStream = false;
+    this.hasSemanticPhysiologyStream = false;
+    this.hasSemanticAffordanceStream = false;
+    this.semanticAffordances = [];
+    this.lastMindSnapshot = {};
     this.resizeObs = null;
     this.cameraControls = null;
     this.segmentPickRaycaster = new THREE.Raycaster();
@@ -1438,9 +1448,7 @@ export class BodyViewer {
       switch (data.type) {
         case 'world_scene': this.worldView?.accept(data); break;
         case 'observed_frame': this.handleObservedFrame(data); break;
-        case 'body_pose':
-          if (!this.hasSemanticPoseStream) this.handleBodyPoseEvent(data);
-          break;
+        case 'body_pose':     this.handleBodyPoseEvent(data);      break;
         case 'body':          this.handleBodyEvent(data);          break;
         case 'cognition':     this.handleCognitionEvent(data);     break;
         case 'vitals':        this.handleVitalsEvent(data);        break;
@@ -1459,8 +1467,7 @@ export class BodyViewer {
   }
 
   connectSemanticSSE() {
-    const family = encodeURIComponent('embodiment.body_pose');
-    this.semanticSse = new EventSource(`/api/observations/stream?family=${family}`);
+    this.semanticSse = new EventSource('/api/observations/stream');
 
     this.semanticSse.addEventListener('message', (ev) => {
       if (this.unmounted) return;
@@ -1469,7 +1476,6 @@ export class BodyViewer {
       try { data = JSON.parse(ev.data); } catch { return; }
       if (
         data?.type !== 'semantic_observation' ||
-        data?.family !== 'embodiment.body_pose' ||
         data?.wire_contract !== 'observation-semantic-wire-v1'
       ) return;
 
@@ -1477,10 +1483,19 @@ export class BodyViewer {
       if (runId !== null && this.semanticRunId !== null && runId !== this.semanticRunId) {
         this.poseFrames.length = 0;
         this.hasSemanticPoseStream = false;
+        this.hasSemanticJointStream = false;
+        this.hasSemanticPhysiologyStream = false;
+        this.hasSemanticAffordanceStream = false;
+        this.semanticAffordances = [];
       }
       if (runId !== null) this.semanticRunId = runId;
 
-      this.handleSemanticBodyPose(data);
+      switch (data.family) {
+        case 'embodiment.body_pose': this.handleSemanticBodyPose(data); break;
+        case 'embodiment.joint_kinematics': this.handleSemanticJointKinematics(data); break;
+        case 'embodiment.body_physiology': this.handleSemanticBodyPhysiology(data); break;
+        case 'symbiont.affordance': this.handleSemanticAffordance(data); break;
+      }
     });
   }
 
@@ -1515,6 +1530,106 @@ export class BodyViewer {
     this.capturePoseFrame(receivedAt, sourceTimeMs);
   }
 
+  handleSemanticJointKinematics(data) {
+    const value = data?.value;
+    if (!value || !Array.isArray(value.joints)) return;
+
+    let active = 0;
+    for (const joint of value.joints) {
+      const match = String(joint?.joint_id ?? '').match(/:joint:(\d+)$/);
+      const index = match ? Number(match[1]) : NaN;
+      const name = Number.isInteger(index) ? this.bodyModel?.joints?.[index]?.name : null;
+      const position = Number(joint?.position_rad);
+      if (!name || !Number.isFinite(position)) continue;
+
+      const previous = this.previousJointPositions.get(name);
+      const delta = previous === undefined ? 0 : Math.abs(position - previous);
+      this.previousJointPositions.set(name, position);
+      this.targetJointAngles.set(name, position);
+      const activity = Math.min(1, delta / 0.045);
+      this.jointActivity.set(
+        name,
+        Math.max(activity, (this.jointActivity.get(name) ?? 0) * 0.7),
+      );
+      if (delta > 0.006) active += 1;
+    }
+    this.hasSemanticJointStream = true;
+    this.activeJointCount = active;
+    const motorActivity = this.motorActivityLabel();
+    this.queueUIUpdate('motor_activity', motorActivity);
+    this.queueUIUpdate(
+      'active_joints',
+      `${active} / ${this.bodyModel.joints.length}`,
+      active > 0 ? 'var(--cyan,#8be9fd)' : null,
+    );
+    this.updateBodySummary();
+  }
+
+  handleSemanticBodyPhysiology(data) {
+    const value = data?.value;
+    if (!value) return;
+    const reserve = Number(value.reserve_fraction);
+    const ageTick = Number(value.age_ticks);
+    if (!Number.isFinite(reserve) || !Number.isFinite(ageTick)) return;
+
+    this.hasSemanticPhysiologyStream = true;
+    const alive = String(value.vital_state ?? '').toLowerCase() !== 'dead';
+    this.bodyState.alive = alive;
+    this.queueUIUpdate(
+      'alive',
+      alive ? '● Alive' : '○ Dead',
+      alive ? 'var(--mint, #50fa7b)' : 'var(--coral, #ff5555)',
+    );
+
+    const pct = (reserve * 100).toFixed(0);
+    const color = reserve < 0.2
+      ? 'var(--coral, #ff5555)'
+      : reserve < 0.35
+        ? 'var(--amber, #f1fa8c)'
+        : 'var(--text, #e0e0e0)';
+    this.queueUIUpdate('metabolic_reserve', `${pct}%`, color);
+    this.bodyState.reserve = reserve;
+
+    this.reserveHistory.push({ tick: ageTick, value: reserve });
+    if (this.reserveHistory.length > 40) this.reserveHistory.shift();
+    const old = this.reserveHistory[0];
+    const delta = old ? reserve - old.value : 0;
+    const tickSpan = old && Number.isFinite(old.tick)
+      ? Math.max(1, ageTick - old.tick)
+      : null;
+    const per100Ticks = tickSpan ? (delta * 10000) / tickSpan : 0;
+    this.bodyState.reserveTrend = per100Ticks;
+    const arrow = per100Ticks > 0.3 ? '↑' : per100Ticks < -0.3 ? '↓' : '↔';
+    const signed = per100Ticks >= 0 ? '+' : '';
+    this.queueUIUpdate(
+      'reserve_trend',
+      tickSpan ? `${arrow} ${signed}${per100Ticks.toFixed(1)} pp / 100t` : '—',
+      per100Ticks < -1
+        ? 'var(--coral,#ff5555)'
+        : per100Ticks > 1 ? 'var(--mint,#50fa7b)' : null,
+    );
+    if (this.reserveBarFill) {
+      this.reserveBarFill.style.width = `${Math.max(0, Math.min(100, reserve * 100))}%`;
+      this.reserveBarFill.style.background = reserve < 0.2
+        ? 'var(--coral,#ff5555)'
+        : reserve < 0.35 ? 'var(--amber,#f1fa8c)' : 'var(--mint,#50fa7b)';
+    }
+    this.updateBodySummary();
+  }
+
+  handleSemanticAffordance(data) {
+    const value = data?.value;
+    if (!value || !Array.isArray(value.affordances)) return;
+    this.hasSemanticAffordanceStream = true;
+    this.semanticAffordances = value.affordances;
+    if (this.lastMindSnapshot && typeof this.lastMindSnapshot === 'object') {
+      this.workspace?.updateSelfModelSnapshot({
+        ...this.lastMindSnapshot,
+        affordances: this.semanticAffordances,
+      });
+    }
+  }
+
   handleBodyPoseEvent(data) {
     this.ensureBodyModel(data.body_kind);
     const receivedAt = performance.now();
@@ -1536,10 +1651,18 @@ export class BodyViewer {
     this.observeDenseProducer(tick, receivedAt, tickSpanMs);
     this.updateObserverSpatialOverlays(data);
 
-    if (Array.isArray(data.base_position) && data.base_position.length === 3) {
+    if (
+      !this.hasSemanticPoseStream &&
+      Array.isArray(data.base_position) &&
+      data.base_position.length === 3
+    ) {
       this.targetBasePos.set(...pbPos(...data.base_position));
     }
-    if (Array.isArray(data.base_orientation) && data.base_orientation.length === 4) {
+    if (
+      !this.hasSemanticPoseStream &&
+      Array.isArray(data.base_orientation) &&
+      data.base_orientation.length === 4
+    ) {
       this.targetBaseQuat.copy(pbQuat(...data.base_orientation));
     }
 
@@ -1580,14 +1703,16 @@ export class BodyViewer {
       }
     }
 
-    if (Array.isArray(data.joints)) {
+    if (!this.hasSemanticJointStream && Array.isArray(data.joints)) {
       for (const joint of data.joints) {
         if (!joint || !Number.isFinite(joint.position)) continue;
         this.targetJointAngles.set(joint.name, joint.position);
       }
     }
 
-    this.capturePoseFrame(receivedAt, sourceTimeMs);
+    if (!this.hasSemanticPoseStream) {
+      this.capturePoseFrame(receivedAt, sourceTimeMs);
+    }
   }
 
   handleBodyEvent(data) {
@@ -1661,7 +1786,7 @@ export class BodyViewer {
       this.resourceObject.visible = true;
       this.updateResourceGuide();
     }
-    if (Array.isArray(data.joints)) {
+    if (!this.hasSemanticJointStream && Array.isArray(data.joints)) {
       let active = 0;
       for (const j of data.joints) {
         if (!j || !Number.isFinite(j.position)) continue;
@@ -1702,7 +1827,7 @@ export class BodyViewer {
     if (data.resource_contact_count !== undefined) {
       this.queueUIUpdate('resource_contact_count', String(data.resource_contact_count));
     }
-    if (data.metabolic_reserve !== undefined) {
+    if (!this.hasSemanticPhysiologyStream && data.metabolic_reserve !== undefined) {
       const reserve = Number(data.metabolic_reserve);
       const pct = (reserve * 100).toFixed(0);
       const color = reserve < 0.2
@@ -1759,7 +1884,12 @@ export class BodyViewer {
   handleMindSnapshotEvent(data) {
     const snapshot = data?.snapshot;
     if (!snapshot || typeof snapshot !== 'object') return;
-    this.workspace?.updateSelfModelSnapshot(snapshot);
+    this.lastMindSnapshot = snapshot;
+    this.workspace?.updateSelfModelSnapshot(
+      this.hasSemanticAffordanceStream
+        ? { ...snapshot, affordances: this.semanticAffordances }
+        : snapshot,
+    );
   }
 
   handleCognitionEvent(data) {
@@ -1777,7 +1907,7 @@ export class BodyViewer {
   }
 
   handleVitalsEvent(data) {
-    if (data.alive !== undefined) {
+    if (!this.hasSemanticPhysiologyStream && data.alive !== undefined) {
       this.bodyState.alive = Boolean(data.alive);
       this.queueUIUpdate('alive', data.alive ? '● Alive' : '○ Dead', data.alive ? 'var(--mint, #50fa7b)' : 'var(--coral, #ff5555)');
     }
