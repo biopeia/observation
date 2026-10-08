@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Mapping
 
+from embodiment.physics3d.observation_contract import body_pose_semantics
 from environment.physics3d.environments import (
     build_environment,
     nursery_support_amount,
@@ -960,6 +961,7 @@ class Physics3DEmbodimentRuntime:
             self.apparatus.export_physical_state() if physical_state is None else physical_state
         )
         state["body_id"] = self._physical_body_id
+        state["body_pose_semantics"] = body_pose_semantics()
         state["locomotion_resource"] = self.resource.checkpoint()
         state["lab_world"] = resolve_environment(None, self.environment_recipe)
         contact_counts = self._contact_counts()
@@ -1496,7 +1498,7 @@ class Physics3DEmbodimentRuntime:
                 self._presentation_phase += self.presentation_hz
                 if self._presentation_phase >= self.physics_hz:
                     self._presentation_phase -= self.physics_hz
-                    pose = self.apparatus.export_physical_state()
+                    pose = self._physical_state_payload(self.apparatus.export_physical_state())
                     self._presentation_pose_frames.append(
                         {
                             "tick": int(self.tick_count),
