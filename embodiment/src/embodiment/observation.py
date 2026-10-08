@@ -44,6 +44,7 @@ class BodyPoseSample:
     orientation_xyzw: tuple[float, float, float, float]
     sample_kind: str
     sample_value: int | float | str
+    sample_time_s: float | None = None
     contract_revision: str = "v1"
 
     def __post_init__(self) -> None:
@@ -62,11 +63,15 @@ class BodyPoseSample:
             raise ValueError("sample_kind must not be empty")
         if not revision:
             raise ValueError("contract_revision must not be empty")
+        if self.sample_time_s is not None and not isfinite(float(self.sample_time_s)):
+            raise ValueError("sample_time_s must be finite when provided")
         object.__setattr__(self, "body_id", body_id)
         object.__setattr__(self, "reference_frame", reference_frame)
         object.__setattr__(self, "body_frame", body_frame)
         object.__setattr__(self, "sample_kind", sample_kind)
         object.__setattr__(self, "contract_revision", revision)
+        if self.sample_time_s is not None:
+            object.__setattr__(self, "sample_time_s", float(self.sample_time_s))
         object.__setattr__(
             self,
             "position_m",
