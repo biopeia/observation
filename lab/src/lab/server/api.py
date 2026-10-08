@@ -14,8 +14,15 @@ from lab.observation.observatory import (
     observatory_package_root,
     valid_instance_id,
 )
+from lab.observation.plane import ObservationPlane
+from lab.observation.wire import plane_message_payload
 from lab.server.sse import CLIENT_ERRORS as _CLIENT_ERRORS
-from lab.server.sse import stream_fleet, stream_instance, stream_organism
+from lab.server.sse import (
+    stream_fleet,
+    stream_instance,
+    stream_organism,
+    stream_semantic_observations,
+)
 
 _STATIC_TYPES: dict[str, str] = {
     ".html": "text/html; charset=utf-8",
@@ -34,6 +41,7 @@ def make_handler(
     observatory_dir: Path | None,
     assets_dir: Path,
     *,
+    observation_plane: ObservationPlane | None = None,
     source_status: Callable[[], dict[str, Any]] | None = None,
     body_catalog: Callable[[], list[dict[str, object]]] | None = None,
     organism_catalog: Callable[[], list[dict[str, Any]]] | None = None,
@@ -161,6 +169,33 @@ def make_handler(
                 return
             if path == "/api/world-scene":
                 self._json(200, {"scene": observation_bus.world_scene()})
+                return
+            if path == "/api/observations":
+                if observation_plane is None:
+                    self._json(503, {"error": "semantic observation plane unavailable"})
+                    return
+                query = parse_qs(parsed.query, keep_blank_values=False)
+                family = str((query.get("family") or [""])[0]).strip() or None
+                items = [
+                    plane_message_payload(message)
+                    for message in observation_plane.current_messages(family=family)
+                ]
+                self._json(
+                    200,
+                    {
+                        "wire_contract": "observation-semantic-wire-v1",
+                        "latest_sequence": observation_plane.latest_sequence,
+                        "items": items,
+                    },
+                )
+                return
+            if path == "/api/observations/stream":
+                if observation_plane is None:
+                    self._json(503, {"error": "semantic observation plane unavailable"})
+                    return
+                query = parse_qs(parsed.query, keep_blank_values=False)
+                family = str((query.get("family") or [""])[0]).strip() or None
+                stream_semantic_observations(self, observation_plane, family=family)
                 return
             if path == "/api/organism":
                 self._stream_organism()

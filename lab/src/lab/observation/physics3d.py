@@ -7,7 +7,10 @@ import uuid
 from dataclasses import asdict, is_dataclass
 from typing import Any, Mapping, Protocol
 
+from embodiment.observation import BodyPoseSample
+from lab.observation.body_pose import body_pose_observation
 from lab.observation.contracts import ObservedFrame
+from lab.observation.plane import ObservationPlane
 from lab.observation.projection import mind_snapshot_from_rich_state, runtime_tick_events
 from lab.observation.world_scene import WorldScenePublisher, project_world_scene
 
@@ -62,11 +65,13 @@ class Physics3DObservationBridge:
         run_id: str | None = None,
         organism_id: str | None = None,
         body_id: str | None = None,
+        observation_plane: ObservationPlane | None = None,
     ) -> None:
         self._sink = sink
         self._run_id = str(run_id or f"observer:{uuid.uuid4()}")
         self._organism_id = str(organism_id) if organism_id is not None else None
         self._body_id = str(body_id) if body_id is not None else None
+        self._observation_plane = observation_plane
         self._stop = threading.Event()
         self._pending_frames: dict[int, dict[str, Any]] = {}
         self._world_publisher = WorldScenePublisher()
@@ -119,6 +124,70 @@ class Physics3DObservationBridge:
 
     def request_stop(self) -> None:
         self._stop.set()
+
+    def _publish_canonical_body_pose(
+        self,
+        *,
+        physical_state: Mapping[str, object],
+        physics_step: int,
+        simulation_time_s: float,
+    ) -> None:
+        """Publish canonical Body Pose only when source semantics are explicit.
+
+        Current Physics3D generic coordinates are not presumed to be canonical.
+        The source must provide a semantic declaration proving the values already
+        satisfy the accepted Body Pose contract. Otherwise this path fails closed.
+        """
+        if self._observation_plane is None:
+            return
+
+        semantics = physical_state.get("body_pose_semantics")
+        if not isinstance(semantics, Mapping):
+            return
+        if semantics.get("position_unit") != "m":
+            return
+        if semantics.get("handedness") != "right":
+            return
+        if semantics.get("up_axis") != "+z":
+            return
+        if semantics.get("orientation") != "xyzw":
+            return
+
+        reference_frame = semantics.get("reference_frame")
+        body_frame = semantics.get("body_frame")
+        if not isinstance(reference_frame, str) or not reference_frame.strip():
+            return
+        if not isinstance(body_frame, str) or not body_frame.strip():
+            return
+
+        body_id = self._identity(physical_state, "body_id")
+        base_position = physical_state.get("base_position")
+        base_orientation = physical_state.get("base_orientation")
+        if (
+            body_id is None
+            or not isinstance(base_position, (list, tuple))
+            or len(base_position) != 3
+            or not isinstance(base_orientation, (list, tuple))
+            or len(base_orientation) != 4
+        ):
+            return
+
+        try:
+            sample = BodyPoseSample(
+                body_id=body_id,
+                reference_frame=reference_frame,
+                body_frame=body_frame,
+                position_m=tuple(float(value) for value in base_position),
+                orientation_xyzw=tuple(float(value) for value in base_orientation),
+                sample_kind="physics_step",
+                sample_value=int(physics_step),
+                sample_time_s=float(simulation_time_s),
+                contract_revision=str(semantics.get("contract_revision") or "v1"),
+            )
+        except (TypeError, ValueError):
+            return
+
+        self._observation_plane.publish(body_pose_observation(sample, run_id=self._run_id))
 
     def publish_pose_frame(
         self,
@@ -202,6 +271,11 @@ class Physics3DObservationBridge:
             },
         }
         self._apply_known_identity(event, physical_state)
+        self._publish_canonical_body_pose(
+            physical_state=physical_state,
+            physics_step=physics_step,
+            simulation_time_s=simulation_time_s,
+        )
         base_position = physical_state.get("base_position")
         if isinstance(base_position, (list, tuple)) and len(base_position) == 3:
             event["base_position"] = [float(value) for value in base_position]

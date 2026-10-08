@@ -11,6 +11,8 @@ from typing import Any
 
 from lab.observation.bus import ObservationBus
 from lab.observation.observatory import ObservatorySource
+from lab.observation.plane import ObservationPlane
+from lab.observation.wire import plane_message_payload
 
 SSE_POLL_SECONDS = 1.0
 SSE_HEARTBEAT_SECONDS = 15.0
@@ -173,3 +175,35 @@ def stream_instance(
     except CLIENT_ERRORS:
         pass
     return True
+
+
+def stream_semantic_observations(
+    handler: BaseHTTPRequestHandler,
+    plane: ObservationPlane,
+    *,
+    family: str | None = None,
+) -> None:
+    """Stream canonical semantic observations with bounded bootstrap/current state."""
+
+    start_sse(handler)
+    consumer = plane.subscribe(include_current=True, family=family)
+    try:
+        while True:
+            try:
+                message = consumer.get(timeout=SSE_HEARTBEAT_SECONDS)
+                if family is not None and message.observation.family.qualified_name != family:
+                    continue
+                handler.wfile.write(
+                    _encode_sse(
+                        plane_message_payload(message),
+                        event_id=message.sequence,
+                    )
+                )
+                handler.wfile.flush()
+            except queue.Empty:
+                handler.wfile.write(b": heartbeat\n\n")
+                handler.wfile.flush()
+    except CLIENT_ERRORS:
+        pass
+    finally:
+        plane.unsubscribe(consumer)
