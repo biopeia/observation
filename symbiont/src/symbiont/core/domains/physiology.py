@@ -113,7 +113,7 @@ class PhysiologyDomain:
         services: PhysiologyServices,
         retained_memory_units: float,
         embodied_work: float,
-        physical_duration: PhysicalDuration | None,
+        physical_duration: PhysicalDuration | None = None,
         resting_requested: bool,
         degradation_excreted: int,
     ) -> PhysiologyStepResult:
