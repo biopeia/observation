@@ -89,6 +89,13 @@ def semantic_observation_payload(
             {"domain": item.domain.value, "kind": item.kind, "value": item.value}
             for item in observation.context_time
         ],
+        "orchestration": (
+            {
+                "run": _identity(observation.orchestration.run_identity),
+            }
+            if observation.orchestration is not None
+            else None
+        ),
         "conditions": [
             {
                 "dimension": item.dimension.value,
