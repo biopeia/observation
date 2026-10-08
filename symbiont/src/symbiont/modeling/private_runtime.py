@@ -12,7 +12,6 @@ from ..cognition.generative import PrivateSLMGenerativeAdapter
 from ..cognition.types import NodeKind
 from ..core.cognition.bridge import CognitiveBridgeResult
 from ..core.domains.context import TickContext
-from ..core.embodiment.duration import PhysicalDuration
 from ..core.orchestration.runtime import RuntimeTickResult
 from ..host.percepts import Percept
 from .episodic import EpisodicProjection
@@ -800,13 +799,8 @@ class PrivateModelOrganismRuntime(ModeledOrganismRuntime):
         *,
         context: TickContext | None = None,
         include_observability: bool = True,
-        physical_duration: PhysicalDuration | None = None,
     ) -> RuntimeTickResult:
-        result = super().tick(
-            context=context,
-            include_observability=include_observability,
-            physical_duration=physical_duration,
-        )
+        result = super().tick(context=context, include_observability=include_observability)
         tick = result.tick
         self._resolve_outcome_value_credit(tick=tick)
 
