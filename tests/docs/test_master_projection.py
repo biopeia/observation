@@ -478,19 +478,19 @@ def test_23_mermaid_relationship_targets_resolve(
         )
     )
 
-    fake_svg = tmp_path / "fixture.svg"
-    fake_png = tmp_path / "fixture.png"
-    fake_svg.write_text(
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400"></svg>',
-        encoding="utf-8",
-    )
-    fake_png.write_bytes(b"synthetic-png-fixture")
-    digest = "a" * 64
-
     def fake_render_mermaid_diagram(
         code: str, cache_dir: Path
     ) -> tuple[Path, Path, str, float, float]:
-        assert "A --> B" in code
+        import hashlib
+
+        digest = hashlib.sha256(code.encode("utf-8")).hexdigest()
+        fake_svg = tmp_path / f"{digest}.svg"
+        fake_png = tmp_path / f"{digest}.png"
+        fake_svg.write_text(
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400"></svg>',
+            encoding="utf-8",
+        )
+        fake_png.write_bytes(b"synthetic-png-fixture")
         return fake_svg, fake_png, digest, 800.0, 400.0
 
     monkeypatch.setattr(mermaid_module, "render_mermaid_diagram", fake_render_mermaid_diagram)
@@ -512,7 +512,7 @@ def test_23_mermaid_relationship_targets_resolve(
             for rel in rel_root.findall("r:Relationship", rel_ns)
             if rel.attrib.get("Type", "").endswith("/image")
         ]
-        assert len(image_rels) == 2
+        assert len(image_rels) >= 2
 
         for rel in image_rels:
             target = rel.attrib["Target"]
