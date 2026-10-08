@@ -15,7 +15,10 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Mapping
 
-from embodiment.physics3d.observation_contract import body_pose_semantics
+from embodiment.physics3d.observation_contract import (
+    body_pose_semantics,
+    joint_kinematics_semantics,
+)
 from environment.physics3d.environments import (
     build_environment,
     nursery_support_amount,
@@ -962,6 +965,7 @@ class Physics3DEmbodimentRuntime:
         )
         state["body_id"] = self._physical_body_id
         state["body_pose_semantics"] = body_pose_semantics()
+        state["joint_kinematics_semantics"] = joint_kinematics_semantics()
         state["locomotion_resource"] = self.resource.checkpoint()
         state["lab_world"] = resolve_environment(None, self.environment_recipe)
         contact_counts = self._contact_counts()
