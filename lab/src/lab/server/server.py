@@ -17,6 +17,7 @@ from lab.experience import resolve_termination
 from lab.observation.bus import ObservationBus
 from lab.observation.development_history import build_development_history
 from lab.observation.observatory import ObservatorySource
+from lab.observation.plane import ObservationPlane
 from lab.observation.provenance_journal import ProvenanceIndex, ProvenanceJournal
 from lab.server.api import make_handler
 from lab.workbench import WEB_ROOT
@@ -60,6 +61,7 @@ def make_server(
         raise ValueError("UnifiedLabServer refuses to bind outside 127.0.0.1")
 
     stream = observation_bus or ObservationBus()
+    semantic_plane = ObservationPlane()
     coordinator = RunCoordinator()
     observatory_source = ObservatorySource(observatory_dir)
     run_store = Physics3DRunStore(physics_state_root or DEFAULT_LAB_STATE_ROOT)
@@ -95,7 +97,11 @@ def make_server(
             finally:
                 coordinator.release("physics3d")
 
-        session = Physics3DSession(stream, on_terminal=on_terminal)
+        session = Physics3DSession(
+            stream,
+            observation_plane=semantic_plane,
+            on_terminal=on_terminal,
+        )
         session_holder["physics3d"] = session
         server_ref = server_holder["server"]
         if server_ref is not None:
@@ -193,6 +199,7 @@ def make_server(
             stream,
             observatory_dir,
             _ASSETS,
+            observation_plane=semantic_plane,
             source_status=source_status,
             body_catalog=run_store.bodies,
             organism_catalog=run_store.organisms,
@@ -212,6 +219,7 @@ def make_server(
             raise RuntimeError("another run is already active")
         session = Physics3DSession(
             stream,
+            observation_plane=semantic_plane,
             on_terminal=lambda: coordinator.release("physics3d"),
         )
         session_holder["physics3d"] = session
