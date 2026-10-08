@@ -22,6 +22,7 @@ Validates the complete P6 contract:
 
 from __future__ import annotations
 
+import copy
 import json
 import shutil
 import subprocess
@@ -39,6 +40,7 @@ if str(DOCS_DIR) not in sys.path:
     sys.path.insert(0, str(DOCS_DIR))
 
 from master_projection import (  # noqa: E402
+    MarkdownBlock,
     MasterProjection,
     build_master_projection,
     parse_markdown_blocks,
@@ -454,3 +456,98 @@ def test_22_mermaid_fails_closed_when_version_mismatch(monkeypatch: pytest.Monke
     )
     with pytest.raises(MermaidEnvironmentError, match="version mismatch"):
         verify_mmdc_binary()
+
+
+def test_23_mermaid_relationship_targets_resolve(
+    default_projection: MasterProjection,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """23. Every OpenXML image relationship resolves to an existing package part."""
+    import posixpath
+
+    from publishers import docx as docx_module
+    from publishers import mermaid as mermaid_module
+
+    projection = copy.deepcopy(default_projection)
+    projection.books[0].chapters[0].blocks.append(
+        MarkdownBlock(
+            block_type="mermaid",
+            content="flowchart LR\n    A --> B",
+            language="mermaid",
+        )
+    )
+
+    def fake_render_mermaid_diagram(
+        code: str, cache_dir: Path
+    ) -> tuple[Path, Path, str, float, float]:
+        import hashlib
+
+        digest = hashlib.sha256(code.encode("utf-8")).hexdigest()
+        fake_svg = tmp_path / f"{digest}.svg"
+        fake_png = tmp_path / f"{digest}.png"
+        fake_svg.write_text(
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400"></svg>',
+            encoding="utf-8",
+        )
+        fake_png.write_bytes(b"synthetic-png-fixture")
+        return fake_svg, fake_png, digest, 800.0, 400.0
+
+    monkeypatch.setattr(mermaid_module, "render_mermaid_diagram", fake_render_mermaid_diagram)
+    monkeypatch.setattr(
+        docx_module.shutil,
+        "which",
+        lambda command: "/usr/bin/mmdc" if command == "mmdc" else None,
+    )
+
+    docx_file = tmp_path / "test-master-media.docx"
+    build_docx(projection, docx_file)
+
+    rel_ns = {"r": "http://schemas.openxmlformats.org/package/2006/relationships"}
+    with zipfile.ZipFile(docx_file, "r") as zf:
+        names = set(zf.namelist())
+        rel_root = ET.fromstring(zf.read("word/_rels/document.xml.rels"))
+        image_rels = [
+            rel
+            for rel in rel_root.findall("r:Relationship", rel_ns)
+            if rel.attrib.get("Type", "").endswith("/image")
+        ]
+        assert len(image_rels) >= 2
+
+        for rel in image_rels:
+            target = rel.attrib["Target"]
+            resolved = posixpath.normpath(posixpath.join("word", target))
+            assert resolved in names, (
+                f"Broken image relationship {rel.attrib.get('Id')}: "
+                f"Target={target!r} resolves to missing package part {resolved!r}"
+            )
+
+
+def test_24_mermaid_visible_in_rendered_pdf(tmp_path: Path) -> None:
+    """24. Publication PDF contains a rendered Mermaid image, not only source/fallback text."""
+    from publish_master import run_pipeline
+
+    soffice = find_soffice()
+    if not soffice:
+        pytest.skip("LibreOffice soffice not available")
+    if not shutil.which("mmdc"):
+        pytest.skip("mmdc (Mermaid CLI) not available")
+    if not shutil.which("pdfimages"):
+        pytest.skip("pdfimages not available")
+
+    out_dir = tmp_path / "master_mermaid_qa"
+    assert run_pipeline(output_dir=out_dir, generate_pdf=True) == 0
+
+    pdf_file = out_dir / "Symbiont-Master.pdf"
+    proc = subprocess.run(
+        ["pdfimages", "-list", str(pdf_file)],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    # pdfimages emits two header lines followed by one line per rasterized/vector image.
+    image_lines = [
+        line for line in proc.stdout.splitlines() if line.strip() and line.lstrip()[:1].isdigit()
+    ]
+    assert image_lines, "No rendered images found in publication PDF"
