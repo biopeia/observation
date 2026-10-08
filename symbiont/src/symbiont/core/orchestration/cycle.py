@@ -10,11 +10,12 @@ from __future__ import annotations
 class CycleStep(int):
     """Discrete integer iteration of the organism control cycle (T_s)."""
 
-    def __new__(cls, value: int | float | str = 0) -> CycleStep:
-        val = int(value)
-        if val < 0:
-            raise ValueError(f"CycleStep cannot be negative: {val}")
-        return super().__new__(cls, val)
+    def __new__(cls, value: int = 0) -> CycleStep:
+        if isinstance(value, bool) or not isinstance(value, int):
+            raise TypeError("CycleStep requires an integer cycle count")
+        if value < 0:
+            raise ValueError(f"CycleStep cannot be negative: {value}")
+        return super().__new__(cls, value)
 
     def __repr__(self) -> str:
         return f"CycleStep({int(self)})"
