@@ -174,6 +174,9 @@ export class BodyViewer {
     // Event & Render handles
     this.rafId = null;
     this.sse = null;
+    this.semanticSse = null;
+    this.semanticRunId = null;
+    this.hasSemanticPoseStream = false;
     this.resizeObs = null;
     this.cameraControls = null;
     this.segmentPickRaycaster = new THREE.Raycaster();
@@ -189,6 +192,7 @@ export class BodyViewer {
     this.worldView = this.domain === 'world' ? new WorldView(this) : null;
     this.loadBodyModels();
     this.connectSSE();
+    this.connectSemanticSSE();
     this.animate();
   }
 
@@ -1434,7 +1438,9 @@ export class BodyViewer {
       switch (data.type) {
         case 'world_scene': this.worldView?.accept(data); break;
         case 'observed_frame': this.handleObservedFrame(data); break;
-        case 'body_pose':     this.handleBodyPoseEvent(data);      break;
+        case 'body_pose':
+          if (!this.hasSemanticPoseStream) this.handleBodyPoseEvent(data);
+          break;
         case 'body':          this.handleBodyEvent(data);          break;
         case 'cognition':     this.handleCognitionEvent(data);     break;
         case 'vitals':        this.handleVitalsEvent(data);        break;
@@ -1450,6 +1456,63 @@ export class BodyViewer {
         this.statusEl.style.color = 'var(--amber, #f1fa8c)';
       }
     };
+  }
+
+  connectSemanticSSE() {
+    const family = encodeURIComponent('embodiment.body_pose');
+    this.semanticSse = new EventSource(`/api/observations/stream?family=${family}`);
+
+    this.semanticSse.addEventListener('message', (ev) => {
+      if (this.unmounted) return;
+
+      let data;
+      try { data = JSON.parse(ev.data); } catch { return; }
+      if (
+        data?.type !== 'semantic_observation' ||
+        data?.family !== 'embodiment.body_pose' ||
+        data?.wire_contract !== 'observation-semantic-wire-v1'
+      ) return;
+
+      const runId = data?.orchestration?.run?.value ?? null;
+      if (runId !== null && this.semanticRunId !== null && runId !== this.semanticRunId) {
+        this.poseFrames.length = 0;
+        this.hasSemanticPoseStream = false;
+      }
+      if (runId !== null) this.semanticRunId = runId;
+
+      this.handleSemanticBodyPose(data);
+    });
+  }
+
+  handleSemanticBodyPose(data) {
+    const value = data?.value;
+    if (!value) return;
+    if (
+      !Array.isArray(value.position_m) ||
+      value.position_m.length !== 3 ||
+      !Array.isArray(value.orientation_xyzw) ||
+      value.orientation_xyzw.length !== 4
+    ) return;
+
+    const simulationTime = (data.domain_time ?? [])
+      .find((item) => item?.kind === 'simulation_time_s');
+    const physicsStep = (data.domain_time ?? [])
+      .find((item) => item?.kind === 'physics_step');
+    const sourceTimeMs = Number(simulationTime?.value) * 1000;
+    if (!Number.isFinite(sourceTimeMs)) return;
+
+    const receivedAt = performance.now();
+    this.hasSemanticPoseStream = true;
+    this.hasDensePoseStream = true;
+    this.markBodyLive();
+
+    if (physicsStep?.value !== undefined) {
+      this.queueUIUpdate('tick', `p${physicsStep.value}`);
+    }
+
+    this.targetBasePos.set(...pbPos(...value.position_m));
+    this.targetBaseQuat.copy(pbQuat(...value.orientation_xyzw));
+    this.capturePoseFrame(receivedAt, sourceTimeMs);
   }
 
   handleBodyPoseEvent(data) {
@@ -1833,6 +1896,10 @@ export class BodyViewer {
       this.sse.close();
       this.sse = null;
     }
+    if (this.semanticSse) {
+      this.semanticSse.close();
+      this.semanticSse = null;
+    }
 
     if (this.bodyModelRetryTimer !== null) {
       clearTimeout(this.bodyModelRetryTimer);
@@ -1926,6 +1993,8 @@ export class BodyViewer {
     this.denseProducerTick = null;
     this.denseProducerArrivalMs = null;
     this.producerRateSamples.length = 0;
+    this.semanticRunId = null;
+    this.hasSemanticPoseStream = false;
 
     // Restore the host element rather than blindly erasing styles it owned
     // before the viewer was mounted.
