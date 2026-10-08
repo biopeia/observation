@@ -1444,6 +1444,9 @@ class Physics3DEmbodimentRuntime:
 
         phase_started = time.perf_counter()
         self._reading_provider.observed_tick_values.clear()
+        self.organism.set_physical_duration_for_tick(
+            PhysicalDuration(self.time_step * self.physics_substeps_per_tick)
+        )
         result = self.organism.tick(
             context=TickContext(
                 symbiont_id=self.organism_id,
@@ -1453,9 +1456,6 @@ class Physics3DEmbodimentRuntime:
                 body_id=self.body_identity,
             ),
             include_observability=include_observability,
-            physical_duration=PhysicalDuration(
-                self.time_step * self.physics_substeps_per_tick
-            ),
         )
         # Observer-only reference for evaluator-side studies; never read back.
         self.last_organism_result = result
