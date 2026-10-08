@@ -2175,7 +2175,9 @@ class OrganismRuntime:
     ) -> RuntimeTickResult:
         if self._physiology.state is VitalState.DEAD:
             raise OrganismDeadError("organism is irreversibly dead")
-        if physical_duration is not None and not isinstance(physical_duration, PhysicalDuration):
+        if physical_duration is not None and not isinstance(
+            physical_duration, PhysicalDuration
+        ):
             raise TypeError("physical_duration must be PhysicalDuration or None")
         expected_tick = self._tick_count + 1
         if context is None:
