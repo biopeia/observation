@@ -264,3 +264,5 @@ These checks prevent cross-scale ambiguity from being hidden by Python numeric c
 The focused M1 contract suite establishes the bounded invariants documented above. It does **not** by itself constitute the broader causal-equivalence suite across established, private-model, promotion, re-embodiment, and developed-cognition snapshots. Those governed equivalence snapshots remain a separate evidence surface and must not be inferred from G-M1.1–G-M1.7.
 
 M1.1 therefore strengthens the implementation and narrows claims to the evidence actually exercised; it does not alter temperature, fatigue, memory decay, maturity, agency, or any M2–M4 equation.
+
+Publication of M1.1 uses the repository's governed CI branch contract; the candidate branch must match an enabled `ci.yml` push prefix so validation is attached to the candidate SHA before review.
