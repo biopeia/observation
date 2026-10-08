@@ -121,3 +121,17 @@ def test_organism_runtime_rejects_untyped_physical_duration() -> None:
     )
     with pytest.raises(TypeError, match="PhysicalDuration"):
         runtime.set_physical_duration_for_tick(0.01)  # type: ignore[arg-type]
+
+
+
+def test_organism_runtime_rejects_duplicate_physical_duration_registration() -> None:
+    runtime = OrganismRuntime(
+        discover_senses=False,
+        bootstrap_semantic_senses=False,
+        interoception_enabled=False,
+        investigate_ticks=0,
+        min_samples=1,
+    )
+    runtime.set_physical_duration_for_tick(PhysicalDuration(1.0 / 24.0))
+    with pytest.raises(ValueError, match="already registered"):
+        runtime.set_physical_duration_for_tick(PhysicalDuration(1.0 / 48.0))
