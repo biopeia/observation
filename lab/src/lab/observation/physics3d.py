@@ -479,6 +479,30 @@ class Physics3DObservationBridge:
             affordance_observation(sample, run_id=self._run_id)
         )
 
+    def publish_domain_observations(
+        self,
+        *,
+        body_id: str,
+        body_physiology: Mapping[str, object],
+        affordance_sample: AffordanceObservation,
+        organism_tick: int,
+    ) -> None:
+        """Publish explicit source-domain observations outside physical state."""
+
+        self._body_id = str(body_id)
+        self._publish_canonical_body_physiology(
+            physical_state={
+                "body_id": str(body_id),
+                "body_physiology": body_physiology,
+            },
+            organism_tick=int(organism_tick),
+        )
+        if self._observation_plane is not None:
+            self._organism_id = affordance_sample.organism_id
+            self._observation_plane.publish(
+                affordance_observation(affordance_sample, run_id=self._run_id)
+            )
+
     def publish(self, snapshot: Any, *, physical_state: dict[str, object]) -> None:
         if self._stop.is_set():
             return
@@ -552,15 +576,6 @@ class Physics3DObservationBridge:
         }
         identity_source = {**record, **physical_state}
         self._apply_known_identity(projected, identity_source)
-        try:
-            organism_tick = int(record.get("tick")) if record.get("tick") is not None else None
-        except (TypeError, ValueError):
-            organism_tick = None
-        self._publish_canonical_body_physiology(
-            physical_state=physical_state,
-            organism_tick=organism_tick,
-        )
-        self._publish_canonical_affordance(physical_state=physical_state)
         if physical_state.get("base_position") is not None:
             projected["base_position"] = physical_state["base_position"]
         elif record.get("base_position") is not None:
