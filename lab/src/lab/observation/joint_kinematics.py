@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from embodiment.observation import JointKinematicsSample
 from lab.observation.body_pose import (
-    EMBODIMENT_AUTHORITY,
     LAB_PRODUCER,
     LAB_RUN_ISSUER,
     PHYSICS3D_RUNTIME,
