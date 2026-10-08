@@ -370,6 +370,14 @@ REGISTER: tuple[ContinuityEntry, ...] = (
     _core("_assimilator", "embodiment.assimilation", _P, "assimilation", _KEEP),
     _core("_degradation", "embodiment.degradation", _P, "degradation", _KEEP),
     _core("_pending_embodied_work", "embodiment.metabolism", _P, "pending_embodied_work", _BODY),
+    _core(
+        "_physical_duration_for_tick",
+        "embodiment timing",
+        _R,
+        None,
+        _BODY,
+        restore_path="supplied by the active Embodiment before the next organism cycle",
+    ),
     _core("_resting_requested", "regulation", _P, "resting_requested", _BODY),
     _core(
         "_ontogeny",
