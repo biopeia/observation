@@ -339,12 +339,12 @@ class Physics3DObservationBridge:
         if self._stop.is_set():
             return
 
-        self._publish_canonical_body_pose(
+        self._publish_canonical_joint_kinematics(
             physical_state=physical_state,
             physics_step=physics_step,
             simulation_time_s=simulation_time_s,
         )
-        self._publish_canonical_joint_kinematics(
+        self._publish_canonical_body_pose(
             physical_state=physical_state,
             physics_step=physics_step,
             simulation_time_s=simulation_time_s,
