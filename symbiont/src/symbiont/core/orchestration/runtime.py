@@ -107,6 +107,7 @@ from ..embodiment.assimilation import AssimilationDecision, InformationAssimilat
 from ..embodiment.body_schema import BodySchemaEngine
 from ..embodiment.degradation import DegradationQueue
 from ..embodiment.development import DevelopmentalSnapshot, DevelopmentalTracker
+from ..embodiment.duration import PhysicalDuration
 from ..embodiment.homeostasis import HomeostaticController, HomeostaticSnapshot
 from ..embodiment.metabolism import MetabolicLedger, MetabolicSnapshot
 from ..embodiment.ontogeny import OntogenyController, OntogenySnapshot
@@ -2170,9 +2171,12 @@ class OrganismRuntime:
         *,
         context: TickContext | None = None,
         include_observability: bool = True,
+        physical_duration: PhysicalDuration | None = None,
     ) -> RuntimeTickResult:
         if self._physiology.state is VitalState.DEAD:
             raise OrganismDeadError("organism is irreversibly dead")
+        if physical_duration is not None and not isinstance(physical_duration, PhysicalDuration):
+            raise TypeError("physical_duration must be PhysicalDuration or None")
         expected_tick = self._tick_count + 1
         if context is None:
             context = self._embodiment_domain.context(
@@ -2374,6 +2378,7 @@ class OrganismRuntime:
             ),
             retained_memory_units=retained_units,
             embodied_work=embodied_work,
+            physical_duration=physical_duration,
             resting_requested=self._resting_requested,
             degradation_excreted=degradation_excreted,
         )
