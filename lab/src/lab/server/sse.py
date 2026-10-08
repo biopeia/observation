@@ -11,8 +11,8 @@ from typing import Any
 
 from lab.observation.bus import ObservationBus
 from lab.observation.observatory import ObservatorySource
-from lab.observation.plane import ObservationPlane
-from lab.observation.wire import plane_message_payload
+from lab.observation.plane import ObservationPlane, PlaneRebaseRequired
+from lab.observation.wire import SEMANTIC_WIRE_CONTRACT, plane_message_payload
 
 SSE_POLL_SECONDS = 1.0
 SSE_HEARTBEAT_SECONDS = 15.0
@@ -182,23 +182,49 @@ def stream_semantic_observations(
     plane: ObservationPlane,
     *,
     family: str | None = None,
+    after_sequence: int | None = None,
 ) -> None:
-    """Stream canonical semantic observations with bounded bootstrap/current state."""
+    """Stream semantic observations with bounded resume and explicit rebase."""
+
+    if after_sequence is None:
+        raw_resume = _last_event_id(handler)
+        if raw_resume is not None:
+            try:
+                after_sequence = max(0, int(raw_resume))
+            except ValueError:
+                after_sequence = None
 
     start_sse(handler)
-    consumer = plane.subscribe(include_current=True, family=family)
+    subscription = plane.open_stream(after_sequence=after_sequence, family=family)
     try:
         while True:
             try:
-                message = consumer.get(timeout=SSE_HEARTBEAT_SECONDS)
-                if family is not None and message.observation.family.qualified_name != family:
-                    continue
-                handler.wfile.write(
-                    _encode_sse(
-                        plane_message_payload(message),
-                        event_id=message.sequence,
+                item = subscription.queue.get(timeout=SSE_HEARTBEAT_SECONDS)
+                if isinstance(item, PlaneRebaseRequired):
+                    current = [
+                        plane_message_payload(message)
+                        for message in plane.current_messages(family=family)
+                    ]
+                    handler.wfile.write(
+                        _encode_sse(
+                            {
+                                "type": "observation_plane_control",
+                                "wire_contract": SEMANTIC_WIRE_CONTRACT,
+                                "status": "rebase_required",
+                                "reason": item.reason,
+                                "latest_sequence": item.sequence,
+                                "items": current,
+                            },
+                            event_id=item.sequence,
+                        )
                     )
-                )
+                else:
+                    handler.wfile.write(
+                        _encode_sse(
+                            plane_message_payload(item),
+                            event_id=item.sequence,
+                        )
+                    )
                 handler.wfile.flush()
             except queue.Empty:
                 handler.wfile.write(b": heartbeat\n\n")
@@ -206,4 +232,4 @@ def stream_semantic_observations(
     except CLIENT_ERRORS:
         pass
     finally:
-        plane.unsubscribe(consumer)
+        plane.close_stream(subscription)
