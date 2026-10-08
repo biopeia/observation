@@ -79,6 +79,7 @@ Owning modules: [`physiology_config.py`](../../../symbiont/src/symbiont/core/emb
 | `ratio_unrecoverable` | `0.0` | [`physiology_config.py:22`](../../../symbiont/src/symbiont/core/embodiment/physiology_config.py#L22) | Lethal starvation threshold | $[-]$ | $T_p$ | `CONSTITUTION` | threshold | `ESTRUCTURAL` | HIGH | Viability gate | `KEEP` |
 | `ratio_severe` | `0.2` | [`physiology_config.py:23`](../../../symbiont/src/symbiont/core/embodiment/physiology_config.py#L23) | Severe resource deficit trigger | $[-]$ | $T_p$ | `CODE` | threshold | `EMPÍRICA_INTERPRETABLE` | HIGH | Activity throttling | `STUDY` |
 | `ratio_elevated` | `0.5` | [`physiology_config.py:24`](../../../symbiont/src/symbiont/core/embodiment/physiology_config.py#L24) | Elevated pressure warning | $[-]$ | $T_p$ | `CODE` | threshold | `EMPÍRICA_INTERPRETABLE` | MED | Activity scaling | `STUDY` |
+| `somatic_reference_duration_s` | `1/24` | [`physiology_config.py`](../../../symbiont/src/symbiont/core/embodiment/physiology_config.py) | M2 migration reference interval derived from historical Physics3D `10 × 1/240 s` cadence | $[s]$ | $T_p$ | `FORMAL` | parameter | `ESTRUCTURAL` | HIGH | Thermal/fatigue/repair time normalization | `KEEP` |
 | `max_repair_per_tick` | `0.25` | [`physiology_config.py:25`](../../../symbiont/src/symbiont/core/embodiment/physiology_config.py#L25) | Maximum structural healing cap | $[\text{integrity}/\text{tick}]$ | $T_p$ | `CODE` | bound | `EMPÍRICA_INTERPRETABLE` | HIGH | Tissue repair | `STUDY` |
 | `autonomous_repair_rate` | `0.02` | [`physiology_config.py:26`](../../../symbiont/src/symbiont/core/embodiment/physiology_config.py#L26) | Baseline tissue healing rate | $[\text{integrity}/\text{tick}]$ | $T_p$ | `CODE` | parameter | `EMPÍRICA_INTERPRETABLE` | MED | Energy charges | `STUDY` |
 | `fatigue_work_gain` | `0.50` | [`physiology_config.py:27`](../../../symbiont/src/symbiont/core/embodiment/physiology_config.py#L27) | Fatigue generation per unit mechanical work | $[\text{fatigue}/\text{work}]$ | $T_p$ | `CODE` | coefficient | `EMPÍRICA_INTERPRETABLE` | HIGH | Embodied work | `STUDY` |
@@ -295,42 +296,42 @@ $$N_{\text{eff}}^{\text{geom}} = \frac{1.97}{0.03} \approx 65.667$$
 
 ## 6. Quantified Summary Matrix and Analysis
 
-Across the active runtime, **76 unique mathematical parameters, constants, thresholds, bounds, and rates** are cataloged.
+Across the active runtime, **77 unique mathematical parameters, constants, thresholds, bounds, and rates** are cataloged.
 
 ### 6.1 Distribution by Classification
 
 ```
                   ┌──────────────────────────────────────────────┐
-  ESTRUCTURAL     │ 32 (42.1%)                                   │
-  EMPÍRICA        │ 24 (31.6%)                                   │
-  HEURÍSTICA      │ 20 (26.3%)                                   │
+  ESTRUCTURAL     │ 33 (42.9%)                                   │
+  EMPÍRICA        │ 24 (31.2%)                                   │
+  HEURÍSTICA      │ 20 (26.0%)                                   │
                   └──────────────────────────────────────────────┘
 ```
 
-- **ESTRUCTURAL (32 constants, 42.1%):** Invariant safety ceilings, constitutional resource limits (ADR-0015, ADR-0062), and baseline viability bounds. These are justified by architectural safety and host isolation contracts.
-- **EMPÍRICA_INTERPRETABLE (24 constants, 31.6%):** Legitimate empirical parameters (half-lives, EWMA factors, physical dissipation rates). These represent real phenomena but currently suffer from dimensional coupling to discrete scheduler ticks rather than continuous time scales.
-- **HEURÍSTICA_HISTÓRICA (20 constants, 26.3%):** Pure historical magic numbers, arbitrary discrete bins, and undocumented combination weights. This group constitutes the primary scientific debt of the organism.
+- **ESTRUCTURAL (33 constants, 42.9%):** Invariant safety ceilings, constitutional resource limits (ADR-0015, ADR-0062), and baseline viability bounds. These are justified by architectural safety and host isolation contracts.
+- **EMPÍRICA_INTERPRETABLE (24 constants, 31.2%):** Legitimate empirical parameters (half-lives, EWMA factors, physical dissipation rates). These represent real phenomena but currently suffer from dimensional coupling to discrete scheduler ticks rather than continuous time scales.
+- **HEURÍSTICA_HISTÓRICA (20 constants, 26.0%):** Pure historical magic numbers, arbitrary discrete bins, and undocumented combination weights. This group constitutes the primary scientific debt of the organism.
 
 ### 6.2 Distribution by Runtime Role
 
 | Runtime Role | Count | Percentage | Primary Subsystems |
 | :--- | :---: | :---: | :--- |
-| `bound` | 17 | 22.4% | Cognition limits, genetics, normalizers, safe mode |
-| `coefficient` | 17 | 22.4% | Fitness, motor reproducibility, reactivity, fatigue |
-| `threshold` | 16 | 21.1% | Epistemic maturity, sensorimotor gating, viability |
-| `parameter` | 13 | 17.1% | Decay rates, EWMA alphas, mutation parameters |
-| `capacity` | 8 | 10.5% | Kernel ceilings, social ledger, episodic memory |
+| `bound` | 17 | 22.1% | Cognition limits, genetics, normalizers, safe mode |
+| `coefficient` | 17 | 22.1% | Fitness, motor reproducibility, reactivity, fatigue |
+| `threshold` | 16 | 20.8% | Epistemic maturity, sensorimotor gating, viability |
+| `parameter` | 14 | 18.2% | Decay rates, EWMA alphas, mutation parameters |
+| `capacity` | 8 | 10.4% | Kernel ceilings, social ledger, episodic memory |
 | `cadence` | 5 | 6.5% | Consolidation ticks, aging ticks, waste ticks |
-| **Total** | **76** | **100.0%** | |
+| **Total** | **77** | **100.0%** | |
 
 ### 6.3 Distribution by Governance Ruling
 
 | Ruling | Count | Percentage | Meaning and Actionable Trajectory |
 | :--- | :---: | :---: | :--- |
-| **`KEEP`** | 33 | 43.4% | Constitutionally or architecturally justified; preserve unchanged. |
-| **`STUDY`** | 30 | 39.5% | Interpretable or heuristic parameter requiring empirical calibration or continuous reformulation ($T_p, T_e$). |
-| **`DEPRECATE`** | 13 | 17.1% | Arbitrary discretization, tick-coupled developmental gates, or unprincipled cutoffs to be systematically eliminated. |
-| **Total** | **76** | **100.0%** | |
+| **`KEEP`** | 34 | 44.2% | Constitutionally or architecturally justified; preserve unchanged. |
+| **`STUDY`** | 30 | 39.0% | Interpretable or heuristic parameter requiring empirical calibration or continuous reformulation ($T_p, T_e$). |
+| **`DEPRECATE`** | 13 | 16.9% | Arbitrary discretization, tick-coupled developmental gates, or unprincipled cutoffs to be systematically eliminated. |
+| **Total** | **77** | **100.0%** | |
 
 ---
 
@@ -415,10 +416,10 @@ flowchart TD
 
 | Criterion | Requirement | Status | Evidence |
 | :--- | :--- | :---: | :--- |
-| **C1. Full Forensic Coverage** | Every active numeric constant in `symbiont/` identified with source lines, units, and roles. | **PASS** | 76 runtime constants cataloged across 11 subsystems in Section 4. |
+| **C1. Full Forensic Coverage** | Every active numeric constant in `symbiont/` identified with source lines, units, and roles. | **PASS** | 77 runtime constants cataloged across 11 subsystems in Section 4. |
 | **C2. Taxonomy Conformance** | Every entry classified into one of 3 runtime classes and assigned one of 6 runtime roles. | **PASS** | 100% compliance verified in summary matrix (Section 6). |
 | **C3. Separation of Analytical Quantities** | Asymptotic/theoretical quantities strictly segregated from runtime parameters. | **PASS** | Section 5 defines $W_\infty$ and $N_{\text{eff}}^{\text{geom}}$ as analytical properties outside runtime code. |
-| **C4. Zero Runtime Mutation** | Strictly zero changes to runtime code, configurations, or tests. | **PASS** | `git diff` against `main` contains exclusively documentation files. |
+| **C4. Zero Runtime Mutation (M0 closure)** | M0 itself introduced zero runtime changes. | **PASS** | Historical M0 closure invariant. Later governed phases may extend this live catalog when they introduce or retire runtime parameters; those later runtime changes do not retroactively alter the observational nature of M0. |
 | **C5. Prioritized Scientific Debt** | All `STUDY` and `DEPRECATE` rulings formally registered and mapped to subsequent roadmap phases. | **PASS** | Section 7 establishes the formal mapping to Phases M1 through M5. |
 
 ### 8.2 Milestone Disposition

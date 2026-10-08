@@ -16,7 +16,17 @@ A `TickContext` carries both `symbiont_tick` and embodiment identity. Before exe
 
 ## Physics time
 
-Physics3D has its own integration rate. `PyBulletEmbodimentRuntime` uses a solver time step and multiple physics substeps per organism tick. Presentation sampling can run at a separate cadence again. This allows the body to move continuously enough for stable mechanics without inventing extra cognition ticks.
+Physics3D has its own integration rate. The current MuJoCo-backed `Physics3DEmbodimentRuntime` uses a solver time step and multiple physics substeps per organism tick. Presentation sampling can run at a separate cadence again. This allows the body to move continuously enough for stable mechanics without inventing extra cognition ticks.
+
+M2 makes the physical span of one embodied cycle explicit:
+
+\[
+\Delta t_p = \texttt{time\_step}\times\texttt{physics\_substeps\_per\_tick}.
+\]
+
+The apparatus supplies that value as an Embodiment-owned `PhysicalDuration`. Orchestration may carry it to `PhysiologyDomain`, but Cognition does not consume it. Thermal relaxation, fatigue recovery and autonomous repair use this duration; changing physics resolution therefore no longer changes those somatic dynamics merely because the scheduler made more or fewer calls.
+
+The historical default of 10 substeps at 1/240 s gives a reference interval of 1/24 s. M2 calibrates the migrated equations so that this historical default preserves the pre-M2 single-step numerical behavior exactly. This compatibility reference is not a claim that normalized physiology is expressed in SI biological units.
 
 ## Experimental time
 
@@ -39,3 +49,5 @@ If an experiment observes better action after re-embodiment, the researcher must
 - `symbiont/src/symbiont/core/domains/context.py`
 - `symbiont/src/symbiont/core/orchestration/runtime.py`
 - `lab/src/lab/physics3d/runtime.py`
+- `docs/design/core/temporal-scales-and-clock-separation-v1.md`
+- `docs/design/core/somatic-continuous-dynamics-v1.md`

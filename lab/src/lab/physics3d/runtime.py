@@ -62,6 +62,7 @@ from symbiont.core.embodiment import (
     TimingContract,
     archive_episode_checkpoint,
 )
+from symbiont.core.embodiment.duration import PhysicalDuration
 from symbiont.core.embodiment.metabolism import MetabolicLedger
 from symbiont.core.embodiment.physiology import LivingBodyState, VitalState
 from symbiont.core.embodiment.transition import (
@@ -1443,6 +1444,9 @@ class Physics3DEmbodimentRuntime:
 
         phase_started = time.perf_counter()
         self._reading_provider.observed_tick_values.clear()
+        self.organism.set_physical_duration_for_tick(
+            PhysicalDuration(self.time_step * self.physics_substeps_per_tick)
+        )
         result = self.organism.tick(
             context=TickContext(
                 symbiont_id=self.organism_id,

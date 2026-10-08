@@ -107,6 +107,7 @@ from ..embodiment.assimilation import AssimilationDecision, InformationAssimilat
 from ..embodiment.body_schema import BodySchemaEngine
 from ..embodiment.degradation import DegradationQueue
 from ..embodiment.development import DevelopmentalSnapshot, DevelopmentalTracker
+from ..embodiment.duration import PhysicalDuration
 from ..embodiment.homeostasis import HomeostaticController, HomeostaticSnapshot
 from ..embodiment.metabolism import MetabolicLedger, MetabolicSnapshot
 from ..embodiment.ontogeny import OntogenyController, OntogenySnapshot
@@ -963,6 +964,7 @@ class OrganismRuntime:
         self._epistemic_domain = EpistemicDomain()
         self._embodiment_domain = EmbodimentDomain()
         self._pending_embodied_work = 0.0
+        self._physical_duration_for_tick: PhysicalDuration | None = None
         self._narrative_journal: list[dict[str, Any]] = []
 
     def _resolve_factual_evidence_reference(self, evidence_ref: str) -> bool:
@@ -2016,6 +2018,19 @@ class OrganismRuntime:
     def living_body_state(self) -> LivingBodyState:
         return self._living_body_state
 
+    def set_physical_duration_for_tick(self, duration: PhysicalDuration) -> None:
+        """Supply Embodiment-owned physical duration for the next organism tick.
+
+        The value is transient execution context, not acquired organism state.
+        It is consumed exactly once by somatic physiology and is never exposed
+        to cognitive subsystems.
+        """
+        if not isinstance(duration, PhysicalDuration):
+            raise TypeError("duration must be PhysicalDuration")
+        if self._physical_duration_for_tick is not None:
+            raise ValueError("physical duration already registered for next tick")
+        self._physical_duration_for_tick = duration
+
     def register_embodied_work(self, amount: float) -> None:
         """Queue a scalar physical-work cost for the next physiology tick.
 
@@ -2359,6 +2374,8 @@ class OrganismRuntime:
         )
         embodied_work = self._pending_embodied_work
         self._pending_embodied_work = 0.0
+        physical_duration = self._physical_duration_for_tick
+        self._physical_duration_for_tick = None
         physiology_step = self._physiology_domain.advance(
             services=PhysiologyServices(
                 metabolism=self._metabolism,
@@ -2374,6 +2391,7 @@ class OrganismRuntime:
             ),
             retained_memory_units=retained_units,
             embodied_work=embodied_work,
+            physical_duration=physical_duration,
             resting_requested=self._resting_requested,
             degradation_excreted=degradation_excreted,
         )
