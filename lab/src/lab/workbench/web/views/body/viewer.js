@@ -1474,29 +1474,37 @@ export class BodyViewer {
 
       let data;
       try { data = JSON.parse(ev.data); } catch { return; }
+      if (data?.wire_contract !== 'observation-semantic-wire-v1') return;
       if (
-        data?.type !== 'semantic_observation' ||
-        data?.wire_contract !== 'observation-semantic-wire-v1'
-      ) return;
-
-      const runId = data?.orchestration?.run?.value ?? null;
-      if (runId !== null && this.semanticRunId !== null && runId !== this.semanticRunId) {
-        this.poseFrames.length = 0;
-        this.hasSemanticPoseStream = false;
-        this.hasSemanticJointStream = false;
-        this.hasSemanticPhysiologyStream = false;
-        this.hasSemanticAffordanceStream = false;
-        this.semanticAffordances = [];
+        data?.type === 'observation_plane_control' &&
+        data?.status === 'rebase_required'
+      ) {
+        for (const item of data.items ?? []) this.handleSemanticObservation(item);
+        return;
       }
-      if (runId !== null) this.semanticRunId = runId;
-
-      switch (data.family) {
-        case 'embodiment.body_pose': this.handleSemanticBodyPose(data); break;
-        case 'embodiment.joint_kinematics': this.handleSemanticJointKinematics(data); break;
-        case 'embodiment.body_physiology': this.handleSemanticBodyPhysiology(data); break;
-        case 'symbiont.affordance': this.handleSemanticAffordance(data); break;
-      }
+      if (data?.type !== 'semantic_observation') return;
+      this.handleSemanticObservation(data);
     });
+  }
+
+  handleSemanticObservation(data) {
+    const runId = data?.orchestration?.run?.value ?? null;
+    if (runId !== null && this.semanticRunId !== null && runId !== this.semanticRunId) {
+      this.poseFrames.length = 0;
+      this.hasSemanticPoseStream = false;
+      this.hasSemanticJointStream = false;
+      this.hasSemanticPhysiologyStream = false;
+      this.hasSemanticAffordanceStream = false;
+      this.semanticAffordances = [];
+    }
+    if (runId !== null) this.semanticRunId = runId;
+
+    switch (data.family) {
+      case 'embodiment.body_pose': this.handleSemanticBodyPose(data); break;
+      case 'embodiment.joint_kinematics': this.handleSemanticJointKinematics(data); break;
+      case 'embodiment.body_physiology': this.handleSemanticBodyPhysiology(data); break;
+      case 'symbiont.affordance': this.handleSemanticAffordance(data); break;
+    }
   }
 
   handleSemanticBodyPose(data) {
