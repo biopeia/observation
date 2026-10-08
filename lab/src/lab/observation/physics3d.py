@@ -125,7 +125,6 @@ class Physics3DObservationBridge:
     def request_stop(self) -> None:
         self._stop.set()
 
-
     def _publish_canonical_body_pose(
         self,
         *,
