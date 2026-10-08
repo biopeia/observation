@@ -1,0 +1,245 @@
+schema_version: 1
+
+# Canonical Conceptual Glossary
+#
+# This registry defines human-facing distinctions that recur across the canonical
+# corpus. It does not replace component authority, formal notation, or coverage
+# traceability. Definitions must remain compatible with the referenced canonical
+# units and documents.
+
+terms:
+  fact:
+    term: "Fact"
+    definition: >
+      A proposition or state representation granted factual authority within its
+      epistemic boundary. For the organism, factual authority must be grounded in
+      admitted observation, lived consequence, or other legitimate evidence; a
+      prediction or generated hypothesis cannot promote itself to fact.
+    distinguishes_from:
+      - evidence
+      - prediction
+      - hypothesis
+      - claim
+    owners:
+      - component.epistemic-ownership
+    canonical_refs:
+      - symbiont/docs/00-foundations-and-epistemology.md
+      - symbiont/docs/09-generative-cognition.md
+      - symbiont/docs/12-scientific-observation-and-lab.md
+
+  evidence:
+    term: "Evidence"
+    definition: >
+      Organism-accessible observation, consequence, or attributed record that can
+      support, weaken, or revise an internal relation, model, hypothesis, or claim.
+      Evidence is not identical to the conclusion drawn from it.
+    distinguishes_from:
+      - fact
+      - claim
+      - provenance
+    owners:
+      - component.epistemic-ownership
+      - component.causal-provenance
+    canonical_refs:
+      - symbiont/docs/00-foundations-and-epistemology.md
+      - symbiont/docs/07-agency-action-and-motor-learning.md
+      - symbiont/docs/11-persistence-provenance-and-reembodiment.md
+
+  claim:
+    term: "Claim"
+    definition: >
+      An epistemically labelled proposition whose authority depends on its source,
+      evidence, and claim level. A claim may be stored or communicated without
+      becoming factual truth.
+    distinguishes_from:
+      - fact
+      - evidence
+      - hypothesis
+    owners:
+      - component.epistemic-ownership
+    canonical_refs:
+      - symbiont/docs/10-social-cultural-lineage.md
+      - symbiont/docs/11-persistence-provenance-and-reembodiment.md
+
+  model:
+    term: "Model"
+    definition: >
+      An internal predictive structure used to estimate probable dynamics from
+      organism state and action context. Model output is predictive, not factual
+      authority.
+    distinguishes_from:
+      - fact
+      - prediction
+      - hypothesis
+      - episode
+    owners:
+      - component.private-model
+    canonical_refs:
+      - symbiont/docs/08-learning-memory-and-plasticity.md
+      - symbiont/docs/09-generative-cognition.md
+
+  hypothesis:
+    term: "Hypothesis"
+    definition: >
+      A candidate non-factual relation or explanation produced for investigation
+      or counterfactual reasoning. Hypotheses require external or organism-accessible
+      evidence before any factual promotion.
+    distinguishes_from:
+      - fact
+      - evidence
+      - prediction
+      - claim
+    owners:
+      - component.generative-hypothesis
+    canonical_refs:
+      - symbiont/docs/09-generative-cognition.md
+      - symbiont/docs/12-scientific-observation-and-lab.md
+
+  prediction:
+    term: "Prediction"
+    definition: >
+      A forecast of a future or hidden organism-accessible state produced by a
+      predictor or model. Prediction error may update learning, but the prediction
+      itself is not an observation.
+    distinguishes_from:
+      - fact
+      - model
+      - hypothesis
+    owners:
+      - component.local-predictors
+      - component.private-model
+    canonical_refs:
+      - symbiont/docs/06-cognition-and-internal-organization.md
+      - symbiont/docs/08-learning-memory-and-plasticity.md
+
+  capability:
+    term: "Capability"
+    definition: >
+      A potential or available capacity of the organism or phenotype. Capability
+      does not by itself mean that the organism has acquired a reusable competence
+      through lived evidence.
+    distinguishes_from:
+      - competence
+      - competence-execution-binding
+    owners:
+      - component.biological-phenotype
+    canonical_refs:
+      - symbiont/docs/03-world-body-and-embodiment.md
+      - symbiont/docs/07-agency-action-and-motor-learning.md
+
+  competence:
+    term: "Competence"
+    definition: >
+      An organism-owned reusable capability acquired from causal sensorimotor
+      evidence. A competence is not tied permanently to one body's actuator names
+      and does not guarantee executability on every embodiment.
+    distinguishes_from:
+      - capability
+      - competence-execution-binding
+    owners:
+      - component.competence
+    canonical_refs:
+      - symbiont/docs/07-agency-action-and-motor-learning.md
+      - symbiont/docs/11-persistence-provenance-and-reembodiment.md
+
+  competence-execution-binding:
+    term: "Competence Execution Binding"
+    definition: >
+      Organism-owned, embodiment-local mapping from an abstract competence to the
+      actuators exposed by the current embodiment. Re-embodiment requires binding
+      revalidation or rebinding without overwriting competence identity.
+    distinguishes_from:
+      - competence
+      - embodiment
+      - body
+    owners:
+      - component.competence-binding
+    canonical_refs:
+      - symbiont/docs/03-world-body-and-embodiment.md
+      - symbiont/docs/07-agency-action-and-motor-learning.md
+      - symbiont/docs/11-persistence-provenance-and-reembodiment.md
+
+  episode:
+    term: "Episode"
+    definition: >
+      Sequential lived experience retained as an organism-owned episodic trace.
+      An episode records experience and outcomes; it is neither a universal model
+      nor unmediated world ground truth.
+    distinguishes_from:
+      - model
+      - fact
+    owners:
+      - component.episodic-memory
+    canonical_refs:
+      - symbiont/docs/08-learning-memory-and-plasticity.md
+      - symbiont/docs/11-persistence-provenance-and-reembodiment.md
+
+  homeostasis:
+    term: "Homeostasis"
+    definition: >
+      Organism-owned measurement and regulation of deviation from viable
+      physiological conditions. Homeostasis is an internal regulatory signal and
+      must not become an externally supplied reward oracle or direct motor command.
+    distinguishes_from:
+      - external-reward
+    owners:
+      - component.homeostasis
+    canonical_refs:
+      - symbiont/docs/05-physiology-homeostasis.md
+      - symbiont/docs/07-agency-action-and-motor-learning.md
+
+  external-reward:
+    term: "External Reward"
+    definition: >
+      An environment-authored scalar objective or reward oracle supplied from
+      outside the organism. It is a contrast term in the architecture, not the
+      authority used by Symbiont homeostasis or endogenous outcome value.
+    distinguishes_from:
+      - homeostasis
+    owners: []
+    canonical_refs:
+      - symbiont/docs/00-foundations-and-epistemology.md
+      - symbiont/docs/05-physiology-homeostasis.md
+
+  provenance:
+    term: "Provenance"
+    definition: >
+      Structured record of causal origin, references, and transformation history.
+      Provenance establishes where a representation came from; origin alone does
+      not establish truth or evidential sufficiency.
+    distinguishes_from:
+      - evidence
+      - fact
+    owners:
+      - component.causal-provenance
+    canonical_refs:
+      - symbiont/docs/11-persistence-provenance-and-reembodiment.md
+
+  embodiment:
+    term: "Embodiment"
+    definition: >
+      The bounded relation between one Symbiont and a particular perceptual,
+      actuator, and timing contract. Embodiment is neither organism identity nor
+      the physical body itself.
+    distinguishes_from:
+      - body
+      - competence-execution-binding
+    owners:
+      - concept.embodiment
+    canonical_refs:
+      - symbiont/docs/01-system-and-boundaries.md
+      - symbiont/docs/03-world-body-and-embodiment.md
+
+  body:
+    term: "Body"
+    definition: >
+      Physical state and apparatus with identity independent of the Symbiont that
+      inhabits it. Body is external to the canonical SYM-* component catalogue and
+      can change while organism identity persists.
+    distinguishes_from:
+      - embodiment
+      - competence
+    owners: []
+    canonical_refs:
+      - symbiont/docs/01-system-and-boundaries.md
+      - symbiont/docs/03-world-body-and-embodiment.md
