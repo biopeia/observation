@@ -9,6 +9,7 @@ from ...sensory import SensorySystem
 from ..cognition.bridge import CognitiveBridge
 from ..embodiment.degradation import DegradationQueue
 from ..embodiment.development import DevelopmentalSnapshot, DevelopmentalTracker
+from ..embodiment.duration import PhysicalDuration
 from ..embodiment.homeostasis import HomeostaticController, HomeostaticSnapshot
 from ..embodiment.metabolism import MetabolicLedger, MetabolicSnapshot
 from ..embodiment.ontogeny import OntogenyController, OntogenySnapshot
@@ -112,6 +113,7 @@ class PhysiologyDomain:
         services: PhysiologyServices,
         retained_memory_units: float,
         embodied_work: float,
+        physical_duration: PhysicalDuration | None,
         resting_requested: bool,
         degradation_excreted: int,
     ) -> PhysiologyStepResult:
@@ -121,6 +123,7 @@ class PhysiologyDomain:
             services.metabolism,
             embodied_work=max(0.0, float(embodied_work)),
             resting=bool(resting_requested),
+            physical_duration=physical_duration,
         )
         ontogeny = services.ontogeny.constitutive_step(
             services.metabolism,
