@@ -964,6 +964,7 @@ class OrganismRuntime:
         self._epistemic_domain = EpistemicDomain()
         self._embodiment_domain = EmbodimentDomain()
         self._pending_embodied_work = 0.0
+        self._physical_duration_for_tick: PhysicalDuration | None = None
         self._narrative_journal: list[dict[str, Any]] = []
 
     def _resolve_factual_evidence_reference(self, evidence_ref: str) -> bool:
@@ -2017,6 +2018,17 @@ class OrganismRuntime:
     def living_body_state(self) -> LivingBodyState:
         return self._living_body_state
 
+    def set_physical_duration_for_tick(self, duration: PhysicalDuration) -> None:
+        """Supply Embodiment-owned physical duration for the next organism tick.
+
+        The value is transient execution context, not acquired organism state.
+        It is consumed exactly once by somatic physiology and is never exposed
+        to cognitive subsystems.
+        """
+        if not isinstance(duration, PhysicalDuration):
+            raise TypeError("duration must be PhysicalDuration")
+        self._physical_duration_for_tick = duration
+
     def register_embodied_work(self, amount: float) -> None:
         """Queue a scalar physical-work cost for the next physiology tick.
 
@@ -2171,14 +2183,9 @@ class OrganismRuntime:
         *,
         context: TickContext | None = None,
         include_observability: bool = True,
-        physical_duration: PhysicalDuration | None = None,
     ) -> RuntimeTickResult:
         if self._physiology.state is VitalState.DEAD:
             raise OrganismDeadError("organism is irreversibly dead")
-        if physical_duration is not None and not isinstance(
-            physical_duration, PhysicalDuration
-        ):
-            raise TypeError("physical_duration must be PhysicalDuration or None")
         expected_tick = self._tick_count + 1
         if context is None:
             context = self._embodiment_domain.context(
@@ -2365,6 +2372,8 @@ class OrganismRuntime:
         )
         embodied_work = self._pending_embodied_work
         self._pending_embodied_work = 0.0
+        physical_duration = self._physical_duration_for_tick
+        self._physical_duration_for_tick = None
         physiology_step = self._physiology_domain.advance(
             services=PhysiologyServices(
                 metabolism=self._metabolism,
