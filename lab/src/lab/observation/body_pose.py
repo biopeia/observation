@@ -66,6 +66,17 @@ def body_pose_observation(sample: BodyPoseSample) -> SemanticObservation[BodyPos
                 kind=sample.sample_kind,
                 value=sample.sample_value,
             ),
+            *(
+                (
+                    DomainTimeRef(
+                        domain=AuthorityDomain.EMBODIMENT,
+                        kind="simulation_time_s",
+                        value=sample.sample_time_s,
+                    ),
+                )
+                if sample.sample_time_s is not None
+                else ()
+            ),
         ),
     )
 
