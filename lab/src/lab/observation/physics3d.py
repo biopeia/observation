@@ -7,7 +7,14 @@ import uuid
 from dataclasses import asdict, is_dataclass
 from typing import Any, Mapping, Protocol
 
-from embodiment.observation import BodyPoseSample, JointKinematicState, JointKinematicsSample
+from embodiment.observation import (
+    BodyPhysiologySample,
+    BodyPoseSample,
+    BodyStructurePhysiologyState,
+    JointKinematicState,
+    JointKinematicsSample,
+)
+from lab.observation.body_physiology import body_physiology_observation
 from lab.observation.body_pose import body_pose_observation
 from lab.observation.joint_kinematics import joint_kinematics_observation
 from lab.observation.contracts import ObservedFrame
@@ -250,6 +257,71 @@ class Physics3DObservationBridge:
             joint_kinematics_observation(sample, run_id=self._run_id)
         )
 
+
+    def _publish_canonical_body_physiology(
+        self,
+        *,
+        physical_state: Mapping[str, object],
+        organism_tick: int | None,
+    ) -> None:
+        """Publish the source-owned bounded LivingBodyState observation."""
+
+        if self._observation_plane is None:
+            return
+        body_id = self._identity(physical_state, "body_id")
+        raw = physical_state.get("body_physiology")
+        if body_id is None or not isinstance(raw, Mapping):
+            return
+        if raw.get("schema_version") != 1:
+            return
+        reserve = raw.get("reserve")
+        structures_raw = raw.get("structures", ())
+        if not isinstance(reserve, Mapping) or not isinstance(structures_raw, (list, tuple)):
+            return
+
+        structures: list[BodyStructurePhysiologyState] = []
+        try:
+            for item in structures_raw:
+                if not isinstance(item, Mapping):
+                    return
+                structures.append(
+                    BodyStructurePhysiologyState(
+                        structure_id=str(item["structure_id"]),
+                        integrity=float(item["integrity"]),
+                        wear=float(item["wear"]),
+                        damage=float(item["damage"]),
+                        repair_progress=float(item["repair_progress"]),
+                        functional_capacity=float(item["functional_capacity"]),
+                    )
+                )
+            death_tick_raw = raw.get("death_tick")
+            sample = BodyPhysiologySample(
+                body_id=body_id,
+                reserve_amount=float(reserve["amount"]),
+                reserve_capacity=float(reserve["capacity"]),
+                reserve_fraction=float(reserve["fraction"]),
+                reserve_quantity_kind=str(reserve["quantity_kind"]),
+                structural_integrity=float(raw["structural_integrity"]),
+                temperature=float(raw["temperature"]),
+                fatigue=float(raw["fatigue"]),
+                growth_progress=float(raw["growth_progress"]),
+                senescence=float(raw["senescence"]),
+                age_ticks=int(raw["age_ticks"]),
+                vital_state=str(raw["vital_state"]),
+                death_tick=None if death_tick_raw is None else int(death_tick_raw),
+                structures=tuple(structures),
+            )
+        except (KeyError, TypeError, ValueError):
+            return
+
+        self._observation_plane.publish(
+            body_physiology_observation(
+                sample,
+                organism_tick=organism_tick,
+                run_id=self._run_id,
+            )
+        )
+
     def publish_pose_frame(
         self,
         *,
@@ -343,11 +415,6 @@ class Physics3DObservationBridge:
             },
         }
         self._apply_known_identity(event, physical_state)
-        self._publish_canonical_body_pose(
-            physical_state=physical_state,
-            physics_step=physics_step,
-            simulation_time_s=simulation_time_s,
-        )
         base_position = physical_state.get("base_position")
         if isinstance(base_position, (list, tuple)) and len(base_position) == 3:
             event["base_position"] = [float(value) for value in base_position]
@@ -465,6 +532,14 @@ class Physics3DObservationBridge:
         }
         identity_source = {**record, **physical_state}
         self._apply_known_identity(projected, identity_source)
+        try:
+            organism_tick = int(record.get("tick")) if record.get("tick") is not None else None
+        except (TypeError, ValueError):
+            organism_tick = None
+        self._publish_canonical_body_physiology(
+            physical_state=physical_state,
+            organism_tick=organism_tick,
+        )
         if physical_state.get("base_position") is not None:
             projected["base_position"] = physical_state["base_position"]
         elif record.get("base_position") is not None:
