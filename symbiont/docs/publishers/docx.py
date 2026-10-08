@@ -5,11 +5,20 @@ Generates a publication-grade WordprocessingML (.docx) document without external
 Python dependencies (such as python-docx), guaranteeing 100% determinism, zero
 modifications to pyproject.toml / uv.lock, and full compatibility with LibreOffice
 headless PDF conversion.
+
+Enhanced in P6.2:
+- Two-pass TOC with leader dots, exact page mapping, and bookmarks
+- Inline Markdown tokenization (bold, italic, code, links)
+- Deterministic Mermaid vector SVG + raster fallback rendering
+- Executive component card sheets with overflow-safe geometry
 """
 
 from __future__ import annotations
 
+import re
+import shutil
 import zipfile
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +30,16 @@ from master_projection import (
     NotationEntry,
     ParameterEntry,
 )
+
+
+@dataclass(frozen=True)
+class TOCEntry:
+    """A materialized entry in the document's Table of Contents."""
+
+    title: str
+    page: int
+    level: int = 1
+    bookmark: str = ""
 
 
 def escape_xml(text: Any) -> str:
@@ -37,22 +56,165 @@ def escape_xml(text: Any) -> str:
     )
 
 
+def parse_inline_markdown(text: str) -> list[tuple[str, ...]]:
+    """Tokenize inline Markdown elements: code, bold-italic, bold, italic, link."""
+    pattern = re.compile(
+        r"(`[^`]+`)"                     # 1: code
+        r"|(\*\*\*[^*]+\*\*\*)"          # 2: bold italic
+        r"|(\*\*[^*]+\*\*)"              # 3: bold
+        r"|(\*[^*]+\*)"                  # 4: italic
+        r"|(\[[^\]]+\]\([^)]+\))"        # 5: link
+    )
+    tokens: list[tuple[str, ...]] = []
+    last_idx = 0
+    for m in pattern.finditer(text):
+        start, end = m.span()
+        if start > last_idx:
+            tokens.append(("normal", text[last_idx:start]))
+        match_str = m.group(0)
+        if match_str.startswith("`"):
+            tokens.append(("code", match_str[1:-1]))
+        elif match_str.startswith("***"):
+            tokens.append(("bold_italic", match_str[3:-3]))
+        elif match_str.startswith("**"):
+            tokens.append(("bold", match_str[2:-2]))
+        elif match_str.startswith("*"):
+            tokens.append(("italic", match_str[1:-1]))
+        elif match_str.startswith("["):
+            parts = match_str[1:-1].split("](")
+            url = parts[1] if len(parts) > 1 else ""
+            tokens.append(("link", parts[0], url))
+        last_idx = end
+    if last_idx < len(text):
+        tokens.append(("normal", text[last_idx:]))
+    return tokens
+
+
+def render_inline_runs(
+    text: str,
+    base_bold: bool = False,
+    base_italic: bool = False,
+    base_color: str = "1E293B",
+    base_size: int = 21,
+    base_font: str = "Calibri",
+    code_font: bool = False,
+) -> str:
+    """Render a text string into OpenXML <w:r> runs respecting inline markdown."""
+    if not text:
+        return ""
+    if code_font:
+        return (
+            f"<w:r><w:rPr>"
+            f'<w:rFonts w:ascii="Consolas" w:hAnsi="Consolas"/>'
+            f'<w:sz w:val="{base_size}"/>'
+            f'<w:color w:val="{base_color}"/>'
+            f"</w:rPr>"
+            f'<w:t xml:space="preserve">{escape_xml(text)}</w:t></w:r>'
+        )
+
+    tokens = parse_inline_markdown(text)
+    runs: list[str] = []
+    for token in tokens:
+        kind = token[0]
+        if kind == "normal":
+            b_xml = "<w:b/>" if base_bold else ""
+            i_xml = "<w:i/>" if base_italic else ""
+            runs.append(
+                f"<w:r><w:rPr>"
+                f'<w:rFonts w:ascii="{base_font}" w:hAnsi="{base_font}"/>'
+                f"{b_xml}{i_xml}"
+                f'<w:sz w:val="{base_size}"/>'
+                f'<w:color w:val="{base_color}"/>'
+                f"</w:rPr>"
+                f'<w:t xml:space="preserve">{escape_xml(token[1])}</w:t></w:r>'
+            )
+        elif kind == "bold":
+            i_xml = "<w:i/>" if base_italic else ""
+            runs.append(
+                f"<w:r><w:rPr>"
+                f'<w:rFonts w:ascii="{base_font}" w:hAnsi="{base_font}"/>'
+                f"<w:b/>{i_xml}"
+                f'<w:sz w:val="{base_size}"/>'
+                f'<w:color w:val="0F172A"/>'
+                f"</w:rPr>"
+                f'<w:t xml:space="preserve">{escape_xml(token[1])}</w:t></w:r>'
+            )
+        elif kind == "italic":
+            b_xml = "<w:b/>" if base_bold else ""
+            runs.append(
+                f"<w:r><w:rPr>"
+                f'<w:rFonts w:ascii="{base_font}" w:hAnsi="{base_font}"/>'
+                f"{b_xml}<w:i/>"
+                f'<w:sz w:val="{base_size}"/>'
+                f'<w:color w:val="{base_color}"/>'
+                f"</w:rPr>"
+                f'<w:t xml:space="preserve">{escape_xml(token[1])}</w:t></w:r>'
+            )
+        elif kind == "bold_italic":
+            runs.append(
+                f"<w:r><w:rPr>"
+                f'<w:rFonts w:ascii="{base_font}" w:hAnsi="{base_font}"/>'
+                f"<w:b/><w:i/>"
+                f'<w:sz w:val="{base_size}"/>'
+                f'<w:color w:val="0F172A"/>'
+                f"</w:rPr>"
+                f'<w:t xml:space="preserve">{escape_xml(token[1])}</w:t></w:r>'
+            )
+        elif kind == "code":
+            runs.append(
+                f"<w:r><w:rPr>"
+                f'<w:rFonts w:ascii="Consolas" w:hAnsi="Consolas"/>'
+                f'<w:sz w:val="{max(base_size - 1, 16)}"/>'
+                f'<w:color w:val="0F172A"/>'
+                f'<w:shd w:val="clear" w:color="auto" w:fill="F1F5F9"/>'
+                f"</w:rPr>"
+                f'<w:t xml:space="preserve">{escape_xml(token[1])}</w:t></w:r>'
+            )
+        elif kind == "link":
+            link_text = token[1]
+            runs.append(
+                f"<w:r><w:rPr>"
+                f'<w:rFonts w:ascii="{base_font}" w:hAnsi="{base_font}"/>'
+                f'<w:sz w:val="{base_size}"/>'
+                f'<w:color w:val="2563EB"/>'
+                f'<w:u w:val="single"/>'
+                f"</w:rPr>"
+                f'<w:t xml:space="preserve">{escape_xml(link_text)}</w:t></w:r>'
+            )
+    return "".join(runs)
+
+
 class DocxBuilder:
     """Constructs WordprocessingML body elements deterministically."""
 
     def __init__(self) -> None:
         self.body_elements: list[str] = []
+        self.media_files: dict[str, bytes] = {}
+        self.extra_rels: list[tuple[str, str, str]] = []
+        self.bookmark_counter: int = 0
+        self.heading_bookmarks: dict[str, str] = {}
 
     def add_page_break(self) -> None:
         self.body_elements.append('<w:p><w:r><w:br w:type="page"/></w:r></w:p>')
 
-    def add_heading(self, text: str, level: int = 1, page_break: bool = False) -> None:
+    def add_heading(
+        self,
+        text: str,
+        level: int = 1,
+        page_break: bool = False,
+        bookmark: str | None = None,
+    ) -> str:
         pb = "<w:pageBreakBefore/>" if page_break else ""
         style = f"Heading{min(max(level, 1), 4)}"
         color = "0F172A" if level == 1 else ("1E293B" if level == 2 else "334155")
         sz = 36 if level == 1 else (28 if level == 2 else (24 if level == 3 else 22))
         before = 280 if level == 1 else (200 if level == 2 else 140)
         after = 120 if level <= 2 else 80
+
+        self.bookmark_counter += 1
+        bm_id = str(self.bookmark_counter)
+        bm_name = bookmark or f"bm_{self.bookmark_counter}"
+        self.heading_bookmarks[text.strip()] = bm_name
 
         xml = (
             f"<w:p>"
@@ -62,13 +224,16 @@ class DocxBuilder:
             f'<w:spacing w:before="{before}" w:after="{after}"/>'
             f'<w:outlineLvl w:val="{level - 1}"/>'
             f"</w:pPr>"
+            f'<w:bookmarkStart w:id="{bm_id}" w:name="{bm_name}"/>'
             f"<w:r>"
             f'<w:rPr><w:b/><w:sz w:val="{sz}"/><w:color w:val="{color}"/></w:rPr>'
             f'<w:t xml:space="preserve">{escape_xml(text)}</w:t>'
             f"</w:r>"
+            f'<w:bookmarkEnd w:id="{bm_id}"/>'
             f"</w:p>"
         )
         self.body_elements.append(xml)
+        return bm_name
 
     def add_paragraph(
         self,
@@ -84,10 +249,14 @@ class DocxBuilder:
         code_font: bool = False,
     ) -> None:
         jc_xml = f'<w:jc w:val="{align}"/>' if align else ""
-        font_name = "Consolas" if code_font else "Calibri"
-        b_xml = "<w:b/>" if bold else ""
-        i_xml = "<w:i/>" if italic else ""
-
+        runs_xml = render_inline_runs(
+            text,
+            base_bold=bold,
+            base_italic=italic,
+            base_color=color,
+            base_size=size,
+            code_font=code_font,
+        )
         xml = (
             f"<w:p>"
             f"<w:pPr>"
@@ -95,15 +264,7 @@ class DocxBuilder:
             f"{jc_xml}"
             f'<w:spacing w:before="{space_before}" w:after="{space_after}"/>'
             f"</w:pPr>"
-            f"<w:r>"
-            f"<w:rPr>"
-            f'<w:rFonts w:ascii="{font_name}" w:hAnsi="{font_name}"/>'
-            f"{b_xml}{i_xml}"
-            f'<w:sz w:val="{size}"/>'
-            f'<w:color w:val="{color}"/>'
-            f"</w:rPr>"
-            f'<w:t xml:space="preserve">{escape_xml(text)}</w:t>'
-            f"</w:r>"
+            f"{runs_xml}"
             f"</w:p>"
         )
         self.body_elements.append(xml)
@@ -115,7 +276,7 @@ class DocxBuilder:
                 f'<w:r><w:rPr><w:b/><w:sz w:val="20"/><w:color w:val="2563EB"/></w:rPr>'
                 f'<w:t xml:space="preserve">[{escape_xml(tag_prefix)}] </w:t></w:r>'
             )
-
+        runs_xml = render_inline_runs(text, base_size=21, base_color="1E293B")
         xml = (
             f"<w:p>"
             f"<w:pPr>"
@@ -126,15 +287,13 @@ class DocxBuilder:
             f'<w:r><w:rPr><w:sz w:val="20"/><w:color w:val="64748B"/></w:rPr>'
             f'<w:t xml:space="preserve">• </w:t></w:r>'
             f"{tag_run}"
-            f"<w:r>"
-            f'<w:rPr><w:sz w:val="21"/><w:color w:val="1E293B"/></w:rPr>'
-            f'<w:t xml:space="preserve">{escape_xml(text)}</w:t>'
-            f"</w:r>"
+            f"{runs_xml}"
             f"</w:p>"
         )
         self.body_elements.append(xml)
 
     def add_numbered_item(self, index: int, text: str) -> None:
+        runs_xml = render_inline_runs(text, base_size=21, base_color="1E293B")
         xml = (
             f"<w:p>"
             f"<w:pPr>"
@@ -144,15 +303,13 @@ class DocxBuilder:
             f"</w:pPr>"
             f'<w:r><w:rPr><w:b/><w:sz w:val="20"/><w:color w:val="64748B"/></w:rPr>'
             f'<w:t xml:space="preserve">{index}. </w:t></w:r>'
-            f"<w:r>"
-            f'<w:rPr><w:sz w:val="21"/><w:color w:val="1E293B"/></w:rPr>'
-            f'<w:t xml:space="preserve">{escape_xml(text)}</w:t>'
-            f"</w:r>"
+            f"{runs_xml}"
             f"</w:p>"
         )
         self.body_elements.append(xml)
 
     def add_blockquote(self, text: str) -> None:
+        runs_xml = render_inline_runs(text, base_italic=True, base_size=20, base_color="475569")
         xml = (
             f"<w:p>"
             f"<w:pPr>"
@@ -162,16 +319,12 @@ class DocxBuilder:
             f"</w:pBdr>"
             f'<w:spacing w:before="120" w:after="120"/>'
             f"</w:pPr>"
-            f"<w:r>"
-            f'<w:rPr><w:i/><w:sz w:val="20"/><w:color w:val="475569"/></w:rPr>'
-            f'<w:t xml:space="preserve">{escape_xml(text)}</w:t>'
-            f"</w:r>"
+            f"{runs_xml}"
             f"</w:p>"
         )
         self.body_elements.append(xml)
 
     def add_code_block(self, code: str, language: str = "") -> None:
-        # Render code box with light slate background and soft border
         lines = code.splitlines()
         if not lines:
             lines = [""]
@@ -227,6 +380,112 @@ class DocxBuilder:
         self.body_elements.append(tbl_xml)
         self.body_elements.append('<w:p><w:pPr><w:spacing w:after="120"/></w:pPr></w:p>')
 
+    def add_mermaid_diagram(
+        self,
+        code: str,
+        title: str = "",
+        cache_dir: Path | None = None,
+    ) -> None:
+        """Render a deterministic Mermaid diagram to OpenXML DrawingML."""
+        from publishers.mermaid import render_mermaid_diagram
+
+        if cache_dir is None:
+            cache_dir = Path("build/master/diagrams")
+
+        svg_path, png_path, digest, w, h = render_mermaid_diagram(code, cache_dir)
+        svg_bytes = svg_path.read_bytes()
+        png_bytes = png_path.read_bytes()
+
+        # Geometry scaling: 9360 dxa text width = 5943600 EMUs
+        # Max width: 5486400 (6.0 in), Max height: 4114800 (4.5 in)
+        aspect = h / w if w > 0 else 0.5
+        cx = 5486400
+        cy = int(cx * aspect)
+        if cy > 4114800:
+            scale = 4114800 / cy
+            cx = int(cx * scale)
+            cy = 4114800
+
+        svg_name = f"media/mermaid_{digest}.svg"
+        png_name = f"media/mermaid_{digest}.png"
+        self.media_files[svg_name] = svg_bytes
+        self.media_files[png_name] = png_bytes
+
+        rId_svg = f"rIdSvg_{digest}"
+        rId_png = f"rIdPng_{digest}"
+        self.extra_rels.append((
+            rId_svg,
+            "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image",
+            svg_name[6:],
+        ))
+        self.extra_rels.append((
+            rId_png,
+            "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image",
+            png_name[6:],
+        ))
+
+        self.bookmark_counter += 1
+        pic_id = self.bookmark_counter + 100
+
+        drawing_xml = (
+            f'<w:drawing xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+            f'<wp:inline xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" '
+            f'distT="0" distB="0" distL="0" distR="0">'
+            f'<wp:extent cx="{cx}" cy="{cy}"/>'
+            f'<wp:docPr id="{pic_id}" name="Figure {digest[:8]}"/>'
+            f'<a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">'
+            f'<a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">'
+            f'<pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">'
+            f'<pic:nvPicPr>'
+            f'<pic:cNvPr id="{pic_id}" name="Figure {digest[:8]}"/>'
+            f'<pic:cNvPicPr/>'
+            f'</pic:nvPicPr>'
+            f'<pic:blipFill>'
+            f'<a:blip xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:embed="{rId_png}">'
+            f'<a:extLst>'
+            f'<a:ext uri="{{96DAC542-7B16-4481-80F6-7C1C30152E5F}}">'
+            f'<asvg:svgBlip xmlns:asvg="http://schemas.microsoft.com/office/drawing/2016/SVG/main" r:embed="{rId_svg}"/>'
+            f'</a:ext>'
+            f'</a:extLst>'
+            f'</a:blip>'
+            f'<a:stretch><a:fillRect/></a:stretch>'
+            f'</pic:blipFill>'
+            f'<pic:spPr>'
+            f'<a:xfrm><a:off x="0" y="0"/><a:ext cx="{cx}" cy="{cy}"/></a:xfrm>'
+            f'<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>'
+            f'</pic:spPr>'
+            f'</pic:pic>'
+            f'</a:graphicData>'
+            f'</a:graphic>'
+            f'</wp:inline>'
+            f'</w:drawing>'
+        )
+
+        p_xml = (
+            f"<w:p>"
+            f"<w:pPr>"
+            f'<w:jc w:val="center"/>'
+            f'<w:spacing w:before="160" w:after="100"/>'
+            f"</w:pPr>"
+            f"<w:r>{drawing_xml}</w:r>"
+            f"</w:p>"
+        )
+        self.body_elements.append(p_xml)
+        if title:
+            cap_xml = (
+                f"<w:p>"
+                f"<w:pPr>"
+                f'<w:jc w:val="center"/>'
+                f'<w:spacing w:before="40" w:after="160"/>'
+                f"</w:pPr>"
+                f"<w:r>"
+                f'<w:rPr><w:i/><w:sz w:val="18"/><w:color w:val="64748B"/></w:rPr>'
+                f'<w:t xml:space="preserve">Diagram: {escape_xml(title)}</w:t>'
+                f"</w:r>"
+                f"</w:p>"
+            )
+            self.body_elements.append(cap_xml)
+
     def add_table(
         self,
         headers: list[str],
@@ -254,6 +513,7 @@ class DocxBuilder:
         header_cells = []
         for i, h in enumerate(headers):
             w = col_widths[i]
+            h_runs = render_inline_runs(h, base_bold=True, base_size=cell_font_size + 1, base_color="334155")
             header_cells.append(
                 f"<w:tc>"
                 f"<w:tcPr>"
@@ -262,10 +522,7 @@ class DocxBuilder:
                 f"</w:tcPr>"
                 f"<w:p>"
                 f'<w:pPr><w:spacing w:before="{cell_spacing_y}" w:after="{cell_spacing_y}"/></w:pPr>'
-                f"<w:r>"
-                f'<w:rPr><w:b/><w:sz w:val="{cell_font_size + 1}"/><w:color w:val="334155"/></w:rPr>'
-                f'<w:t xml:space="preserve">{escape_xml(h)}</w:t>'
-                f"</w:r>"
+                f"{h_runs}"
                 f"</w:p>"
                 f"</w:tc>"
             )
@@ -281,6 +538,7 @@ class DocxBuilder:
             for c_idx in range(num_cols):
                 w = col_widths[c_idx]
                 val = r[c_idx] if c_idx < len(r) else ""
+                val_runs = render_inline_runs(str(val), base_size=cell_font_size, base_color="1E293B")
                 cells.append(
                     f"<w:tc>"
                     f"<w:tcPr>"
@@ -289,10 +547,7 @@ class DocxBuilder:
                     f"</w:tcPr>"
                     f"<w:p>"
                     f'<w:pPr><w:spacing w:before="{cell_spacing_y}" w:after="{cell_spacing_y}"/></w:pPr>'
-                    f"<w:r>"
-                    f'<w:rPr><w:sz w:val="{cell_font_size}"/><w:color w:val="1E293B"/></w:rPr>'
-                    f'<w:t xml:space="preserve">{escape_xml(val)}</w:t>'
-                    f"</w:r>"
+                    f"{val_runs}"
                     f"</w:p>"
                     f"</w:tc>"
                 )
@@ -326,6 +581,62 @@ class DocxBuilder:
         if append_space_after:
             self.body_elements.append('<w:p><w:pPr><w:spacing w:after="140"/></w:pPr></w:p>')
 
+    def add_toc(
+        self,
+        entries: list[TOCEntry] | None = None,
+        reserved_pages: int = 3,
+    ) -> None:
+        """Render Table of Contents.
+
+        In Pass 1 (entries is None), reserves exact page geometry.
+        In Pass 2 (entries provided), renders leader-dot lines and hyperlinks.
+        """
+        self.add_heading("Table of Contents", level=1, bookmark="_toc_root")
+        self.body_elements.append(
+            '<w:p><w:fldSimple w:instr="TOC \\o &quot;1-3&quot; \\h \\z \\u"/></w:p>'
+        )
+
+        if entries:
+            entries_per_page = (len(entries) + reserved_pages - 1) // reserved_pages
+            for idx, entry in enumerate(entries):
+                lvl = min(max(entry.level, 1), 3)
+                style = f"TOC{lvl}"
+                anchor_attr = f' w:anchor="{entry.bookmark}"' if entry.bookmark else ""
+
+                p_xml = (
+                    f"<w:p>"
+                    f"<w:pPr>"
+                    f'<w:pStyle w:val="{style}"/>'
+                    f'<w:tabs><w:tab w:val="right" w:leader="dot" w:pos="9360"/></w:tabs>'
+                    f"</w:pPr>"
+                    f"<w:hyperlink{anchor_attr}>"
+                    f"<w:r>"
+                    f'<w:t xml:space="preserve">{escape_xml(entry.title)}</w:t>'
+                    f"</w:r>"
+                    f"<w:r><w:tab/></w:r>"
+                    f"<w:r>"
+                    f"<w:t>{entry.page}</w:t>"
+                    f"</w:r>"
+                    f"</w:hyperlink>"
+                    f"</w:p>"
+                )
+                self.body_elements.append(p_xml)
+
+                if (idx + 1) % entries_per_page == 0 and (idx + 1) < len(entries):
+                    self.add_page_break()
+
+            self.add_page_break()
+        else:
+            for p_num in range(1, reserved_pages + 1):
+                self.add_paragraph(
+                    f"[Table of Contents — Provisional Pagination Pass 1 (Page {p_num} of {reserved_pages})]",
+                    italic=True,
+                    color="94A3B8",
+                    size=20,
+                    space_after=400,
+                )
+                self.add_page_break()
+
 
 def render_markdown_block(builder: DocxBuilder, block: MarkdownBlock) -> None:
     """Render a single MarkdownBlock into docx elements."""
@@ -334,7 +645,6 @@ def render_markdown_block(builder: DocxBuilder, block: MarkdownBlock) -> None:
         if block.epistemic_tags:
             tag_prefix = " ".join(f"[{t}]" for t in block.epistemic_tags) + " "
         title = tag_prefix + str(block.content)
-        # Shift chapter subheadings to levels 2..4
         level = min(max(block.level + 1, 2), 4)
         builder.add_heading(title, level=level)
 
@@ -357,8 +667,15 @@ def render_markdown_block(builder: DocxBuilder, block: MarkdownBlock) -> None:
     elif block.block_type == "blockquote":
         builder.add_blockquote(str(block.content))
 
-    elif block.block_type == "code_block":
-        builder.add_code_block(str(block.content), language=block.language)
+    elif block.block_type in ("code_block", "mermaid"):
+        code_str = str(block.content)
+        if (block.language and block.language.lower() == "mermaid") or block.block_type == "mermaid":
+            if shutil.which("mmdc"):
+                builder.add_mermaid_diagram(code_str)
+            else:
+                builder.add_code_block(code_str, language="mermaid")
+        else:
+            builder.add_code_block(code_str, language=block.language)
 
     elif block.block_type == "table":
         table_dict = block.content if isinstance(block.content, dict) else {}
@@ -368,8 +685,15 @@ def render_markdown_block(builder: DocxBuilder, block: MarkdownBlock) -> None:
 
 
 def render_component_sheet(builder: DocxBuilder, sheet: ComponentSheet) -> None:
-    """Render a comprehensive canonical authority sheet for one SYM-* component."""
-    builder.add_heading(f"[{sheet.sym_id}] {sheet.name}", level=2, page_break=True)
+    """Render a structured semantic authority sheet for one SYM-* component.
+
+    Follows the 1-page executive card layout:
+    - Heading banner with SYM-ID and component name
+    - 5 demarcated sections (Identity, Authority, Interfaces, Lifecycle, Traceability)
+    - Compact cell heights to strictly fit exactly 1 page
+    """
+    bm_name = f"sym_{sheet.sym_id.lower().replace('-', '_')}"
+    builder.add_heading(f"[{sheet.sym_id}] {sheet.name}", level=2, page_break=True, bookmark=bm_name)
 
     headers = ["Canonical Authority Dimension", "Specification / Value"]
     col_widths = [2800, 6560]
@@ -394,30 +718,30 @@ def render_component_sheet(builder: DocxBuilder, sheet: ComponentSheet) -> None:
     )
 
     params_str = (
-        ", ".join(f"{p['id']} ({p.get('symbol', '')})" for p in sheet.parameters)
+        ", ".join(f"`{p['id']}` ({p.get('symbol', '')})" for p in sheet.parameters)
         if sheet.parameters
         else "None"
     )
-    metrics_str = ", ".join(m["id"] for m in sheet.metrics) if sheet.metrics else "None"
+    metrics_str = ", ".join(f"`{m['id']}`" for m in sheet.metrics) if sheet.metrics else "None"
 
     rows: list[list[str]] = [
-        ["Canonical ID", sheet.sym_id],
-        ["Coverage Unit ID", sheet.coverage_unit],
-        ["Implementation Status", sheet.status],
+        ["Canonical ID", f"**{sheet.sym_id}** ({sheet.name})"],
+        ["Coverage Unit ID", f"`{sheet.coverage_unit}`"],
+        ["Implementation Status", f"**{sheet.status}**"],
         ["Owner Domain", sheet.owner_domain],
         ["Participating Domains", ", ".join(sheet.participating_domains) or "None"],
-        ["State Family", sheet.state_family],
+        ["State Family", f"`{sheet.state_family}`"],
         ["Authority: Owns", sheet.authority_owns],
         ["Authority: May Decide", may_decide_str],
         ["Authority: Must Not", must_not_str],
         ["Lifecycle Semantics", lifecycle_str],
-        ["Interfaces: Inputs", ", ".join(sheet.inputs) or "None"],
-        ["Interfaces: Outputs", ", ".join(sheet.outputs) or "None"],
+        ["Interfaces: Inputs", ", ".join(f"`{x}`" for x in sheet.inputs) or "None"],
+        ["Interfaces: Outputs", ", ".join(f"`{x}`" for x in sheet.outputs) or "None"],
         ["Consumers", ", ".join(sheet.consumers) or "None"],
-        ["Implementation Sources", ", ".join(sheet.implementation) or "None (formal/design)"],
-        ["Test Coverage", ", ".join(sheet.tests) or "None"],
-        ["Design Documents & ADRs", ", ".join(sheet.design + sheet.adrs) or "None"],
-        ["Direct Dependencies", ", ".join(sheet.depends_on) or "None"],
+        ["Implementation Sources", ", ".join(f"`{x}`" for x in sheet.implementation) or "None (formal/design)"],
+        ["Test Coverage", ", ".join(f"`{x}`" for x in sheet.tests) or "None"],
+        ["Design Documents & ADRs", ", ".join(f"`{x}`" for x in sheet.design + sheet.adrs) or "None"],
+        ["Direct Dependencies", ", ".join(f"`{x}`" for x in sheet.depends_on) or "None"],
         ["Canonical Chapters", ", ".join(sheet.canonical_docs) or "None"],
         ["Owned Parameters", params_str],
         ["Consumed Metrics", metrics_str],
@@ -438,7 +762,10 @@ def render_component_sheet(builder: DocxBuilder, sheet: ComponentSheet) -> None:
 def render_parameters_section(builder: DocxBuilder, parameters: list[ParameterEntry]) -> None:
     """Render Part VII: Architectural & Scientific Parameters."""
     builder.add_heading(
-        "Part VII — Architectural & Scientific Parameters", level=1, page_break=True
+        "Part VII — Architectural & Scientific Parameters",
+        level=1,
+        page_break=True,
+        bookmark="part_parameters",
     )
     builder.add_paragraph(
         "Canonical registry of numerical, architectural, and experimental parameters "
@@ -464,13 +791,13 @@ def render_parameters_section(builder: DocxBuilder, parameters: list[ParameterEn
         rows.append(
             [
                 p.symbol,
-                p.id,
+                f"`{p.id}`",
                 dim_unit,
                 p.source,
                 p.range,
                 str(p.canonical_default),
                 p.owner,
-                impl_str,
+                f"`{impl_str}`" if impl_str else "",
             ]
         )
 
@@ -482,7 +809,10 @@ def render_metrics_section(
 ) -> None:
     """Render Part VIII: Measurement Metrics partitioned by Epistemic Class."""
     builder.add_heading(
-        "Part VIII — Measurement Metrics by Epistemic Class", level=1, page_break=True
+        "Part VIII — Measurement Metrics by Epistemic Class",
+        level=1,
+        page_break=True,
+        bookmark="part_metrics",
     )
     builder.add_paragraph(
         "Measurement metrics partitioned strictly by epistemic boundary: organism-internal state, "
@@ -503,12 +833,16 @@ def render_metrics_section(
         m_list = metrics_by_class.get(cls, [])
         if not m_list:
             continue
-        builder.add_heading(class_titles.get(cls, cls.title()), level=2)
+        builder.add_heading(
+            class_titles.get(cls, cls.title()),
+            level=2,
+            bookmark=f"metrics_class_{cls}",
+        )
         rows: list[list[str]] = []
         for m in m_list:
             rows.append(
                 [
-                    m.id,
+                    f"`{m.id}`",
                     m.owner_domain,
                     m.consumer or "None (Lab)",
                     m.unit,
@@ -520,7 +854,12 @@ def render_metrics_section(
 
 def render_notation_section(builder: DocxBuilder, notation: list[NotationEntry]) -> None:
     """Render Part IX: Canonical Mathematical Notation."""
-    builder.add_heading("Part IX — Canonical Mathematical Notation", level=1, page_break=True)
+    builder.add_heading(
+        "Part IX — Canonical Mathematical Notation",
+        level=1,
+        page_break=True,
+        bookmark="part_notation",
+    )
     builder.add_paragraph(
         "Canonical formal notation reconciled against the Living Master state vector. "
         "All symbols enforce zero mathematical collision across the formal model."
@@ -555,8 +894,20 @@ def render_notation_section(builder: DocxBuilder, notation: list[NotationEntry])
     builder.add_table(headers, rows, col_widths=col_widths)
 
 
-def build_docx(projection: MasterProjection, output_path: Path) -> Path:
-    """Generate the full WordprocessingML .docx publication file."""
+def build_docx(
+    projection: MasterProjection,
+    output_path: Path,
+    toc_entries: list[TOCEntry] | None = None,
+    toc_pages_reserved: int = 3,
+) -> Path:
+    """Generate the full WordprocessingML .docx publication file.
+
+    Args:
+        projection: Semantic MasterProjection instance.
+        output_path: Destination path for .docx file.
+        toc_entries: List of materialized TOC entries for Pass 2 (or None for Pass 1).
+        toc_pages_reserved: Number of pages reserved for Table of Contents.
+    """
     output_path = output_path.resolve()
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -595,7 +946,6 @@ def build_docx(projection: MasterProjection, output_path: Path) -> Path:
         space_after=1440,
     )
 
-    # Cover metadata card
     prov = projection.provenance
     builder.add_paragraph(
         f"Built at: {prov.built_at}", bold=False, color="475569", size=18, space_after=40
@@ -613,7 +963,11 @@ def build_docx(projection: MasterProjection, output_path: Path) -> Path:
     builder.add_page_break()
 
     # 2. Colophon / Provenance Section
-    builder.add_heading("Publication Provenance & Epistemic Demarcation", level=1)
+    builder.add_heading(
+        "Publication Provenance & Epistemic Demarcation",
+        level=1,
+        bookmark="provenance_colophon",
+    )
     builder.add_paragraph(
         "This document is an automated, deterministic projection of the Symbiont canonical architecture "
         "and scientific reference registries. It does not introduce new specifications, alter existing invariants, "
@@ -640,25 +994,23 @@ def build_docx(projection: MasterProjection, output_path: Path) -> Path:
     builder.add_table(["Inventory Dimension", "Count"], inv_rows, col_widths=[4000, 5360])
     builder.add_page_break()
 
-    # 3. Table of Contents Field
-    builder.add_heading("Table of Contents", level=1)
-    builder.body_elements.append(
-        '<w:p><w:fldSimple w:instr="TOC \\o &quot;1-3&quot; \\h \\z \\u"/></w:p>'
-    )
-    builder.add_page_break()
+    # 3. Table of Contents Section
+    builder.add_toc(entries=toc_entries, reserved_pages=toc_pages_reserved)
 
     # 4. Books and Chapters
     for book in projection.books:
-        builder.add_heading(book.title, level=1, page_break=True)
+        bm_book = f"book_{book.id}"
+        builder.add_heading(book.title, level=1, page_break=True, bookmark=bm_book)
         if book.description:
             builder.add_paragraph(
                 book.description, italic=True, color="64748B", size=22, space_after=200
             )
 
         for chapter in book.chapters:
-            builder.add_heading(chapter.title, level=2)
+            bm_ch = f"ch_{chapter.id}"
+            builder.add_heading(chapter.title, level=2, bookmark=bm_ch)
             builder.add_paragraph(
-                f"Source: {chapter.source_path}",
+                f"Source: `{chapter.source_path}`",
                 italic=True,
                 color="94A3B8",
                 size=18,
@@ -668,7 +1020,12 @@ def build_docx(projection: MasterProjection, output_path: Path) -> Path:
                 render_markdown_block(builder, block)
 
     # 5. Component Catalog (Part VI)
-    builder.add_heading("Part VI — Canonical Component Catalog", level=1, page_break=True)
+    builder.add_heading(
+        "Part VI — Canonical Component Catalog",
+        level=1,
+        page_break=True,
+        bookmark="part_components",
+    )
     builder.add_paragraph(
         "Structured semantic authority sheets for all 48 canonical SYM-* components. "
         "Each sheet unifies implementation paths, state families, lifecycle invariants, "
@@ -682,7 +1039,7 @@ def build_docx(projection: MasterProjection, output_path: Path) -> Path:
     render_metrics_section(builder, projection.metrics)
     render_notation_section(builder, projection.notation)
 
-    # Final section properties with headers, footers and page numbering
+    # Final section properties
     sect_pr = (
         "<w:sectPr>"
         '<w:headerReference w:type="default" r:id="rId2"/>'
@@ -705,6 +1062,8 @@ def build_docx(projection: MasterProjection, output_path: Path) -> Path:
         '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">\n'
         '  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>\n'
         '  <Default Extension="xml" ContentType="application/xml"/>\n'
+        '  <Default Extension="png" ContentType="image/png"/>\n'
+        '  <Default Extension="svg" ContentType="image/svg+xml"/>\n'
         '  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>\n'
         '  <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>\n'
         '  <Override PartName="/word/header1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml"/>\n'
@@ -719,13 +1078,20 @@ def build_docx(projection: MasterProjection, output_path: Path) -> Path:
         "</Relationships>"
     )
 
+    extra_rel_elements = []
+    for r_id, r_type, r_target in builder.extra_rels:
+        extra_rel_elements.append(
+            f'  <Relationship Id="{r_id}" Type="{r_type}" Target="{r_target}"/>'
+        )
+
     doc_rels = (
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
         '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">\n'
         '  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>\n'
         '  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="header1.xml"/>\n'
         '  <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/>\n'
-        "</Relationships>"
+        + "\n".join(extra_rel_elements)
+        + "\n</Relationships>"
     )
 
     header_xml = (
@@ -797,6 +1163,32 @@ def build_docx(projection: MasterProjection, output_path: Path) -> Path:
         '    <w:name w:val="Subtitle"/>\n'
         '    <w:rPr><w:sz w:val="28"/><w:color w:val="475569"/></w:rPr>\n'
         "  </w:style>\n"
+        '  <w:style w:type="paragraph" w:styleId="TOC1">\n'
+        '    <w:name w:val="toc 1"/>\n'
+        '    <w:pPr>\n'
+        '      <w:spacing w:before="60" w:after="40"/>\n'
+        '      <w:tabs><w:tab w:val="right" w:leader="dot" w:pos="9360"/></w:tabs>\n'
+        "    </w:pPr>\n"
+        '    <w:rPr><w:b/><w:sz w:val="20"/><w:color w:val="0F172A"/></w:rPr>\n'
+        "  </w:style>\n"
+        '  <w:style w:type="paragraph" w:styleId="TOC2">\n'
+        '    <w:name w:val="toc 2"/>\n'
+        '    <w:pPr>\n'
+        '      <w:ind w:left="240"/>\n'
+        '      <w:spacing w:before="20" w:after="20"/>\n'
+        '      <w:tabs><w:tab w:val="right" w:leader="dot" w:pos="9360"/></w:tabs>\n'
+        "    </w:pPr>\n"
+        '    <w:rPr><w:sz w:val="19"/><w:color w:val="334155"/></w:rPr>\n'
+        "  </w:style>\n"
+        '  <w:style w:type="paragraph" w:styleId="TOC3">\n'
+        '    <w:name w:val="toc 3"/>\n'
+        '    <w:pPr>\n'
+        '      <w:ind w:left="480"/>\n'
+        '      <w:spacing w:before="15" w:after="15"/>\n'
+        '      <w:tabs><w:tab w:val="right" w:leader="dot" w:pos="9360"/></w:tabs>\n'
+        "    </w:pPr>\n"
+        '    <w:rPr><w:sz w:val="18"/><w:color w:val="64748B"/></w:rPr>\n'
+        "  </w:style>\n"
         "</w:styles>"
     )
 
@@ -808,5 +1200,7 @@ def build_docx(projection: MasterProjection, output_path: Path) -> Path:
         zf.writestr("word/footer1.xml", footer_xml)
         zf.writestr("word/styles.xml", styles_xml)
         zf.writestr("word/document.xml", doc_xml)
+        for media_name, media_bytes in builder.media_files.items():
+            zf.writestr(f"word/{media_name}", media_bytes)
 
     return output_path

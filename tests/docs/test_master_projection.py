@@ -23,6 +23,7 @@ Validates the complete P6 contract:
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 import sys
 import xml.etree.ElementTree as ET
@@ -338,3 +339,118 @@ def test_16_pdf_conversion_optional(default_projection: MasterProjection, tmp_pa
     assert proc.returncode == 0
     assert pdf_file.is_file()
     assert pdf_file.stat().st_size > 500000
+
+
+def test_17_toc_materialization(tmp_path: Path) -> None:
+    """17. Two-pass build produces materialized TOC with leader dots and page numbers."""
+    from publish_master import run_pipeline
+
+    soffice = find_soffice()
+    if not soffice:
+        pytest.skip("LibreOffice soffice not available")
+
+    out_dir = tmp_path / "master_out"
+    ret = run_pipeline(output_dir=out_dir, generate_pdf=True)
+    assert ret == 0
+
+    pdf_p = out_dir / "Symbiont-Master.pdf"
+    assert pdf_p.is_file()
+
+    proc = subprocess.run(
+        ["pdftotext", "-layout", str(pdf_p), "-"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    pages = proc.stdout.split("\x0c")
+
+    # Verify TOC on page 3..5 contains leader dots and page numbers
+    toc_text = "\n".join(pages[2:5])
+    assert "..." in toc_text
+    assert "Book I — Foundations & Architecture" in toc_text
+    assert "[SYM-GEN]" in toc_text
+    assert "Part VI — Canonical Component Catalog" in toc_text
+
+
+def test_18_inline_markdown_runs() -> None:
+    """18. Inline markdown parser correctly extracts bold, italic, code without syntax leakage."""
+    from publishers.docx import parse_inline_markdown, render_inline_runs
+
+    sample = "The **Symbiont** kernel enforces `INV-BOUNDARY-001` with *strict* isolation."
+    tokens = parse_inline_markdown(sample)
+    kinds = [t[0] for t in tokens]
+    assert "bold" in kinds
+    assert "code" in kinds
+    assert "italic" in kinds
+
+    runs = render_inline_runs(sample)
+    assert "<w:b/>" in runs
+    assert "Consolas" in runs
+    assert "<w:i/>" in runs
+    # Confirm markdown syntax markers are not in the text content
+    assert "**Symbiont**" not in runs
+    assert "`INV-BOUNDARY-001`" not in runs
+
+
+def test_19_mermaid_diagram_embedding(tmp_path: Path) -> None:
+    """19. Mermaid diagram is rendered to vector SVG and embedded into DrawingML."""
+    if not shutil.which("mmdc"):
+        pytest.skip("mmdc (Mermaid CLI) not available in environment")
+
+    from publishers.mermaid import render_mermaid_diagram, verify_mmdc_binary
+
+    mmdc = verify_mmdc_binary()
+    assert mmdc
+
+    cache = tmp_path / "diagrams"
+    code = "graph LR\n  A[Origin] --> B[Target]\n"
+    svg_p, png_p, digest, w, h = render_mermaid_diagram(code, cache)
+    assert svg_p.is_file() and svg_p.stat().st_size > 100
+    assert png_p.is_file() and png_p.stat().st_size > 100
+    assert w > 0 and h > 0
+
+
+def test_20_component_sheet_single_page_invariant(
+    default_projection: MasterProjection, tmp_path: Path
+) -> None:
+    """20. Every SYM-* component sheet strictly occupies exactly 1 page in generated PDF."""
+    from publish_master import verify_component_sheet_overflow
+
+    # Test against freshly generated master in build/master or tmp
+    out_dir = tmp_path / "master_qa"
+    from publish_master import run_pipeline
+
+    soffice = find_soffice()
+    if not soffice:
+        pytest.skip("LibreOffice soffice not available")
+
+    ret = run_pipeline(output_dir=out_dir, generate_pdf=True)
+    assert ret == 0
+    pdf_p = out_dir / "Symbiont-Master.pdf"
+    assert pdf_p.is_file()
+
+    # Should complete without LayoutOverflowError
+    verify_component_sheet_overflow(pdf_p, default_projection.components)
+
+
+def test_21_mermaid_fails_closed_when_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """21. Mermaid CLI raises MermaidEnvironmentError when mmdc is not in PATH."""
+    from publishers.mermaid import MermaidEnvironmentError, verify_mmdc_binary
+
+    monkeypatch.setattr("shutil.which", lambda cmd: None)
+    with pytest.raises(MermaidEnvironmentError, match="Mermaid CLI.*not found in PATH"):
+        verify_mmdc_binary()
+
+
+def test_22_mermaid_fails_closed_when_version_mismatch(monkeypatch: pytest.MonkeyPatch) -> None:
+    """22. Mermaid CLI raises MermaidEnvironmentError when mmdc version is incompatible."""
+    from publishers.mermaid import MermaidEnvironmentError, verify_mmdc_binary
+
+    monkeypatch.setattr("shutil.which", lambda cmd: "/usr/bin/mmdc")
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess([], 0, stdout="10.0.0", stderr=""),
+    )
+    with pytest.raises(MermaidEnvironmentError, match="version mismatch"):
+        verify_mmdc_binary()
