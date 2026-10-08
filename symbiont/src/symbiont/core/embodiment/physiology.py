@@ -341,8 +341,7 @@ class LivingBodyState:
             "vital_state": self.vital_state.value,
             "death_tick": None if self.death_tick is None else int(self.death_tick),
             "structures": [
-                state.checkpoint()
-                for _structure_id, state in sorted(self.structure_states.items())
+                state.checkpoint() for _structure_id, state in sorted(self.structure_states.items())
             ],
         }
 
