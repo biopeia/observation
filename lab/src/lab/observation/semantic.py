@@ -189,9 +189,7 @@ class SubjectScope:
         if self.key is not None:
             object.__setattr__(self, "key", _text(self.key, field_name="subject/scope key"))
         if self.key is None and not self.identities and not self.participants:
-            raise ValueError(
-                "subject/scope must provide a key, identity assertion, or participant"
-            )
+            raise ValueError("subject/scope must provide a key, identity assertion, or participant")
 
 
 @dataclass(frozen=True, slots=True)
@@ -379,16 +377,12 @@ class SemanticObservation(Generic[T]):
 
     def source_conditions(self) -> tuple[ObservationCondition, ...]:
         return tuple(
-            condition
-            for condition in self.conditions
-            if condition.origin is ConditionOrigin.SOURCE
+            condition for condition in self.conditions if condition.origin is ConditionOrigin.SOURCE
         )
 
     def plane_conditions(self) -> tuple[ObservationCondition, ...]:
         return tuple(
-            condition
-            for condition in self.conditions
-            if condition.origin is ConditionOrigin.PLANE
+            condition for condition in self.conditions if condition.origin is ConditionOrigin.PLANE
         )
 
 
