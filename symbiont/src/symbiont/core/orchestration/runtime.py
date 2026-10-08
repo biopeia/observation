@@ -2027,6 +2027,8 @@ class OrganismRuntime:
         """
         if not isinstance(duration, PhysicalDuration):
             raise TypeError("duration must be PhysicalDuration")
+        if self._physical_duration_for_tick is not None:
+            raise ValueError("physical duration already registered for next tick")
         self._physical_duration_for_tick = duration
 
     def register_embodied_work(self, amount: float) -> None:
