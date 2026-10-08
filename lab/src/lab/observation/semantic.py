@@ -350,6 +350,7 @@ class SemanticObservation(Generic[T]):
     asserter: ActorRef
     producer: ActorRef
     domain_time: tuple[DomainTimeRef, ...] = ()
+    context_time: tuple[DomainTimeRef, ...] = ()
     identity_links: tuple[IdentityLink, ...] = ()
     lineage: Lineage = field(default_factory=Lineage)
     conditions: tuple[ObservationCondition, ...] = ()
@@ -362,7 +363,7 @@ class SemanticObservation(Generic[T]):
         if mismatched:
             raise ValueError(
                 "primary domain-time references must belong to the claim authority; "
-                "cross-domain time belongs in explicit lineage/context"
+                "cross-domain references belong in context_time"
             )
 
     @property
