@@ -61,6 +61,7 @@ def test_semantic_query_returns_materialized_body_pose() -> None:
     assert response.status == 200
     assert payload["wire_contract"] == "observation-semantic-wire-v1"
     assert payload["latest_sequence"] == 1
+    assert payload["oldest_replay_sequence"] == 1
     assert len(payload["items"]) == 1
     assert payload["items"][0]["family"] == "embodiment.body_pose"
     assert payload["items"][0]["value"]["position_m"] == [1.0, 2.0, 3.0]
@@ -129,3 +130,108 @@ def test_semantic_sse_bootstraps_current_body_pose() -> None:
     payload = json.loads(second[len("data: ") :])
     assert payload["family"] == "embodiment.body_pose"
     assert payload["orchestration"]["run"]["value"] == "run.http.1"
+
+
+
+def test_semantic_sse_resumes_after_retained_watermark() -> None:
+    plane = ObservationPlane(replay_messages=8)
+    _publish(plane)
+    plane.publish(
+        body_pose_observation(
+            BodyPoseSample(
+                body_id="body.http.1",
+                reference_frame="physics3d.world",
+                body_frame="body.root",
+                position_m=(4.0, 5.0, 6.0),
+                orientation_xyzw=(0.0, 0.0, 0.0, 1.0),
+                sample_kind="physics_step",
+                sample_value=43,
+                sample_time_s=0.215,
+            ),
+            run_id="run.http.1",
+        )
+    )
+
+    with _server(plane) as server:
+        host, port = server.server_address[:2]
+        conn = HTTPConnection(host, port, timeout=2)
+        try:
+            conn.request(
+                "GET",
+                "/api/observations/stream?family=embodiment.body_pose&after=1",
+                headers={"Accept": "text/event-stream"},
+            )
+            response = conn.getresponse()
+            first = response.fp.readline().decode().strip()
+            second = response.fp.readline().decode().strip()
+        finally:
+            conn.close()
+
+    assert response.status == 200
+    assert first == "id: 2"
+    payload = json.loads(second[len("data: ") :])
+    assert payload["sequence"] == 2
+    assert payload["value"]["position_m"] == [4.0, 5.0, 6.0]
+
+
+def test_semantic_sse_expired_watermark_returns_rebase_snapshot() -> None:
+    plane = ObservationPlane(replay_messages=1)
+    for step in (1, 2, 3):
+        plane.publish(
+            body_pose_observation(
+                BodyPoseSample(
+                    body_id="body.http.1",
+                    reference_frame="physics3d.world",
+                    body_frame="body.root",
+                    position_m=(float(step), 0.0, 0.0),
+                    orientation_xyzw=(0.0, 0.0, 0.0, 1.0),
+                    sample_kind="physics_step",
+                    sample_value=step,
+                    sample_time_s=step * 0.005,
+                ),
+                run_id="run.http.1",
+            )
+        )
+
+    with _server(plane) as server:
+        host, port = server.server_address[:2]
+        conn = HTTPConnection(host, port, timeout=2)
+        try:
+            conn.request(
+                "GET",
+                "/api/observations/stream?family=embodiment.body_pose&after=1",
+                headers={"Accept": "text/event-stream"},
+            )
+            response = conn.getresponse()
+            first = response.fp.readline().decode().strip()
+            second = response.fp.readline().decode().strip()
+        finally:
+            conn.close()
+
+    assert response.status == 200
+    assert first == "id: 3"
+    payload = json.loads(second[len("data: ") :])
+    assert payload["type"] == "observation_plane_control"
+    assert payload["status"] == "rebase_required"
+    assert payload["reason"] == "replay_expired"
+    assert payload["latest_sequence"] == 3
+    assert len(payload["items"]) == 1
+    assert payload["items"][0]["sequence"] == 3
+
+
+def test_semantic_stream_rejects_negative_watermark() -> None:
+    plane = ObservationPlane()
+    _publish(plane)
+
+    with _server(plane) as server:
+        host, port = server.server_address[:2]
+        conn = HTTPConnection(host, port, timeout=2)
+        try:
+            conn.request("GET", "/api/observations/stream?after=-1")
+            response = conn.getresponse()
+            payload = json.loads(response.read())
+        finally:
+            conn.close()
+
+    assert response.status == 400
+    assert payload["error"] == "invalid observation watermark"

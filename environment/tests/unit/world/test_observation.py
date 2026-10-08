@@ -4,7 +4,11 @@ import pytest
 
 from environment.genesis import GroundTruth, WorldEnvironment
 from environment.laws import HazardLaw, PeriodicFieldLaw, ResourceLaw
-from environment.observation import local_observation, opaque_signal_id
+from environment.observation import (
+    local_observation,
+    opaque_signal_id,
+    resource_pool_observation,
+)
 from environment.topology import BodyPlacement, HexCoord, HexTopology, OccupancyGrid
 
 _HEX_ID_PATTERN = re.compile(r"^[0-9a-f]{16}$")
@@ -87,3 +91,58 @@ def test_local_observation_without_environment_still_matches_w1_behavior():
     body = BodyPlacement(organism_id="org-a", occupied_cell=HexCoord(0, 0))
     obs = local_observation(topo, grid, body)
     assert set(obs.signals) == {opaque_signal_id("local-occupancy-density")}
+
+
+
+def test_resource_pool_observation_is_passive_for_unmaterialized_cell():
+    resource_id = "r7c2e9a1b4d80556"
+    truth = GroundTruth(
+        fields={},
+        resources={
+            resource_id: ResourceLaw(
+                capacity=10.0,
+                renewal_rate=0.1,
+                decay_rate=0.0,
+                initial_quantity=4.0,
+            )
+        },
+        hazards={},
+    )
+    env = WorldEnvironment(truth)
+    cell = HexCoord(2, 2)
+
+    assert env.is_materialized(cell) is False
+    assert resource_pool_observation(env, cell) is None
+    assert env.is_materialized(cell) is False
+
+
+def test_resource_pool_observation_reports_environment_model_amounts():
+    resource_id = "r7c2e9a1b4d80556"
+    truth = GroundTruth(
+        fields={},
+        resources={
+            resource_id: ResourceLaw(
+                capacity=10.0,
+                renewal_rate=0.1,
+                decay_rate=0.0,
+                initial_quantity=4.0,
+            )
+        },
+        hazards={},
+    )
+    env = WorldEnvironment(truth)
+    cell = HexCoord(1, 1)
+    assert env.resource_pool(cell)[resource_id] == 4.0
+    env.propagate_fields(tick=7)
+
+    sample = resource_pool_observation(env, cell)
+
+    assert sample is not None
+    assert sample.world_tick == 7
+    assert (sample.q, sample.r) == (1, 1)
+    assert len(sample.resources) == 1
+    item = sample.resources[0]
+    assert item.resource_id == resource_id
+    assert item.amount == env.resource_pool(cell)[resource_id]
+    assert item.capacity == 10.0
+    assert item.quantity_kind == "model_amount"

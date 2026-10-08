@@ -6,7 +6,7 @@ import queue
 
 from embodiment.observation import BodyPoseSample
 from lab.observation.body_pose import body_pose_observation
-from lab.observation.plane import ObservationPlane
+from lab.observation.plane import ObservationPlane, PlaneRebaseRequired
 from lab.observation.wire import plane_message_payload
 
 
@@ -86,3 +86,81 @@ def test_wire_projection_preserves_semantics_and_run_context() -> None:
         {"domain": "embodiment", "kind": "simulation_time_s", "value": 0.035},
     ]
     assert payload["orchestration"]["run"]["value"] == "run.semantic.1"
+
+
+
+def test_stream_replays_messages_after_retained_watermark() -> None:
+    plane = ObservationPlane(subscriber_queue_size=8, replay_messages=8)
+    plane.publish(_observation(step=1))
+    plane.publish(_observation(step=2))
+    plane.publish(_observation(step=3))
+
+    subscription = plane.open_stream(after_sequence=1, family="embodiment.body_pose")
+    try:
+        first = subscription.queue.get_nowait()
+        second = subscription.queue.get_nowait()
+    finally:
+        plane.close_stream(subscription)
+
+    assert first.sequence == 2
+    assert second.sequence == 3
+
+
+def test_stream_requires_rebase_when_watermark_expired() -> None:
+    plane = ObservationPlane(subscriber_queue_size=8, replay_messages=1)
+    plane.publish(_observation(step=1))
+    plane.publish(_observation(step=2))
+    plane.publish(_observation(step=3))
+
+    subscription = plane.open_stream(after_sequence=1)
+    try:
+        control = subscription.queue.get_nowait()
+    finally:
+        plane.close_stream(subscription)
+
+    assert isinstance(control, PlaneRebaseRequired)
+    assert control.sequence == 3
+    assert control.reason == "replay_expired"
+
+
+def test_stream_requires_rebase_for_future_watermark() -> None:
+    plane = ObservationPlane(subscriber_queue_size=8)
+    plane.publish(_observation(step=1))
+
+    subscription = plane.open_stream(after_sequence=9)
+    try:
+        control = subscription.queue.get_nowait()
+    finally:
+        plane.close_stream(subscription)
+
+    assert isinstance(control, PlaneRebaseRequired)
+    assert control.reason == "future_watermark"
+
+
+def test_stream_overflow_emits_rebase_instead_of_silent_gap() -> None:
+    plane = ObservationPlane(subscriber_queue_size=1)
+    subscription = plane.open_stream(after_sequence=0)
+    try:
+        plane.publish(_observation(step=1))
+        plane.publish(_observation(step=2))
+        control = subscription.queue.get_nowait()
+    finally:
+        plane.close_stream(subscription)
+
+    assert isinstance(control, PlaneRebaseRequired)
+    assert control.sequence == 2
+    assert control.reason == "consumer_overflow"
+
+
+def test_run_boundary_invalidates_stream_state_explicitly() -> None:
+    plane = ObservationPlane(subscriber_queue_size=8)
+    plane.publish(_observation(step=1))
+    subscription = plane.open_stream(after_sequence=1)
+    try:
+        plane.clear()
+        control = subscription.queue.get_nowait()
+    finally:
+        plane.close_stream(subscription)
+
+    assert isinstance(control, PlaneRebaseRequired)
+    assert control.reason == "run_boundary"

@@ -344,3 +344,30 @@ def test_world_live_metrics_and_projection_do_not_replay_full_history():
     assert payload["tick"] == state.population.state.tick
     assert isinstance(payload["events"], list)
     assert isinstance(page["events"], list)
+
+
+
+def test_world_observatory_exposes_canonical_resource_state(running_server):
+    _, body = _get(
+        running_server,
+        "/api/observations?family=environment.resource_state",
+    )
+    payload = json.loads(body)
+
+    assert payload["wire_contract"] == "observation-semantic-wire-v1"
+    assert payload["latest_sequence"] >= 1
+    assert payload["items"]
+    for item in payload["items"]:
+        assert item["family"] == "environment.resource_state"
+        assert item["authority"] == "environment"
+        assert item["domain_time"][0]["kind"] == "world_tick"
+        for resource in item["value"]["resources"]:
+            assert resource["quantity_kind"] == "model_amount"
+
+
+def test_world_observatory_client_overlays_canonical_resource_state(running_server):
+    status, body = _get(running_server, "/world.html")
+    assert status == 200
+    assert b"applySemanticResourceState" in body
+    assert b"/api/observations?family=environment.resource_state" in body
+    assert b"environment.resource_state" in body

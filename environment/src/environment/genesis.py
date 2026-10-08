@@ -80,6 +80,12 @@ class WorldEnvironment:
         self._resource_pools: dict[HexCoord, dict[ResourceId, float]] = {}
         self._tick: int = 0
 
+    @property
+    def current_tick(self) -> int:
+        """Current Environment clock without exposing mutable internals."""
+
+        return int(self._tick)
+
     def propagate_fields(self, tick: int) -> None:
         self._tick = int(tick)
         self._field_values = {

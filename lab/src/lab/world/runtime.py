@@ -13,7 +13,10 @@ from threading import Lock, Thread
 from typing import Any
 
 from environment.genesis_v1 import GENESIS_V1_METADATA, build_constitution, build_ground_truth
+from environment.observation import resource_pool_observation
 from environment.topology import HexTopology
+from lab.observation.environment_resource import resource_state_observation
+from lab.observation.plane import ObservationPlane
 from lab.world.cli_view import render_world, world_snapshot
 from lab.world.persistence import WorldStorage
 from lab.world.population import PopulationGenesisRuntime, founder_placement
@@ -31,11 +34,13 @@ class WorldRuntimeState:
         storage: WorldStorage | None = None,
         checkpoint_interval: int = 100,
         population: PopulationGenesisRuntime | None = None,
+        observation_plane: ObservationPlane | None = None,
     ) -> None:
         self._lock = Lock()
         self._tick_delay_s = max(tick_delay_s, 0.0)
         self._running = False
         self._error: str | None = None
+        self.observation_plane = observation_plane or ObservationPlane()
         self.storage = storage
         self.checkpoint_interval = checkpoint_interval
 
@@ -83,6 +88,21 @@ class WorldRuntimeState:
         self._history_acquisitions: deque[float] = deque(maxlen=self._timeline_max)
 
         self._record_metrics(self.population.state.tick, None)
+
+    def _publish_resource_observations(self) -> None:
+        """Publish bounded active-cell Environment state after World commit."""
+
+        world_id = self.population.state.world_id
+        active_cells = {
+            placement.occupied_cell
+            for organism_id, placement in self.population.state.bodies.items()
+            if self.population.is_alive(organism_id)
+        }
+        for cell in sorted(active_cells, key=lambda item: (item.q, item.r)):
+            sample = resource_pool_observation(self.population.environment, cell)
+            if sample is None:
+                continue
+            self.observation_plane.publish(resource_state_observation(sample, world_id=world_id))
 
     def _record_metrics(self, tick: int, record: Any | None) -> None:
         oids = self.population.organism_ids
@@ -157,6 +177,7 @@ class WorldRuntimeState:
                 try:
                     record = self.population.run_tick()
                     if record is not None:
+                        self._publish_resource_observations()
                         self._record_metrics(self.population.state.tick, record)
                         if (
                             self.storage is not None

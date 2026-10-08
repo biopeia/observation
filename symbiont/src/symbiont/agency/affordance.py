@@ -58,4 +58,35 @@ class ActionAffordance:
             raise ValueError("an affordance never carries actuator semantics")
 
 
-__all__ = ["ActionAffordance", "affordance_id_for"]
+@dataclass(frozen=True, slots=True)
+class AffordanceObservation:
+    """Bounded Symbiont-owned current affordance set for passive observation."""
+
+    organism_id: str
+    organism_tick: int
+    affordances: tuple[ActionAffordance, ...]
+    contract_revision: str = "v1"
+
+    def __post_init__(self) -> None:
+        organism_id = self.organism_id.strip()
+        revision = self.contract_revision.strip()
+        if not organism_id:
+            raise ValueError("organism_id must not be empty")
+        if isinstance(self.organism_tick, bool) or not isinstance(self.organism_tick, int):
+            raise ValueError("organism_tick must be an integer")
+        if self.organism_tick < 0:
+            raise ValueError("organism_tick must be non-negative")
+        values = tuple(self.affordances)
+        if any(not isinstance(item, ActionAffordance) for item in values):
+            raise ValueError("affordances must contain ActionAffordance values")
+        ids = tuple(item.affordance_id for item in values)
+        if len(set(ids)) != len(ids):
+            raise ValueError("affordance ids must be unique")
+        if not revision:
+            raise ValueError("contract_revision must not be empty")
+        object.__setattr__(self, "organism_id", organism_id)
+        object.__setattr__(self, "affordances", values)
+        object.__setattr__(self, "contract_revision", revision)
+
+
+__all__ = ["ActionAffordance", "AffordanceObservation", "affordance_id_for"]
