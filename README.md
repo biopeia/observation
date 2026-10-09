@@ -34,7 +34,21 @@ when its bounded queue fills it keeps the newest item without gap signaling;
 use `open_stream()` where replay/gap recovery matters. Current materialization
 is bounded and keyed by semantic family, contract ID and revision, and subject
 (including typed identity issuer, scope, and lifetime), so distinct contract
-or identity contexts cannot silently overwrite one another.
+or identity contexts cannot silently overwrite one another. Epistemic kind is
+also part of the key: authoritative, estimated, and inferred claims remain
+separate materialized values.
+
+The in-memory `open_stream()` delivery contract is scoped to one plane instance:
+it orders messages by the global publication sequence; a family filter retains
+that sequence, so unrelated-family messages create legitimate sequence gaps.
+A healthy subscription delivers each sequence at most once. Re-fetch after a
+rebase may overlap already processed messages, so consumers should deduplicate
+by sequence. Replay is complete only within the retained in-memory range when
+the requested replay fits the bounded queue; normal live delivery is complete
+until overflow. Overflow/expiry/bootstrap bounds require rebase. There is no
+durability or cross-restart resume guarantee. `subscribe()` is at-most-once,
+latest-value and lossy: queue pressure replaces queued items with the newest
+item, without replay or gap signaling, and its initial snapshot may be bounded.
 `SubjectScope.key` is a local scope descriptor, not inherently stable identity;
 stable identity requirements belong to each semantic family and use typed
 identity assertions where needed.

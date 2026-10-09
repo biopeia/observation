@@ -156,6 +156,38 @@ def test_materialization_key_includes_contract_id_and_identity_scope_and_lifetim
     assert len(plane.current_messages()) == 4
 
 
+def test_materialization_key_separates_epistemic_kinds() -> None:
+    plane = ObservationPlane()
+    authoritative = sample(1)
+    estimated = SemanticObservation(
+        claim=SemanticClaim(
+            family=authoritative.family,
+            subject=authoritative.claim.subject,
+            epistemic_kind="estimate",
+            value=authoritative.claim.value,
+        ),
+        acquisition=authoritative.acquisition,
+        asserter=authoritative.asserter,
+        producer=authoritative.producer,
+    )
+    inferred = SemanticObservation(
+        claim=SemanticClaim(
+            family=authoritative.family,
+            subject=authoritative.claim.subject,
+            epistemic_kind="inference",
+            value=authoritative.claim.value,
+        ),
+        acquisition=authoritative.acquisition,
+        asserter=authoritative.asserter,
+        producer=authoritative.producer,
+    )
+
+    for observation in (authoritative, estimated, inferred):
+        plane.publish(observation)
+
+    assert len(plane.current_messages()) == 3
+
+
 def test_bootstrap_overflow_signals_rebase_instead_of_truncating_materialized_state() -> None:
     plane = ObservationPlane(max_entries=2, subscriber_queue_size=1)
     first = sample(1)

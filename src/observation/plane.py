@@ -28,6 +28,7 @@ class ObservationKey:
     family: str
     contract_id: str
     semantic_revision: str
+    epistemic_kind: str
     subject: Hashable
 
 
@@ -77,6 +78,7 @@ def observation_key(observation: SemanticObservation[object]) -> ObservationKey:
         family=observation.family.qualified_name,
         contract_id=observation.family.contract.contract_id,
         semantic_revision=observation.family.contract.revision,
+        epistemic_kind=observation.claim.epistemic_kind,
         subject=(subject.kind, subject.key, identities, participants),
     )
 
@@ -239,6 +241,14 @@ class ObservationPlane:
         bound overflow, and live subscriber overflow are signaled with
         :class:`PlaneRebaseRequired`; consumers must rebase rather than infer
         source-state absence.
+
+        Within one healthy subscription, each sequence is delivered at most
+        once. Re-fetching current state after rebase may overlap messages the
+        consumer already processed; consumers should deduplicate by sequence.
+        Completeness is limited to the retained in-memory sequence range and
+        normal live delivery before overflow. This plane is not durable and
+        cannot resume across process restarts. Watermarks are scoped to this
+        plane instance; a family filter preserves global sequence values.
         """
 
         consumer: queue.Queue[PlaneMessage | PlaneRebaseRequired] = queue.Queue(

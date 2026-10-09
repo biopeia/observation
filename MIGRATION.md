@@ -65,8 +65,9 @@ Validation: target package suite and wheel/sdist build are recorded with the mig
   `WORLD`; `LAB` is available for Lab-derived claims only. `MODALITY` is not a
   primary authority.
 - Current materialization identity includes semantic contract ID and revision,
-  and each subject identity's issuer, scope, and lifetime, so distinct contract
-  or identity contexts cannot replace each other's current value.
+  epistemic kind, and each subject identity's issuer, scope, and lifetime, so
+  distinct semantic, epistemic, contract, or identity contexts cannot replace
+  each other's current value.
 - `open_stream()` declares global publish-order sequencing, family-filtered
   sequence gaps, and explicit rebase signals for replay/live/bootstrap overflow;
   current-state bootstrap is never silently truncated. The
@@ -74,5 +75,12 @@ Validation: target package suite and wheel/sdist build are recorded with the mig
   projection without gap signaling.
 - `SubjectScope.key` is only a local scope descriptor, not a stable identity by
   itself; semantic-family contracts define required typed identity linkage.
+- In-memory delivery contract: `open_stream()` sequences globally within one
+  plane instance; family filters preserve global sequence values. A healthy
+  subscription delivers each sequence once, but recovery re-fetch can overlap,
+  so consumers deduplicate by sequence. Completeness is bounded to retained
+  replay and normal live delivery until overflow; there is no durability or
+  cross-restart resume. `subscribe()` is at-most-once/latest-value/lossy, with
+  no replay or gap signal.
 - These clarifications do not select a wire format, API, transport, or storage
   mechanism. Stream ordering and bounded loss are in-process plane behavior.
