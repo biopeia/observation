@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "observation"
+version = "0.1.0"
+description = "Passive, transport-neutral runtime observation projections"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "LicenseRef-Provisional"
+authors = [{ name = "Biopeia contributors" }]
+dependencies = []
+
+[project.optional-dependencies]
+test = ["pytest>=8"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
