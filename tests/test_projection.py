@@ -1,0 +1,53 @@
+from copy import deepcopy
+
+import pytest
+
+from observation import ObservedFrame, runtime_tick_events
+
+
+def test_observed_frame_emits_explicit_passive_projection_provenance() -> None:
+    frame = ObservedFrame(
+        tick=4,
+        source="synthetic-fixture",
+        run_id="run-1",
+        organism_id="org-1",
+        body={"position": [1, 2, 3]},
+        cognition=None,
+        vitals={"alive": True},
+        mind={"signals": []},
+        body_id="body-1",
+    )
+    event = frame.as_event()
+    assert event["type"] == "observed_frame"
+    assert event["tick"] == 4
+    assert event["body_id"] == "body-1"
+    assert event["provenance"]["owner"] == "observer"
+    assert event["provenance"]["feeds_back"] is False
+    assert event["body"] == {"position": [1, 2, 3]}
+
+
+def test_runtime_tick_projection_is_mapping_only_and_does_not_mutate_source() -> None:
+    tick = {
+        "tick": "12",
+        "run_id": "r-1",
+        "base_position": [0.1, 2, 3],
+        "alive": True,
+        "schema_confidence": "0.8",
+        "joints": [{"name": "elbow", "position": "0.5"}],
+    }
+    before = deepcopy(tick)
+    body, cognition, vitals = runtime_tick_events(tick)
+    assert tick == before
+    assert body["base_position"] == [0.1, 2.0, 3.0]
+    assert body["joints"] == [{"name": "elbow", "position": 0.5}]
+    assert cognition["schema_confidence"] == 0.8
+    assert vitals["alive"] is True
+
+
+def test_projection_does_not_invent_observations_and_rejects_non_mapping() -> None:
+    body, cognition, vitals = runtime_tick_events({"tick": 3})
+    assert body == {"type": "body", "tick": 3}
+    assert cognition == {"type": "cognition", "tick": 3}
+    assert vitals == {"type": "vitals", "tick": 3}
+    with pytest.raises(TypeError, match="tick must be a mapping"):
+        runtime_tick_events([])  # type: ignore[arg-type]
