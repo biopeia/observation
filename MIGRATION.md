@@ -58,3 +58,17 @@ This extraction does not assign semantic ownership of every projected field. The
 The source `semantic.py` is the transport-independent claim/identity/lineage model, not a semantic authority. The source `plane.py` is bounded in-memory current materialization, live subscriber fan-out, replay, and explicit rebase signaling. The plane does not own the meaning or canonical state of claim values. Delivery sequence is local plane metadata, not domain time. This slice does not include `wire.py`, `bus.py`, World-scene materialization, delta encoding, Lab run lifecycle, HTTP/SSE, UI, or scientific evidence custody. No causal runtime API is imported or written. Source semantic tests were copied with import-path updates; plane behavior is tested with neutral semantic fixtures rather than Lab/Embodiment adapters.
 
 Validation: target package suite and wheel/sdist build are recorded with the migration PR. The extraction has not yet been integrated or reviewed.
+
+### Review adjustments for the approved conceptual model (2026-10-09)
+
+- Authority vocabulary now names `ORGANISM`, `EMBODIMENT`, `ENVIRONMENT`, and
+  `WORLD`; `LAB` is available for Lab-derived claims only. `MODALITY` is not a
+  primary authority.
+- Current materialization identity includes semantic contract revision, so an
+  incompatible revision cannot replace the prior revision's current value.
+- `open_stream()` declares global publish-order sequencing, family-filtered
+  sequence gaps, and explicit rebase signals for replay/live overflow. The
+  compatibility `subscribe()` API is explicitly a lossy latest-value
+  projection without gap signaling.
+- These clarifications do not select a wire format, API, transport, or storage
+  mechanism. Stream ordering and bounded loss are in-process plane behavior.

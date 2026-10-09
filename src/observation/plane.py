@@ -26,6 +26,7 @@ _DEFAULT_REPLAY_MESSAGES = 2048
 @dataclass(frozen=True, slots=True)
 class ObservationKey:
     family: str
+    semantic_revision: str
     subject: Hashable
 
 
@@ -69,6 +70,7 @@ def observation_key(observation: SemanticObservation[object]) -> ObservationKey:
     )
     return ObservationKey(
         family=observation.family.qualified_name,
+        semantic_revision=observation.family.contract.revision,
         subject=(subject.kind, subject.key, identities, participants),
     )
 
@@ -184,9 +186,11 @@ class ObservationPlane:
         include_current: bool = True,
         family: str | None = None,
     ) -> queue.Queue[PlaneMessage]:
-        """Compatibility subscription for in-process consumers.
+        """Lossy latest-value subscription for in-process projections.
 
-        New transport consumers should use open_stream() for replay/rebase semantics.
+        When full, queued messages are discarded and the newest message is kept;
+        this API does not signal a gap. Consumers requiring replay or gap/rebase
+        signaling must use :meth:`open_stream`.
         """
 
         consumer: queue.Queue[PlaneMessage] = queue.Queue(maxsize=self._subscriber_queue_size)
@@ -220,6 +224,13 @@ class ObservationPlane:
         watermark replays messages after it. An expired watermark yields an
         explicit rebase request; the transport can then send current state at
         the returned sequence watermark.
+
+        Message sequence is globally increasing in publish order, not domain
+        time. Family-filtered streams retain that global sequence, so gaps may
+        simply be messages belonging to other families. Replay expiry, replay
+        bound overflow, and live subscriber overflow are signaled with
+        :class:`PlaneRebaseRequired`; consumers must rebase rather than infer
+        source-state absence.
         """
 
         consumer: queue.Queue[PlaneMessage | PlaneRebaseRequired] = queue.Queue(

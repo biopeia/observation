@@ -38,12 +38,12 @@ def _text(value: str, *, field_name: str) -> str:
 
 
 class AuthorityDomain(StrEnum):
-    """Semantic authority domains frozen for Observation Architecture v1."""
+    """Semantic authority domains recognized by Biopeia Architecture v1."""
 
-    SYMBIONT = "symbiont"
+    ORGANISM = "organism"
     EMBODIMENT = "embodiment"
-    MODALITY = "modality"
     ENVIRONMENT = "environment"
+    WORLD = "world"
     LAB = "lab"
 
 
@@ -333,6 +333,8 @@ class SemanticClaim(Generic[T]):
             "epistemic_kind",
             _token(self.epistemic_kind, field_name="epistemic kind"),
         )
+        if self.family.authority is AuthorityDomain.LAB and self.epistemic_kind != "lab_derived":
+            raise ValueError("LAB authority is reserved for lab_derived claims")
 
     @property
     def authority(self) -> AuthorityDomain:

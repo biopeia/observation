@@ -32,7 +32,7 @@ LAB = ActorRef("component", "lab")
 PHYSICS3D = ActorRef("apparatus", "physics3d.mujoco")
 EMBODIMENT_RUNTIME = ActorRef("component", "embodiment.runtime")
 ENVIRONMENT_RUNTIME = ActorRef("component", "environment.runtime")
-SYMBIONT_RUNTIME = ActorRef("component", "symbiont.runtime")
+ORGANISM_RUNTIME = ActorRef("component", "organism.runtime")
 
 
 def family(authority: AuthorityDomain, *path: str, revision: str = "v1") -> SemanticFamily:
@@ -167,11 +167,11 @@ def test_body_local_physiology_is_modeled_state_not_measurement() -> None:
     assert observation.authority is AuthorityDomain.EMBODIMENT
 
 
-def test_symbiont_affordance_retains_authority_with_cross_domain_lineage() -> None:
-    organism = identity("organism", "organism.alpha", SYMBIONT_RUNTIME)
+def test_organism_affordance_retains_authority_with_cross_domain_lineage() -> None:
+    organism = identity("organism", "organism.alpha", ORGANISM_RUNTIME)
     observation = SemanticObservation(
         claim=SemanticClaim(
-            family=family(AuthorityDomain.SYMBIONT, "affordance"),
+            family=family(AuthorityDomain.ORGANISM, "affordance"),
             subject=SubjectScope(
                 kind="organism_in_context",
                 identities=(organism,),
@@ -181,29 +181,29 @@ def test_symbiont_affordance_retains_authority_with_cross_domain_lineage() -> No
             value=("approach", "grasp"),
         ),
         acquisition=AcquisitionBasis(method="action_model_derivation"),
-        asserter=SYMBIONT_RUNTIME,
-        producer=SYMBIONT_RUNTIME,
+        asserter=ORGANISM_RUNTIME,
+        producer=ORGANISM_RUNTIME,
         domain_time=(
             DomainTimeRef(
-                domain=AuthorityDomain.SYMBIONT,
+                domain=AuthorityDomain.ORGANISM,
                 kind="organism_cycle",
                 value=201,
             ),
         ),
         lineage=Lineage(
             parents=(
-                LineageSourceRef("symbiont.competence", "competence:grasp"),
+                LineageSourceRef("organism.competence", "competence:grasp"),
                 LineageSourceRef("embodiment.binding", "binding:hand"),
                 LineageSourceRef("environment.context", "context:near-resource"),
             ),
             transformation=TransformationRef(
-                transformation_id="symbiont.affordance_resolution",
+                transformation_id="organism.affordance_resolution",
                 revision="v1",
             ),
         ),
     )
 
-    assert observation.authority is AuthorityDomain.SYMBIONT
+    assert observation.authority is AuthorityDomain.ORGANISM
     assert len(observation.lineage.parents) == 3
 
 
@@ -213,7 +213,7 @@ def test_lab_derived_claim_does_not_take_authority_over_parent() -> None:
         claim=SemanticClaim(
             family=family(AuthorityDomain.LAB, "prediction_error_band"),
             subject=SubjectScope(kind="predictor_target_relation", key="p1->t1"),
-            epistemic_kind="lab_derived_claim",
+            epistemic_kind="lab_derived",
             value="high",
         ),
         acquisition=AcquisitionBasis(method="classification"),
@@ -237,6 +237,16 @@ def test_lab_derived_claim_does_not_take_authority_over_parent() -> None:
 
     assert observation.authority is AuthorityDomain.LAB
     assert observation.lineage.parents == (residual,)
+
+
+def test_lab_authority_requires_lab_derived_epistemic_basis() -> None:
+    with pytest.raises(ValueError, match="reserved for lab_derived"):
+        SemanticClaim(
+            family=family(AuthorityDomain.LAB, "claim"),
+            subject=SubjectScope(kind="study", key="study.1"),
+            epistemic_kind="authoritative_state",
+            value="not a Lab-derived claim",
+        )
 
 
 def test_conflicting_identity_link_does_not_invalidate_independent_claim() -> None:
@@ -274,21 +284,21 @@ def test_conflicting_identity_link_does_not_invalidate_independent_claim() -> No
 
 
 def test_run_context_remains_separate_from_source_subject_identity() -> None:
-    organism = identity("organism", "organism.alpha", SYMBIONT_RUNTIME)
+    organism = identity("organism", "organism.alpha", ORGANISM_RUNTIME)
     run = IdentityAssertion(
         IdentityRef("run", "run.9", LAB),
         asserter=LAB,
     )
     observation = SemanticObservation(
         claim=SemanticClaim(
-            family=family(AuthorityDomain.SYMBIONT, "affordance"),
+            family=family(AuthorityDomain.ORGANISM, "affordance"),
             subject=SubjectScope(kind="organism", identities=(organism,)),
             epistemic_kind="domain_derived_state",
             value=("grasp",),
         ),
         acquisition=AcquisitionBasis(method="action_model_derivation"),
-        asserter=SYMBIONT_RUNTIME,
-        producer=SYMBIONT_RUNTIME,
+        asserter=ORGANISM_RUNTIME,
+        producer=ORGANISM_RUNTIME,
         orchestration=OrchestrationContext(run_identity=run),
     )
 
@@ -297,16 +307,16 @@ def test_run_context_remains_separate_from_source_subject_identity() -> None:
 
 
 def test_plane_condition_is_distinct_from_source_availability() -> None:
-    organism = identity("organism", "organism.alpha", SYMBIONT_RUNTIME)
+    organism = identity("organism", "organism.alpha", ORGANISM_RUNTIME)
     observation = SemanticObservation(
         claim=SemanticClaim(
-            family=family(AuthorityDomain.SYMBIONT, "affordance"),
+            family=family(AuthorityDomain.ORGANISM, "affordance"),
             subject=SubjectScope(kind="organism", identities=(organism,)),
             epistemic_kind="domain_derived_state",
             value=(),
         ),
         acquisition=AcquisitionBasis(method="action_model_derivation"),
-        asserter=SYMBIONT_RUNTIME,
+        asserter=ORGANISM_RUNTIME,
         producer=LAB,
         conditions=(
             ObservationCondition(
@@ -338,9 +348,9 @@ def test_transport_sequence_cannot_be_used_as_domain_time() -> None:
 
 
 def test_primary_domain_time_must_match_claim_authority() -> None:
-    organism = identity("organism", "organism.alpha", SYMBIONT_RUNTIME)
+    organism = identity("organism", "organism.alpha", ORGANISM_RUNTIME)
     claim = SemanticClaim(
-        family=family(AuthorityDomain.SYMBIONT, "affordance"),
+        family=family(AuthorityDomain.ORGANISM, "affordance"),
         subject=SubjectScope(kind="organism", identities=(organism,)),
         epistemic_kind="domain_derived_state",
         value=("grasp",),
@@ -350,8 +360,8 @@ def test_primary_domain_time_must_match_claim_authority() -> None:
         SemanticObservation(
             claim=claim,
             acquisition=AcquisitionBasis(method="action_model_derivation"),
-            asserter=SYMBIONT_RUNTIME,
-            producer=SYMBIONT_RUNTIME,
+            asserter=ORGANISM_RUNTIME,
+            producer=ORGANISM_RUNTIME,
             domain_time=(
                 DomainTimeRef(
                     domain=AuthorityDomain.EMBODIMENT,
@@ -363,20 +373,20 @@ def test_primary_domain_time_must_match_claim_authority() -> None:
 
 
 def test_cross_domain_time_is_allowed_only_as_explicit_context() -> None:
-    organism = identity("organism", "organism.alpha", SYMBIONT_RUNTIME)
+    organism = identity("organism", "organism.alpha", ORGANISM_RUNTIME)
     observation = SemanticObservation(
         claim=SemanticClaim(
-            family=family(AuthorityDomain.SYMBIONT, "affordance"),
+            family=family(AuthorityDomain.ORGANISM, "affordance"),
             subject=SubjectScope(kind="organism", identities=(organism,)),
             epistemic_kind="domain_derived_state",
             value=("grasp",),
         ),
         acquisition=AcquisitionBasis(method="action_model_derivation"),
-        asserter=SYMBIONT_RUNTIME,
-        producer=SYMBIONT_RUNTIME,
+        asserter=ORGANISM_RUNTIME,
+        producer=ORGANISM_RUNTIME,
         domain_time=(
             DomainTimeRef(
-                domain=AuthorityDomain.SYMBIONT,
+                domain=AuthorityDomain.ORGANISM,
                 kind="organism_cycle",
                 value=2,
             ),

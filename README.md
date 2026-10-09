@@ -18,4 +18,18 @@ Excluded from this initial extraction: operator controls, scientific evidence
 custody/provenance, UI, network/SSE transport, the live observation bus, World
 scene lifecycle, and domain-specific readers. The extracted code preserves
 CURRENT payload keys; it does not ratify them as final Biopeia APIs or decide
-which authority owns each source field.
+which authority owns each source field. The semantic model recognizes
+`ORGANISM`, `EMBODIMENT`, `ENVIRONMENT`, and `WORLD` as primary authorities;
+`LAB` is only appropriate for Lab-derived claims. Modality is not an
+automatically authoritative domain.
+
+The in-memory plane orders publications by one monotonically increasing
+delivery sequence (not domain time). A family-filtered stream retains this
+global sequence, so skipped sequence numbers may belong to other families.
+`open_stream()` signals replay expiry and live queue overflow with an explicit
+rebase request. The compatibility `subscribe()` API is intentionally lossy:
+when its bounded queue fills it keeps the newest item without gap signaling;
+use `open_stream()` where replay/gap recovery matters. Current materialization
+is bounded and keyed by semantic family, contract revision, and subject, so a
+new semantic revision cannot silently overwrite the previous revision's
+materialized value.
