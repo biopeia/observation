@@ -70,9 +70,10 @@ Validation: target package suite and wheel/sdist build are recorded with the mig
   each other's current value.
 - `open_stream()` declares global publish-order sequencing, family-filtered
   sequence gaps, and explicit rebase signals for replay/live/bootstrap overflow;
-  current-state bootstrap is never silently truncated. The
-  compatibility `subscribe()` API is explicitly a lossy latest-value
-  projection without gap signaling.
+  current-state bootstrap is never silently truncated. The source-era
+  `subscribe()` API was a lossy latest-value projection without gap signaling.
+  It is historical and superseded by removal in [PR #6](https://github.com/biopeia/observation/pull/6);
+  no compatibility API is supported.
 - `SubjectScope.key` is only a local scope descriptor, not a stable identity by
   itself; semantic-family contracts define required typed identity linkage.
 - In-memory delivery contract: `open_stream()` sequences globally within one
@@ -80,8 +81,9 @@ Validation: target package suite and wheel/sdist build are recorded with the mig
   subscription delivers each sequence once, but recovery re-fetch can overlap,
   so consumers deduplicate by sequence. Completeness is bounded to retained
   replay and normal live delivery until overflow; there is no durability or
-  cross-restart resume. `subscribe()` is at-most-once/latest-value/lossy, with
-  no replay or gap signal.
+  cross-restart resume. The source-era `subscribe()` at-most-once/latest-value
+  and lossy semantics are historical and superseded by removal in PR #6; the
+  current stream contract is `open_stream()` with explicit rebase signaling.
 - `current()` / `current_messages()` expose only the bounded retained latest
   subset. Capacity evicts oldest subjects; absence from this projection is not
   evidence that source state is absent, unavailable, or nonexistent.

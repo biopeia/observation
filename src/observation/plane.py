@@ -104,7 +104,6 @@ class ObservationPlane:
         self._lock = threading.Lock()
         self._current: OrderedDict[ObservationKey, PlaneMessage] = OrderedDict()
         self._history: deque[PlaneMessage] = deque(maxlen=int(replay_messages))
-        self._subscribers: set[queue.Queue[PlaneMessage]] = set()
         self._stream_subscribers: set[PlaneStreamSubscription] = set()
         self._sequence = 0
         self._consumer_overflows = 0
@@ -142,12 +141,6 @@ class ObservationPlane:
             self._current.move_to_end(key)
             while len(self._current) > self._max_entries:
                 self._current.popitem(last=False)
-
-            for consumer in self._subscribers:
-                if consumer.full():
-                    self._drain(consumer)
-                    self._consumer_overflows += 1
-                consumer.put_nowait(message)
 
             for subscription in self._stream_subscribers:
                 if (
@@ -194,38 +187,6 @@ class ObservationPlane:
     ) -> tuple[SemanticObservation[object], ...]:
         """Return latest retained values only; absence is not source evidence."""
         return tuple(message.observation for message in self.current_messages(family=family))
-
-    def subscribe(
-        self,
-        *,
-        include_current: bool = True,
-        family: str | None = None,
-    ) -> queue.Queue[PlaneMessage]:
-        """Lossy latest-value subscription for in-process projections.
-
-        When full, queued messages are discarded and the newest message is kept;
-        this API does not signal a gap. Consumers requiring replay or gap/rebase
-        signaling must use :meth:`open_stream`.
-        """
-
-        consumer: queue.Queue[PlaneMessage] = queue.Queue(maxsize=self._subscriber_queue_size)
-        with self._lock:
-            self._subscribers.add(consumer)
-            if include_current:
-                current = tuple(self._current.values())
-                if family is not None:
-                    current = tuple(
-                        message
-                        for message in current
-                        if message.observation.family.qualified_name == family
-                    )
-                for message in current[-self._subscriber_queue_size :]:
-                    consumer.put_nowait(message)
-        return consumer
-
-    def unsubscribe(self, consumer: queue.Queue[PlaneMessage]) -> None:
-        with self._lock:
-            self._subscribers.discard(consumer)
 
     def open_stream(
         self,
@@ -338,8 +299,6 @@ class ObservationPlane:
         with self._lock:
             self._current.clear()
             self._history.clear()
-            for consumer in self._subscribers:
-                self._drain(consumer)
             for subscription in self._stream_subscribers:
                 self._drain(subscription.queue)
                 subscription.queue.put_nowait(

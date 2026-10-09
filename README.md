@@ -16,9 +16,9 @@ Included:
 
 Excluded from this initial extraction: operator controls, scientific evidence
 custody/provenance, UI, network/SSE transport, the live observation bus, World
-scene lifecycle, and domain-specific readers. The extracted code preserves
-CURRENT payload keys; it does not ratify them as final Biopeia APIs or decide
-which authority owns each source field. The semantic model recognizes
+scene lifecycle, and domain-specific readers. Historical payload keys remain
+in the copied projection as source behavior only; this is not a compatibility
+promise or a ratified Biopeia API. The semantic model recognizes
 `ORGANISM`, `EMBODIMENT`, `ENVIRONMENT`, and `WORLD` as primary authorities;
 `LAB` is only appropriate for Lab-derived claims. Modality is not an
 automatically authoritative domain.
@@ -26,13 +26,11 @@ automatically authoritative domain.
 The in-memory plane orders publications by one monotonically increasing
 delivery sequence (not domain time). A family-filtered stream retains this
 global sequence, so skipped sequence numbers may belong to other families.
-`open_stream()` signals replay expiry and live queue overflow with an explicit
-rebase request; it also signals rather than truncates a current-state bootstrap
-that exceeds the bounded queue. The compatibility `subscribe()` API is
-intentionally lossy:
-when its bounded queue fills it keeps the newest item without gap signaling;
-use `open_stream()` where replay/gap recovery matters. Current materialization
-is bounded and keyed by semantic family, contract ID and revision, and subject
+`open_stream()` is the stream API: it signals replay expiry and live queue
+overflow with an explicit rebase request; it also signals rather than truncates
+a current-state bootstrap that exceeds the bounded queue. There is no lossy
+latest-value subscription API. Current materialization is bounded and keyed by
+semantic family, contract ID and revision, and subject
 (including typed identity issuer, scope, and lifetime), so distinct contract
 or identity contexts cannot silently overwrite one another. The current view is
 a bounded latest subset: oldest subjects are evicted at capacity, and an
@@ -49,9 +47,7 @@ rebase may overlap already processed messages, so consumers should deduplicate
 by sequence. Replay is complete only within the retained in-memory range when
 the requested replay fits the bounded queue; normal live delivery is complete
 until overflow. Overflow/expiry/bootstrap bounds require rebase. There is no
-durability or cross-restart resume guarantee. `subscribe()` is at-most-once,
-latest-value and lossy: queue pressure replaces queued items with the newest
-item, without replay or gap signaling, and its initial snapshot may be bounded.
-`SubjectScope.key` is a local scope descriptor, not inherently stable identity;
+durability or cross-restart resume guarantee. `SubjectScope.key` is a local
+scope descriptor, not inherently stable identity;
 stable identity requirements belong to each semantic family and use typed
 identity assertions where needed.
