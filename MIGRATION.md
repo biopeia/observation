@@ -39,3 +39,51 @@ This extraction does not assign semantic ownership of every projected field. The
 - The package name and public import path are `observation`; the distribution name is `observation`.
 - The current payload keys are preserved as compatibility with the selected source slice. They are not ratified as final Biopeia API/schema.
 - No operator control, UI, evidence archive/custody, or live transport implementation is included.
+
+## Semantic Observation Plane extraction (2026-10-09)
+
+### Provenance
+
+- Source repository: `symbiont-lab`
+- Pinned source repository SHA: `80d372a186513035f85a769db886e505cabba52d`
+- Original paths:
+  - `lab/src/lab/observation/semantic.py` (source commit `ee91ffc9bc158c115bab9773b955ea01dbda2611`)
+  - `lab/src/lab/observation/plane.py` (source commit `9a59346cf66fb9a291ce01c44dbdd133face8436`)
+- Target paths: `src/observation/semantic.py`, `src/observation/plane.py`
+- Disposition: `MOVE` (copy-first; source retained); the plane import was rewritten from `lab.observation.semantic` to the target-local `.semantic` module. Plane documentation was updated to exclude Lab transport.
+- Source SHA-256: semantic `dce7cc317bcf19e8d33cadd6c7c81bc7a7685672799ee70ff0f4f7595b879a56`; plane `166a76630989082fb665658e2d64eaf5a1c30e28c6b06db3918fc43a7103cf93`.
+
+### Bounded scope and limits
+
+The source `semantic.py` is the transport-independent claim/identity/lineage model, not a semantic authority. The source `plane.py` is bounded in-memory current materialization, live subscriber fan-out, replay, and explicit rebase signaling. The plane does not own the meaning or canonical state of claim values. Delivery sequence is local plane metadata, not domain time. This slice does not include `wire.py`, `bus.py`, World-scene materialization, delta encoding, Lab run lifecycle, HTTP/SSE, UI, or scientific evidence custody. No causal runtime API is imported or written. Source semantic tests were copied with import-path updates; plane behavior is tested with neutral semantic fixtures rather than Lab/Embodiment adapters.
+
+Validation: target package suite and wheel/sdist build are recorded with the migration PR. The extraction has not yet been integrated or reviewed.
+
+### Review adjustments for the approved conceptual model (2026-10-09)
+
+- Authority vocabulary now names `ORGANISM`, `EMBODIMENT`, `ENVIRONMENT`, and
+  `WORLD`; `LAB` is available for Lab-derived claims only. `MODALITY` is not a
+  primary authority.
+- Current materialization identity includes semantic contract ID and revision,
+  epistemic kind, and each subject identity's issuer, scope, and lifetime, so
+  distinct semantic, epistemic, contract, or identity contexts cannot replace
+  each other's current value.
+- `open_stream()` declares global publish-order sequencing, family-filtered
+  sequence gaps, and explicit rebase signals for replay/live/bootstrap overflow;
+  current-state bootstrap is never silently truncated. The
+  compatibility `subscribe()` API is explicitly a lossy latest-value
+  projection without gap signaling.
+- `SubjectScope.key` is only a local scope descriptor, not a stable identity by
+  itself; semantic-family contracts define required typed identity linkage.
+- In-memory delivery contract: `open_stream()` sequences globally within one
+  plane instance; family filters preserve global sequence values. A healthy
+  subscription delivers each sequence once, but recovery re-fetch can overlap,
+  so consumers deduplicate by sequence. Completeness is bounded to retained
+  replay and normal live delivery until overflow; there is no durability or
+  cross-restart resume. `subscribe()` is at-most-once/latest-value/lossy, with
+  no replay or gap signal.
+- `current()` / `current_messages()` expose only the bounded retained latest
+  subset. Capacity evicts oldest subjects; absence from this projection is not
+  evidence that source state is absent, unavailable, or nonexistent.
+- These clarifications do not select a wire format, API, transport, or storage
+  mechanism. Stream ordering and bounded loss are in-process plane behavior.
