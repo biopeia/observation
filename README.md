@@ -10,6 +10,9 @@ Included:
 - `ObservedFrame`, a transport-neutral frame projection data contract.
 - `runtime_tick_events`, a pure mapping from one telemetry mapping to body,
   cognition, and vitals projection records.
+- A transport-independent semantic claim model and bounded in-memory
+  `ObservationPlane` for current projections, live fan-out, replay, and explicit
+  rebase signaling. The plane has no wire, network, UI, or runtime writeback.
 
 Excluded from this initial extraction: operator controls, scientific evidence
 custody/provenance, UI, network/SSE transport, the live observation bus, World

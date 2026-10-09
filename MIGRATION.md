@@ -39,3 +39,22 @@ This extraction does not assign semantic ownership of every projected field. The
 - The package name and public import path are `observation`; the distribution name is `observation`.
 - The current payload keys are preserved as compatibility with the selected source slice. They are not ratified as final Biopeia API/schema.
 - No operator control, UI, evidence archive/custody, or live transport implementation is included.
+
+## Semantic Observation Plane extraction (2026-10-09)
+
+### Provenance
+
+- Source repository: `symbiont-lab`
+- Pinned source repository SHA: `80d372a186513035f85a769db886e505cabba52d`
+- Original paths:
+  - `lab/src/lab/observation/semantic.py` (source commit `ee91ffc9bc158c115bab9773b955ea01dbda2611`)
+  - `lab/src/lab/observation/plane.py` (source commit `9a59346cf66fb9a291ce01c44dbdd133face8436`)
+- Target paths: `src/observation/semantic.py`, `src/observation/plane.py`
+- Disposition: `MOVE` (copy-first; source retained); the plane import was rewritten from `lab.observation.semantic` to the target-local `.semantic` module. Plane documentation was updated to exclude Lab transport.
+- Source SHA-256: semantic `dce7cc317bcf19e8d33cadd6c7c81bc7a7685672799ee70ff0f4f7595b879a56`; plane `166a76630989082fb665658e2d64eaf5a1c30e28c6b06db3918fc43a7103cf93`.
+
+### Bounded scope and limits
+
+The source `semantic.py` is the transport-independent claim/identity/lineage model, not a semantic authority. The source `plane.py` is bounded in-memory current materialization, live subscriber fan-out, replay, and explicit rebase signaling. The plane does not own the meaning or canonical state of claim values. Delivery sequence is local plane metadata, not domain time. This slice does not include `wire.py`, `bus.py`, World-scene materialization, delta encoding, Lab run lifecycle, HTTP/SSE, UI, or scientific evidence custody. No causal runtime API is imported or written. Source semantic tests were copied with import-path updates; plane behavior is tested with neutral semantic fixtures rather than Lab/Embodiment adapters.
+
+Validation: target package suite and wheel/sdist build are recorded with the migration PR. The extraction has not yet been integrated or reviewed.
