@@ -34,7 +34,10 @@ when its bounded queue fills it keeps the newest item without gap signaling;
 use `open_stream()` where replay/gap recovery matters. Current materialization
 is bounded and keyed by semantic family, contract ID and revision, and subject
 (including typed identity issuer, scope, and lifetime), so distinct contract
-or identity contexts cannot silently overwrite one another. Epistemic kind is
+or identity contexts cannot silently overwrite one another. The current view is
+a bounded latest subset: oldest subjects are evicted at capacity, and an
+absent subject in `current()` / `current_messages()` is not evidence of source
+absence, unavailability, or non-existence. Epistemic kind is
 also part of the key: authoritative, estimated, and inferred claims remain
 separate materialized values.
 

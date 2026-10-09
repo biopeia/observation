@@ -173,6 +173,12 @@ class ObservationPlane:
         *,
         family: str | None = None,
     ) -> tuple[PlaneMessage, ...]:
+        """Return the currently retained bounded subset, not a source census.
+
+        Oldest materialized subjects are evicted when ``max_entries`` is
+        exceeded. An absent subject therefore does not imply source absence,
+        unavailability, or non-existence.
+        """
         with self._lock:
             values = tuple(self._current.values())
         if family is None:
@@ -186,6 +192,7 @@ class ObservationPlane:
         *,
         family: str | None = None,
     ) -> tuple[SemanticObservation[object], ...]:
+        """Return latest retained values only; absence is not source evidence."""
         return tuple(message.observation for message in self.current_messages(family=family))
 
     def subscribe(

@@ -82,5 +82,8 @@ Validation: target package suite and wheel/sdist build are recorded with the mig
   replay and normal live delivery until overflow; there is no durability or
   cross-restart resume. `subscribe()` is at-most-once/latest-value/lossy, with
   no replay or gap signal.
+- `current()` / `current_messages()` expose only the bounded retained latest
+  subset. Capacity evicts oldest subjects; absence from this projection is not
+  evidence that source state is absent, unavailable, or nonexistent.
 - These clarifications do not select a wire format, API, transport, or storage
   mechanism. Stream ordering and bounded loss are in-process plane behavior.
