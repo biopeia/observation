@@ -1,9 +1,5 @@
 """Passive bounded materialization and delivery for semantic observations."""
 
-import queue
-
-import pytest
-
 from observation import ObservationPlane, PlaneRebaseRequired
 from observation.semantic import (
     AcquisitionBasis,
@@ -43,14 +39,17 @@ def sample(step: int = 1) -> SemanticObservation[object]:
 
 def test_plane_is_bounded_passive_current_and_live_delivery() -> None:
     plane = ObservationPlane(max_entries=1, subscriber_queue_size=2, replay_messages=2)
-    consumer = plane.subscribe(include_current=False, family="embodiment.body_pose")
-    plane.publish(sample(1))
-    plane.publish(sample(2))
-    delivered = consumer.get_nowait()
-    assert delivered.sequence == 1
-    assert delivered.observation.claim.value == {"step": 1}
-    assert [item.claim.value for item in plane.current()] == [{"step": 2}]
-    assert plane.latest_sequence == 2
+    subscription = plane.open_stream(family="embodiment.body_pose")
+    try:
+        plane.publish(sample(1))
+        plane.publish(sample(2))
+        delivered = subscription.queue.get_nowait()
+        assert delivered.sequence == 1
+        assert delivered.observation.claim.value == {"step": 1}
+        assert [item.claim.value for item in plane.current()] == [{"step": 2}]
+        assert plane.latest_sequence == 2
+    finally:
+        plane.close_stream(subscription)
 
 
 def test_expired_resume_requires_explicit_rebase() -> None:
@@ -236,17 +235,6 @@ def test_bootstrap_overflow_signals_rebase_instead_of_truncating_materialized_st
         plane.close_stream(sub)
 
 
-def test_publish_never_blocks_slow_compat_consumer() -> None:
-    plane = ObservationPlane(subscriber_queue_size=1)
-    consumer = plane.subscribe(include_current=False)
-    plane.publish(sample(1))
-    plane.publish(sample(2))
-    assert consumer.get_nowait().sequence == 2
-    assert plane.consumer_overflows == 1
-    with pytest.raises(queue.Empty):
-        consumer.get_nowait()
-
-
 def test_stream_overflow_signals_rebase_instead_of_silent_loss() -> None:
     plane = ObservationPlane(subscriber_queue_size=1)
     sub = plane.open_stream()
@@ -258,5 +246,6 @@ def test_stream_overflow_signals_rebase_instead_of_silent_loss() -> None:
         assert isinstance(item, PlaneRebaseRequired)
         assert item.reason == "consumer_overflow"
         assert item.sequence == 2
+        assert plane.consumer_overflows == 1
     finally:
         plane.close_stream(sub)
