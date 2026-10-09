@@ -70,9 +70,10 @@ Validation: target package suite and wheel/sdist build are recorded with the mig
   each other's current value.
 - `open_stream()` declares global publish-order sequencing, family-filtered
   sequence gaps, and explicit rebase signals for replay/live/bootstrap overflow;
-  current-state bootstrap is never silently truncated. The
-  compatibility `subscribe()` API is explicitly a lossy latest-value
-  projection without gap signaling.
+  current-state bootstrap is never silently truncated. The source-era
+  `subscribe()` API was a lossy latest-value projection without gap signaling.
+  It is historical and superseded by removal in [PR #6](https://github.com/biopeia/observation/pull/6);
+  no compatibility API is supported.
 - `SubjectScope.key` is only a local scope descriptor, not a stable identity by
   itself; semantic-family contracts define required typed identity linkage.
 - In-memory delivery contract: `open_stream()` sequences globally within one
