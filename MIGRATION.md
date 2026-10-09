@@ -38,6 +38,7 @@ This extraction does not assign semantic ownership of every projected field. The
 - Imports are local to this package and Python standard library only.
 - The package name and public import path are `observation`; the distribution name is `observation`.
 - The copied slice retains historical payload keys as observed source behavior; this is not a compatibility promise or ratified Biopeia API/schema. Re-author or drop them when the relevant semantic-family contract is approved.
+- `runtime_tick_events` omits both historical `metabolic_reserve` and `metabolic_reserve_ratio` inputs. They are not interchangeable and no target semantic-family contract currently authorizes either projection; do not rename or alias one into the other.
 - No operator control, UI, evidence archive/custody, or live transport implementation is included.
 
 ## Semantic Observation Plane extraction (2026-10-09)

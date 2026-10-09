@@ -124,10 +124,9 @@ def runtime_tick_events(tick: Mapping[str, Any]) -> tuple[dict[str, Any], ...]:
     _copy_number(body, tick, "ground_contact_count", cast=int)
     _copy_number(body, tick, "self_contact_count", cast=int)
     _copy_number(body, tick, "resource_contact_count", cast=int)
-    if tick.get("metabolic_reserve_ratio") is not None:
-        _copy_number(body, tick, "metabolic_reserve_ratio", target_key="metabolic_reserve")
-    elif tick.get("metabolic_reserve") is not None:
-        _copy_number(body, tick, "metabolic_reserve")
+    # These source telemetry keys have distinct, unresolved meanings. Do not
+    # collapse them into one ambiguous view field.
+    # A target semantic-family contract may add a projection later.
 
     cognition: dict[str, Any] = {**identity, "type": "cognition"}
     _copy_number(cognition, tick, "tick", cast=int)

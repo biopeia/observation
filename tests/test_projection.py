@@ -51,3 +51,18 @@ def test_projection_does_not_invent_observations_and_rejects_non_mapping() -> No
     assert vitals == {"type": "vitals", "tick": 3}
     with pytest.raises(TypeError, match="tick must be a mapping"):
         runtime_tick_events([])  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    "tick",
+    [
+        {"metabolic_reserve_ratio": 0.25},
+        {"metabolic_reserve": 42.0},
+        {"metabolic_reserve_ratio": 0.25, "metabolic_reserve": 42.0},
+    ],
+)
+def test_projection_omits_unratified_metabolic_reserve_semantics(tick: dict[str, float]) -> None:
+    body, _cognition, _vitals = runtime_tick_events(tick)
+
+    assert "metabolic_reserve" not in body
+    assert "metabolic_reserve_ratio" not in body
