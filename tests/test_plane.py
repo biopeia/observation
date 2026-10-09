@@ -92,6 +92,70 @@ def test_incompatible_semantic_revision_does_not_overwrite_materialization() -> 
     assert {m.observation.family.contract.revision for m in messages} == {"v1", "v2"}
 
 
+def test_materialization_key_includes_contract_id_and_identity_scope_and_lifetime() -> None:
+    plane = ObservationPlane()
+    baseline = sample(1)
+    owner = baseline.claim.subject.identities[0].identity.issuer
+
+    scoped_subject = SubjectScope(
+        "body",
+        identities=(
+            IdentityAssertion(
+                IdentityRef("body", "body.1", owner, scope="episode-a"),
+                owner,
+            ),
+        ),
+    )
+    lifetime_subject = SubjectScope(
+        "body",
+        identities=(
+            IdentityAssertion(
+                IdentityRef("body", "body.1", owner, lifetime="episode-a"),
+                owner,
+            ),
+        ),
+    )
+
+    def with_subject(subject: SubjectScope) -> SemanticObservation[object]:
+        return SemanticObservation(
+            claim=SemanticClaim(
+                family=baseline.family,
+                subject=subject,
+                epistemic_kind=baseline.claim.epistemic_kind,
+                value=baseline.claim.value,
+            ),
+            acquisition=baseline.acquisition,
+            asserter=baseline.asserter,
+            producer=baseline.producer,
+        )
+
+    different_contract = SemanticObservation(
+        claim=SemanticClaim(
+            family=SemanticFamily(
+                AuthorityDomain.EMBODIMENT,
+                ("body_pose",),
+                SemanticContractRef("embodiment.body_pose.alternate", "v1"),
+            ),
+            subject=baseline.claim.subject,
+            epistemic_kind=baseline.claim.epistemic_kind,
+            value=baseline.claim.value,
+        ),
+        acquisition=baseline.acquisition,
+        asserter=baseline.asserter,
+        producer=baseline.producer,
+    )
+
+    for observation in (
+        baseline,
+        with_subject(scoped_subject),
+        with_subject(lifetime_subject),
+        different_contract,
+    ):
+        plane.publish(observation)
+
+    assert len(plane.current_messages()) == 4
+
+
 def test_bootstrap_overflow_signals_rebase_instead_of_truncating_materialized_state() -> None:
     plane = ObservationPlane(max_entries=2, subscriber_queue_size=1)
     first = sample(1)

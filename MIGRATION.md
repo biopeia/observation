@@ -64,8 +64,9 @@ Validation: target package suite and wheel/sdist build are recorded with the mig
 - Authority vocabulary now names `ORGANISM`, `EMBODIMENT`, `ENVIRONMENT`, and
   `WORLD`; `LAB` is available for Lab-derived claims only. `MODALITY` is not a
   primary authority.
-- Current materialization identity includes semantic contract revision, so an
-  incompatible revision cannot replace the prior revision's current value.
+- Current materialization identity includes semantic contract ID and revision,
+  and each subject identity's issuer, scope, and lifetime, so distinct contract
+  or identity contexts cannot replace each other's current value.
 - `open_stream()` declares global publish-order sequencing, family-filtered
   sequence gaps, and explicit rebase signals for replay/live/bootstrap overflow;
   current-state bootstrap is never silently truncated. The

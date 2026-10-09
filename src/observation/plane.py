@@ -26,6 +26,7 @@ _DEFAULT_REPLAY_MESSAGES = 2048
 @dataclass(frozen=True, slots=True)
 class ObservationKey:
     family: str
+    contract_id: str
     semantic_revision: str
     subject: Hashable
 
@@ -56,6 +57,8 @@ def observation_key(observation: SemanticObservation[object]) -> ObservationKey:
             assertion.identity.value,
             assertion.identity.issuer.kind,
             assertion.identity.issuer.identifier,
+            assertion.identity.scope,
+            assertion.identity.lifetime,
         )
         for assertion in subject.identities
     )
@@ -65,11 +68,14 @@ def observation_key(observation: SemanticObservation[object]) -> ObservationKey:
             assertion.identity.value,
             assertion.identity.issuer.kind,
             assertion.identity.issuer.identifier,
+            assertion.identity.scope,
+            assertion.identity.lifetime,
         )
         for assertion in subject.participants
     )
     return ObservationKey(
         family=observation.family.qualified_name,
+        contract_id=observation.family.contract.contract_id,
         semantic_revision=observation.family.contract.revision,
         subject=(subject.kind, subject.key, identities, participants),
     )

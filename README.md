@@ -32,9 +32,9 @@ that exceeds the bounded queue. The compatibility `subscribe()` API is
 intentionally lossy:
 when its bounded queue fills it keeps the newest item without gap signaling;
 use `open_stream()` where replay/gap recovery matters. Current materialization
-is bounded and keyed by semantic family, contract revision, and subject, so a
-new semantic revision cannot silently overwrite the previous revision's
-materialized value.
+is bounded and keyed by semantic family, contract ID and revision, and subject
+(including typed identity issuer, scope, and lifetime), so distinct contract
+or identity contexts cannot silently overwrite one another.
 `SubjectScope.key` is a local scope descriptor, not inherently stable identity;
 stable identity requirements belong to each semantic family and use typed
 identity assertions where needed.
