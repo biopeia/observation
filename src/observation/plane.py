@@ -220,10 +220,12 @@ class ObservationPlane:
     ) -> PlaneStreamSubscription:
         """Open an atomic bootstrap/replay/live subscription.
 
-        No watermark means bootstrap current materialized state. A retained
-        watermark replays messages after it. An expired watermark yields an
-        explicit rebase request; the transport can then send current state at
-        the returned sequence watermark.
+        No watermark means bootstrap current materialized state. If the
+        materialized set exceeds the bounded subscriber queue, the method emits
+        an explicit rebase request rather than silently truncating it. A
+        retained watermark replays messages after it. An expired watermark
+        yields an explicit rebase request; the transport can then obtain a
+        current projection at the returned sequence watermark.
 
         Message sequence is globally increasing in publish order, not domain
         time. Family-filtered streams retain that global sequence, so gaps may
@@ -247,7 +249,15 @@ class ObservationPlane:
                         for message in bootstrap
                         if message.observation.family.qualified_name == family
                     )
-                for message in bootstrap[-self._subscriber_queue_size :]:
+                if len(bootstrap) > self._subscriber_queue_size:
+                    consumer.put_nowait(
+                        PlaneRebaseRequired(
+                            sequence=self._sequence,
+                            reason="bootstrap_exceeds_subscriber_bound",
+                        )
+                    )
+                    return subscription
+                for message in bootstrap:
                     consumer.put_nowait(message)
                 return subscription
 

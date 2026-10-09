@@ -27,9 +27,14 @@ The in-memory plane orders publications by one monotonically increasing
 delivery sequence (not domain time). A family-filtered stream retains this
 global sequence, so skipped sequence numbers may belong to other families.
 `open_stream()` signals replay expiry and live queue overflow with an explicit
-rebase request. The compatibility `subscribe()` API is intentionally lossy:
+rebase request; it also signals rather than truncates a current-state bootstrap
+that exceeds the bounded queue. The compatibility `subscribe()` API is
+intentionally lossy:
 when its bounded queue fills it keeps the newest item without gap signaling;
 use `open_stream()` where replay/gap recovery matters. Current materialization
 is bounded and keyed by semantic family, contract revision, and subject, so a
 new semantic revision cannot silently overwrite the previous revision's
 materialized value.
+`SubjectScope.key` is a local scope descriptor, not inherently stable identity;
+stable identity requirements belong to each semantic family and use typed
+identity assertions where needed.

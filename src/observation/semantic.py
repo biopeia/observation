@@ -177,7 +177,12 @@ class IdentityLink:
 
 @dataclass(frozen=True, slots=True)
 class SubjectScope:
-    """Entity, relation, location, process, or source-scoped claim subject."""
+    """Entity, relation, location, process, or source-scoped claim subject.
+
+    ``key`` is a local scope descriptor, not by itself a stable subject
+    identity. Stable identity requirements are defined by the semantic family
+    and should use typed identity assertions where needed.
+    """
 
     kind: str
     key: str | None = None

@@ -67,8 +67,11 @@ Validation: target package suite and wheel/sdist build are recorded with the mig
 - Current materialization identity includes semantic contract revision, so an
   incompatible revision cannot replace the prior revision's current value.
 - `open_stream()` declares global publish-order sequencing, family-filtered
-  sequence gaps, and explicit rebase signals for replay/live overflow. The
+  sequence gaps, and explicit rebase signals for replay/live/bootstrap overflow;
+  current-state bootstrap is never silently truncated. The
   compatibility `subscribe()` API is explicitly a lossy latest-value
   projection without gap signaling.
+- `SubjectScope.key` is only a local scope descriptor, not a stable identity by
+  itself; semantic-family contracts define required typed identity linkage.
 - These clarifications do not select a wire format, API, transport, or storage
   mechanism. Stream ordering and bounded loss are in-process plane behavior.

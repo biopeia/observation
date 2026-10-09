@@ -92,6 +92,33 @@ def test_incompatible_semantic_revision_does_not_overwrite_materialization() -> 
     assert {m.observation.family.contract.revision for m in messages} == {"v1", "v2"}
 
 
+def test_bootstrap_overflow_signals_rebase_instead_of_truncating_materialized_state() -> None:
+    plane = ObservationPlane(max_entries=2, subscriber_queue_size=1)
+    first = sample(1)
+    second = SemanticObservation(
+        claim=SemanticClaim(
+            family=first.family,
+            subject=SubjectScope("body", key="body.2"),
+            epistemic_kind=first.claim.epistemic_kind,
+            value={"step": 2},
+        ),
+        acquisition=first.acquisition,
+        asserter=first.asserter,
+        producer=first.producer,
+    )
+    plane.publish(first)
+    plane.publish(second)
+
+    sub = plane.open_stream()
+    try:
+        item = sub.queue.get_nowait()
+        assert isinstance(item, PlaneRebaseRequired)
+        assert item.sequence == 2
+        assert item.reason == "bootstrap_exceeds_subscriber_bound"
+    finally:
+        plane.close_stream(sub)
+
+
 def test_publish_never_blocks_slow_compat_consumer() -> None:
     plane = ObservationPlane(subscriber_queue_size=1)
     consumer = plane.subscribe(include_current=False)
