@@ -219,6 +219,12 @@ class ObservationPlane:
         plane instance; a family filter preserves global sequence values.
         """
 
+        if after_sequence is not None:
+            if type(after_sequence) is not int:
+                raise TypeError("after_sequence must be an integer or None")
+            if after_sequence < 0:
+                raise ValueError("after_sequence must be >= 0")
+
         consumer: queue.Queue[PlaneMessage | PlaneRebaseRequired] = queue.Queue(
             maxsize=self._subscriber_queue_size
         )
@@ -245,7 +251,7 @@ class ObservationPlane:
                     consumer.put_nowait(message)
                 return subscription
 
-            resume = max(0, int(after_sequence))
+            resume = after_sequence
             oldest = self._history[0].sequence if self._history else None
             if resume > self._sequence:
                 consumer.put_nowait(

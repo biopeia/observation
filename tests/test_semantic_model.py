@@ -347,6 +347,36 @@ def test_transport_sequence_cannot_be_used_as_domain_time() -> None:
         )
 
 
+@pytest.mark.parametrize("value", [True, False])
+def test_boolean_is_not_a_domain_time_value(value: bool) -> None:
+    with pytest.raises(ValueError, match="must not be a boolean"):
+        DomainTimeRef(
+            domain=AuthorityDomain.WORLD,
+            kind="causal_tick",
+            value=value,
+        )
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+def test_non_finite_float_is_not_a_domain_time_value(value: float) -> None:
+    with pytest.raises(ValueError, match="must be finite"):
+        DomainTimeRef(
+            domain=AuthorityDomain.WORLD,
+            kind="causal_tick",
+            value=value,
+        )
+
+
+@pytest.mark.parametrize("value", [0, 3, 1.5, "revision-4"])
+def test_finite_numeric_and_text_domain_time_values_remain_valid(value: int | float | str) -> None:
+    reference = DomainTimeRef(
+        domain=AuthorityDomain.WORLD,
+        kind="causal_tick",
+        value=value,
+    )
+    assert reference.value == value
+
+
 def test_primary_domain_time_must_match_claim_authority() -> None:
     organism = identity("organism", "organism.alpha", ORGANISM_RUNTIME)
     claim = SemanticClaim(
