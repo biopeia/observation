@@ -1,5 +1,7 @@
 """Passive bounded materialization and delivery for semantic observations."""
 
+import pytest
+
 from observation import ObservationPlane, PlaneRebaseRequired
 from observation.semantic import (
     AcquisitionBasis,
@@ -63,6 +65,26 @@ def test_expired_resume_requires_explicit_rebase() -> None:
         assert message.reason == "replay_expired"
     finally:
         plane.close_stream(sub)
+
+
+@pytest.mark.parametrize("watermark", [True, False, 1.5, "1"])
+def test_stream_rejects_non_integer_resume_watermark(watermark: object) -> None:
+    plane = ObservationPlane()
+    with pytest.raises(TypeError, match="after_sequence must be an integer or None"):
+        plane.open_stream(after_sequence=watermark)  # type: ignore[arg-type]
+
+
+def test_stream_rejects_negative_resume_watermark() -> None:
+    plane = ObservationPlane()
+    with pytest.raises(ValueError, match="after_sequence must be >= 0"):
+        plane.open_stream(after_sequence=-1)
+
+
+@pytest.mark.parametrize("watermark", [0, 1, 99])
+def test_stream_accepts_non_negative_integer_resume_watermark(watermark: int) -> None:
+    plane = ObservationPlane()
+    subscription = plane.open_stream(after_sequence=watermark)
+    plane.close_stream(subscription)
 
 
 def test_incompatible_semantic_revision_does_not_overwrite_materialization() -> None:

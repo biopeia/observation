@@ -14,6 +14,7 @@ structurally, from outside, without transferring semantic authority.
 
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass, field
 from enum import StrEnum
@@ -211,6 +212,10 @@ class DomainTimeRef:
         kind = _token(self.kind, field_name="domain time kind")
         if kind in {"observation_sequence", "transport_sequence", "delivery_sequence"}:
             raise ValueError(f"{kind!r} is delivery metadata, not domain time")
+        if isinstance(self.value, bool):
+            raise ValueError("domain time value must not be a boolean")
+        if isinstance(self.value, float) and not math.isfinite(self.value):
+            raise ValueError("domain time value must be finite")
         if isinstance(self.value, str):
             object.__setattr__(
                 self,
