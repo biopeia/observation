@@ -4,10 +4,12 @@ This module implements the common in-memory concepts approved by
 Observation Semantic Model v1. It deliberately does not define wire fields,
 serialization, events, delivery, replay, endpoints, or transport.
 
-The Lab hosts this representation for the operational Observation Plane.
-Source domains remain independent distributions and do not import this module;
-their observation boundaries may expose domain-owned values that the Lab
-adapts structurally without transferring semantic authority.
+The Observation capability hosts this representation for the operational
+Observation Plane. Lab consumes that plane and is the custodian of durable
+scientific evidence; it does not host the plane. Source domains remain
+independent distributions and do not import this module; their observation
+boundaries may expose domain-owned values that Observation adapts
+structurally, from outside, without transferring semantic authority.
 """
 
 from __future__ import annotations
