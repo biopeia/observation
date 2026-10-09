@@ -1,12 +1,22 @@
 # ADR-0060 — Responsibility and Naming of World and Environment Families
 
-- **Status:** Accepted
+- **Status:** Accepted; partially superseded for Biopeia TARGET
 - **Date:** 2026-10-02
 - **Decision owner:** project owner
+- **Disposition:** Partially superseded for Biopeia TARGET by [ADR-0074](ADR-0074-biopeia-world-environment-authority-split.md), accepted 2026-10-09. The CURRENT facts and historical evidence below are retained; conflicting TARGET claims no longer govern Biopeia.
 - **Relates to:** Constitution §1, ADR-0008, ADR-0009, `docs/design/world/world-responsibility-map-v1.md`, issue #280
 - **Scope:** Vocabulary, role classification and placement rule for environment-side code. No runtime is moved, merged or removed.
 
 ## Context
+
+> **Historical/current-state record:** The decision below records the Symbiont
+> architecture and evidence as understood on 2026-10-02. Its statements about
+> `symbiont_world` as the unique constitutional World implementation, hex
+> topology, and ownership of external laws/topology/dynamics remain historical
+> CURRENT evidence only. They are superseded for Biopeia TARGET by ADR-0074.
+> Non-conflicting Organism-isolation and evidence-preservation boundaries remain
+> part of the historical record. Biopeia TARGET composition and Lab's optional
+> role are governed by ADR-0074.
 
 "World" is used for three different things in the repository:
 

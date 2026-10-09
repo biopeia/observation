@@ -194,17 +194,21 @@ their new location.
 
 ### WORLD-1 — World responsibility map
 
-**Status:** DECIDED — ADR-0060 (2026-10-02) fixes roles, vocabulary and the
-placement rule; relocation and retirement are deferred there.
+**Status:** CURRENT/HISTORICAL inventory retained — ADR-0060 (2026-10-02)
+records the audited Symbiont architecture. For Biopeia TARGET, authority is
+defined by ADR-0074 (2026-10-09): World owns causality; Environment owns
+external environmental truth. Migration and source disposition remain
+incremental work.
 
 **Record:**
 [design/world/world-responsibility-map-v1.md](design/world/world-responsibility-map-v1.md).
 
-Covers audit finding F-09. Every environment family is listed with its owning
-layer, role, consumers and state. The map removes nothing. Relocation of the
-habitat classes, the status of Physics3D surroundings, retirement of the two
-legacy environments and the reserved meaning of "World" are owner decisions. The
-World programme stays maintenance-only.
+Covers audit finding F-09. Every environment family is listed with its
+historical owning layer, role, consumers and state, alongside a separately
+identified Biopeia TARGET authority disposition. The map removes nothing and
+does not establish migration completion. Source movement, retention, rewrite,
+or removal still requires semantic disposition under the Biopeia migration
+inventory. The historical World programme stays maintenance-only.
 
 The World study of within-region differentiation without mutation (formerly
 W03) was closed by the owner on 2026-10-02

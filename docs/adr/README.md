@@ -65,6 +65,8 @@ mindmap
       ADR-0039 Integridad en telemetría espacial
       ADR-0067 Secciones revisionadas y observación pasiva
       ADR-0072 Contratos de persistencia por clase de datos
+      ADR-0073 Biopeia migration causal and physical contracts
+      ADR-0074 Biopeia World and Environment authority split
 ```
 
 ---
@@ -159,6 +161,8 @@ mindmap
 | **[ADR-0044](ADR-0044-host-safety-and-lifecycle-invariants-in-the-constitution.md)** | Host-Safety and Lifecycle Invariants in the Constitution | Aceptado | Incorporar a la Constitución los invariantes permanentes de seguridad del anfitrión y de identidad del ciclo de vida (restore rechaza `DEAD`, clonar crea identidad nueva). |
 | **[ADR-0067](ADR-0067-revisioned-state-sections-and-passive-observation.md)** | Revisioned State Sections, Passive Observation and Binary Canonical Checkpoints | Accepted | State in owned, replaced-not-mutated sections with revisions; the observer compares revisions and the organism emits nothing; `checkpoint_hash` over a deterministic binary encoding. |
 | **[ADR-0072](ADR-0072-persistence-contracts-by-data-class.md)** | Persistence Contracts by Data Class | Accepted | Define persistence requirements by semantic data class before choosing a backend; no format migration or SQL selection is implied. |
+| **[ADR-0073](ADR-0073-biopeia-migration-causal-and-physical-contracts.md)** | Biopeia Migration Causal and Physical Contracts | Accepted | Apply Architecture Owner decisions to Embodiment commands, World commit, physical-step ownership, Lab interventions, Modality topology, and the Observation design gate without reopening Pass 15. |
+| **[ADR-0074](ADR-0074-biopeia-world-environment-authority-split.md)** | Biopeia World and Environment Authority Split | Accepted | World owns causal runtime and commit; Environment owns external environmental state and dynamics. Partially supersedes Constitution §1 item 3 and ADR-0060 for Biopeia TARGET. |
 
 ### 9. Governance
 
@@ -183,7 +187,7 @@ mindmap
 | **[ADR-0055](ADR-0055-physics3d-module-layout.md)** | Organize Physics3D modules by responsibility | Aceptado | Agrupa la aplicación y telemetría Physics3D por responsabilidad, sin cambiar comportamiento ni contratos versionados. |
 | **[ADR-0056](ADR-0056-roadmap-planning-and-scientific-authority-separation.md)** | Separate Project Roadmap Tracking from Scientific Authority | Aceptado | El roadmap registra planificación; dirección, gates y autorización permanecen en fuentes científicas gobernadas. |
 | **[ADR-0059](ADR-0059-repository-skills-for-scientific-and-performance-work.md)** | Repository Skills for Scientific and Performance Work | Accepted | Four task-specific repository skills provide workflow guidance subordinate to project governance and scientific authority. |
-| **[ADR-0060](ADR-0060-world-responsibility-and-naming.md)** | Responsibility and Naming of World and Environment Families | Accepted | World stays a category with one constitutional kernel; each environment family has one role; no new environment-side class enters the organism package. |
+| **[ADR-0060](ADR-0060-world-responsibility-and-naming.md)** | Responsibility and Naming of World and Environment Families | Partially superseded for Biopeia TARGET | Retained as historical Symbiont CURRENT evidence; its conflicting TARGET authority claims are superseded by ADR-0074. Non-conflicting Organism isolation and evidence-preservation boundaries remain. |
 | **[ADR-0061](ADR-0061-run-level-scientific-generations.md)** | Governed Runs Publish One Committed Generation | Accepted | The governed launcher commits a finished run's outputs and receipt as one sealed generation; in-run checkpoints are explicitly not covered. |
 | **[ADR-0062](ADR-0062-results-condition-the-canonical-organism-profile.md)** | Closed Results Condition One Canonical Organism Profile | Accepted | One versioned organism profile for every scope; only closed multi-seed confirmatory results move a value; every closure records its configuration consequence. |
 | **[ADR-0063](ADR-0063-python-3-12-runtime-baseline.md)** | Python 3.12 Runtime Baseline and Toolchain Alignment | Accepted | Establishes Python 3.12 as minimum runtime baseline, aligning toolchains, CI matrices, and lockfiles. |

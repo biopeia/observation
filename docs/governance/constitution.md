@@ -45,11 +45,11 @@ architecture decision approved by the project owner. The Constitution is the sin
 
 1. **Symbiont is the subject.** `src/symbiont/` must contain only state, capabilities, and processes belonging to the organism.
 2. **Lab is the apparatus.** `src/symbiont_lab/` owns experimentation, reproduction, evolution, evaluation, external instrumentation, and scientific orchestration.
-3. **World is the world.** `src/symbiont_world/` owns external laws, opportunities, and dynamics, never cognition or internal organism knowledge.
+3. **World owns causality; Environment owns external environmental truth.** For Biopeia TARGET, World owns World identity, causal time/order, active presence and participant registries, cross-authority coordination, lifecycle choreography, causal transaction boundaries, commit, and recovery coordination. Environment owns external environmental state, laws, dynamics, topology/geometry, resources, fields, and ground truth. Neither World nor Environment owns Organism cognition or Embodiment somatic truth. This supersedes the historical rule assigning external laws and dynamics to `symbiont_world` for Biopeia TARGET only; that rule remains a description of the historical Symbiont CURRENT architecture (ADR-0074; partial supersession of ADR-0060).
 4. Symbiont must not import `symbiont_lab`.
 5. Symbiont must not import `symbiont_world`.
 6. World must not import `symbiont` or `symbiont_lab`.
-7. Lab is the only layer authorized to connect World and Symbiont.
+7. In the historical Symbiont CURRENT architecture, Lab is the only layer authorized to connect World and Symbiont. In Biopeia TARGET, World is the causal composition authority across domain owners; Lab remains the scientific apparatus and is not required for ordinary causal execution. Explicit domain ownership and the prohibition on injecting experimental ground truth into Organism remain binding (ADR-0074).
 8. Refactoring must not erase these boundaries to simplify dependencies.
 
 ### 2. Own state versus external knowledge

@@ -3,10 +3,10 @@ id: design.world.world-responsibility-map-v1
 title: "World Responsibility Map v1"
 document_type: reference
 domain: world
-status: proposed
+status: reference
 canonical: false
-implementation_status: implemented
-date: 2026-10-02
+implementation_status: not_applicable
+date: 2026-10-09
 depends_on:
   - docs/governance/constitution.md
 source_audit: research/audits/current/2026-10-02-current-state-architecture-audit.md
@@ -17,6 +17,11 @@ language: en
 
 ## 1. Purpose
 
+This document is a **CURRENT/HISTORICAL inventory**, not the authority for
+Biopeia TARGET responsibilities. [ADR-0074](../../adr/ADR-0074-biopeia-world-environment-authority-split.md)
+records the approved target authority split. This map preserves the audited
+implementation inventory and distinguishes it from that target.
+
 The
 [current-state audit](../../../lab/research/audits/current/2026-10-02-current-state-architecture-audit.md)
 (F-09) found that "World" names a family of environments rather than one runtime
@@ -26,8 +31,31 @@ whether it is active, experimental or legacy.
 
 It is an inventory. It removes nothing and changes no authority. Consumers were
 traced by import at `main@3246a39d`; test consumers are counted, not listed.
+This audited CURRENT snapshot is not rewritten to suggest that target migration
+has already occurred.
 
-## 2. What the Constitution calls World
+## 2. Biopeia TARGET authority disposition
+
+This section records the approved target boundary from ADR-0074; it does not
+claim implementation completeness or authorize a particular migration slice.
+
+| Authority/capability | Biopeia TARGET owner | Boundary |
+| --- | --- | --- |
+| World identity, causal time/order, presence and participant roster, cross-owner coordination, lifecycle, commit and recovery | World | Coordinates shared causal evolution; does not deep-own participant state. |
+| External environmental state, spatial environment, terrain/geometry, resources, fields, hazards, medium, laws, dynamics, ground truth, and Environment genesis | Environment | Semantic owner of environmental truth; not subordinate to World as a state projection. |
+| Morphology, body identity/episode, and authoritative somatic state | Embodiment | Validates/adopts its own physical candidate transitions. |
+| Longitudinal private state and cognition | Organism | Does not receive experimental ground truth or injected semantic labels. |
+| Numerical physical execution | Solver capability/substrate | Produces candidates; has no semantic ownership or commit authority. |
+| Passive claims/projections | Observation | Does not participate in causal authority or commit. |
+| Studies, protocols, runs, interventions, evidence and analysis | Lab | Scientific apparatus; not required for ordinary causal runtime. |
+
+The historical hex world is not the canonical spatial topology for the Biopeia
+TARGET embodied path. Current source code and consumers remain represented in
+the inventory below; no code removal, relocation, compatibility layer, or
+mechanical hex-to-3D conversion is implied here. Component disposition must
+follow semantic responsibility and the migration inventory.
+
+## 3. What the historical Constitution called World
 
 Constitution §1, item 3: *"World is the world. `src/symbiont_world/` owns external laws,
 opportunities, and dynamics, never cognition or internal organism knowledge."*
@@ -36,15 +64,17 @@ Symbiont must not import `symbiont_world`; World must not import `symbiont` or
 `tests/experimental_integrity/test_ground_truth_boundary.py` enforces both import
 rules.
 
-So there is exactly one constitutional World: the `symbiont_world` kernel. Every
-other environment below is either Lab apparatus, a host boundary, or a resource
-surface that predates the kernel.
+At the audit date, this map recorded exactly one constitutional World: the
+`symbiont_world` kernel. Every other environment below was classified as Lab
+apparatus, a host boundary, or a resource surface that predates the kernel.
+This records historical CURRENT understanding; it does not define Biopeia
+TARGET authority.
 
 "World" also names a run regime: the Experience and World architecture's
 `world.challenge` and `world.open` run kinds, which are hosted by Physics3D and
 do not involve the kernel. ADR-0060 fixes the vocabulary.
 
-## 3. Inventory
+## 4. CURRENT/HISTORICAL Inventory
 
 | Environment | Location | Owning layer | Responsibility | Role | State |
 | --- | --- | --- | --- | --- | --- |
@@ -61,7 +91,7 @@ do not involve the kernel. ADR-0060 fixes the vocabulary.
 | Host providers | `src/symbiont/host/` | Organism package (host boundary) | Discovery and reading of the real machine | The environment of the live resident | Active |
 | Synthetic host events | `src/symbiont/environment/` | Organism package | `HostProfile`, simulated benign/pathogen events and regimes for the legacy `Agent` simulation | Legacy simulation apparatus | Legacy, still consumed |
 
-## 4. Consumers
+## 5. CURRENT/HISTORICAL Consumers
 
 Non-test source consumers and experiment directories. "Tests" is the number of
 test modules that import the name.
@@ -78,7 +108,11 @@ test modules that import the name.
 | `LocalHabitat` | `symbiont.core.orchestration.resident`, `symbiont_lab.cli.observed_resident` | — | 2 |
 | `symbiont.environment` | `symbiont.simulation.engine`, `symbiont_lab.cli.audit`, 5 `symbiont_lab.studies.*` modules (attention, evidence, common), `symbiont_lab.physics3d.{runtime, cli}` (seed derivation) | — | 4 |
 
-## 5. Responsibilities by layer
+## 6. CURRENT/HISTORICAL Responsibilities by layer
+
+> This section reflects the 2026-10-02 CURRENT inventory only. Its allocation
+> of external laws/topology to `symbiont_world` and the characterization of
+> Physics3D surroundings are superseded as Biopeia TARGET policy by ADR-0074.
 
 **World (`symbiont_world`).** External laws, topology, movement resolution, local
 observation, opaque signal identifiers, event journal, world RNG and world
@@ -100,7 +134,12 @@ construct the habitats; the launcher supplies them and the continuity register
 classifies them as process handles (`_habitat`, `_resource_habitats`,
 `_social_habitat`: `MUST_RESET`, re-supplied by the launcher).
 
-## 6. Findings
+## 7. CURRENT/HISTORICAL Findings
+
+> These findings describe the audited source state as of 2026-10-02. They do
+> not define Biopeia TARGET authority. Any policy inference that conflicts with
+> ADR-0074 is superseded for TARGET; source observations and consumer counts
+> remain historical evidence.
 
 1. **One constitutional World, several environments.** Only `symbiont_world` is
    World in the constitutional sense. Physics3D, `CausalBody` and the standard
@@ -136,7 +175,11 @@ classifies them as process handles (`_habitat`, `_resource_habitats`,
    `docs/design/archive/symbiont-world-v{1,2}.md` and
    `docs/design/world/symbiont-world-v{3,4}.md`.
 
-## 7. Owner decisions
+## 8. Historical owner decisions (2026-10-02)
+
+> This section records the disposition made by ADR-0060 at that date. For
+> Biopeia TARGET, use ADR-0074 where the two decisions conflict. The map itself
+> authorizes no migration or implementation.
 
 Decided by [ADR-0060](../../adr/ADR-0060-world-responsibility-and-naming.md)
 (2026-10-02): World stays a category with one constitutional kernel; each family
@@ -157,7 +200,12 @@ Under the owner's sequencing of 2026-09-29, World is maintenance-only: bug fixes
 reproducibility and finishing open experiments. None of the decisions above is
 authorized by this map.
 
-## 8. Claims this map does not make
+## 9. Historical scope limits
+
+> These scope limits describe what the 2026-10-02 inventory did not decide;
+> they are not current Biopeia TARGET architecture decisions. ADR-0074 records
+> the owner-approved authority split and direction, while implementation and
+> source disposition remain separate work.
 
 - that any environment should be removed or merged;
 - that the location of the habitat classes changes organism behaviour;
