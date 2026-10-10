@@ -80,6 +80,27 @@ Validation: target package suite and wheel/sdist build are recorded with the mig
   cross-process/restart resume guarantee and no wire, schema, storage, or
   transport contract.
 
+## Mutable claim-value isolation (Observation #14)
+
+- Finding source: `biopeia/observation#14`, originally observed against target
+  commit `397c0b4`; implementation base: `faa85b729bb3591e38025135d3d0cef7d5e1c00c`.
+- Target paths: `src/observation/plane.py`, `tests/test_plane.py`, and
+  `README.md`. Disposition: `REWRITE` the target in-process publication/read
+  boundaries; no Symbiont source code or historical behavior is copied.
+- `ObservationPlane` validates claim values as built-in scalar/container trees,
+  captures a detached value on publish, and gives independent detached copies
+  to current views, bootstrap, replay, and each live subscriber. Recursive
+  containers and arbitrary custom values fail before sequence, retained state,
+  or fan-out changes. Family adapters must project richer values explicitly.
+- An adapter must capture a stable owner value while holding owner-side
+  synchronization. The plane cannot guarantee an atomic snapshot while an
+  owner concurrently mutates its source object. Returned copies remain mutable
+  locally, but cannot mutate owner state, retained plane state, or another
+  consumer's copy.
+- This is an in-process isolation boundary, not immutable scientific evidence,
+  persistence, or a wire/schema/API/transport contract. Tests establish only
+  the stated local copy/failure behavior.
+
 ### Review adjustments for the approved conceptual model (2026-10-09)
 
 - Authority vocabulary now names `ORGANISM`, `EMBODIMENT`, `ENVIRONMENT`, and

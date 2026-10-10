@@ -55,6 +55,17 @@ resumed subscription remains live after the rebase marker and can deliver
 later publications, with possible overlap against a refreshed current view.
 This control metadata is in-memory only; there is no durability or cross-restart
 resume guarantee.
+The plane snapshots claim values on publication and returns detached snapshots
+from current views, bootstrap, replay, and each live subscriber. The common
+plane accepts only built-in scalar/container value trees (including nested
+lists, tuples, and mappings); recursive containers and custom instances are
+rejected before publication side effects. A family adapter must explicitly
+project custom domain values into this supported representation while holding
+the synchronization needed to capture a stable owner value. The plane cannot
+make a racing read of owner-owned mutable state atomic. Returned snapshots are
+independent mutable copies: mutating one does not alter owner state, retained
+plane state, or another subscriber's delivery. This is in-process isolation,
+not persistence or a wire-format commitment.
 `SubjectScope.key` is a local
 scope descriptor, not inherently stable identity;
 stable identity requirements belong to each semantic family and use typed
