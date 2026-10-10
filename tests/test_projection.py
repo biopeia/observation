@@ -45,12 +45,38 @@ def test_runtime_tick_projection_is_mapping_only_and_does_not_mutate_source() ->
 
 
 def test_projection_does_not_invent_observations_and_rejects_non_mapping() -> None:
-    body, cognition, vitals = runtime_tick_events({"tick": 3})
+    events = runtime_tick_events({"tick": 3})
+    body, vitals = events
     assert body == {"type": "body", "tick": 3}
-    assert cognition == {"type": "cognition", "tick": 3}
     assert vitals == {"type": "vitals", "tick": 3}
+    assert all(event["type"] != "cognition" for event in events)
     with pytest.raises(TypeError, match="tick must be a mapping"):
         runtime_tick_events([])  # type: ignore[arg-type]
+
+
+def test_projection_emits_cognition_only_when_cognition_data_is_present() -> None:
+    events = runtime_tick_events({"source": "fixture", "tick": 3, "cognitive_readouts": 1})
+
+    cognition = [event for event in events if event["type"] == "cognition"]
+    assert cognition == [
+        {"source": "fixture", "type": "cognition", "tick": 3, "cognitive_readouts": 1}
+    ]
+
+
+@pytest.mark.parametrize(
+    "tick",
+    [
+        {"tick": 3, "prediction_error": None},
+        {"tick": 3, "slm_models": None},
+        {"tick": 3, "prospective_expected_value": None},
+    ],
+)
+def test_projection_omits_cognition_when_recognized_values_are_only_none(
+    tick: dict[str, object],
+) -> None:
+    events = runtime_tick_events(tick)
+
+    assert all(event["type"] != "cognition" for event in events)
 
 
 @pytest.mark.parametrize(
@@ -62,7 +88,7 @@ def test_projection_does_not_invent_observations_and_rejects_non_mapping() -> No
     ],
 )
 def test_projection_omits_unratified_metabolic_reserve_semantics(tick: dict[str, float]) -> None:
-    body, _cognition, _vitals = runtime_tick_events(tick)
+    events = runtime_tick_events(tick)
 
-    assert "metabolic_reserve" not in body
-    assert "metabolic_reserve_ratio" not in body
+    assert all("metabolic_reserve" not in event for event in events)
+    assert all("metabolic_reserve_ratio" not in event for event in events)

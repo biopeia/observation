@@ -17,16 +17,11 @@ OBSERVATION_IDENTITY_CONTRACT = "observation-identity-v1"
 
 @dataclass(frozen=True)
 class ObservedFrame:
-    """Coherent observer projection assembled from one completed rendered tick.
+    """Transitional inherited projection assembled from a rendered tick.
 
-    ``run_id`` is transport-independent Lab identity. It is deliberately part
-    of the frame contract rather than inferred by consumers from nested
-    telemetry: a frame without run identity cannot be safely composed with
-    presentation state from an earlier run.
-
-    Identity fields are an additive extension of the completed-render-frame-v1
-    payload and are versioned independently so existing frame consumers remain
-    compatible while new consumers can require a strong identity boundary.
+    This inherited migration-stage structure is not a stable Biopeia semantic
+    or compatibility contract. Its fields are retained only as an explicitly
+    transitional projection and must not be treated as a target schema.
     """
 
     tick: int
