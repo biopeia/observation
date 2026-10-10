@@ -1,4 +1,8 @@
-"""Pure observer-side projections from runtime telemetry into view contracts."""
+"""Pure observer-side projections from runtime telemetry into view contracts.
+
+This module contains inherited migration-stage projections. They are
+transitional bridges, not stable Biopeia semantic-family contracts.
+"""
 
 from __future__ import annotations
 
@@ -51,7 +55,14 @@ def _copy_bool(
 
 
 def runtime_tick_events(tick: Mapping[str, Any]) -> tuple[dict[str, Any], ...]:
-    """Project one canonical runtime tick without fabricating absent observations."""
+    """Project legacy runtime telemetry into transitional presentation events.
+
+    This is a migration bridge, not a stable Biopeia observation contract.
+    It does not establish semantic authority, units, or provenance for fields.
+    A cognition event is emitted only when the input contains at least one
+    cognition projection field; identity and tick context alone are not a
+    cognition observation.
+    """
     if not isinstance(tick, Mapping):
         raise TypeError("tick must be a mapping")
 
@@ -185,4 +196,8 @@ def runtime_tick_events(tick: Mapping[str, Any]) -> tuple[dict[str, Any], ...]:
     _copy_number(vitals, tick, "net_actuator_work_joules")
     _copy_number(vitals, tick, "metabolic_work_cost")
 
-    return body, cognition, vitals
+    events = [body]
+    if set(cognition).difference(identity, {"type", "tick"}):
+        events.append(cognition)
+    events.append(vitals)
+    return tuple(events)

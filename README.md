@@ -7,9 +7,11 @@ observed state and does not issue runtime commands.
 
 Included:
 
-- `ObservedFrame`, a transport-neutral frame projection data contract.
-- `runtime_tick_events`, a pure mapping from one telemetry mapping to body,
-  cognition, and vitals projection records.
+- `ObservedFrame`, an inherited transitional presentation projection contract.
+- `runtime_tick_events`, an inherited transitional mapping from telemetry to
+  body, optional cognition, and vitals presentation records. It is not a stable
+  Biopeia semantic-family contract; absent cognition data produces no cognition
+  event.
 - A transport-independent semantic claim model and bounded in-memory
   `ObservationPlane` for current projections, live fan-out, replay, and explicit
   rebase signaling. The plane has no wire, network, UI, or runtime writeback.
