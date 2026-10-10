@@ -317,6 +317,11 @@ class ObservationPlane:
             self._stream_subscribers.discard(subscription)
 
     def clear(self) -> None:
+        """Discard current/replay materialization and signal a run boundary.
+
+        The boundary advances the in-memory delivery watermark but is not
+        durable; a new process cannot recover it or resume this plane.
+        """
         with self._lock:
             # Reserve a delivery watermark for the boundary so reconnecting
             # consumers can distinguish it from pre-boundary state.
