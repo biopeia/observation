@@ -67,6 +67,90 @@ def test_expired_resume_requires_explicit_rebase() -> None:
         plane.close_stream(sub)
 
 
+def test_run_boundary_reaches_active_stream_and_reserves_delivery_watermark() -> None:
+    plane = ObservationPlane()
+    sub = plane.open_stream()
+    try:
+        plane.publish(sample(1))
+        plane.clear()
+        boundary = sub.queue.get_nowait()
+        assert isinstance(boundary, PlaneRebaseRequired)
+        assert boundary.reason == "run_boundary"
+        assert boundary.sequence == 2
+        assert plane.latest_sequence == 2
+    finally:
+        plane.close_stream(sub)
+
+
+def test_late_resume_before_run_boundary_requires_rebase_even_with_new_history() -> None:
+    plane = ObservationPlane()
+    plane.publish(sample(1))
+    plane.publish(sample(2))
+    plane.clear()
+    boundary_sequence = plane.latest_sequence
+    plane.publish(sample(3))
+
+    # Family filtering does not hide a global run boundary.
+    sub = plane.open_stream(after_sequence=2, family="embodiment.body_pose")
+    try:
+        item = sub.queue.get_nowait()
+        assert isinstance(item, PlaneRebaseRequired)
+        assert item.reason == "run_boundary"
+        assert item.sequence == 4
+        current = plane.current_messages()
+        assert len(current) == 1
+        assert current[0].sequence == item.sequence
+        assert current[0].observation.claim.value == {"step": 3}
+
+        # Rebase repairs the materialized view, not the skipped event history;
+        # this still-open subscription delivers publications after watermark 4.
+        plane.publish(sample(4))
+        following = sub.queue.get_nowait()
+        assert not isinstance(following, PlaneRebaseRequired)
+        assert following.sequence == 5
+        assert following.observation.claim.value == {"step": 4}
+    finally:
+        plane.close_stream(sub)
+
+    # A consumer that has acknowledged the boundary can replay later values.
+    sub = plane.open_stream(after_sequence=boundary_sequence, family="embodiment.body_pose")
+    try:
+        item = sub.queue.get_nowait()
+        assert not isinstance(item, PlaneRebaseRequired)
+        assert item.sequence == 4
+        assert item.observation.claim.value == {"step": 3}
+    finally:
+        plane.close_stream(sub)
+
+
+def test_each_clear_advances_boundary_and_older_watermark_rebases_at_latest() -> None:
+    plane = ObservationPlane()
+    plane.publish(sample(1))
+    plane.clear()
+    first_boundary = plane.latest_sequence
+    plane.clear()
+    latest_boundary = plane.latest_sequence
+
+    assert latest_boundary == first_boundary + 1
+    sub = plane.open_stream(after_sequence=first_boundary)
+    try:
+        item = sub.queue.get_nowait()
+        assert isinstance(item, PlaneRebaseRequired)
+        assert item.reason == "run_boundary"
+        assert item.sequence == latest_boundary
+    finally:
+        plane.close_stream(sub)
+
+    # A resume at the latest boundary does not repeat the marker; an empty
+    # current view is a projection result, not evidence of source absence.
+    sub = plane.open_stream(after_sequence=latest_boundary)
+    try:
+        assert sub.queue.empty()
+        assert plane.current() == ()
+    finally:
+        plane.close_stream(sub)
+
+
 @pytest.mark.parametrize("watermark", [True, False, 1.5, "1"])
 def test_stream_rejects_non_integer_resume_watermark(watermark: object) -> None:
     plane = ObservationPlane()
