@@ -97,7 +97,10 @@ def test_late_resume_before_run_boundary_requires_rebase_even_with_new_history()
         assert isinstance(item, PlaneRebaseRequired)
         assert item.reason == "run_boundary"
         assert item.sequence == 4
-        assert plane.current()[0].claim.value == {"step": 3}
+        current = plane.current_messages()
+        assert len(current) == 1
+        assert current[0].sequence == item.sequence
+        assert current[0].observation.claim.value == {"step": 3}
 
         # Rebase repairs the materialized view, not the skipped event history;
         # this still-open subscription delivers publications after watermark 4.
