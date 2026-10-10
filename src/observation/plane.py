@@ -14,6 +14,7 @@ from __future__ import annotations
 import queue
 import threading
 from collections import OrderedDict, deque
+from copy import deepcopy
 from dataclasses import dataclass
 from typing import Hashable
 
@@ -21,6 +22,55 @@ from .semantic import SemanticObservation
 
 _DEFAULT_SUBSCRIBER_QUEUE = 512
 _DEFAULT_REPLAY_MESSAGES = 2048
+
+
+_SNAPSHOT_ATOMS = (type(None), bool, int, float, str, bytes)
+_SNAPSHOT_CONTAINERS = (list, tuple, dict, set, frozenset)
+
+
+def _validate_snapshot_value(value: object, active: set[int] | None = None) -> None:
+    """Accept only ordinary built-in value trees at the common plane boundary.
+
+    Family adapters with richer domain values must project them to these
+    containers/scalars while holding whatever owner synchronization is
+    required. We intentionally do not introspect or invoke copy hooks on
+    arbitrary custom instances.
+    """
+    if type(value) in _SNAPSHOT_ATOMS:
+        return
+    if type(value) not in _SNAPSHOT_CONTAINERS:
+        raise TypeError(
+            "claim value must be built-in scalar/container data; "
+            "family adapters must project custom values explicitly"
+        )
+
+    if active is None:
+        active = set()
+    identity = id(value)
+    if identity in active:
+        raise TypeError("claim value must not contain recursive containers")
+    active.add(identity)
+    try:
+        if type(value) is dict:
+            for key, item in value.items():
+                _validate_snapshot_value(key, active)
+                _validate_snapshot_value(item, active)
+        else:
+            for item in value:
+                _validate_snapshot_value(item, active)
+    finally:
+        active.remove(identity)
+
+
+def _copy_observation(observation: SemanticObservation[object]) -> SemanticObservation[object]:
+    """Return a detached wrapper/value snapshot after validating value shape."""
+    value = observation.claim.value
+    _validate_snapshot_value(value)
+    return deepcopy(observation)
+
+
+def _copy_message(message: PlaneMessage) -> PlaneMessage:
+    return PlaneMessage(message.sequence, _copy_observation(message.observation))
 
 
 @dataclass(frozen=True, slots=True)
@@ -134,9 +184,13 @@ class ObservationPlane:
 
     def publish(self, observation: SemanticObservation[object]) -> int:
         key = observation_key(observation)
+        # Snapshot and validate before mutating sequence/materialization/history
+        # or notifying any subscriber. A producer must provide a stable value
+        # while this call captures it; the plane cannot synchronize an owner.
+        stored_observation = _copy_observation(observation)
         with self._lock:
             self._sequence += 1
-            message = PlaneMessage(self._sequence, observation)
+            message = PlaneMessage(self._sequence, stored_observation)
             self._history.append(message)
             self._current[key] = message
             self._current.move_to_end(key)
@@ -159,7 +213,7 @@ class ObservationPlane:
                     )
                     self._consumer_overflows += 1
                     continue
-                subscription.queue.put_nowait(message)
+                subscription.queue.put_nowait(_copy_message(message))
             return message.sequence
 
     def current_messages(
@@ -175,6 +229,7 @@ class ObservationPlane:
         """
         with self._lock:
             values = tuple(self._current.values())
+            values = tuple(_copy_message(message) for message in values)
         if family is None:
             return values
         return tuple(
@@ -252,7 +307,7 @@ class ObservationPlane:
                     )
                     return subscription
                 for message in bootstrap:
-                    consumer.put_nowait(message)
+                    consumer.put_nowait(_copy_message(message))
                 return subscription
 
             resume = after_sequence
@@ -309,7 +364,7 @@ class ObservationPlane:
                 )
                 return subscription
             for message in replay:
-                consumer.put_nowait(message)
+                consumer.put_nowait(_copy_message(message))
         return subscription
 
     def close_stream(self, subscription: PlaneStreamSubscription) -> None:

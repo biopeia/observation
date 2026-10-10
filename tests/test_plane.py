@@ -39,6 +39,114 @@ def sample(step: int = 1) -> SemanticObservation[object]:
     )
 
 
+def with_value(
+    original: SemanticObservation[object], value: object
+) -> SemanticObservation[object]:
+    claim = SemanticClaim(
+        family=original.family,
+        subject=original.claim.subject,
+        epistemic_kind=original.claim.epistemic_kind,
+        value=value,
+    )
+    return SemanticObservation(
+        claim=claim,
+        acquisition=original.acquisition,
+        asserter=original.asserter,
+        producer=original.producer,
+        domain_time=original.domain_time,
+        context_time=original.context_time,
+        identity_links=original.identity_links,
+        lineage=original.lineage,
+        conditions=original.conditions,
+        orchestration=original.orchestration,
+    )
+
+
+def test_publish_detaches_nested_aliases_from_family_adapter_and_owner_state() -> None:
+    plane = ObservationPlane()
+    owner_state = {"pose": {"position": [1.0, 2.0, 3.0]}}
+    observation = with_value(sample(), owner_state)
+    plane.publish(observation)
+
+    # Later owner mutation cannot rewrite the published value.
+    owner_state["pose"]["position"].append(4.0)
+    assert plane.current()[0].claim.value == {"pose": {"position": [1.0, 2.0, 3.0]}}
+
+    # A consumer receives a detached mutable projection, not owner state or
+    # the plane's retained canonical copy.
+    delivered = plane.current_messages()[0]
+    delivered.observation.claim.value["pose"]["position"].append(9.0)  # type: ignore[index]
+    assert owner_state["pose"]["position"] == [1.0, 2.0, 3.0, 4.0]
+    assert plane.current()[0].claim.value == {"pose": {"position": [1.0, 2.0, 3.0]}}
+
+
+def test_live_subscribers_receive_independent_nested_snapshots() -> None:
+    plane = ObservationPlane()
+    first = plane.open_stream()
+    second = plane.open_stream()
+    try:
+        plane.publish(with_value(sample(), {"nested": [1]}))
+        first_message = first.queue.get_nowait()
+        second_message = second.queue.get_nowait()
+        assert first_message.sequence == second_message.sequence == 1
+        first_message.observation.claim.value["nested"].append(2)  # type: ignore[index]
+        assert second_message.observation.claim.value == {"nested": [1]}
+        assert plane.current()[0].claim.value == {"nested": [1]}
+    finally:
+        plane.close_stream(first)
+        plane.close_stream(second)
+
+
+def test_bootstrap_and_replay_deliver_detached_snapshots() -> None:
+    plane = ObservationPlane()
+    plane.publish(with_value(sample(), {"nested": [1]}))
+
+    bootstrap = plane.open_stream()
+    try:
+        bootstrap_item = bootstrap.queue.get_nowait()
+        bootstrap_item.observation.claim.value["nested"].append(2)  # type: ignore[index]
+        assert plane.current()[0].claim.value == {"nested": [1]}
+    finally:
+        plane.close_stream(bootstrap)
+
+    replay = plane.open_stream(after_sequence=0)
+    try:
+        replay_item = replay.queue.get_nowait()
+        replay_item.observation.claim.value["nested"].append(3)  # type: ignore[index]
+        assert plane.current()[0].claim.value == {"nested": [1]}
+    finally:
+        plane.close_stream(replay)
+
+
+def test_unsupported_custom_value_fails_before_any_publication_side_effect() -> None:
+    class CustomValue:
+        pass
+
+    plane = ObservationPlane()
+    subscriber = plane.open_stream()
+    try:
+        with pytest.raises(TypeError, match="family adapters must project custom values"):
+            plane.publish(with_value(sample(), {"nested": [CustomValue()]}))
+
+        assert plane.latest_sequence == 0
+        assert plane.oldest_replay_sequence is None
+        assert plane.current_messages() == ()
+        assert subscriber.queue.empty()
+    finally:
+        plane.close_stream(subscriber)
+
+
+def test_recursive_claim_value_is_rejected_without_advancing_sequence() -> None:
+    plane = ObservationPlane()
+    recursive: list[object] = []
+    recursive.append(recursive)
+
+    with pytest.raises(TypeError, match="must not contain recursive containers"):
+        plane.publish(with_value(sample(), recursive))
+    assert plane.latest_sequence == 0
+    assert plane.current() == ()
+
+
 def test_plane_is_bounded_passive_current_and_live_delivery() -> None:
     plane = ObservationPlane(max_entries=1, subscriber_queue_size=2, replay_messages=2)
     subscription = plane.open_stream(family="embodiment.body_pose")
