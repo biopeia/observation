@@ -463,3 +463,91 @@ def test_stream_overflow_signals_rebase_instead_of_silent_loss() -> None:
         assert plane.consumer_overflows == 1
     finally:
         plane.close_stream(sub)
+
+
+def test_future_resume_watermark_requires_rebase_at_current_sequence() -> None:
+    plane = ObservationPlane()
+    plane.publish(sample(1))
+    plane.publish(sample(2))
+
+    sub = plane.open_stream(after_sequence=99)
+    try:
+        item = sub.queue.get_nowait()
+        assert isinstance(item, PlaneRebaseRequired)
+        assert item.reason == "future_watermark"
+        assert item.sequence == plane.latest_sequence == 2
+    finally:
+        plane.close_stream(sub)
+
+
+def test_replay_larger_than_subscriber_bound_requires_rebase() -> None:
+    plane = ObservationPlane(subscriber_queue_size=1, replay_messages=4)
+    plane.publish(sample(1))
+    plane.publish(sample(2))
+
+    sub = plane.open_stream(after_sequence=0)
+    try:
+        item = sub.queue.get_nowait()
+        assert isinstance(item, PlaneRebaseRequired)
+        assert item.reason == "replay_exceeds_subscriber_bound"
+        assert item.sequence == plane.latest_sequence == 2
+        assert sub.queue.empty()
+    finally:
+        plane.close_stream(sub)
+
+
+def test_family_filtered_stream_preserves_global_sequence_gaps() -> None:
+    plane = ObservationPlane()
+    sub = plane.open_stream(family="embodiment.body_pose")
+    source = sample(2)
+    environment_observation = SemanticObservation(
+        claim=SemanticClaim(
+            family=SemanticFamily(
+                AuthorityDomain.ENVIRONMENT,
+                ("field",),
+                SemanticContractRef("environment.field", "v1"),
+            ),
+            subject=source.claim.subject,
+            epistemic_kind=source.claim.epistemic_kind,
+            value={"step": 2},
+        ),
+        acquisition=source.acquisition,
+        asserter=source.asserter,
+        producer=source.producer,
+    )
+    try:
+        plane.publish(sample(1))
+        plane.publish(environment_observation)
+        plane.publish(sample(3))
+
+        first = sub.queue.get_nowait()
+        second = sub.queue.get_nowait()
+        assert not isinstance(first, PlaneRebaseRequired)
+        assert not isinstance(second, PlaneRebaseRequired)
+        assert first.sequence == 1
+        assert second.sequence == 3
+        assert first.observation.claim.value == {"step": 1}
+        assert second.observation.claim.value == {"step": 3}
+    finally:
+        plane.close_stream(sub)
+
+
+def test_live_stream_continues_after_overflow_rebase_marker() -> None:
+    plane = ObservationPlane(subscriber_queue_size=1)
+    sub = plane.open_stream()
+    try:
+        plane.publish(sample(1))
+        plane.publish(sample(2))
+
+        marker = sub.queue.get_nowait()
+        assert isinstance(marker, PlaneRebaseRequired)
+        assert marker.reason == "consumer_overflow"
+        assert marker.sequence == 2
+
+        plane.publish(sample(3))
+        following = sub.queue.get_nowait()
+        assert not isinstance(following, PlaneRebaseRequired)
+        assert following.sequence == 3
+        assert following.observation.claim.value == {"step": 3}
+    finally:
+        plane.close_stream(sub)
