@@ -59,6 +59,8 @@ def runtime_tick_events(tick: Mapping[str, Any]) -> tuple[dict[str, Any], ...]:
 
     This is a migration bridge, not a stable Biopeia observation contract.
     It does not establish semantic authority, units, or provenance for fields.
+    The source-specific ``symbiont_tick`` key is deliberately ignored and is
+    never emitted or treated as an alias for ``tick``.
     A cognition event is emitted only when the input contains at least one
     cognition projection field; identity and tick context alone are not a
     cognition observation.
@@ -141,7 +143,6 @@ def runtime_tick_events(tick: Mapping[str, Any]) -> tuple[dict[str, Any], ...]:
 
     cognition: dict[str, Any] = {**identity, "type": "cognition"}
     _copy_number(cognition, tick, "tick", cast=int)
-    _copy_number(cognition, tick, "symbiont_tick", cast=int)
     _copy_number(cognition, tick, "schema_confidence")
     _copy_number(cognition, tick, "schema_parts", cast=int)
     _copy_number(cognition, tick, "schema_sensory_parts", cast=int)
@@ -179,7 +180,6 @@ def runtime_tick_events(tick: Mapping[str, Any]) -> tuple[dict[str, Any], ...]:
 
     vitals: dict[str, Any] = {**identity, "type": "vitals"}
     _copy_number(vitals, tick, "tick", cast=int)
-    _copy_number(vitals, tick, "symbiont_tick", cast=int)
     _copy_number(vitals, tick, "body_age_ticks", cast=int)
     _copy_number(vitals, tick, "body_senescence")
     _copy_bool(vitals, tick, "alive")

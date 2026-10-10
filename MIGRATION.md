@@ -39,7 +39,17 @@ This extraction does not assign semantic ownership of every projected field. The
 - The package name and public import path are `observation`; the distribution name is `observation`.
 - The copied slice retains historical payload keys as observed source behavior; this is not a compatibility promise or ratified Biopeia API/schema. Re-author or drop them when the relevant semantic-family contract is approved.
 - `runtime_tick_events` omits both historical `metabolic_reserve` and `metabolic_reserve_ratio` inputs. They are not interchangeable and no target semantic-family contract currently authorizes either projection; do not rename or alias one into the other.
+- `runtime_tick_events` does not emit the historical source-specific `symbiont_tick` input. Supplying it has no effect; it is not a fallback or alias for the generic `tick` projection. The generic `tick` field itself has no asserted World/Organism domain-time meaning here.
 - No operator control, UI, evidence archive/custody, or live transport implementation is included.
+
+### Removal of the `symbiont_tick` projection bridge (Observation #22)
+
+- Target base: `cde1869d293ed3c890d19ecde5b8bd4011d3f17e`.
+- Target paths: `src/observation/projection.py`, `tests/test_projection.py`, `README.md`.
+- Source symbol: `symbiont_tick` reads in `runtime_tick_events`; disposition: `DROP` from the Biopeia TARGET projection. No alias, fallback, compatibility mapping, or new domain-time claim is introduced.
+- Verification at target base: the Biopeia Lab main caller uses `record.causal_tick` as its generic `tick` input and does not supply `symbiont_tick`; no Lab caller change is needed for this bounded removal. Historical Organism symbols using that name are separate owner-controlled work and are not changed by this Observation slice.
+- Negative tests establish that a supplied `symbiont_tick` is neither emitted nor aliased to `tick`, including when both keys have different values. Unknown extra mapping keys remain ignored by this transitional projection; this does not establish strict rejection of arbitrary input keys.
+- Limits: this drops one source-specific field only. It does not make `runtime_tick_events` a ratified semantic-family contract, assign domain-time semantics to generic `tick`, or close the broader migration inventory.
 
 ## Semantic Observation Plane extraction (2026-10-09)
 
