@@ -66,6 +66,22 @@ def test_projection_emits_cognition_only_when_cognition_data_is_present() -> Non
 @pytest.mark.parametrize(
     "tick",
     [
+        {"tick": 3, "prediction_error": None},
+        {"tick": 3, "slm_models": None},
+        {"tick": 3, "prospective_expected_value": None},
+    ],
+)
+def test_projection_omits_cognition_when_recognized_values_are_only_none(
+    tick: dict[str, object],
+) -> None:
+    events = runtime_tick_events(tick)
+
+    assert all(event["type"] != "cognition" for event in events)
+
+
+@pytest.mark.parametrize(
+    "tick",
+    [
         {"metabolic_reserve_ratio": 0.25},
         {"metabolic_reserve": 42.0},
         {"metabolic_reserve_ratio": 0.25, "metabolic_reserve": 42.0},

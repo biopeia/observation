@@ -168,14 +168,14 @@ def runtime_tick_events(tick: Mapping[str, Any]) -> tuple[dict[str, Any], ...]:
     _copy_number(cognition, tick, "cognitive_motor_output_edges", cast=int)
     _copy_number(cognition, tick, "cognitive_concepts", cast=int)
     _copy_number(cognition, tick, "cognitive_readouts", cast=int)
-    if "prediction_error" in tick:
-        cognition["prediction_error"] = tick.get("prediction_error")
+    if tick.get("prediction_error") is not None:
+        cognition["prediction_error"] = tick["prediction_error"]
     _copy_bool(cognition, tick, "slm_active")
-    if "slm_models" in tick:
-        cognition["slm_models"] = tick.get("slm_models")
+    if tick.get("slm_models") is not None:
+        cognition["slm_models"] = tick["slm_models"]
     _copy_bool(cognition, tick, "prospective_selected")
-    if "prospective_expected_value" in tick:
-        cognition["prospective_expected_value"] = tick.get("prospective_expected_value")
+    if tick.get("prospective_expected_value") is not None:
+        cognition["prospective_expected_value"] = tick["prospective_expected_value"]
 
     vitals: dict[str, Any] = {**identity, "type": "vitals"}
     _copy_number(vitals, tick, "tick", cast=int)
