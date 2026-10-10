@@ -63,6 +63,20 @@ def test_projection_emits_cognition_only_when_cognition_data_is_present() -> Non
     ]
 
 
+def test_projection_does_not_emit_or_alias_symbiont_tick() -> None:
+    legacy_only = runtime_tick_events({"symbiont_tick": 37})
+    assert legacy_only == ({"type": "body"}, {"type": "vitals"})
+
+    with_distinct_tick = runtime_tick_events(
+        {"tick": 12, "symbiont_tick": 37, "cognitive_readouts": 1}
+    )
+    body, cognition, vitals = with_distinct_tick
+    assert body["tick"] == 12
+    assert cognition["tick"] == 12
+    assert vitals["tick"] == 12
+    assert all("symbiont_tick" not in event for event in with_distinct_tick)
+
+
 @pytest.mark.parametrize(
     "tick",
     [

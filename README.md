@@ -25,6 +25,11 @@ promise or a ratified Biopeia API. The semantic model recognizes
 `LAB` is only appropriate for Lab-derived claims. Modality is not an
 automatically authoritative domain.
 
+The projection does not emit or accept `symbiont_tick` as a TARGET field. If a
+caller supplies that source-specific key, it is ignored; it is never aliased to
+the generic `tick` key. The generic `tick` projection does not by itself assert
+World causal time, Organism progression, or any other domain-time semantics.
+
 The in-memory plane orders publications by one monotonically increasing
 delivery sequence (not domain time). A family-filtered stream retains this
 global sequence, so skipped sequence numbers may belong to other families.
