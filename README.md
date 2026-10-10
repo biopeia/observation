@@ -40,14 +40,22 @@ also part of the key: authoritative, estimated, and inferred claims remain
 separate materialized values.
 
 The in-memory `open_stream()` delivery contract is scoped to one plane instance:
-it orders messages by the global publication sequence; a family filter retains
-that sequence, so unrelated-family messages create legitimate sequence gaps.
+it orders observations and run-boundary control events by one global delivery
+sequence; a family filter retains that sequence, so unrelated-family messages
+and control events create legitimate sequence gaps.
 A healthy subscription delivers each sequence at most once. Re-fetch after a
 rebase may overlap already processed messages, so consumers should deduplicate
 by sequence. Replay is complete only within the retained in-memory range when
 the requested replay fits the bounded queue; normal live delivery is complete
-until overflow. Overflow/expiry/bootstrap bounds require rebase. There is no
-durability or cross-restart resume guarantee. `SubjectScope.key` is a local
+until overflow. Overflow/expiry/bootstrap bounds and run boundaries require
+rebase. A run boundary reserves a sequence watermark so a resumed consumer can
+distinguish pre-boundary state from later publications. Rebase repairs the
+materialized current view; it does not reconstruct skipped event history. The
+resumed subscription remains live after the rebase marker and can deliver
+later publications, with possible overlap against a refreshed current view.
+This control metadata is in-memory only; there is no durability or cross-restart
+resume guarantee.
+`SubjectScope.key` is a local
 scope descriptor, not inherently stable identity;
 stable identity requirements belong to each semantic family and use typed
 identity assertions where needed.

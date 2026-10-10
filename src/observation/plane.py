@@ -106,6 +106,7 @@ class ObservationPlane:
         self._history: deque[PlaneMessage] = deque(maxlen=int(replay_messages))
         self._stream_subscribers: set[PlaneStreamSubscription] = set()
         self._sequence = 0
+        self._last_boundary_sequence: int | None = None
         self._consumer_overflows = 0
 
     @property
@@ -203,12 +204,13 @@ class ObservationPlane:
         yields an explicit rebase request; the transport can then obtain a
         current projection at the returned sequence watermark.
 
-        Message sequence is globally increasing in publish order, not domain
-        time. Family-filtered streams retain that global sequence, so gaps may
-        simply be messages belonging to other families. Replay expiry, replay
-        bound overflow, and live subscriber overflow are signaled with
-        :class:`PlaneRebaseRequired`; consumers must rebase rather than infer
-        source-state absence.
+        Delivery sequence is globally increasing within the plane, not domain
+        time. Observation publications and run-boundary control events both
+        advance it. Family-filtered streams retain that global sequence, so
+        gaps may belong to other families or control events. Replay expiry,
+        run boundaries, replay bound overflow, and live subscriber overflow
+        are signaled with :class:`PlaneRebaseRequired`; consumers must rebase
+        rather than infer source-state absence.
 
         Within one healthy subscription, each sequence is delivered at most
         once. Re-fetching current state after rebase may overlap messages the
@@ -216,7 +218,9 @@ class ObservationPlane:
         Completeness is limited to the retained in-memory sequence range and
         normal live delivery before overflow. This plane is not durable and
         cannot resume across process restarts. Watermarks are scoped to this
-        plane instance; a family filter preserves global sequence values.
+        plane instance; a family filter preserves global sequence values. Run
+        boundaries are likewise in-memory only and are not recoverable across
+        restarts.
         """
 
         if after_sequence is not None:
@@ -258,6 +262,17 @@ class ObservationPlane:
                     PlaneRebaseRequired(
                         sequence=self._sequence,
                         reason="future_watermark",
+                    )
+                )
+                return subscription
+            if (
+                self._last_boundary_sequence is not None
+                and resume < self._last_boundary_sequence
+            ):
+                consumer.put_nowait(
+                    PlaneRebaseRequired(
+                        sequence=self._sequence,
+                        reason="run_boundary",
                     )
                 )
                 return subscription
@@ -303,6 +318,10 @@ class ObservationPlane:
 
     def clear(self) -> None:
         with self._lock:
+            # Reserve a delivery watermark for the boundary so reconnecting
+            # consumers can distinguish it from pre-boundary state.
+            self._sequence += 1
+            self._last_boundary_sequence = self._sequence
             self._current.clear()
             self._history.clear()
             for subscription in self._stream_subscribers:

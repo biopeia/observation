@@ -60,6 +60,26 @@ The source `semantic.py` is the transport-independent claim/identity/lineage mod
 
 Validation: target package suite and wheel/sdist build are recorded with the migration PR. The bounded extraction is integrated in PR #3 (merge commit `64c3226ab3701f748e276c92a852ca4facd74091`); integration does not ratify every copied behavior.
 
+## Run-boundary resume repair (Observation #13)
+
+- Finding source: `biopeia/observation#13`, observed against target commit
+  `397c0b4`; the target implementation base for this repair is
+  `186da66`.
+- Target source path/symbol: `src/observation/plane.py`,
+  `ObservationPlane.clear()` / `ObservationPlane.open_stream()`.
+- Disposition: `REWRITE` the existing target-side boundary sequencing behavior;
+  no historical source code is copied or treated as a compatibility contract.
+- Advisor reviewed and ratified the bounded in-process watermark semantics on
+  2026-10-10. `clear()` reserves a delivery sequence for the boundary. A
+  watermark before the latest boundary receives `PlaneRebaseRequired` at the
+  current watermark; a watermark at the boundary can resume later publications.
+- README and tests cover active subscribers, late resume before/at the
+  boundary, later publications, repeated boundaries, and family-filtered
+  resume. Rebase does not imply source-state absence.
+- Limit: boundary history is in-memory only. This change adds no durable or
+  cross-process/restart resume guarantee and no wire, schema, storage, or
+  transport contract.
+
 ### Review adjustments for the approved conceptual model (2026-10-09)
 
 - Authority vocabulary now names `ORGANISM`, `EMBODIMENT`, `ENVIRONMENT`, and
