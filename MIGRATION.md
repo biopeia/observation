@@ -488,3 +488,24 @@ tracked-file inventory at the named Git pin; it does not claim to enumerate
 untracked artifacts, runtime-generated telemetry, all Lab UI/browser tests,
 or scientific data files. Every deferred item remains open for the migration
 completion audit; this inventory alone does not authorize source cut-over.
+
+## Environment finite scalar-field observation adapter (2026-10-11)
+
+- Issue: [biopeia/observation#26](https://github.com/biopeia/observation/issues/26).
+- Target paths: `src/observation/environment.py`, `src/observation/__init__.py`,
+  and `tests/test_environment_observation.py`.
+- Disposition: `REWRITE`. This is a new TARGET adapter over the approved
+  Environment-owned finite scalar-field projection; no Symbiont implementation
+  or compatibility behavior is copied.
+- Input contract: `biopeia.environment.finite-scalar-field` revision `1`,
+  supplied structurally so Observation does not depend on Environment package
+  internals.
+- The adapter preserves Environment authority, typed Environment/resource
+  identity, field and Environment revisions, explicit dimensionless value and
+  metre/frame location, causal source/target correlation, and checkpoint
+  digest lineage.
+- Limits: the adapter maps a field projection, not an Embodiment receptor
+  signal; it does not prove owner adoption, World commit, or World publication.
+  It does not implement a wire format or transport. The post-commit publication
+  join remains World-owned work under `world#103`; full causal acceptance
+  remains open under `world#86`.
