@@ -509,3 +509,29 @@ completion audit; this inventory alone does not authorize source cut-over.
   It does not implement a wire format or transport. The post-commit publication
   join remains World-owned work under `world#103`; full causal acceptance
   remains open under `world#86`.
+
+## Embodiment BodyPose v1 observation mapping (2026-10-12)
+
+- Issue: [biopeia/observation#26](https://github.com/biopeia/observation/issues/26).
+- Target paths: `src/observation/embodiment.py`,
+  `src/observation/__init__.py`, `tests/test_embodiment_observation.py`, and
+  `docs/embodiment-body-pose-mapping-v1.md`.
+- Disposition: `REWRITE`. This is a new passive Observation adapter over the
+  Embodiment-owned BodyPose v1 projection; it copies no historical
+  implementation and adds no compatibility behavior.
+- Contract dependency: `biopeia/embodiment` merged main at
+  `baa2d071e763cba6c1a380d50488ebf863cb3578` (PR #55). The adapter depends on
+  the owner projection's body, episode, morphology-revision, source-state
+  digest, pose, and optional physical-step correlation fields.
+- The semantic claim preserves Embodiment authority, separately typed body,
+  episode and morphology-revision identities, position in metres, unit
+  quaternion XYZW semantics, and explicit reference/body frames. World causal
+  tick remains correlation context rather than Embodiment domain time.
+- Limits: `sample_kind` and `sample_value` are validated for input/step
+  consistency but are not promoted into the BodyPose v1 claim value. The
+  adapter cannot authenticate arbitrary directly constructed projections or
+  prove digest durability. Local unit tests validate mapping only; they do not
+  prove World committed-cut validation/publication, cross-repository runtime
+  composition, or the end-to-end acceptance criterion. World remains
+  responsible for independently verifying a committed cut before publication;
+  full causal acceptance remains open under `world#86`.

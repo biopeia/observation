@@ -15,6 +15,11 @@ Included:
 - A transport-independent semantic claim model and bounded in-memory
   `ObservationPlane` for current projections, live fan-out, replay, and explicit
   rebase signaling. The plane has no wire, network, UI, or runtime writeback.
+- Bounded owner-projection mappings for Environment finite scalar fields and
+  Embodiment BodyPose v1. These adapters preserve source authority and do not
+  prove that World committed the correlated cut; publication requires
+  independent World-side verification. See
+  [the BodyPose mapping contract](docs/embodiment-body-pose-mapping-v1.md).
 
 Excluded from this initial extraction: operator controls, scientific evidence
 custody/provenance, UI, network/SSE transport, the live observation bus, World
