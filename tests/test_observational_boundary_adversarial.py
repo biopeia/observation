@@ -27,7 +27,7 @@ def observation(value: int) -> SemanticObservation[object]:
     )
 
 
-def test_retention_eviction_is_not_source_absence() -> None:
+def test_bounded_replay_eviction_requires_rebase() -> None:
     plane = ObservationPlane(max_entries=1, replay_messages=1)
     plane.publish(observation(1))
     plane.publish(observation(2))
@@ -51,7 +51,7 @@ def test_mutating_read_projection_cannot_rewrite_plane_history() -> None:
     assert plane.current_messages()[0].observation.claim.value == {"value": 1}
 
 
-def test_run_boundary_prevents_replay_across_causal_contexts() -> None:
+def test_explicit_clear_rebases_stream_without_causal_context() -> None:
     plane = ObservationPlane()
     plane.publish(observation(1))
     plane.clear()
