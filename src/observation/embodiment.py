@@ -34,6 +34,111 @@ _ASSERTER = "embodiment_owner_boundary"
 _PRODUCER = "embodiment_owner_projection"
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
 
+_RESERVE_STATE_FAMILY_ID = "biopeia.embodiment.reserve_state_snapshot"
+_RESERVE_STATE_REVISION = "1"
+
+
+class _ReserveStateProjection(Protocol):
+    semantic_family_id: str
+    semantic_revision: str
+    semantic_authority: str
+    semantic_asserter: str
+    semantic_producer: str
+    body_id: str
+    episode_id: str
+    amount: float
+    capacity: float
+    fraction: float
+    quantity_kind: str
+    world_id: str
+    causal_tick: int
+    commit_id: str
+    checkpoint_id: str
+    checkpoint_schema: str
+    checkpoint_version: int
+    source_owner_checkpoint_sha256: str
+
+
+def embodiment_reserve_state_observation(
+    projection: _ReserveStateProjection,
+) -> SemanticObservation[dict[str, object]]:
+    """Adapt a committed Embodiment reserve snapshot without interpretation."""
+    expected = {
+        "semantic_family_id": _RESERVE_STATE_FAMILY_ID,
+        "semantic_revision": _RESERVE_STATE_REVISION,
+        "semantic_authority": "EMBODIMENT",
+        "semantic_asserter": "embodiment.owner_checkpoint",
+        "semantic_producer": "embodiment.checkpoint.project_committed_reserve_state",
+        "quantity_kind": "model_amount",
+    }
+    for name, value in expected.items():
+        if getattr(projection, name, None) != value:
+            raise ValueError(f"Embodiment reserve projection has invalid {name}")
+    body_id = _required_text(projection, "body_id")
+    episode_id = _required_text(projection, "episode_id")
+    world_id = _required_text(projection, "world_id")
+    commit_id = _required_text(projection, "commit_id")
+    checkpoint_id = _required_text(projection, "checkpoint_id")
+    checkpoint_schema = _required_text(projection, "checkpoint_schema")
+    tick = _required_tick(projection, "causal_tick")
+    version = getattr(projection, "checkpoint_version", None)
+    digest = _required_text(projection, "source_owner_checkpoint_sha256")
+    if type(version) is not int or version < 1:
+        raise ValueError("Embodiment checkpoint version must be a positive integer")
+    if not _DIGEST.fullmatch(digest):
+        raise ValueError("Embodiment owner checkpoint digest must be lowercase SHA-256")
+    numbers: dict[str, float] = {}
+    for name in ("amount", "capacity", "fraction"):
+        value = getattr(projection, name, None)
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+            raise ValueError(f"Embodiment reserve {name} must be finite numeric data")
+        numbers[name] = float(value)
+    actor = ActorRef("embodiment", body_id)
+    family = SemanticFamily(
+        authority=AuthorityDomain.EMBODIMENT,
+        path=("reserve_state_snapshot",),
+        contract=SemanticContractRef(_RESERVE_STATE_FAMILY_ID, _RESERVE_STATE_REVISION),
+    )
+    subject = SubjectScope(
+        kind="embodiment_reserve_state",
+        identities=(
+            IdentityAssertion(IdentityRef("body", body_id, actor, scope=episode_id), asserter=actor),
+            IdentityAssertion(IdentityRef("embodiment_episode", episode_id, actor, scope=body_id), asserter=actor),
+        ),
+    )
+    return SemanticObservation(
+        claim=SemanticClaim(
+            family=family,
+            subject=subject,
+            epistemic_kind="authoritative_state",
+            value={
+                "amount": {"value": numbers["amount"], "quantity_kind": "model_amount"},
+                "capacity": {"value": numbers["capacity"], "quantity_kind": "model_amount"},
+                "fraction": {"value": numbers["fraction"], "unit": "1"},
+            },
+        ),
+        acquisition=AcquisitionBasis(method="embodiment_owner_checkpoint_projection"),
+        asserter=ActorRef("embodiment_owner_boundary", "embodiment.owner_checkpoint"),
+        producer=ActorRef("embodiment_projection", "embodiment.checkpoint.project_committed_reserve_state"),
+        context_time=(DomainTimeRef(AuthorityDomain.WORLD, "world_causal_tick", tick),),
+        lineage=Lineage(
+            parents=(LineageSourceRef("embodiment_owner_checkpoint_sha256", digest),),
+            transformation=TransformationRef(
+                "embodiment.reserve_state_snapshot.project_committed_state",
+                _RESERVE_STATE_REVISION,
+                effective_configuration=(
+                    ("world_id", world_id),
+                    ("commit_id", commit_id),
+                    ("checkpoint_id", checkpoint_id),
+                    ("checkpoint_schema", checkpoint_schema),
+                    ("checkpoint_version", str(version)),
+                    ("body_id", body_id),
+                    ("embodiment_episode_id", episode_id),
+                ),
+            ),
+        ),
+    )
+
 
 class _BodyPoseSample(Protocol):
     body_id: str
@@ -255,4 +360,4 @@ def _finite_tuple(value: object, *, size: int, name: str) -> tuple[float, ...]:
     return tuple(float(component) for component in value)
 
 
-__all__ = ["embodiment_body_pose_observation"]
+__all__ = ["embodiment_body_pose_observation", "embodiment_reserve_state_observation"]
