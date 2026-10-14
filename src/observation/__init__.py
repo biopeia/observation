@@ -1,8 +1,8 @@
 """Passive, transport-neutral projections for runtime observations."""
 
 from .contracts import ObservedFrame
-from .environment import environment_finite_scalar_field_observation
-from .embodiment import embodiment_body_pose_observation
+from .environment import environment_finite_scalar_field_observation, environment_resource_state_observation
+from .embodiment import embodiment_body_pose_observation, embodiment_reserve_state_observation
 from .projection import runtime_tick_events
 from .plane import ObservationPlane, PlaneMessage, PlaneRebaseRequired, PlaneStreamSubscription
 from .semantic import SemanticObservation
@@ -15,6 +15,8 @@ __all__ = [
     "PlaneStreamSubscription",
     "SemanticObservation",
     "environment_finite_scalar_field_observation",
+    "environment_resource_state_observation",
     "embodiment_body_pose_observation",
+    "embodiment_reserve_state_observation",
     "runtime_tick_events",
 ]

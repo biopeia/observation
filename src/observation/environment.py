@@ -36,6 +36,100 @@ _SUBJECT_TYPE = "environment.finite_resource_field"
 _ASSERTER = "environment.identified_finite_scalar_field"
 _PRODUCER = "environment.identified_finite_scalar_field.project_observation"
 
+_RESOURCE_STATE_FAMILY_ID = "biopeia.environment.resource_state_snapshot"
+_RESOURCE_STATE_REVISION = "1"
+
+
+class _ResourceStateProjection(Protocol):
+    semantic_family_id: str
+    semantic_revision: str
+    semantic_authority: str
+    semantic_asserter: str
+    semantic_producer: str
+    resource_id: str
+    remaining: float
+    world_id: str
+    causal_tick: int
+    commit_id: str
+    checkpoint_id: str
+    checkpoint_type: str
+    checkpoint_version: int
+    checkpoint_schema: str
+    source_owner_checkpoint_sha256: str
+
+
+def environment_resource_state_observation(
+    projection: _ResourceStateProjection,
+) -> SemanticObservation[dict[str, object]]:
+    """Adapt an exact Environment owner-state snapshot as a passive claim.
+
+    ``remaining`` is intentionally unitless here. This adapter neither
+    characterizes a transfer nor attributes a cause to the state.
+    """
+    expected = {
+        "semantic_family_id": _RESOURCE_STATE_FAMILY_ID,
+        "semantic_revision": _RESOURCE_STATE_REVISION,
+        "semantic_authority": "ENVIRONMENT",
+        "semantic_asserter": "environment.identified_finite_resource",
+        "semantic_producer": "environment.identified_finite_resource.project_committed_state",
+    }
+    for name, value in expected.items():
+        if getattr(projection, name, None) != value:
+            raise ValueError(f"Environment resource-state projection has invalid {name}")
+    resource_id = _required_text(projection, "resource_id")
+    world_id = _required_text(projection, "world_id")
+    commit_id = _required_text(projection, "commit_id")
+    checkpoint_id = _required_text(projection, "checkpoint_id")
+    checkpoint_type = _required_text(projection, "checkpoint_type")
+    checkpoint_schema = _required_text(projection, "checkpoint_schema")
+    tick = _required_tick(projection, "causal_tick")
+    version = getattr(projection, "checkpoint_version", None)
+    remaining = getattr(projection, "remaining", None)
+    digest = _required_text(projection, "source_owner_checkpoint_sha256")
+    if type(version) is not int or version < 1:
+        raise ValueError("Environment checkpoint version must be a positive integer")
+    if isinstance(remaining, bool) or not isinstance(remaining, (int, float)) or not math.isfinite(remaining):
+        raise ValueError("Environment remaining state must be finite numeric data")
+    if len(digest) != 64 or any(char not in "0123456789abcdef" for char in digest):
+        raise ValueError("Environment owner checkpoint digest must be lowercase SHA-256")
+    actor = ActorRef("environment", resource_id)
+    family = SemanticFamily(
+        authority=AuthorityDomain.ENVIRONMENT,
+        path=("resource_state_snapshot",),
+        contract=SemanticContractRef(_RESOURCE_STATE_FAMILY_ID, _RESOURCE_STATE_REVISION),
+    )
+    subject = SubjectScope(
+        kind="environment_resource_state",
+        identities=(IdentityAssertion(IdentityRef("environment_resource", resource_id, actor), asserter=actor),),
+    )
+    return SemanticObservation(
+        claim=SemanticClaim(
+            family=family,
+            subject=subject,
+            epistemic_kind="authoritative_state",
+            value={"remaining": float(remaining)},
+        ),
+        acquisition=AcquisitionBasis(method="environment_owner_checkpoint_projection"),
+        asserter=ActorRef("environment_owner_boundary", "environment.identified_finite_resource"),
+        producer=ActorRef("environment_projection", "environment.identified_finite_resource.project_committed_state"),
+        context_time=(DomainTimeRef(AuthorityDomain.WORLD, "world_causal_tick", tick),),
+        lineage=Lineage(
+            parents=(LineageSourceRef("environment_owner_checkpoint_sha256", digest),),
+            transformation=TransformationRef(
+                "environment.resource_state_snapshot.project_committed_state",
+                _RESOURCE_STATE_REVISION,
+                effective_configuration=(
+                    ("world_id", world_id),
+                    ("commit_id", commit_id),
+                    ("checkpoint_id", checkpoint_id),
+                    ("checkpoint_type", checkpoint_type),
+                    ("checkpoint_version", str(version)),
+                    ("checkpoint_schema", checkpoint_schema),
+                ),
+            ),
+        ),
+    )
+
 
 class _FiniteScalarFieldProjection(Protocol):
     """Structural view of the approved Environment projection contract."""
@@ -215,4 +309,4 @@ def _required_tick(source: _FiniteScalarFieldProjection, name: str) -> int:
     return value
 
 
-__all__ = ["environment_finite_scalar_field_observation"]
+__all__ = ["environment_finite_scalar_field_observation", "environment_resource_state_observation"]
