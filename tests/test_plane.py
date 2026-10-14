@@ -118,6 +118,40 @@ def test_bootstrap_and_replay_deliver_detached_snapshots() -> None:
         plane.close_stream(replay)
 
 
+def test_identical_observation_republication_is_delivered_again() -> None:
+    """The in-process plane does not deduplicate repeated source messages."""
+    plane = ObservationPlane()
+    subscriber = plane.open_stream()
+    observation = sample(1)
+    try:
+        plane.publish(observation)
+        plane.publish(observation)
+
+        first = subscriber.queue.get_nowait()
+        second = subscriber.queue.get_nowait()
+        assert (first.sequence, second.sequence) == (1, 2)
+        assert first.observation == second.observation == observation
+    finally:
+        plane.close_stream(subscriber)
+
+
+def test_late_older_domain_time_is_delivered_in_publication_sequence() -> None:
+    """Delivery sequence is not domain time and does not reorder late data."""
+    plane = ObservationPlane()
+    subscriber = plane.open_stream()
+    try:
+        plane.publish(sample(2))
+        plane.publish(sample(1))
+
+        first = subscriber.queue.get_nowait()
+        second = subscriber.queue.get_nowait()
+        assert (first.sequence, second.sequence) == (1, 2)
+        assert first.observation.domain_time[0].value == 2
+        assert second.observation.domain_time[0].value == 1
+    finally:
+        plane.close_stream(subscriber)
+
+
 def test_unsupported_custom_value_fails_before_any_publication_side_effect() -> None:
     class CustomValue:
         pass
