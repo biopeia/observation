@@ -14,7 +14,12 @@ Included:
   event.
 - A transport-independent semantic claim model and bounded in-memory
   `ObservationPlane` for current projections, live fan-out, replay, and explicit
-  rebase signaling. The plane has no wire, network, UI, or runtime writeback.
+  rebase signaling.
+- A narrow local-only, read-only HTTP bridge for the approved Frontend M1
+  `embodiment.body_pose@v1` and
+  `environment.finite_scalar_field@1` current projections. The bridge must be
+  attached to the same in-process plane used by the World publication path; it
+  is not a standalone source of observations.
 - Bounded owner-projection mappings for Environment finite scalar fields and
   Embodiment BodyPose v1. These adapters preserve source authority and do not
   prove that World committed the correlated cut; publication requires
@@ -22,10 +27,10 @@ Included:
   [the BodyPose mapping contract](docs/embodiment-body-pose-mapping-v1.md).
 
 Excluded from this initial extraction: operator controls, scientific evidence
-custody/provenance, UI, network/SSE transport, the live observation bus, World
-scene lifecycle, and domain-specific readers. Historical payload keys remain
-in the copied projection as source behavior only; this is not a compatibility
-promise or a ratified Biopeia API. The semantic model recognizes
+custody, UI, network streaming, remote access, durable history, the live
+observation bus, World scene lifecycle, and domain-specific readers. Historical
+payload keys remain in the copied projection as source behavior only; this is
+not a compatibility promise or a ratified Biopeia API. The semantic model recognizes
 `ORGANISM`, `EMBODIMENT`, `ENVIRONMENT`, and `WORLD` as primary authorities;
 `LAB` is only appropriate for Lab-derived claims. Modality is not an
 automatically authoritative domain.
