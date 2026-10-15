@@ -513,7 +513,8 @@ def _validate_embodiment_render_link_pose(value: object) -> None:
     if (
         checkpoint["owner"] != "embodiment"
         or checkpoint["owner_identity"] != candidate["body_id"]
-        or any(not _source_identifier(checkpoint[field]) for field in ("checkpoint_id", "schema_version", "locator"))
+        or any(not _source_identifier(checkpoint[field]) for field in ("checkpoint_id", "schema_version"))
+        or not _checkpoint_locator(checkpoint["locator"])
         or not _is_sha256(checkpoint["sha256"])
         or not _is_sha256(association["projection_sha256"])
     ):
@@ -522,7 +523,8 @@ def _validate_embodiment_render_link_pose(value: object) -> None:
     checkpoint_fields = {"owner", "owner_identity", "checkpoint_id", "schema_version", "locator", "sha256"}
     if type(references) is not list or not all(
         type(item) is dict and set(item) == checkpoint_fields
-        and all(_source_identifier(item[field]) for field in checkpoint_fields - {"sha256"})
+        and all(_source_identifier(item[field]) for field in checkpoint_fields - {"sha256", "locator"})
+        and _checkpoint_locator(item["locator"])
         and _is_sha256(item["sha256"])
         for item in references
     ):
@@ -551,6 +553,19 @@ def _nonempty_text(value: object) -> bool:
 
 def _source_identifier(value: object) -> bool:
     return _bounded_text(value) and value == value.strip()
+
+
+def _checkpoint_locator(value: object) -> bool:
+    """Accept bounded checkpoint references without treating paths as identifiers."""
+    if not isinstance(value, str) or not value or value != value.strip():
+        return False
+    try:
+        encoded = value.encode("utf-8", errors="strict")
+    except UnicodeEncodeError:
+        return False
+    return len(encoded) <= 4096 and not any(
+        ord(char) <= 0x1F or 0x7F <= ord(char) <= 0x9F for char in value
+    )
 
 
 def _is_sha256(value: object) -> bool:

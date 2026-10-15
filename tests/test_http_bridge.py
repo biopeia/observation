@@ -219,7 +219,7 @@ def test_environment_static_adapter_detaches_owner_payload() -> None:
     assert adapted.claim.value["items"][0]["object_id"] == "ground-a"
 
 
-def dynamic_pose_source(*, wrong_cut: bool = False, wrong_checkpoint: bool = False):
+def dynamic_pose_source(*, wrong_cut: bool = False, wrong_checkpoint: bool = False, locator: str = "local:checkpoint-5"):
     candidate_value = {
         "contract_revision": "embodiment.render_link_pose_candidate/v1",
         "body_id": "body-a", "embodiment_episode_id": "episode-a",
@@ -250,11 +250,11 @@ def dynamic_pose_source(*, wrong_cut: bool = False, wrong_checkpoint: bool = Fal
 
     checkpoint = SimpleNamespace(
         owner="embodiment", owner_identity="other-body" if wrong_checkpoint else "body-a",
-        checkpoint_id="checkpoint-5", schema_version="1", locator="local:checkpoint-5", sha256="b" * 64,
+        checkpoint_id="checkpoint-5", schema_version="1", locator=locator, sha256="b" * 64,
     )
     cut_checkpoint = SimpleNamespace(
         owner="embodiment", owner_identity="body-a", checkpoint_id="checkpoint-5",
-        schema_version="1", locator="local:checkpoint-5", sha256="b" * 64,
+        schema_version="1", locator=locator, sha256="b" * 64,
     )
     cut = SimpleNamespace(
         world_id="world-a", causal_tick=6 if wrong_cut else 5, commit_id="world-a:commit:5",
@@ -288,6 +288,26 @@ def test_dynamic_render_pose_is_passively_carried_with_transient_world_cut() -> 
     assert carried["world_association"]["association_kind"] == "transient_current_committed_cut"
     assert carried["world_association"]["committed_cut"]["commit_id"] == "world-a:commit:5"
     assert carried["candidate"]["poses"][0]["segment_id"] == "link-a"
+
+
+def test_dynamic_render_pose_accepts_bounded_checkpoint_paths_longer_than_identifiers() -> None:
+    locator = "/" + "nested-state-root/" * 12 + "checkpoint.json"
+    observation = embodiment_render_link_pose_observation(dynamic_pose_source(locator=locator))
+    plane = ObservationPlane()
+    plane.publish(observation)
+    wire = json.loads(encode_current_messages(plane, max_response_bytes=1_000_000))
+    carried = wire["messages"][0]["observation"]["claim"]["value"]
+    assert carried["world_association"]["owner_checkpoint_reference"]["locator"] == locator
+    assert carried["world_association"]["committed_cut"]["owner_checkpoint_references"][0]["locator"] == locator
+
+
+@pytest.mark.parametrize("locator", ["", "bad\npath", "x" * 4097, "\ud800"])
+def test_dynamic_render_pose_rejects_malformed_or_unbounded_checkpoint_locator(locator: str) -> None:
+    with pytest.raises(ValueError):
+        observation = embodiment_render_link_pose_observation(dynamic_pose_source(locator=locator))
+        plane = ObservationPlane()
+        plane.publish(observation)
+        encode_current_messages(plane, max_response_bytes=1_000_000)
 
 
 @pytest.mark.parametrize("source", [
