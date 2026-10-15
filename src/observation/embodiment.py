@@ -9,7 +9,11 @@ from __future__ import annotations
 import math
 import hashlib
 import re
+from collections.abc import Mapping
+from copy import deepcopy
 from typing import Protocol
+
+from observation.spatial_contracts import validate_embodiment_render_morphology
 
 from observation.semantic import (
     AcquisitionBasis,
@@ -37,6 +41,74 @@ _DIGEST = re.compile(r"^[0-9a-f]{64}$")
 
 _RESERVE_STATE_FAMILY_ID = "biopeia.embodiment.reserve_state_snapshot"
 _RESERVE_STATE_REVISION = "1"
+
+_RENDER_MORPHOLOGY_ID = "embodiment.render_morphology"
+_RENDER_MORPHOLOGY_REVISION = "v1"
+
+
+def embodiment_render_morphology_observation(
+    projection: Mapping[str, object],
+) -> SemanticObservation[dict[str, object]]:
+    """Carry an Embodiment-authored static render morphology unchanged.
+
+    The input is the detached payload from Embodiment's validated render
+    projection. This adapter adds only an Observation owner/provenance
+    envelope; it does not calculate kinematics or correlate a World cut.
+    The shared closed-contract validator runs before in-process publication.
+    """
+    expected_fields = {
+        "contract_revision", "schema_version", "body_id", "embodiment_episode_id",
+        "morphology_revision", "geometry_revision", "render_geometry_sha256",
+        "coordinate_system", "length_unit", "segments", "joints",
+    }
+    if not isinstance(projection, Mapping) or set(projection) != expected_fields:
+        raise ValueError("Embodiment render-morphology projection has an invalid shape")
+    value = deepcopy(dict(projection))
+    validate_embodiment_render_morphology(value)
+    if value["contract_revision"] != "embodiment.render_morphology/v1":
+        raise ValueError("Embodiment render-morphology contract revision is unsupported")
+    if type(value["schema_version"]) is not int or value["schema_version"] != 1:
+        raise ValueError("Embodiment render-morphology schema version is unsupported")
+    identities = {
+        "body": value["body_id"],
+        "embodiment_episode": value["embodiment_episode_id"],
+        "morphology_revision": value["morphology_revision"],
+        "geometry_revision": value["geometry_revision"],
+    }
+    if any(not isinstance(item, str) or not item.strip() for item in identities.values()):
+        raise ValueError("Embodiment render-morphology identities must be non-empty text")
+    digest = value["render_geometry_sha256"]
+    if not isinstance(digest, str) or not _DIGEST.fullmatch(digest):
+        raise ValueError("Embodiment render-morphology digest must be lowercase SHA-256")
+    actor = ActorRef("embodiment_owner_projection", "owner_projection")
+    return SemanticObservation(
+        claim=SemanticClaim(
+            family=SemanticFamily(
+                AuthorityDomain.EMBODIMENT,
+                ("render_morphology",),
+                SemanticContractRef(_RENDER_MORPHOLOGY_ID, _RENDER_MORPHOLOGY_REVISION),
+            ),
+            subject=SubjectScope(
+                "embodiment_body",
+                identities=tuple(
+                    IdentityAssertion(IdentityRef(kind, str(identity), actor), actor)
+                    for kind, identity in identities.items()
+                ),
+            ),
+            epistemic_kind="authoritative_state",
+            value=value,
+        ),
+        acquisition=AcquisitionBasis("owner_projection"),
+        asserter=actor,
+        producer=actor,
+        lineage=Lineage(
+            parents=(LineageSourceRef("render_geometry_sha256", digest),),
+            transformation=TransformationRef(
+                "owner.static_render_projection", "1",
+                tuple((kind, str(identity)) for kind, identity in identities.items()),
+            ),
+        ),
+    )
 
 
 class _ReserveStateProjection(Protocol):

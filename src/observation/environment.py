@@ -6,8 +6,12 @@ model. It does not calculate, reinterpret, or assert Environment state.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+from copy import deepcopy
 import math
 from typing import Protocol
+
+from observation.spatial_contracts import validate_environment_render_scene
 
 from observation.semantic import (
     AcquisitionBasis,
@@ -38,6 +42,74 @@ _PRODUCER = "environment.identified_finite_scalar_field.project_observation"
 
 _RESOURCE_STATE_FAMILY_ID = "biopeia.environment.resource_state_snapshot"
 _RESOURCE_STATE_REVISION = "1"
+
+_RENDER_SCENE_ID = "biopeia.environment.render-scene"
+_RENDER_SCENE_REVISION = "1"
+
+
+def _projection_text(value: Mapping[str, object], name: str) -> str:
+    result = value.get(name)
+    if not isinstance(result, str) or not result.strip():
+        raise ValueError(f"Environment render-scene {name} must be non-empty text")
+    return result
+
+
+def environment_render_scene_observation(
+    projection: Mapping[str, object],
+) -> SemanticObservation[dict[str, object]]:
+    """Carry an Environment-authored static render-scene descriptor unchanged.
+
+    The input is the detached value returned by Environment's spatial render
+    projection. Observation adds only its passive owner/provenance envelope;
+    it does not create geometry, attach World time, or join it to another
+    domain's state. The shared closed-contract validator runs before the
+    observation can be published in process or through the HTTP bridge.
+    """
+    expected_fields = {
+        "schema_version", "environment_id", "environment_revision", "length_unit",
+        "frame", "items", "render_geometry_sha256",
+    }
+    if not isinstance(projection, Mapping) or set(projection) != expected_fields:
+        raise ValueError("Environment render-scene projection has an invalid shape")
+    value = deepcopy(dict(projection))
+    validate_environment_render_scene(value)
+    environment_id = _projection_text(value, "environment_id")
+    environment_revision = _projection_text(value, "environment_revision")
+    digest = _projection_text(value, "render_geometry_sha256")
+    if type(value["schema_version"]) is not int or value["schema_version"] != 1:
+        raise ValueError("Environment render-scene schema version is unsupported")
+    actor = ActorRef("environment_owner_projection", "owner_projection")
+    identities = {
+        "environment": environment_id,
+        "environment_revision": environment_revision,
+    }
+    return SemanticObservation(
+        claim=SemanticClaim(
+            family=SemanticFamily(
+                AuthorityDomain.ENVIRONMENT,
+                ("render_scene",),
+                SemanticContractRef(_RENDER_SCENE_ID, _RENDER_SCENE_REVISION),
+            ),
+            subject=SubjectScope(
+                "environment",
+                identities=tuple(
+                    IdentityAssertion(IdentityRef(kind, identity, actor), actor)
+                    for kind, identity in identities.items()
+                ),
+            ),
+            epistemic_kind="authoritative_state",
+            value=value,
+        ),
+        acquisition=AcquisitionBasis("owner_projection"),
+        asserter=actor,
+        producer=actor,
+        lineage=Lineage(
+            parents=(LineageSourceRef("render_geometry_sha256", digest),),
+            transformation=TransformationRef(
+                "owner.static_render_projection", "1", tuple(identities.items())
+            ),
+        ),
+    )
 
 
 class _ResourceStateProjection(Protocol):

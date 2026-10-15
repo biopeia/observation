@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import hashlib
+from copy import deepcopy
 import socket
 from types import SimpleNamespace
 from urllib.error import HTTPError
@@ -17,8 +18,10 @@ from observation.http_bridge import (
 )
 from observation import (
     embodiment_body_pose_observation,
+    embodiment_render_morphology_observation,
     embodiment_render_link_pose_observation,
     environment_finite_scalar_field_observation,
+    environment_render_scene_observation,
 )
 from observation.plane import ObservationPlane
 from observation.semantic import (
@@ -116,31 +119,6 @@ def unauthorized_observation() -> SemanticObservation[object]:
     )
 
 
-def static_render_observation(domain: AuthorityDomain, family_name: str, contract_id: str, revision: str, value: dict) -> SemanticObservation[object]:
-    actor = ActorRef(f"{domain.value}_owner_projection", "owner_projection")
-    identity_values = ({"environment": value["environment_id"], "environment_revision": value["environment_revision"]}
-                       if domain is AuthorityDomain.ENVIRONMENT else
-                       {"body": value["body_id"], "embodiment_episode": value["embodiment_episode_id"],
-                        "morphology_revision": value["morphology_revision"], "geometry_revision": value["geometry_revision"]})
-    identities = tuple(IdentityAssertion(IdentityRef(kind, val, actor), actor) for kind, val in identity_values.items())
-    lineage = Lineage(
-        parents=(LineageSourceRef("render_geometry_sha256", value["render_geometry_sha256"]),),
-        transformation=TransformationRef("owner.static_render_projection", "1", tuple(identity_values.items())),
-    )
-    return SemanticObservation(
-        claim=SemanticClaim(
-            family=SemanticFamily(domain, (family_name,), SemanticContractRef(contract_id, revision)),
-            subject=SubjectScope("environment" if domain is AuthorityDomain.ENVIRONMENT else "embodiment_body", identities=identities),
-            epistemic_kind="authoritative_state",
-            value=value,
-        ),
-        acquisition=AcquisitionBasis("owner_projection"),
-        asserter=actor,
-        producer=actor,
-        lineage=lineage,
-    )
-
-
 def environment_render_scene() -> SemanticObservation[object]:
     value = {
         "schema_version": 1,
@@ -167,7 +145,7 @@ def environment_render_scene() -> SemanticObservation[object]:
         "render_geometry_sha256": "",
     }
     value["render_geometry_sha256"] = hashlib.sha256(rfc8785.dumps({k: v for k, v in value.items() if k != "render_geometry_sha256"})).hexdigest()
-    return static_render_observation(AuthorityDomain.ENVIRONMENT, "render_scene", "biopeia.environment.render-scene", "1", value)
+    return environment_render_scene_observation(value)
 
 
 def embodiment_render_morphology() -> SemanticObservation[object]:
@@ -193,7 +171,52 @@ def embodiment_render_morphology() -> SemanticObservation[object]:
     }
     digest_fields = {key: value[key] for key in ("contract_revision", "schema_version", "coordinate_system", "length_unit", "segments", "joints")}
     value["render_geometry_sha256"] = hashlib.sha256(b"biopeia:embodiment.render_morphology/v1\n" + rfc8785.dumps(digest_fields)).hexdigest()
-    return static_render_observation(AuthorityDomain.EMBODIMENT, "render_morphology", "embodiment.render_morphology", "v1", value)
+    return embodiment_render_morphology_observation(value)
+
+
+@pytest.mark.parametrize(
+    ("adapter", "projection"),
+    [
+        (environment_render_scene_observation, {"schema_version": 1}),
+        (embodiment_render_morphology_observation, {"schema_version": 1}),
+    ],
+)
+def test_static_spatial_adapters_reject_non_contract_shapes(adapter, projection) -> None:
+    with pytest.raises(ValueError, match="invalid shape"):
+        adapter(projection)
+
+
+@pytest.mark.parametrize(
+    ("adapter", "source", "mutate", "message"),
+    [
+        (environment_render_scene_observation, environment_render_scene,
+         lambda value: value.update(frame=None, render_geometry_sha256="b" * 64), "frame"),
+        (environment_render_scene_observation, environment_render_scene,
+         lambda value: value.update(render_geometry_sha256="b" * 64), "digest"),
+        (environment_render_scene_observation, environment_render_scene,
+         lambda value: value.update(environment_revision="x" * 70_000), "owner bound"),
+        (embodiment_render_morphology_observation, embodiment_render_morphology,
+         lambda value: value.update(segments=[None]), "segment shape"),
+        (embodiment_render_morphology_observation, embodiment_render_morphology,
+         lambda value: value.update(render_geometry_sha256="b" * 64), "digest"),
+        (embodiment_render_morphology_observation, embodiment_render_morphology,
+         lambda value: value.update(body_id="x" * 300_000), "owner bound"),
+    ],
+)
+def test_static_spatial_adapters_reject_invalid_owner_projection_before_observation(
+    adapter, source, mutate, message
+) -> None:
+    projection = deepcopy(source().claim.value)
+    mutate(projection)
+    with pytest.raises(ValueError, match=message):
+        adapter(projection)
+
+
+def test_environment_static_adapter_detaches_owner_payload() -> None:
+    source = environment_render_scene().claim.value
+    adapted = environment_render_scene_observation(source)
+    source["items"][0]["object_id"] = "mutated-after-adaptation"
+    assert adapted.claim.value["items"][0]["object_id"] == "ground-a"
 
 
 def dynamic_pose_source(*, wrong_cut: bool = False, wrong_checkpoint: bool = False):
