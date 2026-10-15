@@ -7,6 +7,7 @@ does not calculate body state, establish World commit, or acquire authority.
 from __future__ import annotations
 
 import math
+import hashlib
 import re
 from typing import Protocol
 
@@ -175,6 +176,176 @@ class _BodyPoseProjection(Protocol):
     environment_revision: str | None
     solver_config_revision: str | None
     physical_step_correlation: _PhysicalStepCorrelation | None
+
+
+class _CheckpointReference(Protocol):
+    owner: str
+    owner_identity: str
+    checkpoint_id: str
+    schema_version: str
+    locator: str
+    sha256: str
+
+
+class _CommittedWorldCut(Protocol):
+    world_id: str
+    causal_tick: int
+    commit_id: str
+    participant_ids: tuple[tuple[str, str], ...]
+    presence_owner_links: tuple[tuple[str, str, str], ...]
+    owner_checkpoint_references: tuple[_CheckpointReference, ...]
+
+
+class _CommittedRenderPoseProjection(Protocol):
+    committed_cut: _CommittedWorldCut
+    owner_checkpoint_reference: _CheckpointReference
+    projection_sha256: str
+    candidate: object
+
+
+def embodiment_render_link_pose_observation(
+    projection: _CommittedRenderPoseProjection,
+) -> SemanticObservation[dict[str, object]]:
+    """Passively carry an Embodiment pose candidate and World's transient cut receipt.
+
+    Observation checks the closed structural shape and digest relationships but
+    does not verify a World cut, join this with morphology, or establish durable
+    or cryptographic evidence. World performs the current-cut association.
+    """
+    cut = getattr(projection, "committed_cut", None)
+    checkpoint = getattr(projection, "owner_checkpoint_reference", None)
+    candidate = getattr(projection, "candidate", None)
+    if cut is None or checkpoint is None or candidate is None:
+        raise ValueError("render pose projection requires World cut, checkpoint, and owner candidate")
+    world_id = _required_text(cut, "world_id")
+    commit_id = _required_text(cut, "commit_id")
+    tick = _required_tick(cut, "causal_tick")
+    if tick < 1:
+        raise ValueError("render pose target cut tick must be positive")
+    for name in ("participant_ids", "presence_owner_links", "owner_checkpoint_references"):
+        if not isinstance(getattr(cut, name, None), tuple):
+            raise ValueError(f"World committed cut {name} must be a tuple")
+    if any(type(item) is not tuple or len(item) != 2 or any(not isinstance(v, str) or not v.strip() for v in item)
+           for item in cut.participant_ids):
+        raise ValueError("World committed cut participant identities are malformed")
+    if any(type(item) is not tuple or len(item) != 3 or any(not isinstance(v, str) or not v.strip() for v in item)
+           for item in cut.presence_owner_links):
+        raise ValueError("World committed cut presence-owner links are malformed")
+    if not isinstance(getattr(cut, "owner_checkpoint_references"), tuple):
+        raise ValueError("World cut checkpoint references are malformed")
+    matching = tuple(
+        reference for reference in cut.owner_checkpoint_references
+        if getattr(reference, "owner", None) == "embodiment"
+        and getattr(reference, "owner_identity", None) == getattr(checkpoint, "owner_identity", None)
+    )
+    if len(matching) != 1 or matching[0] != checkpoint:
+        raise ValueError("Embodiment checkpoint is not the exact member of the World cut")
+    checkpoint_payload = _checkpoint_payload(checkpoint)
+    candidate_payload = getattr(candidate, "to_payload", None)
+    canonical_bytes = getattr(candidate, "canonical_bytes", None)
+    if not callable(candidate_payload) or not callable(canonical_bytes):
+        raise ValueError("render pose candidate must expose its owner-defined payload and canonical bytes")
+    candidate_value = candidate_payload()
+    if type(candidate_value) is not dict:
+        raise ValueError("render pose candidate payload must be an object")
+    candidate_bytes = canonical_bytes()
+    if type(candidate_bytes) is not bytes or not candidate_bytes:
+        raise ValueError("render pose candidate canonical bytes must be non-empty")
+    candidate_digest = hashlib.sha256(candidate_bytes).hexdigest()
+    if _required_text(projection, "projection_sha256") != candidate_digest:
+        raise ValueError("World-associated render pose digest does not match candidate bytes")
+    expected = {
+        "body_id": checkpoint.owner_identity,
+        "source_world_id": world_id,
+        "source_causal_tick": tick - 1,
+        "target_causal_tick": tick,
+    }
+    for name, value in expected.items():
+        if candidate_value.get(name) != value:
+            raise ValueError(f"render pose candidate {name} differs from World cut/checkpoint")
+    if candidate_value.get("contract_revision") != "embodiment.render_link_pose_candidate/v1":
+        raise ValueError("unsupported Embodiment render pose candidate revision")
+    required = {
+        "contract_revision", "body_id", "embodiment_episode_id", "morphology_revision",
+        "geometry_revision", "render_geometry_sha256", "source_world_id", "physical_step_id",
+        "environment_revision", "solver_config_revision", "source_causal_tick", "target_causal_tick",
+        "reference_frame", "coordinate_system", "length_unit", "completeness", "poses",
+    }
+    if set(candidate_value) != required:
+        raise ValueError("render pose candidate payload is not the approved closed shape")
+    for name in ("embodiment_episode_id", "morphology_revision", "geometry_revision"):
+        if not _required_text(candidate, name):
+            raise ValueError(f"render pose candidate {name} is invalid")
+    if not _DIGEST.fullmatch(_required_text(candidate, "render_geometry_sha256")):
+        raise ValueError("render pose morphology digest is invalid")
+    body_id = _required_text(candidate, "body_id")
+    episode_id = _required_text(candidate, "embodiment_episode_id")
+    morphology_revision = _required_text(candidate, "morphology_revision")
+    # Keep the full cut identity, but no semantic interpretation of its members.
+    cut_payload = {
+        "world_id": world_id,
+        "causal_tick": tick,
+        "commit_id": commit_id,
+        "participant_ids": [list(item) for item in cut.participant_ids],
+        "presence_owner_links": [list(item) for item in cut.presence_owner_links],
+        "owner_checkpoint_references": [_checkpoint_payload(item) for item in cut.owner_checkpoint_references],
+    }
+    owner = ActorRef("embodiment", body_id)
+    family = SemanticFamily(
+        authority=AuthorityDomain.EMBODIMENT,
+        path=("render_link_pose",),
+        contract=SemanticContractRef("embodiment.render_link_pose", "v1"),
+    )
+    subject = SubjectScope(
+        kind="embodiment_body",
+        identities=(
+            IdentityAssertion(IdentityRef("body", body_id, owner, scope=episode_id), owner),
+            IdentityAssertion(IdentityRef("embodiment_episode", episode_id, owner, scope=body_id), owner),
+            IdentityAssertion(IdentityRef("morphology_revision", morphology_revision, owner, scope=body_id), owner),
+            IdentityAssertion(IdentityRef("geometry_revision", _required_text(candidate, "geometry_revision"), owner, scope=body_id), owner),
+        ),
+    )
+    return SemanticObservation(
+        claim=SemanticClaim(
+            family=family,
+            subject=subject,
+            epistemic_kind="authoritative_state",
+            value={
+                "candidate": candidate_value,
+                "world_association": {
+                    "association_kind": "transient_current_committed_cut",
+                    "projection_sha256": candidate_digest,
+                    "committed_cut": cut_payload,
+                    "owner_checkpoint_reference": checkpoint_payload,
+                },
+            },
+        ),
+        acquisition=AcquisitionBasis(method="embodiment_owner_render_pose_candidate"),
+        asserter=ActorRef("embodiment_owner_boundary", "embodiment.owner_checkpoint"),
+        producer=ActorRef("embodiment_owner_projection", "embodiment.render_link_pose_candidate"),
+        context_time=(DomainTimeRef(AuthorityDomain.WORLD, "world_causal_tick", tick),),
+        lineage=Lineage(
+            parents=(
+                LineageSourceRef("embodiment_owner_checkpoint_sha256", checkpoint_payload["sha256"]),
+                LineageSourceRef("embodiment_render_geometry_sha256", candidate_value["render_geometry_sha256"]),
+            ),
+            transformation=TransformationRef(
+                "world.transient_associate_embodiment_render_pose", "1",
+                (("world_id", world_id), ("causal_tick", str(tick)), ("commit_id", commit_id),
+                 ("checkpoint_id", checkpoint_payload["checkpoint_id"]),
+                 ("projection_sha256", candidate_digest)),
+            ),
+        ),
+    )
+
+
+def _checkpoint_payload(reference: _CheckpointReference) -> dict[str, str]:
+    payload = {name: _required_text(reference, name) for name in (
+        "owner", "owner_identity", "checkpoint_id", "schema_version", "locator", "sha256"
+    )}
+    if not _DIGEST.fullmatch(payload["sha256"]):
+        raise ValueError("World checkpoint sha256 must be lowercase SHA-256")
+    return payload
 
 
 def embodiment_body_pose_observation(
