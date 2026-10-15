@@ -65,6 +65,12 @@ _APPROVED_FAMILY_CONTRACTS = {
         "v1",
         "authoritative_state",
     ),
+    "embodiment.render_link_pose": (
+        AuthorityDomain.EMBODIMENT,
+        "embodiment.render_link_pose",
+        "v1",
+        "authoritative_state",
+    ),
 }
 APPROVED_FAMILIES = frozenset(_APPROVED_FAMILY_CONTRACTS)
 DEFAULT_MAX_RESPONSE_BYTES = 1_000_000
@@ -257,6 +263,56 @@ def _validate_approved_observation(family: str, observation: SemanticObservation
                 "geometry_revision": value["geometry_revision"],
             }, digest=value["render_geometry_sha256"],
         )
+        return
+    if family == "embodiment.render_link_pose":
+        value = observation.claim.value
+        _validate_embodiment_render_link_pose(value)
+        candidate = value["candidate"]
+        cut = value["world_association"]["committed_cut"]
+        checkpoint = value["world_association"]["owner_checkpoint_reference"]
+        identities_expected = {
+            "body": candidate["body_id"],
+            "embodiment_episode": candidate["embodiment_episode_id"],
+            "morphology_revision": candidate["morphology_revision"],
+            "geometry_revision": candidate["geometry_revision"],
+        }
+        if observation.acquisition.method != "embodiment_owner_render_pose_candidate":
+            raise LocalReadBridgeError("render_link_pose acquisition provenance is invalid")
+        if (
+            observation.asserter.kind != "embodiment_owner_boundary"
+            or observation.asserter.identifier != "embodiment.owner_checkpoint"
+            or observation.producer.kind != "embodiment_owner_projection"
+            or observation.producer.identifier != "embodiment.render_link_pose_candidate"
+        ):
+            raise LocalReadBridgeError("render_link_pose owner provenance is invalid")
+        if observation.claim.subject.kind != "embodiment_body" or {
+            assertion.identity.kind: assertion.identity.value
+            for assertion in observation.claim.subject.identities
+        } != identities_expected:
+            raise LocalReadBridgeError("render_link_pose subject identities differ from owner payload")
+        if observation.context_time != (
+            DomainTimeRef(AuthorityDomain.WORLD, "world_causal_tick", cut["causal_tick"]),
+        ):
+            raise LocalReadBridgeError("render_link_pose World time differs from associated cut")
+        expected_parents = {
+            ("embodiment_owner_checkpoint_sha256", checkpoint["sha256"]),
+            ("embodiment_render_geometry_sha256", candidate["render_geometry_sha256"]),
+        }
+        if {(p.namespace, p.reference) for p in observation.lineage.parents} != expected_parents:
+            raise LocalReadBridgeError("render_link_pose lineage differs from owner sources")
+        transformation = observation.lineage.transformation
+        expected_configuration = {
+            "world_id": cut["world_id"], "causal_tick": str(cut["causal_tick"]),
+            "commit_id": cut["commit_id"], "checkpoint_id": checkpoint["checkpoint_id"],
+            "projection_sha256": value["world_association"]["projection_sha256"],
+        }
+        if (
+            transformation is None
+            or transformation.transformation_id != "world.transient_associate_embodiment_render_pose"
+            or transformation.revision != "1"
+            or dict(transformation.effective_configuration) != expected_configuration
+        ):
+            raise LocalReadBridgeError("render_link_pose World association lineage is invalid")
         return
 
     if (
@@ -519,6 +575,113 @@ def _validate_embodiment_render_morphology(value: object) -> None:
     digest = hashlib.sha256(b"biopeia:embodiment.render_morphology/v1\n" + rfc8785.dumps(digest_fields)).hexdigest()
     if digest != value["render_geometry_sha256"]:
         raise LocalReadBridgeError("render_morphology digest does not match canonical payload")
+
+
+def _validate_embodiment_render_link_pose(value: object) -> None:
+    """Validate the closed passive carrier, not the truth of World association."""
+    if type(value) is not dict or set(value) != {"candidate", "world_association"}:
+        raise LocalReadBridgeError("render_link_pose carrier does not match its closed shape")
+    if len(json.dumps(value, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode("utf-8")) > 384 * 1024:
+        raise LocalReadBridgeError("render_link_pose carrier exceeds its approved bound")
+    candidate, association = value["candidate"], value["world_association"]
+    candidate_fields = {
+        "contract_revision", "body_id", "embodiment_episode_id", "morphology_revision",
+        "geometry_revision", "render_geometry_sha256", "source_world_id", "physical_step_id",
+        "environment_revision", "solver_config_revision", "source_causal_tick", "target_causal_tick",
+        "reference_frame", "coordinate_system", "length_unit", "completeness", "poses",
+    }
+    if type(candidate) is not dict or set(candidate) != candidate_fields:
+        raise LocalReadBridgeError("render_link_pose candidate does not match its approved shape")
+    if (
+        candidate["contract_revision"] != "embodiment.render_link_pose_candidate/v1"
+        or candidate["reference_frame"] != "physics3d.world"
+        or candidate["coordinate_system"] != "right_handed_z_up"
+        or candidate["length_unit"] != "m"
+        or candidate["completeness"] != "complete"
+        or any(not _source_identifier(candidate[field]) for field in (
+            "body_id", "embodiment_episode_id", "morphology_revision", "geometry_revision",
+            "source_world_id", "physical_step_id", "environment_revision", "solver_config_revision",
+        ))
+        or not _is_sha256(candidate["render_geometry_sha256"])
+        or type(candidate["source_causal_tick"]) is not int
+        or type(candidate["target_causal_tick"]) is not int
+        or candidate["source_causal_tick"] < 0
+        or candidate["target_causal_tick"] != candidate["source_causal_tick"] + 1
+    ):
+        raise LocalReadBridgeError("render_link_pose candidate identity or contract is invalid")
+    poses = candidate["poses"]
+    if type(poses) is not list or len(poses) > 128:
+        raise LocalReadBridgeError("render_link_pose items exceed the approved bound")
+    segment_ids: list[str] = []
+    for pose in poses:
+        if type(pose) is not dict or set(pose) != {"segment_id", "translation_m", "orientation_xyzw"}:
+            raise LocalReadBridgeError("render_link_pose item shape is invalid")
+        translation, orientation = pose["translation_m"], pose["orientation_xyzw"]
+        if (
+            not _source_identifier(pose["segment_id"])
+            or not _finite_vector(translation, length=3)
+            or not _finite_vector(orientation, length=4)
+            # Match Embodiment RenderLinkPose's norm tolerance (1e-6), not a
+            # stricter squared-norm check that rejects valid owner payloads.
+            or not math.isclose(math.sqrt(sum(c*c for c in orientation)), 1.0, rel_tol=0.0, abs_tol=1e-6)
+        ):
+            raise LocalReadBridgeError("render_link_pose item values are invalid")
+        segment_ids.append(pose["segment_id"])
+    if segment_ids != sorted(set(segment_ids), key=lambda item: item.encode("utf-8")):
+        raise LocalReadBridgeError("render_link_pose segment identities must be unique and sorted")
+    if type(association) is not dict or set(association) != {
+        "association_kind", "projection_sha256", "committed_cut", "owner_checkpoint_reference"
+    } or association["association_kind"] != "transient_current_committed_cut":
+        raise LocalReadBridgeError("render_link_pose World association does not match its closed shape")
+    cut, checkpoint = association["committed_cut"], association["owner_checkpoint_reference"]
+    if type(cut) is not dict or set(cut) != {
+        "world_id", "causal_tick", "commit_id", "participant_ids", "presence_owner_links", "owner_checkpoint_references"
+    }:
+        raise LocalReadBridgeError("render_link_pose committed-cut metadata is malformed")
+    if (
+        not _source_identifier(cut["world_id"]) or not _source_identifier(cut["commit_id"])
+        or type(cut["causal_tick"]) is not int or cut["causal_tick"] < 1
+        or cut["world_id"] != candidate["source_world_id"]
+        or cut["causal_tick"] != candidate["target_causal_tick"]
+    ):
+        raise LocalReadBridgeError("render_link_pose candidate differs from associated World cut")
+    if type(checkpoint) is not dict or set(checkpoint) != {
+        "owner", "owner_identity", "checkpoint_id", "schema_version", "locator", "sha256"
+    }:
+        raise LocalReadBridgeError("render_link_pose checkpoint reference is malformed")
+    if (
+        checkpoint["owner"] != "embodiment"
+        or checkpoint["owner_identity"] != candidate["body_id"]
+        or any(not _source_identifier(checkpoint[field]) for field in ("checkpoint_id", "schema_version", "locator"))
+        or not _is_sha256(checkpoint["sha256"])
+        or not _is_sha256(association["projection_sha256"])
+    ):
+        raise LocalReadBridgeError("render_link_pose checkpoint identity or digest is invalid")
+    references = cut["owner_checkpoint_references"]
+    checkpoint_fields = {"owner", "owner_identity", "checkpoint_id", "schema_version", "locator", "sha256"}
+    if type(references) is not list or not all(
+        type(item) is dict and set(item) == checkpoint_fields
+        and all(_source_identifier(item[field]) for field in checkpoint_fields - {"sha256"})
+        and _is_sha256(item["sha256"])
+        for item in references
+    ):
+        raise LocalReadBridgeError("render_link_pose cut checkpoint references are malformed")
+    if references.count(checkpoint) != 1:
+        raise LocalReadBridgeError("render_link_pose checkpoint is not exactly one cut member")
+    if type(cut["participant_ids"]) is not list or type(cut["presence_owner_links"]) is not list:
+        raise LocalReadBridgeError("render_link_pose committed-cut members are malformed")
+    if (
+        any(type(item) is not list or len(item) != 2 or any(not _source_identifier(v) for v in item)
+            for item in cut["participant_ids"])
+        or any(type(item) is not list or len(item) != 3 or any(not _source_identifier(v) for v in item)
+               for item in cut["presence_owner_links"])
+    ):
+        raise LocalReadBridgeError("render_link_pose committed-cut member identities are malformed")
+    canonical = rfc8785.dumps(candidate)
+    if hashlib.sha256(canonical).hexdigest() != association["projection_sha256"]:
+        raise LocalReadBridgeError("render_link_pose candidate digest differs from World association")
+    if candidate["body_id"] != checkpoint["owner_identity"]:
+        raise LocalReadBridgeError("render_link_pose body differs from associated checkpoint")
 
 
 def _nonempty_text(value: object) -> bool:

@@ -15,7 +15,11 @@ from observation.http_bridge import (
     LocalReadBridgeError,
     encode_current_messages,
 )
-from observation import embodiment_body_pose_observation, environment_finite_scalar_field_observation
+from observation import (
+    embodiment_body_pose_observation,
+    embodiment_render_link_pose_observation,
+    environment_finite_scalar_field_observation,
+)
 from observation.plane import ObservationPlane
 from observation.semantic import (
     AcquisitionBasis,
@@ -192,6 +196,55 @@ def embodiment_render_morphology() -> SemanticObservation[object]:
     return static_render_observation(AuthorityDomain.EMBODIMENT, "render_morphology", "embodiment.render_morphology", "v1", value)
 
 
+def dynamic_pose_source(*, wrong_cut: bool = False, wrong_checkpoint: bool = False):
+    candidate_value = {
+        "contract_revision": "embodiment.render_link_pose_candidate/v1",
+        "body_id": "body-a", "embodiment_episode_id": "episode-a",
+        "morphology_revision": "morphology-r1", "geometry_revision": "geometry-r1",
+        "render_geometry_sha256": "a" * 64, "source_world_id": "world-a",
+        "physical_step_id": "step-4", "environment_revision": "environment-r1",
+        "solver_config_revision": "solver-r1", "source_causal_tick": 4,
+        "target_causal_tick": 5, "reference_frame": "physics3d.world",
+        "coordinate_system": "right_handed_z_up", "length_unit": "m",
+        "completeness": "complete", "poses": [{
+            "segment_id": "link-a", "translation_m": [1.0, 2.0, 3.0],
+            "orientation_xyzw": [0.0, 0.0, 0.0, 1.0],
+        }],
+    }
+
+    class Candidate:
+        def __init__(self):
+            self.value = candidate_value
+
+        def to_payload(self):
+            return self.value
+
+        def canonical_bytes(self):
+            return rfc8785.dumps(self.value)
+
+        def __getattr__(self, name):
+            return self.value[name]
+
+    checkpoint = SimpleNamespace(
+        owner="embodiment", owner_identity="other-body" if wrong_checkpoint else "body-a",
+        checkpoint_id="checkpoint-5", schema_version="1", locator="local:checkpoint-5", sha256="b" * 64,
+    )
+    cut_checkpoint = SimpleNamespace(
+        owner="embodiment", owner_identity="body-a", checkpoint_id="checkpoint-5",
+        schema_version="1", locator="local:checkpoint-5", sha256="b" * 64,
+    )
+    cut = SimpleNamespace(
+        world_id="world-a", causal_tick=6 if wrong_cut else 5, commit_id="world-a:commit:5",
+        participant_ids=(("embodiment", "body-a"),),
+        presence_owner_links=(("organism", "organism-a", "body-a"),),
+        owner_checkpoint_references=(cut_checkpoint,),
+    )
+    return SimpleNamespace(
+        committed_cut=cut, owner_checkpoint_reference=checkpoint,
+        projection_sha256=hashlib.sha256(rfc8785.dumps(candidate_value)).hexdigest(), candidate=Candidate(),
+    )
+
+
 @pytest.mark.parametrize("observation", [environment_render_scene(), embodiment_render_morphology()])
 def test_static_spatial_projections_are_carried_without_reinterpretation(observation) -> None:
     plane = ObservationPlane()
@@ -200,6 +253,62 @@ def test_static_spatial_projections_are_carried_without_reinterpretation(observa
     assert wire["messages"][0]["observation"]["claim"]["value"] == observation.claim.value
     assert wire["messages"][0]["observation"]["acquisition"]["method"] == "owner_projection"
     assert wire["messages"][0]["observation"]["asserter"]["identifier"] == "owner_projection"
+
+
+def test_dynamic_render_pose_is_passively_carried_with_transient_world_cut() -> None:
+    observation = embodiment_render_link_pose_observation(dynamic_pose_source())
+    plane = ObservationPlane()
+    plane.publish(observation)
+    wire = json.loads(encode_current_messages(plane, max_response_bytes=1_000_000))
+    carried = wire["messages"][0]["observation"]["claim"]["value"]
+    assert carried == observation.claim.value
+    assert carried["world_association"]["association_kind"] == "transient_current_committed_cut"
+    assert carried["world_association"]["committed_cut"]["commit_id"] == "world-a:commit:5"
+    assert carried["candidate"]["poses"][0]["segment_id"] == "link-a"
+
+
+@pytest.mark.parametrize("source", [
+    dynamic_pose_source(wrong_cut=True),
+    dynamic_pose_source(wrong_checkpoint=True),
+])
+def test_dynamic_render_pose_mapper_rejects_wrong_cut_or_checkpoint(source) -> None:
+    with pytest.raises(ValueError, match="cut|checkpoint"):
+        embodiment_render_link_pose_observation(source)
+
+
+@pytest.mark.parametrize("mutation", [
+    lambda value: value["world_association"]["committed_cut"].update(causal_tick=6),
+    lambda value: value["world_association"]["committed_cut"]["owner_checkpoint_references"].append(
+        value["world_association"]["owner_checkpoint_reference"]
+    ),
+    lambda value: value["candidate"].update(morphology_revision="other-morphology"),
+    lambda value: value["candidate"]["poses"][0].update(orientation_xyzw=[0.0, 0.0, 0.0, 2.0]),
+    lambda value: value["candidate"].update(extra_field="not-approved"),
+])
+def test_dynamic_render_pose_http_carrier_rejects_tampering(mutation) -> None:
+    observation = embodiment_render_link_pose_observation(dynamic_pose_source())
+    value = json.loads(json.dumps(observation.claim.value))
+    mutation(value)
+    altered = SemanticObservation(
+        claim=SemanticClaim(observation.family, observation.claim.subject, observation.claim.epistemic_kind, value),
+        acquisition=observation.acquisition, asserter=observation.asserter, producer=observation.producer,
+        context_time=observation.context_time, lineage=observation.lineage,
+    )
+    plane = ObservationPlane()
+    plane.publish(altered)
+    with pytest.raises(ValueError, match="render_link_pose"):
+        encode_current_messages(plane, max_response_bytes=1_000_000)
+
+
+def test_dynamic_render_pose_accepts_embodiment_quaternion_norm_boundary() -> None:
+    source = dynamic_pose_source()
+    source.candidate.value["poses"][0]["orientation_xyzw"] = [0.0, 0.0, 0.0, 1.0000005]
+    source.projection_sha256 = hashlib.sha256(source.candidate.canonical_bytes()).hexdigest()
+    observation = embodiment_render_link_pose_observation(source)
+    plane = ObservationPlane()
+    plane.publish(observation)
+    wire = json.loads(encode_current_messages(plane, max_response_bytes=1_000_000))
+    assert wire["messages"][0]["observation"]["claim"]["value"]["candidate"]["poses"][0]["orientation_xyzw"][-1] == 1.0000005
 
 
 @pytest.mark.parametrize(
