@@ -337,7 +337,7 @@ def _validate_static_source_envelope(observation, *, subject_kind: str, identiti
         assertion.identity.kind: assertion.identity.value
         for assertion in observation.claim.subject.identities
     }
-    if actual != identities:
+    if len(actual) != len(observation.claim.subject.identities) or actual != identities:
         raise LocalReadBridgeError("static projection subject identities do not match payload")
     parents = observation.lineage.parents
     if (

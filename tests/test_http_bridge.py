@@ -255,6 +255,35 @@ def test_static_spatial_projection_rejects_subject_or_lineage_mismatch(family) -
         IdentityRef("world", "world-a", observation.asserter), observation.asserter
     )
     subject = observation.claim.subject
+    duplicate_kind_identity = IdentityAssertion(
+        IdentityRef(
+            subject.identities[0].identity.kind,
+            "conflicting-duplicate",
+            observation.asserter,
+        ),
+        observation.asserter,
+    )
+    with_duplicate_kind = SemanticObservation(
+        claim=SemanticClaim(
+            observation.family,
+            SubjectScope(
+                subject.kind,
+                key=subject.key,
+                identities=(*subject.identities, duplicate_kind_identity),
+            ),
+            observation.claim.epistemic_kind,
+            observation.claim.value,
+        ),
+        acquisition=observation.acquisition,
+        asserter=observation.asserter,
+        producer=observation.producer,
+        lineage=observation.lineage,
+    )
+    plane = ObservationPlane()
+    plane.publish(with_duplicate_kind)
+    with pytest.raises(ValueError, match="duplicate typed identities|subject identities"):
+        encode_current_messages(plane, max_response_bytes=1_000_000)
+
     with_extra_identity = SemanticObservation(
         claim=SemanticClaim(
             observation.family,
