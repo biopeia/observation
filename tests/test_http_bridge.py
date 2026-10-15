@@ -213,14 +213,17 @@ def dynamic_pose_source(*, wrong_cut: bool = False, wrong_checkpoint: bool = Fal
     }
 
     class Candidate:
+        def __init__(self):
+            self.value = candidate_value
+
         def to_payload(self):
-            return candidate_value
+            return self.value
 
         def canonical_bytes(self):
-            return rfc8785.dumps(candidate_value)
+            return rfc8785.dumps(self.value)
 
         def __getattr__(self, name):
-            return candidate_value[name]
+            return self.value[name]
 
     checkpoint = SimpleNamespace(
         owner="embodiment", owner_identity="other-body" if wrong_checkpoint else "body-a",
@@ -295,6 +298,17 @@ def test_dynamic_render_pose_http_carrier_rejects_tampering(mutation) -> None:
     plane.publish(altered)
     with pytest.raises(ValueError, match="render_link_pose"):
         encode_current_messages(plane, max_response_bytes=1_000_000)
+
+
+def test_dynamic_render_pose_accepts_embodiment_quaternion_norm_boundary() -> None:
+    source = dynamic_pose_source()
+    source.candidate.value["poses"][0]["orientation_xyzw"] = [0.0, 0.0, 0.0, 1.0000005]
+    source.projection_sha256 = hashlib.sha256(source.candidate.canonical_bytes()).hexdigest()
+    observation = embodiment_render_link_pose_observation(source)
+    plane = ObservationPlane()
+    plane.publish(observation)
+    wire = json.loads(encode_current_messages(plane, max_response_bytes=1_000_000))
+    assert wire["messages"][0]["observation"]["claim"]["value"]["candidate"]["poses"][0]["orientation_xyzw"][-1] == 1.0000005
 
 
 @pytest.mark.parametrize(

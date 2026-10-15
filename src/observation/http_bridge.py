@@ -621,7 +621,9 @@ def _validate_embodiment_render_link_pose(value: object) -> None:
             not _source_identifier(pose["segment_id"])
             or not _finite_vector(translation, length=3)
             or not _finite_vector(orientation, length=4)
-            or not math.isclose(sum(c*c for c in orientation), 1.0, rel_tol=0.0, abs_tol=1e-9)
+            # Match Embodiment RenderLinkPose's norm tolerance (1e-6), not a
+            # stricter squared-norm check that rejects valid owner payloads.
+            or not math.isclose(math.sqrt(sum(c*c for c in orientation)), 1.0, rel_tol=0.0, abs_tol=1e-6)
         ):
             raise LocalReadBridgeError("render_link_pose item values are invalid")
         segment_ids.append(pose["segment_id"])
