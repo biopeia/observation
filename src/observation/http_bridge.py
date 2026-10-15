@@ -8,6 +8,7 @@ serves only the approved families from an existing
 from __future__ import annotations
 
 import ipaddress
+import hashlib
 import json
 import math
 from dataclasses import fields, is_dataclass
@@ -16,6 +17,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from threading import Thread
 from typing import Any
 from urllib.parse import urlsplit
+import rfc8785
 
 from .plane import ObservationPlane
 from .semantic import (
@@ -235,10 +237,26 @@ def _validate_approved_observation(family: str, observation: SemanticObservation
         return
 
     if family == "environment.render_scene":
-        _validate_environment_render_scene(observation.claim.value)
+        value = observation.claim.value
+        _validate_environment_render_scene(value)
+        _validate_static_source_envelope(
+            observation, subject_kind="environment", identities={
+                "environment": value["environment_id"],
+                "environment_revision": value["environment_revision"],
+            }, digest=value["render_geometry_sha256"],
+        )
         return
     if family == "embodiment.render_morphology":
-        _validate_embodiment_render_morphology(observation.claim.value)
+        value = observation.claim.value
+        _validate_embodiment_render_morphology(value)
+        _validate_static_source_envelope(
+            observation, subject_kind="embodiment_body", identities={
+                "body": value["body_id"],
+                "embodiment_episode": value["embodiment_episode_id"],
+                "morphology_revision": value["morphology_revision"],
+                "geometry_revision": value["geometry_revision"],
+            }, digest=value["render_geometry_sha256"],
+        )
         return
 
     if (
@@ -311,6 +329,30 @@ def _finite_vector(value: object, *, length: int) -> bool:
     )
 
 
+def _validate_static_source_envelope(observation, *, subject_kind: str, identities: dict[str, str], digest: str) -> None:
+    """Bind the carrier envelope to source values without asserting cross-domain meaning."""
+    if observation.claim.subject.kind != subject_kind:
+        raise LocalReadBridgeError("static projection subject does not match source identity")
+    actual = {
+        assertion.identity.kind: assertion.identity.value
+        for assertion in observation.claim.subject.identities
+    }
+    if any(actual.get(kind) != value for kind, value in identities.items()):
+        raise LocalReadBridgeError("static projection subject identities do not match payload")
+    if not any(parent.reference == digest for parent in observation.lineage.parents):
+        raise LocalReadBridgeError("static projection lineage does not bind payload digest")
+    transformation = observation.lineage.transformation
+    if transformation is None:
+        raise LocalReadBridgeError("static projection is missing transformation lineage")
+    config = dict(transformation.effective_configuration)
+    if any(config.get(key) != value for key, value in identities.items()):
+        raise LocalReadBridgeError("static projection transformation identity does not match payload")
+    # No owner-approved source-specific acquisition/actor mapping exists for
+    # these static descriptors. Preserve those envelope fields as-is rather
+    # than inventing a producer identity; the typed payload identity and
+    # lineage digest above are the verifiable bindings available here.
+
+
 def _finite_number(value: object) -> bool:
     if type(value) not in (int, float):
         return False
@@ -365,6 +407,15 @@ def _validate_environment_render_scene(value: object) -> None:
         or frame["up_axis"] not in ("X", "Y", "Z")
     ):
         raise LocalReadBridgeError("render_scene frame values are invalid")
+    axes = [frame[name] for name in ("x_axis_in_parent", "y_axis_in_parent", "z_axis_in_parent")]
+    if any(not math.isclose(sum(c*c for c in axis), 1.0, rel_tol=0.0, abs_tol=1e-9) for axis in axes):
+        raise LocalReadBridgeError("render_scene frame axes must be unit vectors")
+    if any(not math.isclose(sum(a*b for a, b in zip(axes[i], axes[j])), 0.0, rel_tol=0.0, abs_tol=1e-9)
+           for i, j in ((0, 1), (0, 2), (1, 2))):
+        raise LocalReadBridgeError("render_scene frame axes must be orthogonal")
+    cross = (axes[0][1]*axes[1][2]-axes[0][2]*axes[1][1], axes[0][2]*axes[1][0]-axes[0][0]*axes[1][2], axes[0][0]*axes[1][1]-axes[0][1]*axes[1][0])
+    if not all(math.isclose(c, z, rel_tol=0.0, abs_tol=1e-9) for c, z in zip(cross, axes[2])):
+        raise LocalReadBridgeError("render_scene frame axes must be right-handed")
     items = value["items"]
     if type(items) is not list or len(items) > 128:
         raise LocalReadBridgeError("render_scene items exceed the approved bound")
@@ -380,7 +431,8 @@ def _validate_environment_render_scene(value: object) -> None:
             raise LocalReadBridgeError("render_scene item identity or frame is invalid")
         ids.append(item["object_id"])
         if item["kind"] == "ground_plane":
-            if not _finite_vector(item["normal"], length=3) or not _finite_number(item["offset_m"]):
+            if (not _finite_vector(item["normal"], length=3) or not _finite_number(item["offset_m"])
+                or not math.isclose(math.sqrt(sum(c*c for c in item["normal"])), 1.0, rel_tol=0.0, abs_tol=1e-9)):
                 raise LocalReadBridgeError("render_scene plane values are invalid")
         elif (
             not _finite_vector(item["center_m"], length=3)
@@ -390,6 +442,9 @@ def _validate_environment_render_scene(value: object) -> None:
             raise LocalReadBridgeError("render_scene sphere values are invalid")
     if ids != sorted(set(ids), key=lambda item: item.encode("utf-8")):
         raise LocalReadBridgeError("render_scene item identities must be unique and sorted")
+    digest = hashlib.sha256(rfc8785.dumps({key: item for key, item in value.items() if key != "render_geometry_sha256"})).hexdigest()
+    if digest != value["render_geometry_sha256"]:
+        raise LocalReadBridgeError("render_scene digest does not match canonical payload")
 
 
 def _validate_embodiment_render_morphology(value: object) -> None:
@@ -407,7 +462,7 @@ def _validate_embodiment_render_morphology(value: object) -> None:
         or type(value["schema_version"]) is not int or value["schema_version"] != 1
         or value["coordinate_system"] != "right_handed_z_up"
         or value["length_unit"] != "m"
-        or any(not _bounded_text(value[field]) for field in (
+        or any(not _source_identifier(value[field]) for field in (
             "body_id", "embodiment_episode_id", "morphology_revision", "geometry_revision"
         ))
         or not _is_sha256(value["render_geometry_sha256"])
@@ -456,10 +511,18 @@ def _validate_embodiment_render_morphology(value: object) -> None:
         or len(links) > 128
     ):
         raise LocalReadBridgeError("render_morphology identities exceed approved limits")
+    digest_fields = {key: value[key] for key in ("contract_revision", "schema_version", "coordinate_system", "length_unit", "segments", "joints")}
+    digest = hashlib.sha256(b"biopeia:embodiment.render_morphology/v1\n" + rfc8785.dumps(digest_fields)).hexdigest()
+    if digest != value["render_geometry_sha256"]:
+        raise LocalReadBridgeError("render_morphology digest does not match canonical payload")
 
 
 def _nonempty_text(value: object) -> bool:
     return isinstance(value, str) and bool(value.strip())
+
+
+def _source_identifier(value: object) -> bool:
+    return _bounded_text(value) and value == value.strip()
 
 
 def _is_sha256(value: object) -> bool:

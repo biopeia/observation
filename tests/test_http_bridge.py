@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import socket
 from types import SimpleNamespace
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 import pytest
+import rfc8785
 
 from observation.http_bridge import (
     LocalObservationReadBridge,
@@ -29,6 +31,7 @@ from observation.semantic import (
     SemanticFamily,
     SemanticObservation,
     SubjectScope,
+    TransformationRef,
 )
 
 FRONTEND_ORIGIN = "http://127.0.0.1:4173"
@@ -111,16 +114,26 @@ def unauthorized_observation() -> SemanticObservation[object]:
 
 def static_render_observation(domain: AuthorityDomain, family_name: str, contract_id: str, revision: str, value: dict) -> SemanticObservation[object]:
     actor = ActorRef(f"{domain.value}_owner_projection", "owner_projection")
+    identity_values = ({"environment": value["environment_id"], "environment_revision": value["environment_revision"]}
+                       if domain is AuthorityDomain.ENVIRONMENT else
+                       {"body": value["body_id"], "embodiment_episode": value["embodiment_episode_id"],
+                        "morphology_revision": value["morphology_revision"], "geometry_revision": value["geometry_revision"]})
+    identities = tuple(IdentityAssertion(IdentityRef(kind, val, actor), actor) for kind, val in identity_values.items())
+    lineage = Lineage(
+        parents=(LineageSourceRef("render_geometry_sha256", value["render_geometry_sha256"]),),
+        transformation=TransformationRef("owner.static_render_projection", "1", tuple(identity_values.items())),
+    )
     return SemanticObservation(
         claim=SemanticClaim(
             family=SemanticFamily(domain, (family_name,), SemanticContractRef(contract_id, revision)),
-            subject=SubjectScope("static_geometry", key="owner-projection"),
+            subject=SubjectScope("environment" if domain is AuthorityDomain.ENVIRONMENT else "embodiment_body", identities=identities),
             epistemic_kind="authoritative_state",
             value=value,
         ),
         acquisition=AcquisitionBasis("owner_projection"),
         asserter=actor,
         producer=actor,
+        lineage=lineage,
     )
 
 
@@ -147,8 +160,9 @@ def environment_render_scene() -> SemanticObservation[object]:
             "normal": [0.0, 0.0, 1.0],
             "offset_m": 0.0,
         }],
-        "render_geometry_sha256": "a" * 64,
+        "render_geometry_sha256": "",
     }
+    value["render_geometry_sha256"] = hashlib.sha256(rfc8785.dumps({k: v for k, v in value.items() if k != "render_geometry_sha256"})).hexdigest()
     return static_render_observation(AuthorityDomain.ENVIRONMENT, "render_scene", "biopeia.environment.render-scene", "1", value)
 
 
@@ -160,7 +174,7 @@ def embodiment_render_morphology() -> SemanticObservation[object]:
         "embodiment_episode_id": "episode-a",
         "morphology_revision": "morphology-r1",
         "geometry_revision": "geometry-r1",
-        "render_geometry_sha256": "b" * 64,
+        "render_geometry_sha256": "",
         "coordinate_system": "right_handed_z_up",
         "length_unit": "m",
         "segments": [{
@@ -173,6 +187,8 @@ def embodiment_render_morphology() -> SemanticObservation[object]:
             "axis_in_joint_frame": [0.0, 0.0, 1.0],
         }],
     }
+    digest_fields = {key: value[key] for key in ("contract_revision", "schema_version", "coordinate_system", "length_unit", "segments", "joints")}
+    value["render_geometry_sha256"] = hashlib.sha256(b"biopeia:embodiment.render_morphology/v1\n" + rfc8785.dumps(digest_fields)).hexdigest()
     return static_render_observation(AuthorityDomain.EMBODIMENT, "render_morphology", "embodiment.render_morphology", "v1", value)
 
 
@@ -213,6 +229,78 @@ def test_static_spatial_projections_reject_unapproved_shapes(observation, mutati
     plane = ObservationPlane()
     plane.publish(altered)
     with pytest.raises(ValueError, match="render_"):
+        encode_current_messages(plane, max_response_bytes=1_000_000)
+
+
+@pytest.mark.parametrize("family", ["environment", "embodiment"])
+def test_static_spatial_projection_rejects_subject_or_lineage_mismatch(family) -> None:
+    observation = environment_render_scene() if family == "environment" else embodiment_render_morphology()
+    wrong_subject = SemanticObservation(
+        claim=SemanticClaim(observation.family, SubjectScope(observation.claim.subject.kind, key="wrong"), observation.claim.epistemic_kind, observation.claim.value),
+        acquisition=observation.acquisition, asserter=observation.asserter, producer=observation.producer,
+        lineage=observation.lineage,
+    )
+    wrong_digest = Lineage(parents=(LineageSourceRef("render_geometry_sha256", "0" * 64),), transformation=observation.lineage.transformation)
+    wrong_lineage = SemanticObservation(
+        claim=observation.claim, acquisition=observation.acquisition, asserter=observation.asserter,
+        producer=observation.producer, lineage=wrong_digest,
+    )
+    for malformed in (wrong_subject, wrong_lineage):
+        plane = ObservationPlane()
+        plane.publish(malformed)
+        with pytest.raises(ValueError):
+            encode_current_messages(plane, max_response_bytes=1_000_000)
+
+
+def test_environment_frame_and_plane_vectors_enforce_owner_invariants() -> None:
+    cases = [
+        lambda value: value["frame"]["x_axis_in_parent"].__setitem__(0, 2.0),
+        lambda value: value["frame"]["z_axis_in_parent"].__setitem__(0, 1.0),
+        lambda value: value["items"][0]["normal"].__setitem__(2, 2.0),
+    ]
+    original = environment_render_scene()
+    for mutation in cases:
+        value = json.loads(json.dumps(original.claim.value))
+        mutation(value)
+        altered = SemanticObservation(
+            claim=SemanticClaim(original.family, original.claim.subject, original.claim.epistemic_kind, value),
+            acquisition=original.acquisition, asserter=original.asserter, producer=original.producer,
+            lineage=original.lineage,
+        )
+        plane = ObservationPlane(); plane.publish(altered)
+        with pytest.raises(ValueError):
+            encode_current_messages(plane, max_response_bytes=1_000_000)
+
+
+def test_embodiment_source_ids_reject_whitespace_normalization() -> None:
+    original = embodiment_render_morphology()
+    value = json.loads(json.dumps(original.claim.value))
+    value["body_id"] = " body-a "
+    altered = SemanticObservation(
+        claim=SemanticClaim(original.family, original.claim.subject, original.claim.epistemic_kind, value),
+        acquisition=original.acquisition, asserter=original.asserter, producer=original.producer,
+        lineage=original.lineage,
+    )
+    plane = ObservationPlane(); plane.publish(altered)
+    with pytest.raises(ValueError):
+        encode_current_messages(plane, max_response_bytes=1_000_000)
+
+
+@pytest.mark.parametrize("family", ["environment", "embodiment"])
+def test_static_spatial_projection_rejects_stale_content_digest(family) -> None:
+    original = environment_render_scene() if family == "environment" else embodiment_render_morphology()
+    value = json.loads(json.dumps(original.claim.value))
+    if family == "environment":
+        value["items"][0]["offset_m"] = 0.5
+    else:
+        value["segments"][0]["dimensions_m"][0] = 0.5
+    altered = SemanticObservation(
+        claim=SemanticClaim(original.family, original.claim.subject, original.claim.epistemic_kind, value),
+        acquisition=original.acquisition, asserter=original.asserter, producer=original.producer,
+        lineage=original.lineage,
+    )
+    plane = ObservationPlane(); plane.publish(altered)
+    with pytest.raises(ValueError, match="digest"):
         encode_current_messages(plane, max_response_bytes=1_000_000)
 
 
