@@ -191,6 +191,7 @@ def test_static_spatial_projections_are_carried_without_reinterpretation(observa
     [
         (environment_render_scene(), lambda value: value.update(extra_field=True)),
         (environment_render_scene(), lambda value: value["items"][0].update(kind="mesh")),
+        (environment_render_scene(), lambda value: value["items"][0].update(offset_m=10**1000)),
         (embodiment_render_morphology(), lambda value: value["segments"][0].update(shape="sphere")),
         (embodiment_render_morphology(), lambda value: value["joints"][0].update(axis_in_joint_frame=[0.0, 0.0, 0.0])),
     ],

@@ -307,12 +307,17 @@ def _finite_vector(value: object, *, length: int) -> bool:
     return (
         type(value) in (tuple, list)
         and len(value) == length
-        and all(type(component) in (int, float) and math.isfinite(component) for component in value)
+        and all(_finite_number(component) for component in value)
     )
 
 
 def _finite_number(value: object) -> bool:
-    return type(value) in (int, float) and math.isfinite(value)
+    if type(value) not in (int, float):
+        return False
+    try:
+        return math.isfinite(float(value))
+    except (OverflowError, ValueError):
+        return False
 
 
 def _bounded_text(value: object, *, limit: int = 128) -> bool:
