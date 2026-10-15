@@ -337,20 +337,24 @@ def _validate_static_source_envelope(observation, *, subject_kind: str, identiti
         assertion.identity.kind: assertion.identity.value
         for assertion in observation.claim.subject.identities
     }
-    if any(actual.get(kind) != value for kind, value in identities.items()):
+    if actual != identities:
         raise LocalReadBridgeError("static projection subject identities do not match payload")
-    if not any(parent.reference == digest for parent in observation.lineage.parents):
+    parents = observation.lineage.parents
+    if (
+        len(parents) != 1
+        or parents[0].namespace != "render_geometry_sha256"
+        or parents[0].reference != digest
+    ):
         raise LocalReadBridgeError("static projection lineage does not bind payload digest")
     transformation = observation.lineage.transformation
     if transformation is None:
         raise LocalReadBridgeError("static projection is missing transformation lineage")
-    config = dict(transformation.effective_configuration)
-    if any(config.get(key) != value for key, value in identities.items()):
+    config_pairs = transformation.effective_configuration
+    config = dict(config_pairs)
+    if len(config_pairs) != len(identities) or config != identities:
         raise LocalReadBridgeError("static projection transformation identity does not match payload")
-    # No owner-approved source-specific acquisition/actor mapping exists for
-    # these static descriptors. Preserve those envelope fields as-is rather
-    # than inventing a producer identity; the typed payload identity and
-    # lineage digest above are the verifiable bindings available here.
+    # Transformation id/revision and acquisition/actor details are not emitted
+    # by either owner descriptor. They are preserved but not mapped here.
 
 
 def _finite_number(value: object) -> bool:

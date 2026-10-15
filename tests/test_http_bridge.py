@@ -251,6 +251,44 @@ def test_static_spatial_projection_rejects_subject_or_lineage_mismatch(family) -
         with pytest.raises(ValueError):
             encode_current_messages(plane, max_response_bytes=1_000_000)
 
+    extra_identity = IdentityAssertion(
+        IdentityRef("world", "world-a", observation.asserter), observation.asserter
+    )
+    subject = observation.claim.subject
+    with_extra_identity = SemanticObservation(
+        claim=SemanticClaim(
+            observation.family,
+            SubjectScope(subject.kind, key=subject.key, identities=(*subject.identities, extra_identity)),
+            observation.claim.epistemic_kind,
+            observation.claim.value,
+        ),
+        acquisition=observation.acquisition, asserter=observation.asserter,
+        producer=observation.producer, lineage=observation.lineage,
+    )
+    extra_config = Lineage(
+        parents=observation.lineage.parents,
+        transformation=TransformationRef(
+            "owner.static_render_projection", "1",
+            (*observation.lineage.transformation.effective_configuration, ("unexpected", "value")),
+        ),
+    )
+    with_extra_config = SemanticObservation(
+        claim=observation.claim, acquisition=observation.acquisition, asserter=observation.asserter,
+        producer=observation.producer, lineage=extra_config,
+    )
+    unrelated_namespace = Lineage(
+        parents=(LineageSourceRef("unrelated", observation.claim.value["render_geometry_sha256"]),),
+        transformation=observation.lineage.transformation,
+    )
+    with_wrong_namespace = SemanticObservation(
+        claim=observation.claim, acquisition=observation.acquisition, asserter=observation.asserter,
+        producer=observation.producer, lineage=unrelated_namespace,
+    )
+    for malformed in (with_extra_identity, with_extra_config, with_wrong_namespace):
+        plane = ObservationPlane(); plane.publish(malformed)
+        with pytest.raises(ValueError):
+            encode_current_messages(plane, max_response_bytes=1_000_000)
+
 
 def test_environment_frame_and_plane_vectors_enforce_owner_invariants() -> None:
     cases = [
