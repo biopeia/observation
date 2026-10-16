@@ -413,12 +413,12 @@ def embodiment_render_link_pose_observation(
 
 def _checkpoint_payload(reference: _CheckpointReference) -> dict[str, str]:
     # A checkpoint locator is opaque filesystem text, not a normalized identifier.
-    # Preserve ordinary edge spaces while still rejecting empty/whitespace-only values.
+    # Preserve spaces verbatim; only an actually empty locator is invalid.
     payload = {name: _required_text(reference, name) for name in (
         "owner", "owner_identity", "checkpoint_id", "schema_version", "sha256"
     )}
     locator = getattr(reference, "locator", None)
-    if not isinstance(locator, str) or not locator.strip():
+    if not isinstance(locator, str) or not locator:
         raise ValueError("World checkpoint locator must be non-empty text")
     payload["locator"] = locator
     if not _DIGEST.fullmatch(payload["sha256"]):

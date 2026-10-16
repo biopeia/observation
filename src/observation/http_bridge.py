@@ -559,7 +559,7 @@ def _checkpoint_locator(value: object) -> bool:
     """Accept bounded checkpoint references without treating paths as identifiers."""
     # Paths are opaque source strings, not identifiers: preserve ordinary leading
     # and trailing spaces (valid in POSIX filenames) rather than normalizing them.
-    if not isinstance(value, str) or not value.strip():
+    if not isinstance(value, str) or not value:
         return False
     try:
         encoded = value.encode("utf-8", errors="strict")
