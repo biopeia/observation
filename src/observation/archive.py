@@ -107,6 +107,23 @@ class SourceDeliveryGap:
 
 
 @dataclass(frozen=True, slots=True)
+class CaptureSession:
+    """Durable lifecycle marker for one local capture worker.
+
+    ``running`` means no terminal record was persisted; after process loss it
+    is deliberately not upgraded to a claim of complete history. Sequence
+    watermarks bound local delivery only; they are not causal positions or
+    proof that every source publication was archived.
+    """
+
+    capture_id: str
+    initial_source_sequence: int
+    final_source_sequence: int | None
+    status: str
+    terminal_reason: str | None
+
+
+@dataclass(frozen=True, slots=True)
 class ArchiveStatus:
     record_count: int
     payload_bytes: int
@@ -318,7 +335,7 @@ class SQLiteObservationArchive:
             version = self._db.execute(
                 "SELECT value FROM archive_meta WHERE key='archive_schema_version'"
             ).fetchone()
-            if version is not None and version[0] != "2":
+            if version is not None and version[0] not in {"2", "3"}:
                 self._db.close()
                 raise ValueError(f"unsupported archive schema version: {version[0]}")
         self._db.executescript(
@@ -344,6 +361,13 @@ class SQLiteObservationArchive:
                 reason TEXT NOT NULL,
                 capture_id TEXT
             );
+            CREATE TABLE IF NOT EXISTS archive_capture_sessions (
+                capture_id TEXT PRIMARY KEY,
+                initial_source_sequence INTEGER NOT NULL,
+                final_source_sequence INTEGER,
+                status TEXT NOT NULL,
+                terminal_reason TEXT
+            );
             CREATE INDEX IF NOT EXISTS archive_family_sequence
                 ON archive_records(family, receipt_sequence);
             """
@@ -359,10 +383,11 @@ class SQLiteObservationArchive:
         if "capture_id" not in gap_columns:
             self._db.execute("ALTER TABLE archive_source_gaps ADD COLUMN capture_id TEXT")
         schema = self._db.execute("SELECT value FROM archive_meta WHERE key='archive_schema_version'").fetchone()
-        if schema is not None and schema[0] != "2":
+        if schema is not None and schema[0] not in {"2", "3"}:
             self._db.close()
             raise ValueError(f"unsupported archive schema version: {schema[0]}")
-        self._db.execute("INSERT OR IGNORE INTO archive_meta(key,value) VALUES('archive_schema_version','2')")
+        self._db.execute("UPDATE archive_meta SET value='3' WHERE key='archive_schema_version' AND value='2'")
+        self._db.execute("INSERT OR IGNORE INTO archive_meta(key,value) VALUES('archive_schema_version','3')")
         self._db.execute(
             "INSERT OR IGNORE INTO archive_meta(key,value) VALUES('max_payload_bytes',?)",
             (str(max_payload_bytes),),
@@ -377,6 +402,69 @@ class SQLiteObservationArchive:
         self._db.execute("INSERT OR IGNORE INTO archive_meta(key,value) VALUES('gap_start', '')")
         self._db.execute("INSERT OR IGNORE INTO archive_meta(key,value) VALUES('gap_end', '')")
         self._db.commit()
+
+    def start_capture_session(self, capture_id: str, *, initial_source_sequence: int) -> None:
+        """Persist opt-in capture start without asserting a causal position."""
+        if type(capture_id) is not str or not capture_id.strip():
+            raise ValueError("capture_id must be a non-empty string")
+        if type(initial_source_sequence) is not int or initial_source_sequence < 0:
+            raise ValueError("initial_source_sequence must be a non-negative integer")
+        with self._db:
+            try:
+                self._db.execute(
+                    "INSERT INTO archive_capture_sessions(capture_id,initial_source_sequence,status) VALUES(?,?,'running')",
+                    (capture_id, initial_source_sequence),
+                )
+            except sqlite3.IntegrityError as exc:
+                raise ValueError("capture_id already exists") from exc
+
+    def finish_capture_session(
+        self,
+        capture_id: str,
+        *,
+        status: str = "stopped",
+        reason: str | None = None,
+        final_source_sequence: int,
+    ) -> None:
+        """Persist a terminal worker state; terminal states cannot be rewritten."""
+        if type(status) is not str or status not in {"stopped", "failed"}:
+            raise ValueError("capture session terminal status must be stopped or failed")
+        if reason is not None and (type(reason) is not str or not reason.strip()):
+            raise ValueError("reason must be a non-empty string when provided")
+        if type(final_source_sequence) is not int or final_source_sequence < 0:
+            raise ValueError("final_source_sequence must be a non-negative integer")
+        with self._db:
+            row = self._db.execute(
+                "SELECT status,initial_source_sequence FROM archive_capture_sessions WHERE capture_id=?",
+                (capture_id,),
+            ).fetchone()
+            if row is None:
+                raise ValueError("capture session does not exist")
+            if row[0] != "running":
+                raise ValueError("capture session is already terminal")
+            if final_source_sequence < row[1]:
+                raise ValueError("final_source_sequence cannot precede initial_source_sequence")
+            self._db.execute(
+                "UPDATE archive_capture_sessions SET status=?,terminal_reason=?,final_source_sequence=? "
+                "WHERE capture_id=?",
+                (status, reason, final_source_sequence, capture_id),
+            )
+
+    def capture_sessions(self) -> tuple[CaptureSession, ...]:
+        rows = self._db.execute(
+            "SELECT capture_id,initial_source_sequence,final_source_sequence,status,terminal_reason "
+            "FROM archive_capture_sessions ORDER BY rowid"
+        ).fetchall()
+        return tuple(
+            CaptureSession(
+                str(capture_id),
+                int(initial_sequence),
+                None if final_sequence is None else int(final_sequence),
+                str(status),
+                reason,
+            )
+            for capture_id, initial_sequence, final_sequence, status, reason in rows
+        )
 
     def append(
         self,
@@ -517,6 +605,7 @@ __all__ = [
     "ArchiveError",
     "ArchiveRecord",
     "ArchiveStatus",
+    "CaptureSession",
     "SourceDeliveryGap",
     "SQLiteObservationArchive",
 ]

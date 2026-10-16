@@ -129,6 +129,9 @@ def test_capture_capacity_gap_includes_queued_publications(tmp_path, monkeypatch
 
     with SQLiteObservationArchive(tmp_path / "archive.sqlite", max_payload_bytes=1) as archive:
         archive_status = archive.status()
+        session, = archive.capture_sessions()
+        assert session.status == "failed"
+        assert session.terminal_reason == "archive_capacity_reached"
     gap, = archive_status.source_gap_records
     assert gap.capture_id
     assert (gap.first_sequence, gap.last_sequence, gap.reason) == (
@@ -136,3 +139,79 @@ def test_capture_capacity_gap_includes_queued_publications(tmp_path, monkeypatch
         3,
         "archive_capacity_reached",
     )
+
+
+def test_capture_session_lifecycle_is_durable_and_does_not_claim_history_complete(tmp_path) -> None:
+    path = tmp_path / "archive.sqlite"
+    plane = ObservationPlane()
+    plane.publish(sample(step=1))
+    capture = LocalObservationArchiveCapture(plane, path, max_payload_bytes=100_000)
+    capture.start()
+    capture_id = capture.capture_id
+    plane.publish(sample(step=2))
+    wait_until(lambda: capture.status().last_plane_sequence == 2)
+    capture.stop()
+
+    with SQLiteObservationArchive(path, max_payload_bytes=100_000) as archive:
+        session, = archive.capture_sessions()
+        assert session.capture_id == capture_id
+        assert session.initial_source_sequence == 1
+        assert session.final_source_sequence == 2
+        assert session.status == "stopped"
+        assert session.terminal_reason is None
+
+
+def test_interrupted_capture_remains_explicitly_unfinished_after_reopen(tmp_path) -> None:
+    path = tmp_path / "archive.sqlite"
+    with SQLiteObservationArchive(path, max_payload_bytes=100_000) as archive:
+        archive.start_capture_session("capture-test", initial_source_sequence=7)
+
+    # Reopening must not silently turn an unclosed capture into a complete one.
+    with SQLiteObservationArchive(path, max_payload_bytes=100_000) as archive:
+        session, = archive.capture_sessions()
+        assert session.capture_id == "capture-test"
+        assert session.initial_source_sequence == 7
+        assert session.final_source_sequence is None
+        assert session.status == "running"
+        assert session.terminal_reason is None
+
+
+def test_capture_session_terminal_transition_is_one_way(tmp_path) -> None:
+    path = tmp_path / "archive.sqlite"
+    with SQLiteObservationArchive(path, max_payload_bytes=100_000) as archive:
+        archive.start_capture_session("capture-test", initial_source_sequence=0)
+        archive.finish_capture_session(
+            "capture-test",
+            status="failed",
+            reason="storage_error",
+            final_source_sequence=2,
+        )
+        try:
+            archive.finish_capture_session(
+                "capture-test", status="stopped", final_source_sequence=2
+            )
+        except ValueError as exc:
+            assert "already terminal" in str(exc)
+        else:
+            raise AssertionError("terminal capture status must not be overwritten")
+        session, = archive.capture_sessions()
+        assert session.status == "failed"
+        assert session.final_source_sequence == 2
+        assert session.terminal_reason == "storage_error"
+
+
+def test_capture_final_source_sequence_cannot_precede_initial_watermark(tmp_path) -> None:
+    path = tmp_path / "archive.sqlite"
+    with SQLiteObservationArchive(path, max_payload_bytes=100_000) as archive:
+        archive.start_capture_session("capture-test", initial_source_sequence=5)
+        try:
+            archive.finish_capture_session(
+                "capture-test", final_source_sequence=4
+            )
+        except ValueError as exc:
+            assert "cannot precede" in str(exc)
+        else:
+            raise AssertionError("final watermark cannot precede initial watermark")
+        session, = archive.capture_sessions()
+        assert session.status == "running"
+        assert session.final_source_sequence is None

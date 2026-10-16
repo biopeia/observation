@@ -175,7 +175,7 @@ def test_v1_archive_is_additively_migrated_preserving_original_payload(tmp_path)
         assert row.capture_id is row.source_sequence is None
         archive.append(sample(step=5), capture_id="capture-b", source_sequence=2)
     with sqlite3.connect(path) as db:
-        assert db.execute("SELECT value FROM archive_meta WHERE key='archive_schema_version'").fetchone()[0] == "2"
+        assert db.execute("SELECT value FROM archive_meta WHERE key='archive_schema_version'").fetchone()[0] == "3"
         assert db.execute("SELECT content_sha256 FROM archive_records WHERE receipt_sequence=1").fetchone()[0] == digest
 
 
@@ -191,6 +191,27 @@ def test_unknown_future_archive_schema_is_rejected_before_mutation(tmp_path) -> 
     with sqlite3.connect(path) as db:
         assert tuple(row[1] for row in db.execute("PRAGMA table_info(archive_records)")) == columns_before
         assert db.execute("SELECT value FROM archive_meta WHERE key='archive_schema_version'").fetchone()[0] == "99"
+
+
+def test_v2_archive_is_additively_migrated_to_capture_lifecycle_schema(tmp_path) -> None:
+    path = tmp_path / "archive.sqlite"
+    original = sample(step=6)
+    with SQLiteObservationArchive(path, max_payload_bytes=100_000) as archive:
+        archive.append(original, capture_id="capture-old", source_sequence=9)
+    with sqlite3.connect(path) as db:
+        db.execute("UPDATE archive_meta SET value='2' WHERE key='archive_schema_version'")
+
+    with SQLiteObservationArchive(path, max_payload_bytes=100_000) as archive:
+        rows = archive.query()
+        assert rows[0].observation == original
+        assert (rows[0].capture_id, rows[0].source_sequence) == ("capture-old", 9)
+        assert archive.capture_sessions() == ()
+    with sqlite3.connect(path) as db:
+        assert db.execute(
+            "SELECT value FROM archive_meta WHERE key='archive_schema_version'"
+        ).fetchone()[0] == "3"
+
+
 
 
 def test_tampered_record_is_reported_as_corrupt(tmp_path) -> None:
