@@ -90,6 +90,30 @@ def test_invalid_payload_is_rejected_before_receipt_or_gap_metadata_changes(tmp_
         assert archive.status().capture_gap_start is None
 
 
+def test_lab_authority_observation_is_rejected_without_archive_side_effects(tmp_path) -> None:
+    lab_owner = ActorRef("component", "lab.evidence")
+    lab_observation = SemanticObservation(
+        claim=SemanticClaim(
+            family=SemanticFamily(
+                AuthorityDomain.LAB,
+                ("evidence",),
+                SemanticContractRef("lab.evidence", "v1"),
+            ),
+            subject=SubjectScope("evidence_record", key="record:1"),
+            epistemic_kind="lab_derived",
+            value={"result": "accepted"},
+        ),
+        acquisition=AcquisitionBasis("lab_analysis"),
+        asserter=lab_owner,
+        producer=lab_owner,
+    )
+    with SQLiteObservationArchive(tmp_path / "archive.sqlite", max_payload_bytes=100_000) as archive:
+        with pytest.raises(ValueError, match="Lab-authority"):
+            archive.append(lab_observation)
+        assert archive.status().record_count == 0
+        assert archive.status().capture_gap_start is None
+
+
 def test_query_filters_and_paginates_by_local_receipt_sequence(tmp_path) -> None:
     with SQLiteObservationArchive(tmp_path / "archive.sqlite", max_payload_bytes=100_000) as archive:
         archive.append(sample(step=1))

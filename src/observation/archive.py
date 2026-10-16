@@ -330,6 +330,10 @@ class SQLiteObservationArchive:
         self._db.commit()
 
     def append(self, observation: SemanticObservation[object]) -> int:
+        if type(observation) is not SemanticObservation:
+            raise TypeError("archive accepts SemanticObservation instances only")
+        if observation.authority is AuthorityDomain.LAB:
+            raise ValueError("Lab-authority observations are outside this operational archive")
         payload = _encode_observation(observation)
         family = observation.family.qualified_name
         digest = hashlib.sha256(payload).hexdigest()
