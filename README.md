@@ -157,6 +157,18 @@ unverifiable.
 If a publication or its loss marker cannot be persisted, the capture remains
 open/unverified rather than claiming a complete terminal range.
 
+`ArchiveReader` opens an existing supported SQLite archive in SQLite read-only
+mode and never creates or migrates an archive. It pages by local receipt
+sequence and supports exact filters for owning authority (`owner`), qualified
+family, subject scope, contract revision, and typed domain-time reference.
+Unsupported filters and unsupported capture metadata are returned explicitly;
+missing subjects mean only that no matching archived publication was found,
+not that the source domain lacks that identity. `original_payload` is the exact
+stored archive payload byte sequence, not a claim about original producer-wire
+bytes. Capture coverage reuses durable lifecycle markers and preserves open or
+otherwise unverifiable coverage as such. The reader does not make causal joins
+or turn the archive into scientific evidence custody.
+
 This API does not expose an HTTP endpoint, alter current read permissions, or
 admit Lab evidence. It is a local single-user prototype, not a production
 retention, security, or legal-erasure system. Callers are responsible for

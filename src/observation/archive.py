@@ -15,6 +15,7 @@ import json
 import math
 import os
 import sqlite3
+import stat
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
@@ -96,6 +97,43 @@ class ArchiveRecord:
     # Local capture-stream identity only; never a domain or causal identifier.
     capture_id: str | None = None
     source_sequence: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ArchiveReadRecord:
+    """Read-only view retaining the exact stored payload and decoded value."""
+
+    receipt_sequence: int
+    observation: SemanticObservation[object]
+    content_sha256: str
+    payload_bytes: int
+    original_payload: bytes
+    capture_id: str | None = None
+    source_sequence: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ArchivePage:
+    """One page ordered only by this archive's local receipt sequence."""
+
+    status: str
+    records: tuple[ArchiveReadRecord, ...]
+    next_after_receipt_sequence: int
+    has_more: bool
+    unsupported_filters: tuple[str, ...] = ()
+    identity_status: str = "not_applicable"
+
+
+@dataclass(frozen=True, slots=True)
+class CaptureCatalogResult:
+    status: str
+    sessions: tuple[CaptureSession, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class CaptureCoverageResult:
+    status: str
+    coverage: CaptureCoverage | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -760,11 +798,220 @@ class SQLiteObservationArchive:
         self.close()
 
 
+class ArchiveReader:
+    """Read an existing Observation archive without creating or mutating it.
+
+    Receipt order is the local archive's insertion order. Filters are exact
+    comparisons over the semantic metadata already present in archived
+    publications; no cross-domain relationships or causal ordering are
+    inferred. Capture lifecycle queries are available only where the stored
+    schema contains the corresponding metadata.
+    """
+
+    _BASE_COLUMNS = {
+        "receipt_sequence", "family", "authority", "payload", "content_sha256", "payload_bytes",
+    }
+    _CAPTURE_COLUMNS = {"capture_id", "source_sequence"}
+    _FILTERS = {"owner", "family", "subject", "revision", "domain_time"}
+
+    def __init__(self, path: str | os.PathLike[str]) -> None:
+        self.path = Path(path)
+        if self.path.is_symlink():
+            raise ValueError("archive database path must not be a symlink")
+        try:
+            mode = self.path.stat().st_mode
+        except FileNotFoundError:
+            raise
+        if not stat.S_ISREG(mode):
+            raise ValueError("archive database path must be a regular file")
+        uri = self.path.resolve().as_uri() + "?mode=ro"
+        self._db = sqlite3.connect(uri, uri=True, timeout=2.0)
+        try:
+            self._db.execute("PRAGMA query_only=ON")
+            tables = {str(row[0]) for row in self._db.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            )}
+            if "archive_records" not in tables or "archive_meta" not in tables:
+                raise ArchiveCorrupt("file is not a supported Observation archive")
+            metadata = dict(self._db.execute("SELECT key,value FROM archive_meta"))
+            version = metadata.get("archive_schema_version")
+            if version not in {"2", "3"}:
+                raise ArchiveCorrupt(f"unsupported archive schema version: {version!r}")
+            self._record_columns = {str(row[1]) for row in self._db.execute("PRAGMA table_info(archive_records)")}
+            if not self._BASE_COLUMNS.issubset(self._record_columns):
+                missing = sorted(self._BASE_COLUMNS - self._record_columns)
+                raise ArchiveCorrupt(f"archive record schema is missing columns: {missing}")
+            self._capture_metadata_available = (
+                self._CAPTURE_COLUMNS.issubset(self._record_columns)
+                and {"archive_capture_sessions", "archive_source_gaps"}.issubset(tables)
+            )
+        except Exception:
+            self._db.close()
+            raise
+
+    def query_page(
+        self,
+        *,
+        filters: dict[str, object] | None = None,
+        after_receipt_sequence: int = 0,
+        limit: int = 100,
+    ) -> ArchivePage:
+        if type(after_receipt_sequence) is not int or after_receipt_sequence < 0:
+            raise ValueError("after_receipt_sequence must be a non-negative integer")
+        if type(limit) is not int or not 1 <= limit <= 1000:
+            raise ValueError("limit must be between 1 and 1000")
+        filters = {} if filters is None else filters
+        if type(filters) is not dict:
+            raise TypeError("filters must be a dictionary")
+        unsupported = tuple(sorted(str(key) for key in filters if key not in self._FILTERS))
+        if unsupported:
+            return ArchivePage("unsupported_filter", (), after_receipt_sequence, False, unsupported)
+        from .semantic import DomainTimeRef, SubjectScope
+
+        invalid = tuple(sorted(
+            name for name, value in filters.items()
+            if (name in {"owner", "family", "revision"} and type(value) is not str)
+            or (name == "subject" and type(value) is not SubjectScope)
+            or (name == "domain_time" and type(value) is not DomainTimeRef)
+        ))
+        if invalid:
+            return ArchivePage("invalid_filter", (), after_receipt_sequence, False, invalid)
+
+        selected = (
+            "receipt_sequence,family,authority,payload,content_sha256,payload_bytes"
+            + (",capture_id,source_sequence" if self._CAPTURE_COLUMNS.issubset(self._record_columns) else ",NULL,NULL")
+        )
+        predicates = ["receipt_sequence>?"]
+        parameters: list[object] = [after_receipt_sequence]
+        cursor = self._db.execute(
+            f"SELECT {selected} FROM archive_records WHERE "
+            + " AND ".join(predicates)
+            + " ORDER BY receipt_sequence",
+            parameters,
+        )
+        records: list[ArchiveReadRecord] = []
+        has_more = False
+        while rows := cursor.fetchmany(128):
+            for sequence, indexed_family, indexed_authority, payload, digest, size, capture_id, source_sequence in rows:
+                original = bytes(payload)
+                if len(original) != int(size) or hashlib.sha256(original).hexdigest() != str(digest):
+                    raise ArchiveCorrupt(f"record {sequence} failed content digest/size check")
+                observation = _decode_observation(original)
+                # The indexed columns accelerate writes and belong to the
+                # archive schema, but they are not authoritative over the
+                # persisted publication. Detect drift rather than silently
+                # omitting a record from an exact owner/family query.
+                if (
+                    str(indexed_family) != observation.family.qualified_name
+                    or str(indexed_authority) != observation.authority.value
+                ):
+                    raise ArchiveCorrupt(
+                        f"record {sequence} indexed family/authority does not match its payload"
+                    )
+                if not self._matches(observation, filters):
+                    continue
+                if len(records) == limit:
+                    has_more = True
+                    break
+                records.append(ArchiveReadRecord(
+                    int(sequence), observation, str(digest), int(size), original,
+                    None if capture_id is None else str(capture_id),
+                    None if source_sequence is None else int(source_sequence),
+                ))
+            if has_more:
+                break
+        status = "results" if records else "no_matching_publications"
+        identity_status = "not_asserted_in_page" if "subject" in filters and not records else "not_applicable"
+        next_sequence = records[-1].receipt_sequence if records else after_receipt_sequence
+        return ArchivePage(status, tuple(records), next_sequence, has_more, (), identity_status)
+
+    @staticmethod
+    def _matches(observation: SemanticObservation[object], filters: dict[str, object]) -> bool:
+        owner = filters.get("owner")
+        if owner is not None and observation.authority.value != owner:
+            return False
+        family = filters.get("family")
+        if family is not None and observation.family.qualified_name != family:
+            return False
+        subject = filters.get("subject")
+        if subject is not None and observation.claim.subject != subject:
+            return False
+        revision = filters.get("revision")
+        if revision is not None and observation.family.contract.revision != revision:
+            return False
+        domain_time = filters.get("domain_time")
+        if domain_time is not None and domain_time not in observation.domain_time:
+            return False
+        return True
+
+    def capture_catalog(self) -> CaptureCatalogResult:
+        if not self._capture_metadata_available:
+            return CaptureCatalogResult("unsupported_schema", ())
+        try:
+            sessions = self.capture_sessions()
+        except sqlite3.DatabaseError as exc:
+            raise ArchiveCorrupt("capture catalog could not be read") from exc
+        return CaptureCatalogResult("available", sessions)
+
+    def capture_sessions(self) -> tuple[CaptureSession, ...]:
+        """Return sessions when lifecycle metadata exists, else fail explicitly.
+
+        Use ``capture_catalog`` when callers need a status-bearing result.
+        """
+        if not self._capture_metadata_available:
+            raise ArchiveError("capture lifecycle metadata is unavailable for this archive schema")
+        rows = self._db.execute(
+            "SELECT capture_id,initial_source_sequence,final_source_sequence,status,terminal_reason "
+            "FROM archive_capture_sessions ORDER BY rowid"
+        ).fetchall()
+        return tuple(CaptureSession(
+            str(capture_id), int(initial), None if final is None else int(final), str(status), reason
+        ) for capture_id, initial, final, status, reason in rows)
+
+    def capture_coverage(self, capture_id: str) -> CaptureCoverageResult:
+        if not self._capture_metadata_available:
+            return CaptureCoverageResult("unsupported_schema", None)
+        if type(capture_id) is not str or not capture_id:
+            raise ValueError("capture_id must be a non-empty string")
+        self._db.execute("BEGIN")
+        try:
+            if not any(session.capture_id == capture_id for session in self.capture_sessions()):
+                return CaptureCoverageResult("capture_not_found", None)
+            coverage = SQLiteObservationArchive._capture_coverage_snapshot(self, capture_id)  # type: ignore[arg-type]
+            return CaptureCoverageResult("available", coverage)
+        except sqlite3.DatabaseError as exc:
+            raise ArchiveCorrupt("capture coverage could not be read") from exc
+        finally:
+            if self._db.in_transaction:
+                self._db.rollback()
+
+    def integrity_check(self) -> str:
+        rows = tuple(str(row[0]) for row in self._db.execute("PRAGMA integrity_check"))
+        if rows != ("ok",):
+            detail = "; ".join(rows) if rows else "missing result"
+            raise ArchiveCorrupt(f"SQLite integrity_check failed: {detail}")
+        return "ok"
+
+    def close(self) -> None:
+        self._db.close()
+
+    def __enter__(self) -> ArchiveReader:
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        self.close()
+
+
 __all__ = [
     "ArchiveCapacityReached",
     "ArchiveCorrupt",
     "ArchiveError",
     "ArchiveRecord",
+    "ArchiveReadRecord",
+    "ArchivePage",
+    "ArchiveReader",
+    "CaptureCatalogResult",
+    "CaptureCoverageResult",
     "ArchiveStatus",
     "CaptureSession",
     "SourceDeliveryGap",
