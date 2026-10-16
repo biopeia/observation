@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import queue
 import threading
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -46,6 +47,9 @@ class LocalObservationArchiveCapture:
         self._plane = plane
         self._path = Path(path)
         self._max_payload_bytes = max_payload_bytes
+        # Scopes source delivery sequence numbers to this capture instance.
+        # It does not identify a World run, publication, or causal cut.
+        self._capture_id = str(uuid.uuid4())
         self._subscription = None
         self._thread: threading.Thread | None = None
         self._ready = threading.Event()
@@ -93,7 +97,9 @@ class LocalObservationArchiveCapture:
                         with self._lock:
                             first_missing = (self._last_plane_sequence or 0) + 1
                         if first_missing <= item.sequence:
-                            archive.record_source_gap(first_missing, item.sequence, item.reason)
+                            archive.record_source_gap(
+                                first_missing, item.sequence, item.reason, capture_id=self._capture_id
+                            )
                         with self._lock:
                             self._gap_sequence = item.sequence
                             self._gap_reason = item.reason
@@ -104,7 +110,11 @@ class LocalObservationArchiveCapture:
                     with self._lock:
                         self._last_plane_sequence = item.sequence
                     try:
-                        archive.append(item.observation)
+                        archive.append(
+                            item.observation,
+                            capture_id=self._capture_id,
+                            source_sequence=item.sequence,
+                        )
                     except ArchiveCapacityReached:
                         # The archive persists the capacity gap and keeps prior
                         # records. Keep consuming so its attempted range grows.

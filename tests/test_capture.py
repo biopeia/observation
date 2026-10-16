@@ -32,6 +32,8 @@ def test_capture_archives_only_subsequent_publications_without_blocking_plane(tm
     with SQLiteObservationArchive(tmp_path / "archive.sqlite", max_payload_bytes=100_000) as archive:
         records = archive.query()
     assert [record.observation.domain_time[0].value for record in records] == [2]
+    assert records[0].capture_id
+    assert records[0].source_sequence == 2
 
 
 def test_capture_reports_storage_initialization_failure(tmp_path) -> None:
@@ -71,10 +73,10 @@ def test_capture_persists_explicit_plane_delivery_gap(tmp_path, monkeypatch) -> 
     release_append = threading.Event()
     original_append = SQLiteObservationArchive.append
 
-    def slow_append(archive, observation):
+    def slow_append(archive, observation, **kwargs):
         entered_append.set()
         assert release_append.wait(2)
-        return original_append(archive, observation)
+        return original_append(archive, observation, **kwargs)
 
     monkeypatch.setattr(SQLiteObservationArchive, "append", slow_append)
     capture.start()
@@ -87,4 +89,8 @@ def test_capture_persists_explicit_plane_delivery_gap(tmp_path, monkeypatch) -> 
     capture.stop()
 
     with SQLiteObservationArchive(tmp_path / "archive.sqlite", max_payload_bytes=100_000) as archive:
-        assert archive.status().source_gaps == ((2, 3, "consumer_overflow"),)
+        status = archive.status()
+        assert status.source_gaps == ((2, 3, "consumer_overflow"),)
+        gap, = status.source_gap_records
+        assert (gap.first_sequence, gap.last_sequence, gap.reason) == (2, 3, "consumer_overflow")
+        assert gap.capture_id
