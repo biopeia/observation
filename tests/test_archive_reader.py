@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import sqlite3
+import time
 
 import pytest
 
@@ -12,6 +13,7 @@ from observation.archive import (
     SQLiteObservationArchive,
     _encode_observation,
 )
+from observation import LocalObservationArchiveCapture, ObservationPlane
 from test_archive import sample
 
 
@@ -98,6 +100,54 @@ def test_reader_exposes_capture_catalog_and_unverifiable_open_coverage_without_r
         assert coverage.coverage.closure_verified is False
         assert coverage.coverage.complete is False
         assert coverage.coverage.unverifiable_intervals == ((2, None),)
+        assert reader.integrity_check() == "ok"
+    assert path.read_bytes() == before
+
+
+def test_reader_reads_capture_output_as_closed_verified_local_archive(tmp_path) -> None:
+    """Exercise the supported writer-to-reader path, not two isolated APIs."""
+    path = tmp_path / "captured.sqlite"
+    observation = sample(step=1)
+    plane = ObservationPlane()
+    capture = LocalObservationArchiveCapture(
+        plane, path, max_payload_bytes=100_000
+    )
+    capture.start()
+    try:
+        plane.publish(observation)
+        deadline = time.monotonic() + 2.0
+        while time.monotonic() < deadline:
+            if capture.status().last_persisted_sequence == 1:
+                break
+            time.sleep(0.01)
+        assert capture.status().last_persisted_sequence == 1
+    finally:
+        capture.stop()
+
+    before = path.read_bytes()
+    with ArchiveReader(path) as reader:
+        page = reader.query_page(limit=10)
+        assert page.status == "results"
+        assert len(page.records) == 1
+        record, = page.records
+        assert record.observation == observation
+        assert record.source_sequence == 1
+        assert record.capture_id == capture.capture_id
+        assert record.original_payload == _encode_observation(observation)
+
+        catalog = reader.capture_catalog()
+        assert catalog.status == "available"
+        assert len(catalog.sessions) == 1
+        session, = catalog.sessions
+        assert session.capture_id == capture.capture_id
+        assert session.status == "stopped"
+        coverage = reader.capture_coverage(capture.capture_id)
+        assert coverage.status == "available"
+        assert coverage.coverage is not None
+        assert coverage.coverage.status == "closed_verified"
+        assert coverage.coverage.persisted_sequences == (1,)
+        assert coverage.coverage.closure_verified is True
+        assert coverage.coverage.complete is True
         assert reader.integrity_check() == "ok"
     assert path.read_bytes() == before
 
