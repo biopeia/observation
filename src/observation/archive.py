@@ -350,9 +350,23 @@ class SQLiteObservationArchive:
         self.max_payload_bytes = max_payload_bytes
         self._db = sqlite3.connect(self.path, timeout=2.0)
         os.chmod(self.path, 0o600)
-        self._db.execute("PRAGMA journal_mode=DELETE")
-        self._db.execute("PRAGMA synchronous=FULL")
+        journal_mode = self._db.execute("PRAGMA journal_mode=DELETE").fetchone()
+        if journal_mode is None or str(journal_mode[0]).lower() != "delete":
+            self._db.close()
+            raise ArchiveError("SQLite rollback-journal mode DELETE is unavailable")
+        # EXTRA adds a directory sync after deleting the rollback journal.
+        # It improves power-loss durability for DELETE mode; it cannot make
+        # failed writes durable or override filesystem/VFS/hardware behavior.
+        self._db.execute("PRAGMA synchronous=EXTRA")
         self._db.execute("PRAGMA foreign_keys=ON")
+        synchronous = self._db.execute("PRAGMA synchronous").fetchone()
+        foreign_keys = self._db.execute("PRAGMA foreign_keys").fetchone()
+        if synchronous is None or int(synchronous[0]) != 3:
+            self._db.close()
+            raise ArchiveError("SQLite synchronous=EXTRA could not be enabled")
+        if foreign_keys is None or int(foreign_keys[0]) != 1:
+            self._db.close()
+            raise ArchiveError("SQLite foreign-key enforcement could not be enabled")
         meta_exists = self._db.execute(
             "SELECT 1 FROM sqlite_master WHERE type='table' AND name='archive_meta'"
         ).fetchone()
@@ -525,64 +539,79 @@ class SQLiteObservationArchive:
             "SELECT first_sequence,last_sequence,reason FROM archive_source_gaps "
             "WHERE capture_id=? ORDER BY first_sequence,last_sequence", (capture_id,)
         ).fetchall())
-        if session.final_source_sequence is None:
-            received = tuple(g for g in gaps if g[2] in {"archive_capacity_reached", "archive_write_failed"})
-            first = session.initial_source_sequence + 1
-            accounted = sorted(
-                [(seq, seq) for seq in persisted if seq >= first]
-                + [(max(lo, first), hi) for lo, hi, _reason in gaps if hi >= first],
-            )
-            intervals: list[tuple[int, int | None]] = []
-            cursor = first
-            for lo, hi in accounted:
-                if lo > cursor:
-                    intervals.append((cursor, lo - 1))
-                cursor = max(cursor, hi + 1)
-            # The durable session has no final watermark. Even when every
-            # observed row is intact, no upper bound can be asserted.
-            intervals.append((cursor, None))
-            return CaptureCoverage(
-                capture_id, "open_unverified", persisted, received, gaps,
-                tuple(intervals), False, False,
-            )
-
-        # Walk the closed bounded interval. Anything not represented by a
-        # persisted row or a durable gap is unknown; overlapping/contradictory
-        # markers are also treated as unverifiable rather than complete.
         first = session.initial_source_sequence + 1
         final = session.final_source_sequence
-        accounted = sorted(
-            [(seq, seq, "persisted") for seq in persisted if first <= seq <= final]
-            + [(max(lo, first), min(hi, final), reason) for lo, hi, reason in gaps
-               if max(lo, first) <= min(hi, final)],
-            key=lambda item: (item[0], item[1]),
+        closed = final is not None
+        bounded_final = final if closed else max(
+            [session.initial_source_sequence, *persisted, *(hi for _lo, hi, _reason in gaps)]
         )
-        # Rows/markers outside the session's declared source interval are
-        # evidence that its persisted boundary is inconsistent, not ignorable
-        # extras that permit a completeness claim.
-        contradictory = any(seq < first or seq > final for seq in persisted) or any(
-            lo < first or hi > final for lo, hi, _reason in gaps
-        )
-        intervals: list[tuple[int, int]] = []
+
+        # Sweep interval boundaries rather than expanding gap ranges into
+        # individual sequence numbers. A persisted row overlapping a loss
+        # marker is an ambiguous acknowledgement, not both a saved and lost
+        # publication. It is explicitly reported as unverifiable.
+        events: dict[int, list[tuple[str, str, int]]] = {}
+
+        def add_range(lo: int, hi: int, category: str, reason: str) -> None:
+            if lo > hi:
+                return
+            events.setdefault(lo, []).append((category, reason, 1))
+            events.setdefault(hi + 1, []).append((category, reason, -1))
+
+        for seq in persisted:
+            if first <= seq <= bounded_final:
+                add_range(seq, seq, "persisted", "persisted")
+        for lo, hi, reason in gaps:
+            if lo < first or (closed and hi > bounded_final):
+                continue
+            lo = max(lo, first)
+            hi = min(hi, bounded_final)
+            category = "received" if reason in {"archive_capacity_reached", "archive_write_failed"} else "gap"
+            add_range(lo, hi, category, reason)
+
+        boundaries = sorted({first, bounded_final + 1, *events}) if first <= bounded_final else []
+        active: dict[tuple[str, str], int] = {}
+        unverifiable: list[tuple[int, int | None]] = []
+        received_ranges: list[tuple[int, int, str]] = []
         cursor = first
-        for lo, hi, _reason in accounted:
-            if lo < cursor:
-                contradictory = True
-            if lo > cursor:
-                intervals.append((cursor, lo - 1))
-            cursor = max(cursor, hi + 1)
-        if cursor <= final:
-            intervals.append((cursor, final))
-        received = tuple(g for g in gaps if g[2] in {"archive_capacity_reached", "archive_write_failed"})
-        has_loss = bool(received)
-        verified = not intervals and not contradictory
+        for index, boundary in enumerate(boundaries):
+            if boundary > cursor:
+                next_boundary = boundary
+                hi = next_boundary - 1
+                total = sum(active.values())
+                if total == 0 or total > 1:
+                    unverifiable.append((cursor, hi))
+                elif total == 1:
+                    (category, reason), count = next((item, count) for item, count in active.items() if count)
+                    if category == "received":
+                        received_ranges.append((cursor, hi, reason))
+                cursor = boundary
+            for category, reason, delta in events.get(boundary, ()):
+                key = (category, reason)
+                active[key] = active.get(key, 0) + delta
+                if active[key] == 0:
+                    del active[key]
+
+        # An open session has no durable final watermark. Its observed extent
+        # can be classified, but no closed-interval claim is possible.
+        if not closed:
+            unverifiable.append((max(cursor, first), None))
+
+        received = tuple(received_ranges)
+        contradictory = any(seq < first or seq > bounded_final for seq in persisted) or any(
+            lo < first or (closed and hi > bounded_final) for lo, hi, _reason in gaps
+        )
+        verified = closed and not unverifiable and not contradictory
         complete = verified and not gaps and session.status == "stopped"
-        status = "closed_verified" if verified else "closed_unverifiable"
-        if verified and has_loss:
+        status = "open_unverified" if not closed else "closed_verified" if verified else "closed_unverifiable"
+        if verified and received:
             status = "closed_verified_with_persisted_loss"
         elif verified and gaps:
             status = "closed_verified_with_gaps"
-        return CaptureCoverage(capture_id, status, persisted, received, gaps, tuple(intervals), verified, complete)
+        return CaptureCoverage(
+            capture_id, status, persisted, received, gaps,
+            tuple(unverifiable), verified, complete,
+        )
 
     def append(
         self,

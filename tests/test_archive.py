@@ -49,6 +49,13 @@ def test_round_trip_preserves_semantic_models_and_builtin_value_types(tmp_path) 
     assert record.content_sha256 == hashlib.sha256(_encode_observation(observation)).hexdigest()
 
 
+def test_archive_checks_effective_sqlite_durability_settings(tmp_path) -> None:
+    with SQLiteObservationArchive(tmp_path / "archive.sqlite", max_payload_bytes=100_000) as archive:
+        assert archive._db.execute("PRAGMA journal_mode").fetchone()[0].lower() == "delete"
+        assert archive._db.execute("PRAGMA synchronous").fetchone()[0] == 3
+        assert archive._db.execute("PRAGMA foreign_keys").fetchone()[0] == 1
+
+
 def test_reopen_keeps_records_and_repeated_claims_as_distinct_receipts(tmp_path) -> None:
     path = tmp_path / "archive.sqlite"
     with SQLiteObservationArchive(path, max_payload_bytes=100_000) as archive:

@@ -143,10 +143,17 @@ the process crashed, and it must not be treated as evidence of complete history.
 These lifecycle fields remain local operational metadata, not causal or
 producer semantics.
 
-SQLite uses rollback-journal mode with `synchronous=FULL` for this local
-archive. This supports atomic transaction recovery under SQLite's documented
-storage assumptions; it cannot guarantee persistence if the operating system,
-filesystem, device, or available disk space fails to honor writes or flushes.
+SQLite uses rollback-journal `DELETE` mode with `synchronous=EXTRA` for this
+local archive. The adapter verifies the effective journal, synchronization,
+and foreign-key settings at open. In DELETE mode, `EXTRA` adds a directory sync
+after the rollback journal is removed, strengthening the commit durability
+sequence over `FULL`; this remains subject to SQLite's documented storage
+assumptions and does not guarantee persistence if the operating system,
+filesystem, VFS, device, or available disk space fails to honor writes or
+flushes. A publication whose append acknowledgement is lost is classified as
+ambiguous if a loss marker overlaps a persisted row; it is never counted as
+both persisted and received-but-not-persisted, and the affected interval is
+unverifiable.
 If a publication or its loss marker cannot be persisted, the capture remains
 open/unverified rather than claiming a complete terminal range.
 

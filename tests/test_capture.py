@@ -325,6 +325,36 @@ def test_append_write_error_is_persisted_as_received_loss_not_success(tmp_path, 
         assert coverage.complete is False
 
 
+def test_commit_then_write_error_is_ambiguous_not_persisted_and_lost(tmp_path, monkeypatch) -> None:
+    """A commit may have landed even when the caller sees an error afterward."""
+    import sqlite3
+    from observation.archive import SQLiteObservationArchive
+
+    plane = ObservationPlane()
+    capture = LocalObservationArchiveCapture(plane, tmp_path / "archive.sqlite", max_payload_bytes=100_000)
+    original_append = SQLiteObservationArchive.append
+
+    def commit_then_raise(archive, observation, **kwargs):
+        original_append(archive, observation, **kwargs)
+        raise sqlite3.OperationalError("injected lost acknowledgement after commit")
+
+    monkeypatch.setattr(SQLiteObservationArchive, "append", commit_then_raise)
+    capture.start()
+    plane.publish(sample(step=1))
+    wait_until(lambda: not capture.status().running)
+    capture.stop()
+
+    with SQLiteObservationArchive(tmp_path / "archive.sqlite", max_payload_bytes=100_000) as archive:
+        coverage = archive.capture_coverage(capture.capture_id)
+        assert coverage.persisted_sequences == (1,)
+        assert coverage.received_not_persisted == ()
+        assert coverage.known_source_gaps == ((1, 1, "archive_write_failed"),)
+        assert coverage.unverifiable_intervals == ((1, 1),)
+        assert coverage.status == "closed_unverifiable"
+        assert not coverage.closure_verified
+        assert not coverage.complete
+
+
 def test_failed_loss_marker_keeps_capture_open_and_unverifiable(tmp_path, monkeypatch) -> None:
     import sqlite3
     from observation.archive import SQLiteObservationArchive
