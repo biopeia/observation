@@ -100,6 +100,17 @@ not source time, causal order, or a cross-domain join. Queries filter by exact
 family and page by that receipt sequence. The archive performs no joins,
 inference, expiry, overwrite, or eviction.
 
+Capture records additionally retain an opaque capture-instance ID and the
+source `ObservationPlane` delivery sequence in separate archive metadata. Gap
+markers carry the same capture-instance ID and the missing delivery-sequence
+interval. These fields correlate a record/gap to one local capture stream;
+they are not producer event IDs, World commits, domain timestamps, or causal
+proof. Direct archive appends have no capture metadata. Since the semantic
+observation model supplies no common source event ID, the archive does not
+deduplicate or promise idempotent ingestion; repeated records remain distinct.
+Opening a v1 local archive performs an additive schema migration, preserving
+existing payload bytes and leaving their unavailable capture metadata empty.
+
 The configured `max_payload_bytes` is a logical limit on retained record
 payloads, not a physical disk quota (SQLite pages, indexes, and journals add
 overhead). Once reached, append stops and records the attempted receipt range

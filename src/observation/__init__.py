@@ -7,6 +7,7 @@ from .archive import (
     ArchiveError,
     ArchiveRecord,
     ArchiveStatus,
+    SourceDeliveryGap,
     SQLiteObservationArchive,
 )
 from .capture import ArchiveCaptureStatus, LocalObservationArchiveCapture
@@ -33,6 +34,7 @@ __all__ = [
     "ArchiveError",
     "ArchiveRecord",
     "ArchiveStatus",
+    "SourceDeliveryGap",
     "ObservedFrame",
     "ObservationPlane",
     "LocalObservationHTTPServer",

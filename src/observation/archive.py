@@ -93,6 +93,17 @@ class ArchiveRecord:
     observation: SemanticObservation[object]
     content_sha256: str
     payload_bytes: int
+    # Local capture-stream identity only; never a domain or causal identifier.
+    capture_id: str | None = None
+    source_sequence: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class SourceDeliveryGap:
+    capture_id: str | None
+    first_sequence: int
+    last_sequence: int
+    reason: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -102,7 +113,7 @@ class ArchiveStatus:
     max_payload_bytes: int
     capture_gap_start: int | None
     capture_gap_end: int | None
-    source_gaps: tuple[tuple[int, int, str], ...] = ()
+    source_gaps: tuple[SourceDeliveryGap, ...] = ()
 
 
 def _encode_value(value: Any, active: set[int] | None = None) -> Any:
@@ -297,6 +308,16 @@ class SQLiteObservationArchive:
         self._db.execute("PRAGMA journal_mode=DELETE")
         self._db.execute("PRAGMA synchronous=FULL")
         self._db.execute("PRAGMA foreign_keys=ON")
+        meta_exists = self._db.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='archive_meta'"
+        ).fetchone()
+        if meta_exists:
+            version = self._db.execute(
+                "SELECT value FROM archive_meta WHERE key='archive_schema_version'"
+            ).fetchone()
+            if version is not None and version[0] != "2":
+                self._db.close()
+                raise ValueError(f"unsupported archive schema version: {version[0]}")
         self._db.executescript(
             """
             CREATE TABLE IF NOT EXISTS archive_meta (
@@ -309,18 +330,36 @@ class SQLiteObservationArchive:
                 authority TEXT NOT NULL,
                 payload BLOB NOT NULL,
                 content_sha256 TEXT NOT NULL,
-                payload_bytes INTEGER NOT NULL
+                payload_bytes INTEGER NOT NULL,
+                capture_id TEXT,
+                source_sequence INTEGER
             );
             CREATE TABLE IF NOT EXISTS archive_source_gaps (
                 gap_id INTEGER PRIMARY KEY AUTOINCREMENT,
                 first_sequence INTEGER NOT NULL,
                 last_sequence INTEGER NOT NULL,
-                reason TEXT NOT NULL
+                reason TEXT NOT NULL,
+                capture_id TEXT
             );
             CREATE INDEX IF NOT EXISTS archive_family_sequence
                 ON archive_records(family, receipt_sequence);
             """
         )
+        # Additive, idempotent migration from the first local archive schema.
+        # Old rows remain byte-identical with null capture metadata.
+        record_columns = {row[1] for row in self._db.execute("PRAGMA table_info(archive_records)")}
+        gap_columns = {row[1] for row in self._db.execute("PRAGMA table_info(archive_source_gaps)")}
+        if "capture_id" not in record_columns:
+            self._db.execute("ALTER TABLE archive_records ADD COLUMN capture_id TEXT")
+        if "source_sequence" not in record_columns:
+            self._db.execute("ALTER TABLE archive_records ADD COLUMN source_sequence INTEGER")
+        if "capture_id" not in gap_columns:
+            self._db.execute("ALTER TABLE archive_source_gaps ADD COLUMN capture_id TEXT")
+        schema = self._db.execute("SELECT value FROM archive_meta WHERE key='archive_schema_version'").fetchone()
+        if schema is not None and schema[0] != "2":
+            self._db.close()
+            raise ValueError(f"unsupported archive schema version: {schema[0]}")
+        self._db.execute("INSERT OR IGNORE INTO archive_meta(key,value) VALUES('archive_schema_version','2')")
         self._db.execute(
             "INSERT OR IGNORE INTO archive_meta(key,value) VALUES('max_payload_bytes',?)",
             (str(max_payload_bytes),),
@@ -336,11 +375,23 @@ class SQLiteObservationArchive:
         self._db.execute("INSERT OR IGNORE INTO archive_meta(key,value) VALUES('gap_end', '')")
         self._db.commit()
 
-    def append(self, observation: SemanticObservation[object]) -> int:
+    def append(
+        self,
+        observation: SemanticObservation[object],
+        *,
+        capture_id: str | None = None,
+        source_sequence: int | None = None,
+    ) -> int:
         if type(observation) is not SemanticObservation:
             raise TypeError("archive accepts SemanticObservation instances only")
         if observation.authority is AuthorityDomain.LAB:
             raise ValueError("Lab-authority observations are outside this operational archive")
+        if (capture_id is None) != (source_sequence is None):
+            raise ValueError("capture_id and source_sequence must be provided together")
+        if capture_id is not None and (type(capture_id) is not str or not capture_id.strip()):
+            raise ValueError("capture_id must be a non-empty string")
+        if source_sequence is not None and (type(source_sequence) is not int or source_sequence < 1):
+            raise ValueError("source_sequence must be a positive integer")
         payload = _encode_observation(observation)
         family = observation.family.qualified_name
         digest = hashlib.sha256(payload).hexdigest()
@@ -361,14 +412,16 @@ class SQLiteObservationArchive:
                 capacity_reached = True
             else:
                 self._db.execute(
-                    "INSERT INTO archive_records VALUES(?,?,?,?,?,?)",
-                    (sequence, family, observation.authority.value, payload, digest, len(payload)),
+                    "INSERT INTO archive_records(receipt_sequence,family,authority,payload,content_sha256,payload_bytes,capture_id,source_sequence) VALUES(?,?,?,?,?,?,?,?)",
+                    (sequence, family, observation.authority.value, payload, digest, len(payload), capture_id, source_sequence),
                 )
         if capacity_reached:
             raise ArchiveCapacityReached("archive payload budget reached; observation not retained")
         return sequence
 
-    def record_source_gap(self, first_sequence: int, last_sequence: int, reason: str) -> None:
+    def record_source_gap(
+        self, first_sequence: int, last_sequence: int, reason: str, *, capture_id: str | None = None
+    ) -> None:
         """Persist a known source-delivery gap without claiming source causality.
 
         These are ObservationPlane delivery sequence numbers, not World ticks.
@@ -380,10 +433,12 @@ class SQLiteObservationArchive:
             raise ValueError("last_sequence must be >= first_sequence")
         if type(reason) is not str or not reason.strip():
             raise ValueError("reason must be a non-empty string")
+        if capture_id is not None and (type(capture_id) is not str or not capture_id.strip()):
+            raise ValueError("capture_id must be a non-empty string")
         with self._db:
             self._db.execute(
-                "INSERT INTO archive_source_gaps(first_sequence,last_sequence,reason) VALUES(?,?,?)",
-                (first_sequence, last_sequence, reason),
+                "INSERT INTO archive_source_gaps(first_sequence,last_sequence,reason,capture_id) VALUES(?,?,?,?)",
+                (first_sequence, last_sequence, reason, capture_id),
             )
 
     def query(
@@ -399,23 +454,23 @@ class SQLiteObservationArchive:
             raise ValueError("limit must be between 1 and 1000")
         if family is None:
             rows = self._db.execute(
-                "SELECT receipt_sequence,payload,content_sha256,payload_bytes FROM archive_records "
+                "SELECT receipt_sequence,payload,content_sha256,payload_bytes,capture_id,source_sequence FROM archive_records "
                 "WHERE receipt_sequence>? ORDER BY receipt_sequence LIMIT ?",
                 (after_receipt_sequence, limit),
             )
         else:
             rows = self._db.execute(
-                "SELECT receipt_sequence,payload,content_sha256,payload_bytes FROM archive_records "
+                "SELECT receipt_sequence,payload,content_sha256,payload_bytes,capture_id,source_sequence FROM archive_records "
                 "WHERE family=? AND receipt_sequence>? ORDER BY receipt_sequence LIMIT ?",
                 (family, after_receipt_sequence, limit),
             )
         records = []
-        for sequence, payload, digest, size in rows.fetchall():
+        for sequence, payload, digest, size, capture_id, source_sequence in rows.fetchall():
             payload = bytes(payload)
             if hashlib.sha256(payload).hexdigest() != digest or len(payload) != size:
                 raise ArchiveCorrupt(f"record {sequence} failed content digest/size check")
             observation = _decode_observation(payload)
-            records.append(ArchiveRecord(sequence, observation, digest, size))
+            records.append(ArchiveRecord(sequence, observation, digest, size, capture_id, source_sequence))
         return tuple(records)
 
     def status(self) -> ArchiveStatus:
@@ -430,9 +485,9 @@ class SQLiteObservationArchive:
             capture_gap_start=int(meta["gap_start"]) if meta["gap_start"] else None,
             capture_gap_end=int(meta["gap_end"]) if meta["gap_end"] else None,
             source_gaps=tuple(
-                (int(first), int(last), str(reason))
-                for first, last, reason in self._db.execute(
-                    "SELECT first_sequence,last_sequence,reason FROM archive_source_gaps ORDER BY gap_id"
+                SourceDeliveryGap(capture_id, int(first), int(last), str(reason))
+                for first, last, reason, capture_id in self._db.execute(
+                    "SELECT first_sequence,last_sequence,reason,capture_id FROM archive_source_gaps ORDER BY gap_id"
                 ).fetchall()
             ),
         )
@@ -453,5 +508,6 @@ __all__ = [
     "ArchiveError",
     "ArchiveRecord",
     "ArchiveStatus",
+    "SourceDeliveryGap",
     "SQLiteObservationArchive",
 ]

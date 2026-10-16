@@ -124,6 +124,74 @@ def test_query_filters_and_paginates_by_local_receipt_sequence(tmp_path) -> None
         assert rows[0].observation.domain_time[0].value == 2
 
 
+def test_capture_delivery_identity_is_scoped_and_not_embedded_in_claim(tmp_path) -> None:
+    with SQLiteObservationArchive(tmp_path / "archive.sqlite", max_payload_bytes=100_000) as archive:
+        archive.append(sample(step=7), capture_id="capture-a", source_sequence=12)
+        archive.record_source_gap(13, 14, "consumer_overflow", capture_id="capture-a")
+        record = archive.query()[0]
+        status = archive.status()
+    assert (record.capture_id, record.source_sequence) == ("capture-a", 12)
+    assert record.observation == sample(step=7)
+    assert status.source_gaps[0].capture_id == "capture-a"
+    assert (status.source_gaps[0].first_sequence, status.source_gaps[0].last_sequence) == (13, 14)
+
+
+def test_capture_identity_fields_must_be_paired_and_valid(tmp_path) -> None:
+    with SQLiteObservationArchive(tmp_path / "archive.sqlite", max_payload_bytes=100_000) as archive:
+        with pytest.raises(ValueError, match="provided together"):
+            archive.append(sample(), capture_id="capture-a")
+        with pytest.raises(ValueError, match="positive integer"):
+            archive.append(sample(), capture_id="capture-a", source_sequence=0)
+        assert archive.status().record_count == 0
+
+
+def test_v1_archive_is_additively_migrated_preserving_original_payload(tmp_path) -> None:
+    path = tmp_path / "archive.sqlite"
+    observation = sample(step=4)
+    payload = _encode_observation(observation)
+    digest = hashlib.sha256(payload).hexdigest()
+    with sqlite3.connect(path) as db:
+        db.executescript("""
+            CREATE TABLE archive_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+            CREATE TABLE archive_records (
+                receipt_sequence INTEGER PRIMARY KEY, family TEXT NOT NULL, authority TEXT NOT NULL,
+                payload BLOB NOT NULL, content_sha256 TEXT NOT NULL, payload_bytes INTEGER NOT NULL
+            );
+            CREATE TABLE archive_source_gaps (
+                gap_id INTEGER PRIMARY KEY AUTOINCREMENT, first_sequence INTEGER NOT NULL,
+                last_sequence INTEGER NOT NULL, reason TEXT NOT NULL
+            );
+        """)
+        db.executemany("INSERT INTO archive_meta VALUES(?,?)", [
+            ("max_payload_bytes", "100000"), ("last_attempt", "1"), ("gap_start", ""), ("gap_end", "")
+        ])
+        db.execute("INSERT INTO archive_records VALUES(1,?,?,?,?,?)", (
+            "environment.finite_scalar_field", "environment", payload, digest, len(payload)
+        ))
+    with SQLiteObservationArchive(path, max_payload_bytes=100_000) as archive:
+        row = archive.query()[0]
+        assert row.observation == observation
+        assert row.capture_id is row.source_sequence is None
+        archive.append(sample(step=5), capture_id="capture-b", source_sequence=2)
+    with sqlite3.connect(path) as db:
+        assert db.execute("SELECT value FROM archive_meta WHERE key='archive_schema_version'").fetchone()[0] == "2"
+        assert db.execute("SELECT content_sha256 FROM archive_records WHERE receipt_sequence=1").fetchone()[0] == digest
+
+
+def test_unknown_future_archive_schema_is_rejected_before_mutation(tmp_path) -> None:
+    path = tmp_path / "archive.sqlite"
+    with SQLiteObservationArchive(path, max_payload_bytes=100_000):
+        pass
+    with sqlite3.connect(path) as db:
+        db.execute("UPDATE archive_meta SET value='99' WHERE key='archive_schema_version'")
+        columns_before = tuple(row[1] for row in db.execute("PRAGMA table_info(archive_records)"))
+    with pytest.raises(ValueError, match="unsupported archive schema version"):
+        SQLiteObservationArchive(path, max_payload_bytes=100_000)
+    with sqlite3.connect(path) as db:
+        assert tuple(row[1] for row in db.execute("PRAGMA table_info(archive_records)")) == columns_before
+        assert db.execute("SELECT value FROM archive_meta WHERE key='archive_schema_version'").fetchone()[0] == "99"
+
+
 def test_tampered_record_is_reported_as_corrupt(tmp_path) -> None:
     path = tmp_path / "archive.sqlite"
     with SQLiteObservationArchive(path, max_payload_bytes=100_000) as archive:
