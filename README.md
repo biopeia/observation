@@ -105,6 +105,16 @@ payloads, not a physical disk quota (SQLite pages, indexes, and journals add
 overhead). Once reached, append stops and records the attempted receipt range
 as a capture gap; earlier originals remain intact. Disk-full or other I/O
 failures are surfaced as errors and are not guaranteed to persist gap metadata.
+`LocalObservationArchiveCapture` is an explicit opt-in adapter from an
+`ObservationPlane` to this archive. It starts at the plane's current delivery
+sequence watermark (it does not pretend the current materialized view is
+history), copies future accepted publications on a worker thread, and does not
+run storage work on the publisher/World thread. Rebase/queue-overflow events
+are persisted as ObservationPlane delivery-sequence gap markers; these are
+not World ticks or causal joins. If a gap is recorded, the archive must not be
+treated as complete history. The capture adapter does not automatically
+attach to a plane; the owning runtime must opt in and manage its lifecycle.
+
 This API does not expose an HTTP endpoint, alter current read permissions, or
 admit Lab evidence. It is a local single-user prototype, not a production
 retention, security, or legal-erasure system. Callers are responsible for

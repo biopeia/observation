@@ -102,6 +102,7 @@ class ArchiveStatus:
     max_payload_bytes: int
     capture_gap_start: int | None
     capture_gap_end: int | None
+    source_gaps: tuple[tuple[int, int, str], ...] = ()
 
 
 def _encode_value(value: Any, active: set[int] | None = None) -> Any:
@@ -310,6 +311,12 @@ class SQLiteObservationArchive:
                 content_sha256 TEXT NOT NULL,
                 payload_bytes INTEGER NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS archive_source_gaps (
+                gap_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                first_sequence INTEGER NOT NULL,
+                last_sequence INTEGER NOT NULL,
+                reason TEXT NOT NULL
+            );
             CREATE INDEX IF NOT EXISTS archive_family_sequence
                 ON archive_records(family, receipt_sequence);
             """
@@ -361,6 +368,24 @@ class SQLiteObservationArchive:
             raise ArchiveCapacityReached("archive payload budget reached; observation not retained")
         return sequence
 
+    def record_source_gap(self, first_sequence: int, last_sequence: int, reason: str) -> None:
+        """Persist a known source-delivery gap without claiming source causality.
+
+        These are ObservationPlane delivery sequence numbers, not World ticks.
+        Each marker is append-only and never changes archived originals.
+        """
+        if type(first_sequence) is not int or first_sequence < 1:
+            raise ValueError("first_sequence must be a positive integer")
+        if type(last_sequence) is not int or last_sequence < first_sequence:
+            raise ValueError("last_sequence must be >= first_sequence")
+        if type(reason) is not str or not reason.strip():
+            raise ValueError("reason must be a non-empty string")
+        with self._db:
+            self._db.execute(
+                "INSERT INTO archive_source_gaps(first_sequence,last_sequence,reason) VALUES(?,?,?)",
+                (first_sequence, last_sequence, reason),
+            )
+
     def query(
         self,
         *,
@@ -404,6 +429,12 @@ class SQLiteObservationArchive:
             max_payload_bytes=self.max_payload_bytes,
             capture_gap_start=int(meta["gap_start"]) if meta["gap_start"] else None,
             capture_gap_end=int(meta["gap_end"]) if meta["gap_end"] else None,
+            source_gaps=tuple(
+                (int(first), int(last), str(reason))
+                for first, last, reason in self._db.execute(
+                    "SELECT first_sequence,last_sequence,reason FROM archive_source_gaps ORDER BY gap_id"
+                ).fetchall()
+            ),
         )
 
     def close(self) -> None:
