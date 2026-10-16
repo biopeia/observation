@@ -89,6 +89,8 @@ def test_capture_persists_explicit_plane_delivery_gap(tmp_path, monkeypatch) -> 
     capture.stop()
 
     with SQLiteObservationArchive(tmp_path / "archive.sqlite", max_payload_bytes=100_000) as archive:
-        gap, = archive.status().source_gaps
+        status = archive.status()
+        assert status.source_gaps == ((2, 3, "consumer_overflow"),)
+        gap, = status.source_gap_records
         assert (gap.first_sequence, gap.last_sequence, gap.reason) == (2, 3, "consumer_overflow")
         assert gap.capture_id

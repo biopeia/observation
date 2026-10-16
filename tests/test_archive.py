@@ -132,8 +132,9 @@ def test_capture_delivery_identity_is_scoped_and_not_embedded_in_claim(tmp_path)
         status = archive.status()
     assert (record.capture_id, record.source_sequence) == ("capture-a", 12)
     assert record.observation == sample(step=7)
-    assert status.source_gaps[0].capture_id == "capture-a"
-    assert (status.source_gaps[0].first_sequence, status.source_gaps[0].last_sequence) == (13, 14)
+    assert status.source_gaps == ((13, 14, "consumer_overflow"),)
+    assert status.source_gap_records[0].capture_id == "capture-a"
+    assert (status.source_gap_records[0].first_sequence, status.source_gap_records[0].last_sequence) == (13, 14)
 
 
 def test_capture_identity_fields_must_be_paired_and_valid(tmp_path) -> None:

@@ -113,7 +113,10 @@ class ArchiveStatus:
     max_payload_bytes: int
     capture_gap_start: int | None
     capture_gap_end: int | None
-    source_gaps: tuple[SourceDeliveryGap, ...] = ()
+    # Preserve the original v1 tuple shape for existing callers. The additive
+    # records expose capture-instance scope without changing that API.
+    source_gaps: tuple[tuple[int, int, str], ...] = ()
+    source_gap_records: tuple[SourceDeliveryGap, ...] = ()
 
 
 def _encode_value(value: Any, active: set[int] | None = None) -> Any:
@@ -485,6 +488,12 @@ class SQLiteObservationArchive:
             capture_gap_start=int(meta["gap_start"]) if meta["gap_start"] else None,
             capture_gap_end=int(meta["gap_end"]) if meta["gap_end"] else None,
             source_gaps=tuple(
+                (int(first), int(last), str(reason))
+                for first, last, reason in self._db.execute(
+                    "SELECT first_sequence,last_sequence,reason FROM archive_source_gaps ORDER BY gap_id"
+                ).fetchall()
+            ),
+            source_gap_records=tuple(
                 SourceDeliveryGap(capture_id, int(first), int(last), str(reason))
                 for first, last, reason, capture_id in self._db.execute(
                     "SELECT first_sequence,last_sequence,reason,capture_id FROM archive_source_gaps ORDER BY gap_id"
