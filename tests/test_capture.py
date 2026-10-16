@@ -148,6 +148,56 @@ def test_capture_capacity_gap_includes_queued_publications(tmp_path, monkeypatch
     )
 
 
+def test_failed_capacity_gap_marker_leaves_capture_open_unverifiable(tmp_path, monkeypatch) -> None:
+    import sqlite3
+    from observation.archive import SQLiteObservationArchive
+
+    plane = ObservationPlane(subscriber_queue_size=3)
+    capture = LocalObservationArchiveCapture(
+        plane, tmp_path / "archive.sqlite", max_payload_bytes=1
+    )
+    entered_append = threading.Event()
+    release_append = threading.Event()
+    original_append = SQLiteObservationArchive.append
+
+    def blocked_append(archive, observation, **kwargs):
+        entered_append.set()
+        assert release_append.wait(2)
+        return original_append(archive, observation, **kwargs)
+
+    def fail_gap(archive, *args, **kwargs):
+        raise sqlite3.OperationalError("injected full-disk capacity marker failure")
+
+    monkeypatch.setattr(SQLiteObservationArchive, "append", blocked_append)
+    monkeypatch.setattr(SQLiteObservationArchive, "record_source_gap", fail_gap)
+    capture.start()
+    plane.publish(sample(step=1))
+    assert entered_append.wait(2)
+    plane.publish(sample(step=2))
+    plane.publish(sample(step=3))
+    release_append.set()
+    wait_until(lambda: not capture.status().running)
+
+    # The live worker knows the drained delivery tail was received, but it
+    # could not durably save the loss marker. Recovery must use the durable
+    # open session, not the worker's volatile status or a truncated final mark.
+    live_status = capture.status()
+    assert live_status.last_plane_sequence == 3
+    assert live_status.gap_sequence == 3
+    assert live_status.gap_reason == "archive_capacity_reached"
+    assert "loss marker failed" in live_status.error
+    with SQLiteObservationArchive(tmp_path / "archive.sqlite", max_payload_bytes=1) as archive:
+        session, = archive.capture_sessions()
+        coverage = archive.capture_coverage(capture.capture_id)
+        assert session.status == "running"
+        assert session.final_source_sequence is None
+        assert coverage.persisted_sequences == ()
+        assert coverage.received_not_persisted == ()
+        assert coverage.unverifiable_intervals == ((1, None),)
+        assert coverage.status == "open_unverified"
+        assert not coverage.complete
+
+
 def test_capture_session_lifecycle_is_durable_and_does_not_claim_history_complete(tmp_path) -> None:
     path = tmp_path / "archive.sqlite"
     plane = ObservationPlane()
