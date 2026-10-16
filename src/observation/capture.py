@@ -116,9 +116,21 @@ class LocalObservationArchiveCapture:
                             source_sequence=item.sequence,
                         )
                     except ArchiveCapacityReached:
-                        # The archive persists the capacity gap and keeps prior
-                        # records. Keep consuming so its attempted range grows.
-                        continue
+                        # Capacity loss is a source-delivery gap for this
+                        # capture. Persist it in the capture's sequence space,
+                        # expose it to the caller, and stop rather than drain
+                        # and discard every later publication silently.
+                        reason = "archive_capacity_reached"
+                        archive.record_source_gap(
+                            item.sequence,
+                            item.sequence,
+                            reason,
+                            capture_id=self._capture_id,
+                        )
+                        with self._lock:
+                            self._gap_sequence = item.sequence
+                            self._gap_reason = reason
+                        return
         except Exception as exc:
             with self._lock:
                 self._error = f"{type(exc).__name__}: {exc}"
