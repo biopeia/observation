@@ -557,7 +557,9 @@ def _source_identifier(value: object) -> bool:
 
 def _checkpoint_locator(value: object) -> bool:
     """Accept bounded checkpoint references without treating paths as identifiers."""
-    if not isinstance(value, str) or not value or value != value.strip():
+    # Paths are opaque source strings, not identifiers: preserve ordinary leading
+    # and trailing spaces (valid in POSIX filenames) rather than normalizing them.
+    if not isinstance(value, str) or not value.strip():
         return False
     try:
         encoded = value.encode("utf-8", errors="strict")
