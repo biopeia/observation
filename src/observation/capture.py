@@ -117,18 +117,30 @@ class LocalObservationArchiveCapture:
                         )
                     except ArchiveCapacityReached:
                         # Capacity loss is a source-delivery gap for this
-                        # capture. Persist it in the capture's sequence space,
-                        # expose it to the caller, and stop rather than drain
-                        # and discard every later publication silently.
+                        # capture. Stop accepting publications first, then
+                        # account for messages already queued behind the
+                        # failed append. Closing under the plane lock prevents
+                        # a concurrent publisher from extending the queue
+                        # after the watermark is measured.
                         reason = "archive_capacity_reached"
+                        self._plane.close_stream(self._subscription)
+                        last_lost_sequence = item.sequence
+                        while True:
+                            try:
+                                queued = self._subscription.queue.get_nowait()
+                            except queue.Empty:
+                                break
+                            if isinstance(queued, (PlaneMessage, PlaneRebaseRequired)):
+                                last_lost_sequence = max(last_lost_sequence, queued.sequence)
                         archive.record_source_gap(
                             item.sequence,
-                            item.sequence,
+                            last_lost_sequence,
                             reason,
                             capture_id=self._capture_id,
                         )
                         with self._lock:
-                            self._gap_sequence = item.sequence
+                            self._last_plane_sequence = last_lost_sequence
+                            self._gap_sequence = last_lost_sequence
                             self._gap_reason = reason
                         return
         except Exception as exc:
