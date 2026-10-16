@@ -9,6 +9,7 @@ from .archive import (
     ArchiveStatus,
     SQLiteObservationArchive,
 )
+from .capture import ArchiveCaptureStatus, LocalObservationArchiveCapture
 from .environment import (
     environment_finite_scalar_field_observation,
     environment_render_scene_observation,
@@ -27,6 +28,7 @@ from .semantic import SemanticObservation
 
 __all__ = [
     "ArchiveCapacityReached",
+    "ArchiveCaptureStatus",
     "ArchiveCorrupt",
     "ArchiveError",
     "ArchiveRecord",
@@ -35,6 +37,7 @@ __all__ = [
     "ObservationPlane",
     "LocalObservationHTTPServer",
     "LocalObservationReadBridge",
+    "LocalObservationArchiveCapture",
     "PlaneMessage",
     "PlaneRebaseRequired",
     "PlaneStreamSubscription",
