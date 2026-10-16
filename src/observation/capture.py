@@ -169,12 +169,32 @@ class LocalObservationArchiveCapture:
                                 break
                             if isinstance(queued, (PlaneMessage, PlaneRebaseRequired)):
                                 last_lost_sequence = max(last_lost_sequence, queued.sequence)
-                        archive.record_source_gap(
-                            item.sequence,
-                            last_lost_sequence,
-                            reason,
-                            capture_id=self._capture_id,
-                        )
+                        try:
+                            archive.record_source_gap(
+                                item.sequence,
+                                last_lost_sequence,
+                                reason,
+                                capture_id=self._capture_id,
+                            )
+                        except Exception as gap_exc:
+                            # Capacity proves the current publication was not
+                            # retained. If the capture-scoped loss marker also
+                            # cannot be committed, do not write a terminal
+                            # watermark: after restart the durable session must
+                            # remain open/unverifiable rather than looking
+                            # closed at a truncated boundary.
+                            persist_terminal = False
+                            with self._lock:
+                                self._last_plane_sequence = last_lost_sequence
+                                self._gap_sequence = last_lost_sequence
+                                self._gap_reason = reason
+                                self._error = (
+                                    f"archive capacity reached; loss marker failed: "
+                                    f"{type(gap_exc).__name__}: {gap_exc}"
+                                )
+                            terminal_status = "failed"
+                            terminal_reason = "archive_capacity_gap_unverifiable"
+                            break
                         with self._lock:
                             self._last_plane_sequence = last_lost_sequence
                             self._gap_sequence = last_lost_sequence
