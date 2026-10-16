@@ -26,9 +26,9 @@ Included:
   independent World-side verification. See
   [the BodyPose mapping contract](docs/embodiment-body-pose-mapping-v1.md).
 
-Excluded from this initial extraction: operator controls, scientific evidence
-custody, UI, network streaming, remote access, durable history, the live
-observation bus, World scene lifecycle, and domain-specific readers. Historical
+The in-memory plane remains separate from operator controls, scientific evidence
+custody, UI, network streaming, remote access, the live observation bus, World
+scene lifecycle, and domain-specific readers. Historical
 payload keys remain in the copied projection as source behavior only; this is
 not a compatibility promise or a ratified Biopeia API. The semantic model recognizes
 `ORGANISM`, `EMBODIMENT`, `ENVIRONMENT`, and `WORLD` as primary authorities;
@@ -87,3 +87,25 @@ not persistence or a wire-format commitment.
 scope descriptor, not inherently stable identity;
 stable identity requirements belong to each semantic family and use typed
 identity assertions where needed.
+
+## Optional local archive
+
+`SQLiteObservationArchive` is an explicit, opt-in local store for observations
+that have already crossed an authorized publication boundary. It is separate
+from `ObservationPlane`: publishing to the plane does not automatically write
+to the archive, and archive failures cannot block or roll back World. It
+preserves each append (including duplicate payloads) and the complete semantic
+observation/provenance payload; its local receipt sequence is storage order,
+not source time, causal order, or a cross-domain join. Queries filter by exact
+family and page by that receipt sequence. The archive performs no joins,
+inference, expiry, overwrite, or eviction.
+
+The configured `max_payload_bytes` is a logical limit on retained record
+payloads, not a physical disk quota (SQLite pages, indexes, and journals add
+overhead). Once reached, append stops and records the attempted receipt range
+as a capture gap; earlier originals remain intact. Disk-full or other I/O
+failures are surfaced as errors and are not guaranteed to persist gap metadata.
+This API does not expose an HTTP endpoint, alter current read permissions, or
+admit Lab evidence. It is a local single-user prototype, not a production
+retention, security, or legal-erasure system. Callers are responsible for
+providing an existing trusted directory and keeping the archive local.
