@@ -116,9 +116,33 @@ class LocalObservationArchiveCapture:
                             source_sequence=item.sequence,
                         )
                     except ArchiveCapacityReached:
-                        # The archive persists the capacity gap and keeps prior
-                        # records. Keep consuming so its attempted range grows.
-                        continue
+                        # Capacity loss is a source-delivery gap for this
+                        # capture. Stop accepting publications first, then
+                        # account for messages already queued behind the
+                        # failed append. Closing under the plane lock prevents
+                        # a concurrent publisher from extending the queue
+                        # after the watermark is measured.
+                        reason = "archive_capacity_reached"
+                        self._plane.close_stream(self._subscription)
+                        last_lost_sequence = item.sequence
+                        while True:
+                            try:
+                                queued = self._subscription.queue.get_nowait()
+                            except queue.Empty:
+                                break
+                            if isinstance(queued, (PlaneMessage, PlaneRebaseRequired)):
+                                last_lost_sequence = max(last_lost_sequence, queued.sequence)
+                        archive.record_source_gap(
+                            item.sequence,
+                            last_lost_sequence,
+                            reason,
+                            capture_id=self._capture_id,
+                        )
+                        with self._lock:
+                            self._last_plane_sequence = last_lost_sequence
+                            self._gap_sequence = last_lost_sequence
+                            self._gap_reason = reason
+                        return
         except Exception as exc:
             with self._lock:
                 self._error = f"{type(exc).__name__}: {exc}"
