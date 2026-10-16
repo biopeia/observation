@@ -301,6 +301,21 @@ def test_dynamic_render_pose_accepts_bounded_checkpoint_paths_longer_than_identi
     assert carried["world_association"]["committed_cut"]["owner_checkpoint_references"][0]["locator"] == locator
 
 
+@pytest.mark.parametrize("locator", ["/tmp/checkpoint ", " /tmp/checkpoint", "   "])
+def test_dynamic_render_pose_preserves_ordinary_edge_spaces_in_checkpoint_locator(locator: str) -> None:
+    observation = embodiment_render_link_pose_observation(dynamic_pose_source(locator=locator))
+    value = observation.claim.value
+    association = value["world_association"]
+    assert association["owner_checkpoint_reference"]["locator"] == locator
+    assert association["committed_cut"]["owner_checkpoint_references"][0]["locator"] == locator
+    plane = ObservationPlane()
+    plane.publish(observation)
+    wire = json.loads(encode_current_messages(plane, max_response_bytes=1_000_000))
+    carried = wire["messages"][0]["observation"]["claim"]["value"]
+    assert carried["world_association"]["owner_checkpoint_reference"]["locator"] == locator
+    assert carried["world_association"]["committed_cut"]["owner_checkpoint_references"][0]["locator"] == locator
+
+
 @pytest.mark.parametrize("locator", ["", "bad\npath", "x" * 4097, "\ud800"])
 def test_dynamic_render_pose_rejects_malformed_or_unbounded_checkpoint_locator(locator: str) -> None:
     with pytest.raises(ValueError):
