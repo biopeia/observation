@@ -1,0 +1,426 @@
+"""Append-only local archive for already-authorized semantic observations.
+
+This module is deliberately separate from :mod:`observation.plane`: creating an
+archive does not change publication, delivery, World commit, or Lab evidence
+semantics. Callers must hand it observations only after the owning publication
+boundary has authorized them. Receipt sequence is local archive order, never
+domain time or causal order.
+"""
+
+from __future__ import annotations
+
+import base64
+import hashlib
+import json
+import math
+import os
+import sqlite3
+from dataclasses import dataclass
+from enum import Enum
+from pathlib import Path
+from typing import Any
+
+from .semantic import (
+    AcquisitionBasis,
+    ActorRef,
+    AuthorityDomain,
+    ConditionDimension,
+    ConditionOrigin,
+    DomainTimeRef,
+    IdentityAssertion,
+    IdentityLink,
+    IdentityLinkState,
+    IdentityRef,
+    Lineage,
+    LineageSourceRef,
+    ObservationCondition,
+    OrchestrationContext,
+    SemanticClaim,
+    SemanticContractRef,
+    SemanticFamily,
+    SemanticObservation,
+    SubjectScope,
+    TransformationRef,
+)
+
+_SCHEMA = "biopeia.observation.archive-record.v1"
+_MODEL_TYPES = (
+    AcquisitionBasis, ActorRef, DomainTimeRef, IdentityAssertion, IdentityLink,
+    IdentityRef, Lineage, LineageSourceRef, ObservationCondition,
+    OrchestrationContext, SemanticClaim, SemanticContractRef, SemanticFamily,
+    SemanticObservation, SubjectScope, TransformationRef,
+)
+_SNAPSHOT_ATOMS = (type(None), bool, int, float, str, bytes)
+_SNAPSHOT_CONTAINERS = (list, tuple, set, frozenset, dict)
+
+
+def _validate_snapshot_value(value: object, active: set[int] | None = None) -> None:
+    """Validate the same plain value-tree boundary as the in-memory plane."""
+    if type(value) in _SNAPSHOT_ATOMS:
+        if type(value) is float and not math.isfinite(value):
+            raise TypeError("archive values require finite floats")
+        return
+    if type(value) not in _SNAPSHOT_CONTAINERS:
+        raise TypeError("claim value must be built-in scalar/container data")
+    active = set() if active is None else active
+    ident = id(value)
+    if ident in active:
+        raise TypeError("claim value must not contain recursive containers")
+    active.add(ident)
+    try:
+        values = (item for pair in value.items() for item in pair) if type(value) is dict else iter(value)
+        for item in values:
+            _validate_snapshot_value(item, active)
+    finally:
+        active.remove(ident)
+
+
+class ArchiveError(RuntimeError):
+    """Base exception for local archive failures."""
+
+
+class ArchiveCapacityReached(ArchiveError):
+    """The configured payload budget is exhausted; no original was discarded."""
+
+
+class ArchiveCorrupt(ArchiveError):
+    """A stored record failed schema, decode, or digest verification."""
+
+
+@dataclass(frozen=True, slots=True)
+class ArchiveRecord:
+    receipt_sequence: int
+    observation: SemanticObservation[object]
+    content_sha256: str
+    payload_bytes: int
+
+
+@dataclass(frozen=True, slots=True)
+class ArchiveStatus:
+    record_count: int
+    payload_bytes: int
+    max_payload_bytes: int
+    capture_gap_start: int | None
+    capture_gap_end: int | None
+
+
+def _encode_value(value: Any, active: set[int] | None = None) -> Any:
+    """Encode the supported built-in tree without collapsing tuple/set types."""
+    if value is None or type(value) in (bool, int, str):
+        return value
+    if type(value) is float:
+        if not math.isfinite(value):
+            raise TypeError("archive values require finite floats")
+        return value
+    if type(value) is bytes:
+        return {"$archive_type": "bytes", "base64": base64.b64encode(value).decode("ascii")}
+    if active is None:
+        active = set()
+    if type(value) in (list, tuple, set, frozenset, dict):
+        ident = id(value)
+        if ident in active:
+            raise TypeError("archive value must not contain recursive containers")
+        active.add(ident)
+        try:
+            if type(value) is list:
+                return {"$archive_type": "list", "items": [_encode_value(v, active) for v in value]}
+            if type(value) is tuple:
+                return {"$archive_type": "tuple", "items": [_encode_value(v, active) for v in value]}
+            if type(value) in (set, frozenset):
+                items = [_encode_value(v, active) for v in value]
+                items.sort(key=lambda item: json.dumps(item, sort_keys=True, separators=(",", ":"), ensure_ascii=False))
+                kind = "set" if type(value) is set else "frozenset"
+                return {"$archive_type": kind, "items": items}
+            pairs = [[_encode_value(k, active), _encode_value(v, active)] for k, v in value.items()]
+            pairs.sort(key=lambda pair: json.dumps(pair[0], sort_keys=True, separators=(",", ":"), ensure_ascii=False))
+            return {"$archive_type": "dict", "items": pairs}
+        finally:
+            active.remove(ident)
+    raise TypeError(f"unsupported archive value type: {type(value).__name__}")
+
+
+def _decode_value(value: Any) -> Any:
+    if value is None or type(value) in (bool, int, float, str):
+        return value
+    if type(value) is not dict or type(value.get("$archive_type")) is not str:
+        raise ArchiveCorrupt("invalid tagged archive value")
+    kind = value["$archive_type"]
+    if kind == "bytes" and set(value) == {"$archive_type", "base64"}:
+        try:
+            return base64.b64decode(value["base64"], validate=True)
+        except (ValueError, TypeError) as exc:
+            raise ArchiveCorrupt("invalid archived bytes") from exc
+    if kind in {"list", "tuple", "set", "frozenset"} and set(value) == {"$archive_type", "items"}:
+        items = [_decode_value(item) for item in value["items"]]
+        if kind == "list":
+            return items
+        if kind == "tuple":
+            return tuple(items)
+        return set(items) if kind == "set" else frozenset(items)
+    if kind == "dict" and set(value) == {"$archive_type", "items"}:
+        try:
+            return {_decode_value(pair[0]): _decode_value(pair[1]) for pair in value["items"]}
+        except (TypeError, IndexError) as exc:
+            raise ArchiveCorrupt("invalid archived mapping") from exc
+    raise ArchiveCorrupt(f"unknown archived value encoding: {kind!r}")
+
+
+def _model_value(value: Any) -> Any:
+    if value is None or type(value) in (bool, int, float, str):
+        if type(value) is float and not math.isfinite(value):
+            raise TypeError("archive semantic fields require finite floats")
+        return value
+    if isinstance(value, Enum):
+        return {"$model_enum": type(value).__name__, "value": value.value}
+    if type(value) in (list, tuple):
+        encoded = [_model_value(item) for item in value]
+        return encoded if type(value) is list else {"$model_tuple": encoded}
+    if type(value) is dict:
+        if any(type(key) is not str for key in value):
+            raise TypeError("semantic model mappings require string keys")
+        return {key: _model_value(item) for key, item in value.items()}
+    if type(value) is SemanticClaim:
+        return {
+            "$model_type": "SemanticClaim",
+            "family": _model_value(value.family),
+            "subject": _model_value(value.subject),
+            "epistemic_kind": _model_value(value.epistemic_kind),
+            # Claim values are family-owned data, not common-model fields.
+            "value": None,
+        }
+    if type(value) in _MODEL_TYPES:
+        return {
+            "$model_type": type(value).__name__,
+            **{name: _model_value(getattr(value, name)) for name in value.__dataclass_fields__},
+        }
+    raise TypeError(f"unsupported semantic model value: {type(value).__name__}")
+
+
+def _restore_model(value: Any) -> Any:
+    if value is None or type(value) in (bool, int, float, str):
+        return value
+    if type(value) is list:
+        return [_restore_model(item) for item in value]
+    if type(value) is tuple:
+        return tuple(_restore_model(item) for item in value)
+    if type(value) in (bytes, set, frozenset):
+        return value
+    if type(value) is not dict:
+        raise ArchiveCorrupt("invalid semantic model value")
+    if "$model_enum" in value:
+        enums = {
+            "AuthorityDomain": AuthorityDomain,
+            "ConditionDimension": ConditionDimension,
+            "ConditionOrigin": ConditionOrigin,
+            "IdentityLinkState": IdentityLinkState,
+        }
+        enum_type = enums.get(value["$model_enum"])
+        if enum_type is None or set(value) != {"$model_enum", "value"}:
+            raise ArchiveCorrupt("unknown semantic enum")
+        try:
+            return enum_type(value["value"])
+        except ValueError as exc:
+            raise ArchiveCorrupt("invalid semantic enum value") from exc
+    if "$model_tuple" in value:
+        if set(value) != {"$model_tuple"} or type(value["$model_tuple"]) is not list:
+            raise ArchiveCorrupt("invalid semantic tuple")
+        return tuple(_restore_model(item) for item in value["$model_tuple"])
+    if "$model_type" in value:
+        cls = next((candidate for candidate in _MODEL_TYPES if candidate.__name__ == value["$model_type"]), None)
+        if cls is None:
+            raise ArchiveCorrupt("unknown semantic model type")
+        fields = {name: _restore_model(item) for name, item in value.items() if name != "$model_type"}
+        try:
+            return cls(**fields)
+        except (TypeError, ValueError) as exc:
+            raise ArchiveCorrupt("invalid semantic model record") from exc
+    return {key: _restore_model(item) for key, item in value.items()}
+
+
+def _encode_observation(observation: SemanticObservation[object]) -> bytes:
+    if type(observation) is not SemanticObservation:
+        raise TypeError("archive accepts SemanticObservation instances only")
+    _validate_snapshot_value(observation.claim.value)
+    encoded = _model_value(observation)
+    encoded["claim"]["value"] = _encode_value(observation.claim.value)
+    return json.dumps(
+        {"schema": _SCHEMA, "observation": encoded},
+        ensure_ascii=False,
+        allow_nan=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+
+
+def _decode_observation(payload: bytes) -> SemanticObservation[object]:
+    try:
+        document = json.loads(payload)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ArchiveCorrupt("invalid archived JSON") from exc
+    if type(document) is not dict or set(document) != {"schema", "observation"} or document["schema"] != _SCHEMA:
+        raise ArchiveCorrupt("unsupported archive record schema")
+    model = document["observation"]
+    if type(model) is not dict or type(model.get("claim")) is not dict:
+        raise ArchiveCorrupt("invalid archived observation envelope")
+    try:
+        model["claim"]["value"] = _decode_value(model["claim"]["value"])
+        observation = _restore_model(model)
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ArchiveCorrupt("invalid archived observation") from exc
+    if type(observation) is not SemanticObservation:
+        raise ArchiveCorrupt("archive record is not a semantic observation")
+    return observation
+
+
+class SQLiteObservationArchive:
+    """Append-only local archive with a logical payload-byte ceiling.
+
+    Each successful call is retained, including identical repeated claims;
+    there is no source event ID in the common model and Observation does not
+    infer one. `max_payload_bytes` bounds encoded record payloads, not SQLite
+    index/page overhead. A capacity gap is persisted in metadata and originals
+    are never expired or overwritten. This is not a disk-full guarantee.
+    """
+
+    def __init__(self, path: str | os.PathLike[str], *, max_payload_bytes: int) -> None:
+        if type(max_payload_bytes) is not int or max_payload_bytes < 1:
+            raise ValueError("max_payload_bytes must be a positive integer")
+        self.path = Path(path)
+        if self.path.is_symlink():
+            raise ValueError("archive database path must not be a symlink")
+        if not self.path.parent.is_dir():
+            raise ValueError("archive parent directory must already exist")
+        self.max_payload_bytes = max_payload_bytes
+        self._db = sqlite3.connect(self.path, timeout=2.0)
+        os.chmod(self.path, 0o600)
+        self._db.execute("PRAGMA journal_mode=DELETE")
+        self._db.execute("PRAGMA synchronous=FULL")
+        self._db.execute("PRAGMA foreign_keys=ON")
+        self._db.executescript(
+            """
+            CREATE TABLE IF NOT EXISTS archive_meta (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS archive_records (
+                receipt_sequence INTEGER PRIMARY KEY,
+                family TEXT NOT NULL,
+                authority TEXT NOT NULL,
+                payload BLOB NOT NULL,
+                content_sha256 TEXT NOT NULL,
+                payload_bytes INTEGER NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS archive_family_sequence
+                ON archive_records(family, receipt_sequence);
+            """
+        )
+        self._db.execute(
+            "INSERT OR IGNORE INTO archive_meta(key,value) VALUES('max_payload_bytes',?)",
+            (str(max_payload_bytes),),
+        )
+        configured = int(self._db.execute(
+            "SELECT value FROM archive_meta WHERE key='max_payload_bytes'"
+        ).fetchone()[0])
+        if configured != max_payload_bytes:
+            self._db.close()
+            raise ValueError("archive capacity cannot change after creation")
+        self._db.execute("INSERT OR IGNORE INTO archive_meta(key,value) VALUES('last_attempt', '0')")
+        self._db.execute("INSERT OR IGNORE INTO archive_meta(key,value) VALUES('gap_start', '')")
+        self._db.execute("INSERT OR IGNORE INTO archive_meta(key,value) VALUES('gap_end', '')")
+        self._db.commit()
+
+    def append(self, observation: SemanticObservation[object]) -> int:
+        if type(observation) is not SemanticObservation:
+            raise TypeError("archive accepts SemanticObservation instances only")
+        if observation.authority is AuthorityDomain.LAB:
+            raise ValueError("Lab-authority observations are outside this operational archive")
+        payload = _encode_observation(observation)
+        family = observation.family.qualified_name
+        digest = hashlib.sha256(payload).hexdigest()
+        capacity_reached = False
+        with self._db:
+            sequence = int(self._db.execute(
+                "SELECT value FROM archive_meta WHERE key='last_attempt'"
+            ).fetchone()[0]) + 1
+            self._db.execute("UPDATE archive_meta SET value=? WHERE key='last_attempt'", (str(sequence),))
+            gap_start = self._db.execute("SELECT value FROM archive_meta WHERE key='gap_start'").fetchone()[0]
+            payload_used = int(self._db.execute(
+                "SELECT COALESCE(SUM(payload_bytes),0) FROM archive_records"
+            ).fetchone()[0])
+            if gap_start or payload_used + len(payload) > self.max_payload_bytes:
+                if not gap_start:
+                    self._db.execute("UPDATE archive_meta SET value=? WHERE key='gap_start'", (str(sequence),))
+                self._db.execute("UPDATE archive_meta SET value=? WHERE key='gap_end'", (str(sequence),))
+                capacity_reached = True
+            else:
+                self._db.execute(
+                    "INSERT INTO archive_records VALUES(?,?,?,?,?,?)",
+                    (sequence, family, observation.authority.value, payload, digest, len(payload)),
+                )
+        if capacity_reached:
+            raise ArchiveCapacityReached("archive payload budget reached; observation not retained")
+        return sequence
+
+    def query(
+        self,
+        *,
+        family: str | None = None,
+        after_receipt_sequence: int = 0,
+        limit: int = 100,
+    ) -> tuple[ArchiveRecord, ...]:
+        if type(after_receipt_sequence) is not int or after_receipt_sequence < 0:
+            raise ValueError("after_receipt_sequence must be a non-negative integer")
+        if type(limit) is not int or not 1 <= limit <= 1000:
+            raise ValueError("limit must be between 1 and 1000")
+        if family is None:
+            rows = self._db.execute(
+                "SELECT receipt_sequence,payload,content_sha256,payload_bytes FROM archive_records "
+                "WHERE receipt_sequence>? ORDER BY receipt_sequence LIMIT ?",
+                (after_receipt_sequence, limit),
+            )
+        else:
+            rows = self._db.execute(
+                "SELECT receipt_sequence,payload,content_sha256,payload_bytes FROM archive_records "
+                "WHERE family=? AND receipt_sequence>? ORDER BY receipt_sequence LIMIT ?",
+                (family, after_receipt_sequence, limit),
+            )
+        records = []
+        for sequence, payload, digest, size in rows.fetchall():
+            payload = bytes(payload)
+            if hashlib.sha256(payload).hexdigest() != digest or len(payload) != size:
+                raise ArchiveCorrupt(f"record {sequence} failed content digest/size check")
+            observation = _decode_observation(payload)
+            records.append(ArchiveRecord(sequence, observation, digest, size))
+        return tuple(records)
+
+    def status(self) -> ArchiveStatus:
+        meta = dict(self._db.execute("SELECT key,value FROM archive_meta"))
+        count, used = self._db.execute(
+            "SELECT COUNT(*),COALESCE(SUM(payload_bytes),0) FROM archive_records"
+        ).fetchone()
+        return ArchiveStatus(
+            record_count=int(count),
+            payload_bytes=int(used),
+            max_payload_bytes=self.max_payload_bytes,
+            capture_gap_start=int(meta["gap_start"]) if meta["gap_start"] else None,
+            capture_gap_end=int(meta["gap_end"]) if meta["gap_end"] else None,
+        )
+
+    def close(self) -> None:
+        self._db.close()
+
+    def __enter__(self) -> SQLiteObservationArchive:
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        self.close()
+
+
+__all__ = [
+    "ArchiveCapacityReached",
+    "ArchiveCorrupt",
+    "ArchiveError",
+    "ArchiveRecord",
+    "ArchiveStatus",
+    "SQLiteObservationArchive",
+]

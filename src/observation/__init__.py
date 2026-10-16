@@ -1,6 +1,14 @@
 """Passive, transport-neutral projections for runtime observations."""
 
 from .contracts import ObservedFrame
+from .archive import (
+    ArchiveCapacityReached,
+    ArchiveCorrupt,
+    ArchiveError,
+    ArchiveRecord,
+    ArchiveStatus,
+    SQLiteObservationArchive,
+)
 from .environment import (
     environment_finite_scalar_field_observation,
     environment_render_scene_observation,
@@ -18,6 +26,11 @@ from .http_bridge import LocalObservationHTTPServer, LocalObservationReadBridge
 from .semantic import SemanticObservation
 
 __all__ = [
+    "ArchiveCapacityReached",
+    "ArchiveCorrupt",
+    "ArchiveError",
+    "ArchiveRecord",
+    "ArchiveStatus",
     "ObservedFrame",
     "ObservationPlane",
     "LocalObservationHTTPServer",
@@ -26,6 +39,7 @@ __all__ = [
     "PlaneRebaseRequired",
     "PlaneStreamSubscription",
     "SemanticObservation",
+    "SQLiteObservationArchive",
     "environment_finite_scalar_field_observation",
     "environment_render_scene_observation",
     "environment_resource_state_observation",
