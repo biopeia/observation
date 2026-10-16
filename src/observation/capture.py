@@ -60,6 +60,11 @@ class LocalObservationArchiveCapture:
         self._gap_reason: str | None = None
         self._error: str | None = None
 
+    @property
+    def capture_id(self) -> str:
+        """Local capture-instance identity, not a World/run/cut identifier."""
+        return self._capture_id
+
     def start(self, *, ready_timeout: float = 5.0) -> None:
         if self._thread is not None:
             raise RuntimeError("archive capture can only be started once")
@@ -83,15 +88,26 @@ class LocalObservationArchiveCapture:
 
     def _run(self) -> None:
         assert self._subscription is not None
+        session_started = False
+        terminal_status = "stopped"
+        terminal_reason = None
         try:
             with SQLiteObservationArchive(self._path, max_payload_bytes=self._max_payload_bytes) as archive:
+                with self._lock:
+                    initial_sequence = self._last_plane_sequence
+                if initial_sequence is None:
+                    initial_sequence = 0
+                archive.start_capture_session(
+                    self._capture_id, initial_source_sequence=initial_sequence
+                )
+                session_started = True
                 self._ready.set()
                 while True:
                     try:
                         item = self._subscription.queue.get(timeout=0.05)
                     except queue.Empty:
                         if self._stop.is_set():
-                            return
+                            break
                         continue
                     if isinstance(item, PlaneRebaseRequired):
                         with self._lock:
@@ -142,12 +158,40 @@ class LocalObservationArchiveCapture:
                             self._last_plane_sequence = last_lost_sequence
                             self._gap_sequence = last_lost_sequence
                             self._gap_reason = reason
-                        return
+                        terminal_status = "failed"
+                        terminal_reason = reason
+                        break
+                if terminal_status == "stopped" and self._error is not None:
+                    terminal_status = "failed"
+                    terminal_reason = self._error
         except Exception as exc:
             with self._lock:
                 self._error = f"{type(exc).__name__}: {exc}"
+            terminal_status = "failed"
+            terminal_reason = self._error
         finally:
             self._ready.set()
+            # The context manager has closed SQLite; reopen only to persist the
+            # terminal state. If this write fails, the durable `running` state
+            # remains an honest signal that lifecycle completion is unknown.
+            if session_started:
+                try:
+                    with SQLiteObservationArchive(
+                        self._path, max_payload_bytes=self._max_payload_bytes
+                    ) as archive:
+                        with self._lock:
+                            final_source_sequence = self._last_plane_sequence
+                        if final_source_sequence is None:
+                            final_source_sequence = initial_sequence
+                        archive.finish_capture_session(
+                            self._capture_id,
+                            status=terminal_status,
+                            reason=terminal_reason,
+                            final_source_sequence=final_source_sequence,
+                        )
+                except Exception as exc:
+                    with self._lock:
+                        self._error = f"capture lifecycle persistence failed: {type(exc).__name__}: {exc}"
             if self._subscription is not None:
                 self._plane.close_stream(self._subscription)
 
