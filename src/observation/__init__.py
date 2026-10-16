@@ -8,6 +8,7 @@ from .archive import (
     ArchiveRecord,
     ArchiveStatus,
     CaptureSession,
+    CaptureCoverage,
     SourceDeliveryGap,
     SQLiteObservationArchive,
 )
@@ -36,6 +37,7 @@ __all__ = [
     "ArchiveRecord",
     "ArchiveStatus",
     "CaptureSession",
+    "CaptureCoverage",
     "SourceDeliveryGap",
     "ObservedFrame",
     "ObservationPlane",

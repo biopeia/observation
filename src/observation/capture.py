@@ -9,6 +9,7 @@ complete history.
 from __future__ import annotations
 
 import queue
+import sqlite3
 import threading
 import uuid
 from dataclasses import dataclass
@@ -22,6 +23,7 @@ from .plane import ObservationPlane, PlaneMessage, PlaneRebaseRequired
 class ArchiveCaptureStatus:
     running: bool
     last_plane_sequence: int | None
+    last_persisted_sequence: int | None
     gap_sequence: int | None
     gap_reason: str | None
     error: str | None
@@ -56,6 +58,7 @@ class LocalObservationArchiveCapture:
         self._stop = threading.Event()
         self._lock = threading.Lock()
         self._last_plane_sequence: int | None = None
+        self._last_persisted_sequence: int | None = None
         self._gap_sequence: int | None = None
         self._gap_reason: str | None = None
         self._error: str | None = None
@@ -91,6 +94,7 @@ class LocalObservationArchiveCapture:
         session_started = False
         terminal_status = "stopped"
         terminal_reason = None
+        persist_terminal = True
         try:
             with SQLiteObservationArchive(self._path, max_payload_bytes=self._max_payload_bytes) as archive:
                 with self._lock:
@@ -113,9 +117,24 @@ class LocalObservationArchiveCapture:
                         with self._lock:
                             first_missing = (self._last_plane_sequence or 0) + 1
                         if first_missing <= item.sequence:
-                            archive.record_source_gap(
-                                first_missing, item.sequence, item.reason, capture_id=self._capture_id
-                            )
+                            try:
+                                archive.record_source_gap(
+                                    first_missing, item.sequence, item.reason,
+                                    capture_id=self._capture_id,
+                                )
+                            except (sqlite3.Error, OSError) as exc:
+                                # The worker knows the source stream rebased,
+                                # but cannot durably record the missing range.
+                                # Do not persist a terminal watermark that
+                                # would make the preceding prefix look complete.
+                                persist_terminal = False
+                                with self._lock:
+                                    self._error = (
+                                        f"source gap persistence failed: {type(exc).__name__}: {exc}"
+                                    )
+                                terminal_status = "failed"
+                                terminal_reason = "source_gap_unverifiable"
+                                break
                         with self._lock:
                             self._gap_sequence = item.sequence
                             self._gap_reason = item.reason
@@ -131,6 +150,8 @@ class LocalObservationArchiveCapture:
                             capture_id=self._capture_id,
                             source_sequence=item.sequence,
                         )
+                        with self._lock:
+                            self._last_persisted_sequence = item.sequence
                     except ArchiveCapacityReached:
                         # Capacity loss is a source-delivery gap for this
                         # capture. Stop accepting publications first, then
@@ -161,6 +182,45 @@ class LocalObservationArchiveCapture:
                         terminal_status = "failed"
                         terminal_reason = reason
                         break
+                    except (sqlite3.Error, OSError) as exc:
+                        # A publication was received, but append did not
+                        # return success. Record the loss only if the archive
+                        # can durably commit its explicit marker. Otherwise
+                        # leave the session running on disk: the attempted
+                        # terminal watermark would hide an unverifiable tail.
+                        reason = "archive_write_failed"
+                        self._plane.close_stream(self._subscription)
+                        last_lost_sequence = item.sequence
+                        while True:
+                            try:
+                                queued = self._subscription.queue.get_nowait()
+                            except queue.Empty:
+                                break
+                            if isinstance(queued, (PlaneMessage, PlaneRebaseRequired)):
+                                last_lost_sequence = max(last_lost_sequence, queued.sequence)
+                        try:
+                            archive.record_source_gap(
+                                item.sequence, last_lost_sequence, reason,
+                                capture_id=self._capture_id,
+                            )
+                        except Exception as gap_exc:
+                            persist_terminal = False
+                            with self._lock:
+                                self._error = (
+                                    f"archive append failed: {type(exc).__name__}: {exc}; "
+                                    f"loss marker failed: {type(gap_exc).__name__}: {gap_exc}"
+                                )
+                            terminal_status = "failed"
+                            terminal_reason = "archive_write_failed_unverifiable"
+                            break
+                        with self._lock:
+                            self._last_plane_sequence = last_lost_sequence
+                            self._gap_sequence = last_lost_sequence
+                            self._gap_reason = reason
+                            self._error = f"{type(exc).__name__}: {exc}"
+                        terminal_status = "failed"
+                        terminal_reason = reason
+                        break
                 if terminal_status == "stopped" and self._error is not None:
                     terminal_status = "failed"
                     terminal_reason = self._error
@@ -174,7 +234,7 @@ class LocalObservationArchiveCapture:
             # The context manager has closed SQLite; reopen only to persist the
             # terminal state. If this write fails, the durable `running` state
             # remains an honest signal that lifecycle completion is unknown.
-            if session_started:
+            if session_started and persist_terminal:
                 try:
                     with SQLiteObservationArchive(
                         self._path, max_payload_bytes=self._max_payload_bytes
@@ -198,8 +258,11 @@ class LocalObservationArchiveCapture:
     def status(self) -> ArchiveCaptureStatus:
         with self._lock:
             return ArchiveCaptureStatus(
-                running=self._thread is not None and self._thread.is_alive() and not self._stop.is_set(),
+                # Include stopping/draining/persisting in the active lifecycle;
+                # a stop request is not proof that the worker has finished.
+                running=self._thread is not None and self._thread.is_alive(),
                 last_plane_sequence=self._last_plane_sequence,
+                last_persisted_sequence=self._last_persisted_sequence,
                 gap_sequence=self._gap_sequence,
                 gap_reason=self._gap_reason,
                 error=self._error,

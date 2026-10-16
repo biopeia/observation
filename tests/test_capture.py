@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import time
 import threading
+import subprocess
+import sys
+from pathlib import Path
 
 from observation import LocalObservationArchiveCapture, ObservationPlane, SQLiteObservationArchive
 from test_archive import sample
@@ -132,6 +135,10 @@ def test_capture_capacity_gap_includes_queued_publications(tmp_path, monkeypatch
         session, = archive.capture_sessions()
         assert session.status == "failed"
         assert session.terminal_reason == "archive_capacity_reached"
+        coverage = archive.capture_coverage(capture.capture_id)
+        assert coverage.status == "closed_verified_with_persisted_loss"
+        assert coverage.received_not_persisted == ((1, 3, "archive_capacity_reached"),)
+        assert not coverage.complete
     gap, = archive_status.source_gap_records
     assert gap.capture_id
     assert (gap.first_sequence, gap.last_sequence, gap.reason) == (
@@ -159,6 +166,11 @@ def test_capture_session_lifecycle_is_durable_and_does_not_claim_history_complet
         assert session.final_source_sequence == 2
         assert session.status == "stopped"
         assert session.terminal_reason is None
+        coverage = archive.capture_coverage(capture_id)
+        assert coverage.status == "closed_verified"
+        assert coverage.closure_verified is True
+        assert coverage.complete is True
+        assert coverage.persisted_sequences == (2,)
 
 
 def test_interrupted_capture_remains_explicitly_unfinished_after_reopen(tmp_path) -> None:
@@ -174,6 +186,164 @@ def test_interrupted_capture_remains_explicitly_unfinished_after_reopen(tmp_path
         assert session.final_source_sequence is None
         assert session.status == "running"
         assert session.terminal_reason is None
+        coverage = archive.capture_coverage("capture-test")
+        assert coverage.status == "open_unverified"
+        assert coverage.closure_verified is False
+        assert coverage.complete is False
+        assert coverage.unverifiable_intervals == ((8, None),)
+
+
+def test_process_interruption_recovers_only_as_open_unverified(tmp_path) -> None:
+    path = tmp_path / "archive.sqlite"
+    code = """
+import os, sys
+sys.path.insert(0, sys.argv[2])
+from observation import SQLiteObservationArchive
+from test_archive import sample
+archive = SQLiteObservationArchive(sys.argv[1], max_payload_bytes=100000)
+archive.start_capture_session('crash-capture', initial_source_sequence=4)
+archive.append(sample(step=5), capture_id='crash-capture', source_sequence=5)
+os._exit(23)
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", code, str(path), str(Path(__file__).parent.resolve())],
+        check=False,
+    )
+    assert result.returncode == 23
+    with SQLiteObservationArchive(path, max_payload_bytes=100_000) as archive:
+        session, = archive.capture_sessions()
+        assert session.status == "running"
+        assert session.final_source_sequence is None
+        coverage = archive.capture_coverage("crash-capture")
+        assert coverage.persisted_sequences == (5,)
+        assert coverage.status == "open_unverified"
+        assert coverage.unverifiable_intervals == ((6, None),)
+        assert not coverage.complete
+
+
+def test_sqlite_rolls_back_uncommitted_tail_after_process_interruption(tmp_path) -> None:
+    path = tmp_path / "archive.sqlite"
+    code = """
+import os, sys
+from observation import SQLiteObservationArchive
+archive = SQLiteObservationArchive(sys.argv[1], max_payload_bytes=100000)
+archive.start_capture_session('rollback-capture', initial_source_sequence=9)
+archive._db.execute('BEGIN IMMEDIATE')
+archive._db.execute("UPDATE archive_capture_sessions SET status='stopped', final_source_sequence=10 WHERE capture_id='rollback-capture'")
+os._exit(24)
+"""
+    result = subprocess.run([sys.executable, "-c", code, str(path)], check=False)
+    assert result.returncode == 24
+    with SQLiteObservationArchive(path, max_payload_bytes=100_000) as archive:
+        session, = archive.capture_sessions()
+        assert session.status == "running"
+        assert session.final_source_sequence is None
+        coverage = archive.capture_coverage("rollback-capture")
+        assert coverage.status == "open_unverified"
+        assert coverage.unverifiable_intervals == ((10, None),)
+
+
+def test_append_write_error_is_persisted_as_received_loss_not_success(tmp_path, monkeypatch) -> None:
+    import sqlite3
+    from observation.archive import SQLiteObservationArchive
+
+    plane = ObservationPlane()
+    capture = LocalObservationArchiveCapture(plane, tmp_path / "archive.sqlite", max_payload_bytes=100_000)
+    original = SQLiteObservationArchive.append
+
+    def fail_once(archive, observation, **kwargs):
+        raise sqlite3.OperationalError("injected write failure")
+
+    monkeypatch.setattr(SQLiteObservationArchive, "append", fail_once)
+    capture.start()
+    plane.publish(sample(step=1))
+    wait_until(lambda: not capture.status().running)
+    runtime = capture.status()
+    assert runtime.last_plane_sequence == 1
+    assert runtime.last_persisted_sequence is None
+    assert runtime.gap_reason == "archive_write_failed"
+    capture.stop()
+    monkeypatch.setattr(SQLiteObservationArchive, "append", original)
+
+    with SQLiteObservationArchive(tmp_path / "archive.sqlite", max_payload_bytes=100_000) as archive:
+        session, = archive.capture_sessions()
+        coverage = archive.capture_coverage(capture.capture_id)
+        assert session.status == "failed"
+        assert coverage.persisted_sequences == ()
+        assert coverage.received_not_persisted == ((1, 1, "archive_write_failed"),)
+        assert coverage.closure_verified is True
+        assert coverage.complete is False
+
+
+def test_failed_loss_marker_keeps_capture_open_and_unverifiable(tmp_path, monkeypatch) -> None:
+    import sqlite3
+    from observation.archive import SQLiteObservationArchive
+
+    plane = ObservationPlane()
+    capture = LocalObservationArchiveCapture(plane, tmp_path / "archive.sqlite", max_payload_bytes=100_000)
+
+    def fail_append(archive, observation, **kwargs):
+        raise sqlite3.OperationalError("injected append failure")
+
+    def fail_gap(archive, *args, **kwargs):
+        raise sqlite3.OperationalError("injected full-disk marker failure")
+
+    monkeypatch.setattr(SQLiteObservationArchive, "append", fail_append)
+    monkeypatch.setattr(SQLiteObservationArchive, "record_source_gap", fail_gap)
+    capture.start()
+    plane.publish(sample(step=1))
+    wait_until(lambda: not capture.status().running)
+    assert "loss marker failed" in capture.status().error
+
+    with SQLiteObservationArchive(tmp_path / "archive.sqlite", max_payload_bytes=100_000) as archive:
+        session, = archive.capture_sessions()
+        assert session.status == "running"
+        assert session.final_source_sequence is None
+        coverage = archive.capture_coverage(capture.capture_id)
+        assert coverage.status == "open_unverified"
+        assert coverage.unverifiable_intervals == ((1, None),)
+        assert not coverage.complete
+
+
+def test_failed_rebase_marker_cannot_close_a_complete_prefix(tmp_path, monkeypatch) -> None:
+    import sqlite3
+    from observation.archive import SQLiteObservationArchive
+
+    plane = ObservationPlane(subscriber_queue_size=1)
+    capture = LocalObservationArchiveCapture(
+        plane, tmp_path / "archive.sqlite", max_payload_bytes=100_000
+    )
+    entered_append = threading.Event()
+    release_append = threading.Event()
+    original_append = SQLiteObservationArchive.append
+
+    def block_first_append(archive, observation, **kwargs):
+        if not entered_append.is_set():
+            entered_append.set()
+            assert release_append.wait(2)
+        return original_append(archive, observation, **kwargs)
+
+    def fail_gap(archive, *args, **kwargs):
+        raise sqlite3.OperationalError("injected gap marker failure")
+
+    monkeypatch.setattr(SQLiteObservationArchive, "append", block_first_append)
+    monkeypatch.setattr(SQLiteObservationArchive, "record_source_gap", fail_gap)
+    capture.start()
+    plane.publish(sample(step=1))
+    assert entered_append.wait(2)
+    plane.publish(sample(step=2))
+    plane.publish(sample(step=3))
+    release_append.set()
+    wait_until(lambda: not capture.status().running)
+
+    with SQLiteObservationArchive(tmp_path / "archive.sqlite", max_payload_bytes=100_000) as archive:
+        session, = archive.capture_sessions()
+        coverage = archive.capture_coverage(capture.capture_id)
+        assert session.status == "running"
+        assert session.final_source_sequence is None
+        assert coverage.persisted_sequences == (1,)
+        assert coverage.status == "open_unverified"
+        assert not coverage.complete
 
 
 def test_capture_session_terminal_transition_is_one_way(tmp_path) -> None:

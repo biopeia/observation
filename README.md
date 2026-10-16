@@ -128,7 +128,13 @@ treated as complete history. The capture adapter does not automatically
 attach to a plane; the owning runtime must opt in and manage its lifecycle.
 Each opt-in capture also has a durable local lifecycle marker: `running` is
 written before capture begins, then `stopped` or `failed` is recorded on a
-controlled worker exit. The marker records initial and final ObservationPlane
+controlled worker exit. `capture_coverage()` reports persisted source
+sequences, durably recorded received-but-not-persisted ranges, known source
+gaps, and any unaccounted interval. It reports `complete` only when a stopped
+capture has a verified terminal watermark and every sequence in its bounded
+interval is persisted, with no gap. An open capture reports an open-ended
+unverifiable tail; a missing terminal marker is never upgraded on recovery.
+The marker records initial and final ObservationPlane
 delivery-sequence watermarks; these delimit local capture delivery, not causal
 positions, producer event identities, or proof that every publication was
 archived. A `running` marker after reopening means no terminal record was
@@ -136,6 +142,13 @@ persisted (so no final watermark is available); it does not establish whether
 the process crashed, and it must not be treated as evidence of complete history.
 These lifecycle fields remain local operational metadata, not causal or
 producer semantics.
+
+SQLite uses rollback-journal mode with `synchronous=FULL` for this local
+archive. This supports atomic transaction recovery under SQLite's documented
+storage assumptions; it cannot guarantee persistence if the operating system,
+filesystem, device, or available disk space fails to honor writes or flushes.
+If a publication or its loss marker cannot be persisted, the capture remains
+open/unverified rather than claiming a complete terminal range.
 
 This API does not expose an HTTP endpoint, alter current read permissions, or
 admit Lab evidence. It is a local single-user prototype, not a production
