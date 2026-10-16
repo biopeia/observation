@@ -234,3 +234,43 @@ def test_archive_file_is_owner_only_and_symlink_database_is_rejected(tmp_path) -
     link.symlink_to(path)
     with pytest.raises(ValueError, match="symlink"):
         SQLiteObservationArchive(link, max_payload_bytes=10_000)
+
+
+def test_terminal_capture_cannot_be_mutated_after_closure(tmp_path) -> None:
+    path = tmp_path / "archive.sqlite"
+    with SQLiteObservationArchive(path, max_payload_bytes=100_000) as archive:
+        archive.start_capture_session("closed", initial_source_sequence=0)
+        archive.append(sample(step=1), capture_id="closed", source_sequence=1)
+        archive.finish_capture_session("closed", final_source_sequence=1)
+        with pytest.raises(ValueError, match="terminal capture session"):
+            archive.append(sample(step=2), capture_id="closed", source_sequence=2)
+        with pytest.raises(ValueError, match="terminal capture session"):
+            archive.record_source_gap(2, 2, "late_gap", capture_id="closed")
+        coverage = archive.capture_coverage("closed")
+        assert coverage.closure_verified
+        assert coverage.complete
+        assert coverage.persisted_sequences == (1,)
+
+
+def test_closed_capture_with_records_outside_its_watermark_is_not_verified(tmp_path) -> None:
+    path = tmp_path / "archive.sqlite"
+    late = sample(step=2)
+    payload = _encode_observation(late)
+    digest = hashlib.sha256(payload).hexdigest()
+    with SQLiteObservationArchive(path, max_payload_bytes=100_000) as archive:
+        archive.start_capture_session("bounded", initial_source_sequence=0)
+        archive.append(sample(step=1), capture_id="bounded", source_sequence=1)
+        archive.finish_capture_session("bounded", final_source_sequence=1)
+    # Simulate a legacy/corrupt archive produced before terminal writes were
+    # rejected. The valid payload is outside the durable closure watermark.
+    with sqlite3.connect(path) as db:
+        db.execute(
+            "INSERT INTO archive_records(receipt_sequence,family,authority,payload,content_sha256,payload_bytes,capture_id,source_sequence) "
+            "VALUES(99,?,?,?,?,?,?,?)",
+            (late.family.qualified_name, late.authority.value, payload, digest, len(payload), "bounded", 2),
+        )
+    with SQLiteObservationArchive(path, max_payload_bytes=100_000) as archive:
+        coverage = archive.capture_coverage("bounded")
+        assert coverage.status == "closed_unverifiable"
+        assert coverage.closure_verified is False
+        assert coverage.complete is False

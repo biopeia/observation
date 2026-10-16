@@ -124,6 +124,31 @@ class CaptureSession:
 
 
 @dataclass(frozen=True, slots=True)
+class CaptureCoverage:
+    """Evidence-based accounting for one capture's local delivery interval.
+
+    ``closure_verified`` means every source sequence in the bounded interval
+    is accounted for by persisted publications and/or durable gap markers. It
+    does not mean every publication was retained. ``complete`` is stricter:
+    every sequence must be persisted, with no gaps, and the session stopped
+    normally. An open session has no verified end.
+    """
+
+    capture_id: str
+    status: str
+    persisted_sequences: tuple[int, ...]
+    received_not_persisted: tuple[tuple[int, int, str], ...]
+    known_source_gaps: tuple[tuple[int, int, str], ...]
+    # ``None`` as the upper bound means the durable session has no verified
+    # terminal watermark, so the tail is open-ended rather than complete.
+    unverifiable_intervals: tuple[tuple[int, int | None], ...]
+    # The bounded interval is accounted for by durable publication rows and/or
+    # durable loss markers. This does not mean every publication was retained.
+    closure_verified: bool
+    complete: bool
+
+
+@dataclass(frozen=True, slots=True)
 class ArchiveStatus:
     record_count: int
     payload_bytes: int
@@ -466,6 +491,99 @@ class SQLiteObservationArchive:
             for capture_id, initial_sequence, final_sequence, status, reason in rows
         )
 
+    def capture_coverage(self, capture_id: str) -> CaptureCoverage:
+        """Compute coverage from durable rows and explicit durable gap markers."""
+        # Keep the several reads below on one SQLite snapshot. A second archive
+        # handle may be open concurrently, but must not make one report combine
+        # metadata from before and after its commit.
+        self._db.execute("BEGIN")
+        try:
+            return self._capture_coverage_snapshot(capture_id)
+        finally:
+            if self._db.in_transaction:
+                self._db.rollback()
+
+    def _capture_coverage_snapshot(self, capture_id: str) -> CaptureCoverage:
+        integrity = self._db.execute("PRAGMA quick_check").fetchone()
+        if integrity is None or integrity[0] != "ok":
+            detail = "missing result" if integrity is None else str(integrity[0])
+            raise ArchiveCorrupt(f"SQLite quick_check failed: {detail}")
+        session = next((s for s in self.capture_sessions() if s.capture_id == capture_id), None)
+        if session is None:
+            raise ValueError("capture session does not exist")
+        record_rows = self._db.execute(
+            "SELECT source_sequence,payload,content_sha256,payload_bytes FROM archive_records "
+            "WHERE capture_id=? AND source_sequence IS NOT NULL ORDER BY source_sequence", (capture_id,)
+        ).fetchall()
+        for sequence, payload, digest, size in record_rows:
+            payload = bytes(payload)
+            if len(payload) != int(size) or hashlib.sha256(payload).hexdigest() != digest:
+                raise ArchiveCorrupt(f"capture record at source sequence {sequence} failed digest/size check")
+            _decode_observation(payload)
+        persisted = tuple(int(row[0]) for row in record_rows)
+        gaps = tuple((int(first), int(last), str(reason)) for first, last, reason in self._db.execute(
+            "SELECT first_sequence,last_sequence,reason FROM archive_source_gaps "
+            "WHERE capture_id=? ORDER BY first_sequence,last_sequence", (capture_id,)
+        ).fetchall())
+        if session.final_source_sequence is None:
+            received = tuple(g for g in gaps if g[2] in {"archive_capacity_reached", "archive_write_failed"})
+            first = session.initial_source_sequence + 1
+            accounted = sorted(
+                [(seq, seq) for seq in persisted if seq >= first]
+                + [(max(lo, first), hi) for lo, hi, _reason in gaps if hi >= first],
+            )
+            intervals: list[tuple[int, int | None]] = []
+            cursor = first
+            for lo, hi in accounted:
+                if lo > cursor:
+                    intervals.append((cursor, lo - 1))
+                cursor = max(cursor, hi + 1)
+            # The durable session has no final watermark. Even when every
+            # observed row is intact, no upper bound can be asserted.
+            intervals.append((cursor, None))
+            return CaptureCoverage(
+                capture_id, "open_unverified", persisted, received, gaps,
+                tuple(intervals), False, False,
+            )
+
+        # Walk the closed bounded interval. Anything not represented by a
+        # persisted row or a durable gap is unknown; overlapping/contradictory
+        # markers are also treated as unverifiable rather than complete.
+        first = session.initial_source_sequence + 1
+        final = session.final_source_sequence
+        accounted = sorted(
+            [(seq, seq, "persisted") for seq in persisted if first <= seq <= final]
+            + [(max(lo, first), min(hi, final), reason) for lo, hi, reason in gaps
+               if max(lo, first) <= min(hi, final)],
+            key=lambda item: (item[0], item[1]),
+        )
+        # Rows/markers outside the session's declared source interval are
+        # evidence that its persisted boundary is inconsistent, not ignorable
+        # extras that permit a completeness claim.
+        contradictory = any(seq < first or seq > final for seq in persisted) or any(
+            lo < first or hi > final for lo, hi, _reason in gaps
+        )
+        intervals: list[tuple[int, int]] = []
+        cursor = first
+        for lo, hi, _reason in accounted:
+            if lo < cursor:
+                contradictory = True
+            if lo > cursor:
+                intervals.append((cursor, lo - 1))
+            cursor = max(cursor, hi + 1)
+        if cursor <= final:
+            intervals.append((cursor, final))
+        received = tuple(g for g in gaps if g[2] in {"archive_capacity_reached", "archive_write_failed"})
+        has_loss = bool(received)
+        verified = not intervals and not contradictory
+        complete = verified and not gaps and session.status == "stopped"
+        status = "closed_verified" if verified else "closed_unverifiable"
+        if verified and has_loss:
+            status = "closed_verified_with_persisted_loss"
+        elif verified and gaps:
+            status = "closed_verified_with_gaps"
+        return CaptureCoverage(capture_id, status, persisted, received, gaps, tuple(intervals), verified, complete)
+
     def append(
         self,
         observation: SemanticObservation[object],
@@ -488,6 +606,13 @@ class SQLiteObservationArchive:
         digest = hashlib.sha256(payload).hexdigest()
         capacity_reached = False
         with self._db:
+            if capture_id is not None:
+                session = self._db.execute(
+                    "SELECT status FROM archive_capture_sessions WHERE capture_id=?",
+                    (capture_id,),
+                ).fetchone()
+                if session is not None and session[0] != "running":
+                    raise ValueError("cannot append to a terminal capture session")
             sequence = int(self._db.execute(
                 "SELECT value FROM archive_meta WHERE key='last_attempt'"
             ).fetchone()[0]) + 1
@@ -527,6 +652,13 @@ class SQLiteObservationArchive:
         if capture_id is not None and (type(capture_id) is not str or not capture_id.strip()):
             raise ValueError("capture_id must be a non-empty string")
         with self._db:
+            if capture_id is not None:
+                session = self._db.execute(
+                    "SELECT status FROM archive_capture_sessions WHERE capture_id=?",
+                    (capture_id,),
+                ).fetchone()
+                if session is not None and session[0] != "running":
+                    raise ValueError("cannot add a gap to a terminal capture session")
             self._db.execute(
                 "INSERT INTO archive_source_gaps(first_sequence,last_sequence,reason,capture_id) VALUES(?,?,?,?)",
                 (first_sequence, last_sequence, reason, capture_id),
