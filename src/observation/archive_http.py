@@ -6,6 +6,7 @@ admit scientific evidence. It exposes metadata only, not family-owned payloads.
 from __future__ import annotations
 
 import json
+import sqlite3
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlsplit
 
@@ -86,8 +87,10 @@ def read_archive_query(archive_path: str, target: str) -> tuple[int, dict]:
                              "family": r.observation.family.qualified_name,
                              "revision": r.observation.family.contract.revision,
                          } for r in page.records]}
-    except ValueError:
-        return 400, {"status": "invalid_query"}
+    except ValueError as exc:
+        return (503, {"status": "archive_invalid"}) if "symlink" in str(exc) else (400, {"status": "invalid_query"})
+    except sqlite3.DatabaseError:
+        return 503, {"status": "archive_invalid"}
     except FileNotFoundError:
         return 503, {"status": "archive_unavailable"}
     except (ArchiveCorrupt, ArchiveError):
@@ -106,7 +109,10 @@ def make_archive_handler(archive_path: str):
             if origin is not None:
                 self.send_error(403)
                 return
-            status, payload = read_archive_query(archive_path, self.path)
+            try:
+                status, payload = read_archive_query(archive_path, self.path)
+            except Exception:
+                status, payload = 500, {"status": "internal_error"}
             data = json.dumps(payload, separators=(",", ":"), allow_nan=False).encode("utf-8")
             self.send_response(status)
             self.send_header("Content-Type", "application/json; charset=utf-8")
