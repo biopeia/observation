@@ -125,9 +125,16 @@ def make_archive_handler(archive_path: str):
     return Handler
 
 
+class LoopbackArchiveServer(ThreadingHTTPServer):
+    def server_bind(self):
+        if self.server_address[0] != '127.0.0.1':
+            raise ValueError('archive adapter must bind to IPv4 loopback')
+        super().server_bind()
+
+
 def serve_archive(archive_path: str, port: int = 4175) -> None:
     """Explicit opt-in operator entrypoint; never starts automatically."""
-    with ThreadingHTTPServer(("127.0.0.1", port), make_archive_handler(archive_path)) as server:
+    with LoopbackArchiveServer(("127.0.0.1", port), make_archive_handler(archive_path)) as server:
         server.serve_forever()
 
 if __name__ == "__main__":
