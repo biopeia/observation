@@ -56,3 +56,60 @@ def test_archive_http_missing_archive_fails_closed(tmp_path):
     code, body = read_archive_query(str(tmp_path / "missing.sqlite"), "/v2/archive/receipts")
     assert code == 503
     assert body["status"] == "archive_unavailable"
+
+def test_non_sqlite_and_symlink_fail_closed(tmp_path):
+    invalid = tmp_path / "invalid.sqlite"
+    invalid.write_bytes(b"not a sqlite database")
+    status, result = read_archive_query(str(invalid), "/v2/archive/receipts")
+    assert status == 503
+    assert result["status"] == "archive_invalid"
+    alias = tmp_path / "alias.sqlite"
+    alias.symlink_to(invalid)
+    status, result = read_archive_query(str(alias), "/v2/archive/receipts")
+    assert status == 503
+    assert result["status"] == "archive_invalid"
+
+
+def test_archive_http_security_guards_and_unexpected_error(tmp_path, monkeypatch):
+    import json
+    import threading
+    from http.client import HTTPConnection
+    from http.server import ThreadingHTTPServer
+    from observation import archive_http
+
+    archive = tmp_path / "archive.sqlite"
+    with SQLiteObservationArchive(archive, max_payload_bytes=100_000):
+        pass
+    server = archive_http.LoopbackArchiveServer(
+        ("127.0.0.1", 0), archive_http.make_archive_handler(str(archive))
+    )
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        port = server.server_port
+
+        def request(method, path, headers=None):
+            connection = HTTPConnection("127.0.0.1", port, timeout=3)
+            connection.request(method, path, headers=headers or {})
+            response = connection.getresponse()
+            code = response.status
+            body = response.read()
+            connection.close()
+            return code, body
+
+        assert request("GET", "/v2/archive/captures")[0] == 200
+        assert request("POST", "/v2/archive/captures")[0] == 405
+        assert request("GET", "/v2/archive/captures", {"Host": "attacker.invalid"})[0] == 403
+        assert request("GET", "/v2/archive/captures", {"Origin": "http://attacker.invalid"})[0] == 403
+
+        def crash(_path, _target):
+            raise RuntimeError("injected")
+
+        monkeypatch.setattr(archive_http, "read_archive_query", crash)
+        code, body = request("GET", "/v2/archive/receipts")
+        assert code == 500
+        assert json.loads(body)["status"] == "internal_error"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=3)
