@@ -9,6 +9,7 @@ import json
 import sqlite3
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlsplit
+from pathlib import Path
 
 from .archive import ArchiveCorrupt, ArchiveError, ArchiveReader
 
@@ -35,6 +36,8 @@ def read_archive_query(archive_path: str, target: str) -> tuple[int, dict]:
     if any(key not in allowed or len(values) != 1 for key, values in params.items()):
         return 400, {"status": "unsupported_query"}
     try:
+        if Path(archive_path).is_symlink():
+            return 503, {"status": "archive_invalid"}
         with ArchiveReader(archive_path) as reader:
             if url.path == "/v2/archive/captures":
                 catalog = reader.capture_catalog()
@@ -87,8 +90,8 @@ def read_archive_query(archive_path: str, target: str) -> tuple[int, dict]:
                              "family": r.observation.family.qualified_name,
                              "revision": r.observation.family.contract.revision,
                          } for r in page.records]}
-    except ValueError as exc:
-        return (503, {"status": "archive_invalid"}) if "symlink" in str(exc) else (400, {"status": "invalid_query"})
+    except ValueError:
+        return 400, {"status": "invalid_query"}
     except sqlite3.DatabaseError:
         return 503, {"status": "archive_invalid"}
     except FileNotFoundError:
