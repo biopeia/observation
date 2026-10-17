@@ -113,3 +113,9 @@ def test_archive_http_security_guards_and_unexpected_error(tmp_path, monkeypatch
         server.shutdown()
         server.server_close()
         thread.join(timeout=3)
+
+def test_archive_server_rejects_non_loopback_bind():
+    import pytest
+    from observation.archive_http import LoopbackArchiveServer, make_archive_handler
+    with pytest.raises(ValueError, match="loopback"):
+        LoopbackArchiveServer(("0.0.0.0", 0), make_archive_handler("unused.sqlite"))
