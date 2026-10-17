@@ -129,3 +129,13 @@ def serve_archive(archive_path: str, port: int = 4175) -> None:
     """Explicit opt-in operator entrypoint; never starts automatically."""
     with ThreadingHTTPServer(("127.0.0.1", port), make_archive_handler(archive_path)) as server:
         server.serve_forever()
+
+if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser(description="Opt-in loopback read-only Observation archive adapter")
+    parser.add_argument("--archive", required=True, help="Existing local SQLite archive path")
+    parser.add_argument("--port", type=int, default=4175)
+    args = parser.parse_args()
+    if not 1 <= args.port <= 65535:
+        parser.error("port must be between 1 and 65535")
+    serve_archive(args.archive, args.port)
