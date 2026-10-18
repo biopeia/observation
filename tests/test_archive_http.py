@@ -81,6 +81,9 @@ def test_archive_http_response_byte_limit_boundary_and_overflow(monkeypatch):
         "status": "response_too_large",
         "max_response_bytes": archive_http.MAX_RESPONSE_BYTES,
     }
+    # Escaped controls expand to six output bytes each; preflight rejects
+    # before JSONEncoder materializes that much larger token.
+    assert archive_http.encode_bounded_json({"x": "\x01" * 200_000}) is None
 
 
 def test_archive_http_oversized_response_rejects_without_poisoning_next_read(tmp_path, monkeypatch):
