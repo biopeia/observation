@@ -15,6 +15,102 @@ from .archive import ArchiveCorrupt, ArchiveError, ArchiveReader
 
 MAX_PAGE = 50
 MAX_QUERY_BYTES = 2048
+MAX_RESPONSE_BYTES = 1_048_576
+
+
+def _bounded_json_size(value: object, remaining: int) -> int | None:
+    """Preflight JSON's compact UTF-8 size without materializing encoded tokens."""
+    if isinstance(value, str):
+        size = 2  # surrounding quotes
+        for char in value:
+            codepoint = ord(char)
+            if char in {'"', "\\", "\b", "\f", "\n", "\r", "\t"}:
+                size += 2
+            elif codepoint < 0x20:
+                size += 6  # \u00xx
+            elif codepoint < 0x80:
+                size += 1
+            elif codepoint < 0x800:
+                size += 2
+            elif 0xD800 <= codepoint <= 0xDFFF:
+                return None  # not valid UTF-8; fail closed
+            elif codepoint < 0x10000:
+                size += 3
+            else:
+                size += 4
+            if size > remaining:
+                return None
+        return size if size <= remaining else None
+    if value is None:
+        return 4
+    if value is True:
+        return 4
+    if value is False:
+        return 5
+    if isinstance(value, (int, float)):
+        try:
+            size = len(json.dumps(value, allow_nan=False).encode("ascii"))
+            return size if size <= remaining else None
+        except (ValueError, OverflowError):
+            return None
+    if isinstance(value, (list, tuple)):
+        size = 2  # brackets
+        if size > remaining:
+            return None
+        for index, item in enumerate(value):
+            item_size = _bounded_json_size(item, remaining - size)
+            if item_size is None:
+                return None
+            size += item_size + (index > 0)
+            if size > remaining:
+                return None
+        return size
+    if isinstance(value, dict):
+        size = 2  # braces
+        if size > remaining:
+            return None
+        for index, (key, item) in enumerate(value.items()):
+            if not isinstance(key, str):
+                return None
+            key_size = _bounded_json_size(key, remaining - size)
+            if key_size is None:
+                return None
+            item_size = _bounded_json_size(item, remaining - size - key_size - 1)
+            if item_size is None:
+                return None
+            size += key_size + 1 + item_size + (index > 0)
+            if size > remaining:
+                return None
+        return size
+    return None
+
+
+def encode_bounded_json(payload: dict) -> bytes | None:
+    """Encode JSON only after a bounded, allocation-free size preflight."""
+    if _bounded_json_size(payload, MAX_RESPONSE_BYTES) is None:
+        return None
+    encoder = json.JSONEncoder(separators=(",", ":"), allow_nan=False, ensure_ascii=False)
+    chunks: list[bytes] = []
+    size = 0
+    for token in encoder.iterencode(payload):
+        encoded = token.encode("utf-8")
+        if size + len(encoded) > MAX_RESPONSE_BYTES:
+            return None
+        chunks.append(encoded)
+        size += len(encoded)
+    return b"".join(chunks)
+
+
+def encode_response(payload: dict) -> tuple[int, bytes]:
+    """Return a bounded body, or a complete explicit oversized rejection."""
+    data = encode_bounded_json(payload)
+    if data is not None:
+        return 200, data
+    rejection = json.dumps(
+        {"status": "response_too_large", "max_response_bytes": MAX_RESPONSE_BYTES},
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return 413, rejection
 
 
 def read_archive_query(archive_path: str, target: str) -> tuple[int, dict]:
@@ -116,7 +212,9 @@ def make_archive_handler(archive_path: str):
                 status, payload = read_archive_query(archive_path, self.path)
             except Exception:
                 status, payload = 500, {"status": "internal_error"}
-            data = json.dumps(payload, separators=(",", ":"), allow_nan=False).encode("utf-8")
+            encoded_status, data = encode_response(payload)
+            if encoded_status != 200 or status == 200:
+                status = encoded_status
             self.send_response(status)
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Cache-Control", "no-store")

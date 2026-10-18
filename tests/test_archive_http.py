@@ -57,6 +57,79 @@ def test_archive_http_missing_archive_fails_closed(tmp_path):
     assert code == 503
     assert body["status"] == "archive_unavailable"
 
+
+def test_archive_http_response_byte_limit_boundary_and_overflow(monkeypatch):
+    import json
+    from observation import archive_http
+
+    # JSON object overhead for {"x":"..."} is exactly eight UTF-8 bytes.
+    at_limit = {"x": "a" * (archive_http.MAX_RESPONSE_BYTES - 8)}
+    status, body = archive_http.encode_response(at_limit)
+    assert status == 200
+    assert len(body) == archive_http.MAX_RESPONSE_BYTES
+
+    multibyte_at_limit = {"x": "é" * ((archive_http.MAX_RESPONSE_BYTES - 8) // 2)}
+    status, body = archive_http.encode_response(multibyte_at_limit)
+    assert status == 200
+    assert len(body) == archive_http.MAX_RESPONSE_BYTES
+
+    over_limit = {"x": "a" * (archive_http.MAX_RESPONSE_BYTES - 7)}
+    status, body = archive_http.encode_response(over_limit)
+    assert status == 413
+    assert len(body) <= archive_http.MAX_RESPONSE_BYTES
+    assert json.loads(body) == {
+        "status": "response_too_large",
+        "max_response_bytes": archive_http.MAX_RESPONSE_BYTES,
+    }
+    # Escaped controls expand to six output bytes each; preflight rejects
+    # before JSONEncoder materializes that much larger token.
+    assert archive_http.encode_bounded_json({"x": "\x01" * 200_000}) is None
+
+
+def test_archive_http_oversized_response_rejects_without_poisoning_next_read(tmp_path, monkeypatch):
+    import json
+    import threading
+    from http.client import HTTPConnection
+    from observation import archive_http
+
+    archive = tmp_path / "archive.sqlite"
+    with SQLiteObservationArchive(archive, max_payload_bytes=100_000):
+        pass
+    server = archive_http.LoopbackArchiveServer(
+        ("127.0.0.1", 0), archive_http.make_archive_handler(str(archive))
+    )
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        def request():
+            connection = HTTPConnection("127.0.0.1", server.server_port, timeout=3)
+            connection.request("GET", "/v2/archive/receipts")
+            response = connection.getresponse()
+            result = response.status, response.read()
+            connection.close()
+            return result
+
+        monkeypatch.setattr(
+            archive_http, "read_archive_query",
+            lambda *_: (200, {"x": "a" * (archive_http.MAX_RESPONSE_BYTES + 1)}),
+        )
+        status, body = request()
+        assert status == 413
+        assert len(body) <= archive_http.MAX_RESPONSE_BYTES
+        assert json.loads(body)["status"] == "response_too_large"
+
+        monkeypatch.setattr(
+            archive_http, "read_archive_query",
+            lambda *_: (200, {"status": "ok"}),
+        )
+        status, body = request()
+        assert status == 200
+        assert json.loads(body) == {"status": "ok"}
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=3)
+
 def test_non_sqlite_and_symlink_fail_closed(tmp_path):
     invalid = tmp_path / "invalid.sqlite"
     invalid.write_bytes(b"not a sqlite database")
