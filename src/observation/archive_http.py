@@ -20,7 +20,7 @@ MAX_RESPONSE_BYTES = 1_048_576
 
 def encode_bounded_json(payload: dict) -> bytes | None:
     """Encode a JSON body while retaining no more than the byte cap."""
-    encoder = json.JSONEncoder(separators=(",", ":"), allow_nan=False)
+    encoder = json.JSONEncoder(separators=(",", ":"), allow_nan=False, ensure_ascii=False)
     chunks: list[bytes] = []
     size = 0
     for token in encoder.iterencode(payload):

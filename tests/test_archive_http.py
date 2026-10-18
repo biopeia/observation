@@ -68,6 +68,11 @@ def test_archive_http_response_byte_limit_boundary_and_overflow(monkeypatch):
     assert status == 200
     assert len(body) == archive_http.MAX_RESPONSE_BYTES
 
+    multibyte_at_limit = {"x": "é" * ((archive_http.MAX_RESPONSE_BYTES - 8) // 2)}
+    status, body = archive_http.encode_response(multibyte_at_limit)
+    assert status == 200
+    assert len(body) == archive_http.MAX_RESPONSE_BYTES
+
     over_limit = {"x": "a" * (archive_http.MAX_RESPONSE_BYTES - 7)}
     status, body = archive_http.encode_response(over_limit)
     assert status == 413
