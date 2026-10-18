@@ -15,6 +15,37 @@ from .archive import ArchiveCorrupt, ArchiveError, ArchiveReader
 
 MAX_PAGE = 50
 MAX_QUERY_BYTES = 2048
+MAX_RESPONSE_BYTES = 1_048_576
+
+
+def encode_bounded_json(payload: dict) -> bytes | None:
+    """Encode a JSON body while retaining no more than the byte cap."""
+    encoder = json.JSONEncoder(separators=(",", ":"), allow_nan=False)
+    chunks: list[bytes] = []
+    size = 0
+    for token in encoder.iterencode(payload):
+        # UTF-8 needs at most four bytes per code point. Reject obviously
+        # oversized tokens before allocating their encoded copy.
+        if len(token) > MAX_RESPONSE_BYTES:
+            return None
+        encoded = token.encode("utf-8")
+        if size + len(encoded) > MAX_RESPONSE_BYTES:
+            return None
+        chunks.append(encoded)
+        size += len(encoded)
+    return b"".join(chunks)
+
+
+def encode_response(payload: dict) -> tuple[int, bytes]:
+    """Return a bounded body, or a complete explicit oversized rejection."""
+    data = encode_bounded_json(payload)
+    if data is not None:
+        return 200, data
+    rejection = json.dumps(
+        {"status": "response_too_large", "max_response_bytes": MAX_RESPONSE_BYTES},
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return 413, rejection
 
 
 def read_archive_query(archive_path: str, target: str) -> tuple[int, dict]:
@@ -116,7 +147,9 @@ def make_archive_handler(archive_path: str):
                 status, payload = read_archive_query(archive_path, self.path)
             except Exception:
                 status, payload = 500, {"status": "internal_error"}
-            data = json.dumps(payload, separators=(",", ":"), allow_nan=False).encode("utf-8")
+            encoded_status, data = encode_response(payload)
+            if encoded_status != 200 or status == 200:
+                status = encoded_status
             self.send_response(status)
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Cache-Control", "no-store")
