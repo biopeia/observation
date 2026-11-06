@@ -13,7 +13,7 @@ authors = [{ name = "Biopeia contributors" }]
 dependencies = ["rfc8785==0.1.4"]
 
 [project.optional-dependencies]
-test = ["pytest>=9.1.1"]
+test = ["pytest>=9.2.0"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
